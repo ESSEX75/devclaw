@@ -32,11 +32,34 @@ export type PluginContext = {
 };
 
 /**
+ * Resolve the runCommand function from whichever API path exists.
+ * OpenClaw 2026.5.3-1+ moved runCommandWithTimeout; try several paths.
+ */
+function resolveRunCommand(api: OpenClawPluginApi): RunCommand {
+  const candidate =
+    (api as any).runtime?.system?.runCommandWithTimeout ??
+    (api as any).system?.runCommand ??
+    (api as any).runCommandWithTimeout ??
+    (api as any).runCommand;
+
+  if (candidate) return candidate;
+
+  // Stub so the plugin registers but surfaces a clear error on first use.
+  return ((...args: unknown[]) => {
+    throw new Error(
+      "[DevClaw] runCommand is unavailable — none of the known API paths " +
+        "(runtime.system.runCommandWithTimeout, system.runCommand, " +
+        "runCommandWithTimeout, runCommand) exist on the provided plugin API.",
+    );
+  }) as unknown as RunCommand;
+}
+
+/**
  * Build a PluginContext from the raw plugin API. Called once in register().
  */
 export function createPluginContext(api: OpenClawPluginApi): PluginContext {
   return {
-    runCommand: api.runtime.system.runCommandWithTimeout,
+    runCommand: resolveRunCommand(api),
     runtime: api.runtime,
     pluginConfig: api.pluginConfig as Record<string, unknown> | undefined,
     config: api.config,
