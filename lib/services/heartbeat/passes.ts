@@ -1,7 +1,7 @@
 /**
  * Heartbeat passes — health, review, review-skip, and test-skip passes.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../../context.js";
 import { type Project } from "../../projects/index.js";
 import {

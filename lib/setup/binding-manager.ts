@@ -4,7 +4,8 @@
  * Handles detection of existing channel bindings, channel availability,
  * and safe migration of bindings between agents.
  */
-import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
+import { getConfig } from "./getConfig.js";
 
 export type ChannelType = string;
 
@@ -30,15 +31,15 @@ export async function analyzeChannelBindings(
   api: OpenClawPluginApi,
   channel: ChannelType,
 ): Promise<BindingAnalysis> {
-  const config = api.runtime.config.loadConfig();
+  const cfg = getConfig(api.runtime) as any;
 
   // Check if channel is configured and enabled
-  const channelConfig = (config.channels as any)?.[channel];
+  const channelConfig = (cfg.channels as any)?.[channel];
   const channelConfigured = !!channelConfig;
   const channelEnabled = channelConfig?.enabled === true;
 
   // Find existing bindings
-  const bindings = config.bindings ?? [];
+  const bindings = cfg.bindings ?? [];
   let existingChannelWideBinding:
     | BindingAnalysis["existingChannelWideBinding"]
     | undefined;
@@ -46,9 +47,7 @@ export async function analyzeChannelBindings(
 
   for (const binding of bindings) {
     if (binding.match?.channel === channel) {
-      const agent = config.agents?.list?.find(
-        (a) => a.id === binding.agentId,
-      );
+      const agent = cfg.agents?.list?.find((a: any) => a.id === binding.agentId);
       const agentName = agent?.name ?? binding.agentId;
 
       if (!binding.match.peer) {
@@ -101,8 +100,8 @@ export async function migrateChannelBinding(
   toAgentId: string,
 ): Promise<void> {
   const runtime = "runtime" in api ? api.runtime : api;
-  const config = runtime.config.loadConfig();
-  const bindings = config.bindings ?? [];
+  const cfg = getConfig(runtime) as any;
+  const bindings = cfg.bindings ?? [];
 
   // Find the channel-wide binding for this channel and agent
   const bindingIndex = bindings.findIndex(
@@ -120,9 +119,9 @@ export async function migrateChannelBinding(
 
   // Update the binding to point to the new agent
   bindings[bindingIndex].agentId = toAgentId;
-  (config as any).bindings = bindings;
+  (cfg as any).bindings = bindings;
 
-  await runtime.config.writeConfigFile(config);
+  await runtime.config.writeConfigFile(cfg);
 }
 
 /**
@@ -133,13 +132,13 @@ export async function removeChannelBinding(
   channel: ChannelType,
   agentId: string,
 ): Promise<void> {
-  const config = api.runtime.config.loadConfig();
-  const bindings = config.bindings ?? [];
+  const cfg = getConfig(api.runtime) as any;
+  const bindings = cfg.bindings ?? [];
 
   // Filter out the channel-wide binding for this channel and agent
-  (config as any).bindings = bindings.filter(
-    (b) => !(b.match?.channel === channel && !b.match.peer && b.agentId === agentId),
+  (cfg as any).bindings = bindings.filter(
+    (b: any) => !(b.match?.channel === channel && !b.match.peer && b.agentId === agentId),
   );
 
-  await api.runtime.config.writeConfigFile(config);
+  await api.runtime.config.writeConfigFile(cfg);
 }

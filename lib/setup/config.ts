@@ -4,7 +4,8 @@
  * Handles: tool restrictions, subagent cleanup, heartbeat defaults.
  * Models are stored in workflow.yaml (not openclaw.json).
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+import { getConfig } from "./getConfig.js";
 import { HEARTBEAT_DEFAULTS } from "../services/heartbeat/index.js";
 import type { ExecutionMode } from "../workflow/index.js";
 
@@ -24,7 +25,7 @@ export async function writePluginConfig(
   agentId?: string,
   projectExecution?: ExecutionMode,
 ): Promise<void> {
-  const config = runtime.config.loadConfig() as Record<string, unknown>;
+  const config = getConfig(runtime) as Record<string, unknown>;
 
   ensurePluginStructure(config);
 

@@ -4,7 +4,7 @@
  * Handles: session lookup, spawn/reuse via Gateway RPC, task dispatch via CLI,
  * state update (activateWorker), and audit logging.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../context.js";
 import { log as auditLog } from "../audit.js";
 import {

@@ -4,7 +4,7 @@
  * Core function: projectTick() scans one project's queue and fills free worker slots.
  * Called by: work_finish (next pipeline step), heartbeat service (sweep).
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../context.js";
 import type { Issue, IssueProvider } from "../providers/provider.js";
 import { createProvider } from "../providers/index.js";

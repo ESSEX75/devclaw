@@ -7,7 +7,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../context.js";
 import { getAllDefaultModels } from "../roles/index.js";
 import { migrateChannelBinding } from "./binding-manager.js";

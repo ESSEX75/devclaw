@@ -12,7 +12,7 @@
  *
  * Read-only by default (surfaces issues). Pass fix=true to apply fixes.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import type { ToolContext } from "../../types.js";
 import { readProjects, getProject } from "../../projects/index.js";

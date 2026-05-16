@@ -9,9 +9,13 @@
  * - reviewNeeded: Issue needs review — human or agent (→ project group)
  * - prMerged: PR/MR was merged into the base branch (→ project group)
  */
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { log as auditLog } from "../audit.js";
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../context.js";
+
+const execFileAsync = promisify(execFile);
 
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;
@@ -263,52 +267,50 @@ async function sendMessage(
   accountId?: string,
   runCommand?: RunCommand,
 ): Promise<boolean> {
+  let runtimeError: unknown;
   try {
     // Use runtime API when available (avoids CLI subprocess timeouts)
-    if (runtime) {
-      if (channel === "telegram") {
-        // Cast to any to bypass TypeScript type limitation; disableWebPagePreview is valid in Telegram API
-        await runtime.channel.telegram.sendMessageTelegram(target, message, { silent: true, disableWebPagePreview: true, accountId } as any);
+    const sendText = runtime
+      ? (await runtime.channel.outbound.loadAdapter(channel))?.sendText
+      : undefined;
+    if (sendText) {
+      try {
+        await sendText({
+          cfg: (runtime as unknown as { config?: unknown }).config ?? {},
+          to: target,
+          text: message,
+          silent: true,
+          accountId,
+        } as never);
         return true;
-      }
-      if (channel === "whatsapp") {
-        await runtime.channel.whatsapp.sendMessageWhatsApp(target, message, { verbose: false, accountId });
-        return true;
-      }
-      if (channel === "discord") {
-        await runtime.channel.discord.sendMessageDiscord(target, message, { accountId });
-        return true;
-      }
-      if (channel === "slack") {
-        await runtime.channel.slack.sendMessageSlack(target, message, { accountId });
-        return true;
-      }
-      if (channel === "signal") {
-        await runtime.channel.signal.sendMessageSignal(target, message, { accountId });
-        return true;
+      } catch (err) {
+        runtimeError = err;
       }
     }
 
+    const args = [
+      "message",
+      "send",
+      "--channel",
+      channel,
+      "--target",
+      target,
+      "--message",
+      message,
+      "--json",
+    ];
+
     // Fallback: use CLI (for unsupported channels or when runtime isn't available)
-    if (!runCommand) throw new Error("runCommand is required when runtime is not available");
-    const rc = runCommand;
     // Note: openclaw message send CLI doesn't expose disable_web_page_preview flag.
     // The runtime API path (above) handles it; CLI fallback won't suppress previews.
-    await rc(
-      [
-        "openclaw",
-        "message",
-        "send",
-        "--channel",
-        channel,
-        "--target",
-        target,
-        "--message",
-        message,
-        "--json",
-      ],
-      { timeoutMs: 30_000 },
-    );
+    if (runCommand) {
+      await runCommand(["openclaw", ...args], { timeoutMs: 30_000 });
+    } else {
+      await execFileAsync("openclaw", args, {
+        timeout: 30_000,
+        maxBuffer: 1024 * 1024,
+      });
+    }
     return true;
   } catch (err) {
     // Log but don't throw — notifications shouldn't break the main flow
@@ -316,6 +318,7 @@ async function sendMessage(
       target,
       channel,
       error: (err as Error).message,
+      runtimeError: runtimeError instanceof Error ? runtimeError.message : String(runtimeError ?? ""),
     });
     return false;
   }

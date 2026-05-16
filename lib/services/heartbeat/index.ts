@@ -10,7 +10,7 @@
  * Zero LLM tokens — all logic is deterministic code + CLI calls.
  * Workers only consume tokens when they start processing dispatched tasks.
  */
-import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { ensureDefaultFiles } from "../../setup/workspace.js";
 import {
@@ -36,8 +36,13 @@ type ServiceContext = {
     error(msg: string): void;
   };
   config: {
-    agents?: { list?: Array<{ id: string; workspace?: string }> };
+    agents?: {
+      list?: Array<{ id: string; workspace?: string }>;
+      defaults?: { workspace?: string };
+    };
   };
+  workspaceDir?: string;
+  stateDir?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -46,32 +51,49 @@ type ServiceContext = {
 
 export function registerHeartbeatService(api: OpenClawPluginApi, pluginCtx: PluginContext) {
   let intervalId: ReturnType<typeof setInterval> | null = null;
+  let startupTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   api.registerService({
     id: "devclaw-heartbeat",
 
     start: async (svcCtx: ServiceContext) => {
-      const { intervalSeconds } = HEARTBEAT_DEFAULTS;
+      const heartbeatConfig = resolveHeartbeatConfig(pluginCtx.pluginConfig);
+      if (!heartbeatConfig.enabled) {
+        svcCtx.logger.info("work_heartbeat service disabled");
+        return;
+      }
+
+      const run = () => runHeartbeatTick(pluginCtx, svcCtx.logger, svcCtx.config);
 
       // Config + agent discovery happen per-tick so the heartbeat automatically
       // picks up projects onboarded after the gateway starts — no restart needed.
       intervalId = setInterval(
-        () => runHeartbeatTick(pluginCtx, svcCtx.logger),
-        intervalSeconds * 1000,
+        run,
+        heartbeatConfig.intervalSeconds * 1000,
       );
+      intervalId.unref?.();
 
       // Run an immediate tick shortly after startup so queued work is picked up
       // right away instead of waiting for the full interval (up to 60s).
       // The 2s delay lets the plugin and providers fully initialize first.
-      setTimeout(() => runHeartbeatTick(pluginCtx, svcCtx.logger), 2_000);
+      startupTimeoutId = setTimeout(run, 2_000);
+      startupTimeoutId.unref?.();
+
+      svcCtx.logger.info(
+        `work_heartbeat service started: interval=${heartbeatConfig.intervalSeconds}s maxPickupsPerTick=${heartbeatConfig.maxPickupsPerTick}`,
+      );
     },
 
     stop: async (svcCtx) => {
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
-        svcCtx.logger.info("work_heartbeat service stopped");
       }
+      if (startupTimeoutId) {
+        clearTimeout(startupTimeoutId);
+        startupTimeoutId = null;
+      }
+      svcCtx.logger.info("work_heartbeat service stopped");
     },
   });
 }
@@ -89,10 +111,12 @@ export function registerHeartbeatService(api: OpenClawPluginApi, pluginCtx: Plug
  * (setInterval + async means the next tick can fire while the previous awaits).
  */
 let _tickRunning = false;
+let _warnedNoAgents = false;
 
 async function runHeartbeatTick(
   ctx: PluginContext,
   logger: ServiceContext["logger"],
+  rootConfig?: ServiceContext["config"],
 ): Promise<void> {
   if (_tickRunning) return;
   _tickRunning = true;
@@ -100,8 +124,15 @@ async function runHeartbeatTick(
     const config = resolveHeartbeatConfig(ctx.pluginConfig);
     if (!config.enabled) return;
 
-    const agents = discoverAgents(ctx.config);
-    if (agents.length === 0) return;
+    const agents = discoverAgents(rootConfig ?? ctx.config);
+    if (agents.length === 0) {
+      if (!_warnedNoAgents) {
+        logger.warn("work_heartbeat tick skipped: no DevClaw project workspaces discovered");
+        _warnedNoAgents = true;
+      }
+      return;
+    }
+    _warnedNoAgents = false;
 
     const result = await processAllAgents(agents, config, ctx.pluginConfig, logger, ctx.runCommand, ctx.runtime);
     logTickResult(result, logger);
@@ -189,4 +220,3 @@ function logTickResult(
     );
   }
 }
-

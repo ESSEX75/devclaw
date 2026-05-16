@@ -4,7 +4,8 @@
  * Uses Commander.js (provided by OpenClaw plugin SDK context).
  */
 import type { Command } from "commander";
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import { getConfig } from "./getConfig.js";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../context.js";
 import { runSetup } from "./index.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../roles/index.js";
@@ -16,7 +17,7 @@ import { log as auditLog } from "../audit.js";
  */
 function getDefaultWorkspaceDir(runtime: PluginRuntime): string | undefined {
   try {
-    const config = runtime.config.loadConfig();
+    const config = getConfig(runtime);
     return (config as any).agents?.defaults?.workspace ?? undefined;
   } catch {
     return undefined;

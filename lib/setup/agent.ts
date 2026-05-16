@@ -2,8 +2,10 @@
  * setup/agent.ts — Agent creation and workspace resolution.
  */
 import fs from "node:fs/promises";
+import { getConfig } from "./getConfig";
 import path from "node:path";
-import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk";
+import { homedir } from "node:os";
+import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../context.js";
 
 /**
@@ -22,17 +24,30 @@ export async function createAgent(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-  const args = ["agents", "add", agentId, "--non-interactive"];
+  const defaultAgentWorkspace = path.join(homedir(), ".openclaw", "agents", agentId, "workspace");
+
+  const args = [
+    "agents",
+    "add",
+    agentId,
+    "--non-interactive",
+    "--workspace",
+    defaultAgentWorkspace,
+  ];
   if (channelBinding) args.push("--bind", channelBinding);
 
   try {
-    await rc(["openclaw", ...args], { timeoutMs: 30_000 });
+    const result = await rc(["openclaw", ...args], { timeoutMs: 30_000 });
+    if (result.code != null && result.code !== 0) {
+      throw new Error(result.stderr?.trim() || `Command failed with exit code ${result.code}`);
+    }
   } catch (err) {
     throw new Error(`Failed to create agent "${name}": ${(err as Error).message}`);
   }
 
   const runtime = "runtime" in api ? api.runtime : api;
-  const workspacePath = resolveWorkspacePath(runtime, agentId);
+  // Wait for the workspace entry to become visible after the async agent creation.
+  const workspacePath = await waitForAgentWorkspace(runtime, agentId, 30_000);
   await cleanupWorkspace(workspacePath);
   await updateAgentDisplayName(runtime, agentId, name);
 
@@ -44,8 +59,8 @@ export async function createAgent(
  */
 export function resolveWorkspacePath(api: OpenClawPluginApi | PluginRuntime, agentId: string): string {
   const runtime = "runtime" in api ? api.runtime : api;
-  const config = runtime.config.loadConfig();
-  const agent = config.agents?.list?.find((a) => a.id === agentId);
+  const cfg = getConfig(runtime) as any;
+  const agent = cfg.agents?.list?.find((a: any) => a.id === agentId);
   if (!agent?.workspace) {
     throw new Error(`Agent "${agentId}" not found in openclaw.json or has no workspace configured.`);
   }
@@ -57,6 +72,30 @@ export function resolveWorkspacePath(api: OpenClawPluginApi | PluginRuntime, age
 // Private helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Poll resolveWorkspacePath until the agent workspace appears in the config.
+ *
+ * After `openclaw agents add` the config file may not be updated immediately,
+ * so we retry every 500 ms until the deadline is reached.
+ */
+async function waitForAgentWorkspace(
+  runtime: PluginRuntime,
+  agentId: string,
+  timeoutMs: number,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      return resolveWorkspacePath(runtime, agentId);
+    } catch {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+  throw new Error(
+    `Agent "${agentId}" was created but workspace was not found in openclaw.json within ${timeoutMs}ms.`,
+  );
+}
+
 async function cleanupWorkspace(workspacePath: string): Promise<void> {
   // openclaw agents add creates a .git dir and BOOTSTRAP.md — remove them
   try { await fs.rm(path.join(workspacePath, ".git"), { recursive: true }); } catch { /* may not exist */ }
@@ -66,11 +105,11 @@ async function cleanupWorkspace(workspacePath: string): Promise<void> {
 async function updateAgentDisplayName(runtime: PluginRuntime, agentId: string, name: string): Promise<void> {
   if (name === agentId) return;
   try {
-    const config = runtime.config.loadConfig();
-    const agent = config.agents?.list?.find((a) => a.id === agentId);
+    const cfg = getConfig(runtime) as any;
+    const agent = cfg.agents?.list?.find((a: any) => a.id === agentId);
     if (agent) {
       (agent as any).name = name;
-      await runtime.config.writeConfigFile(config);
+      await runtime.config.writeConfigFile(cfg);
     }
   } catch (err) {
     console.warn(`Warning: Could not update display name: ${(err as Error).message}`);
