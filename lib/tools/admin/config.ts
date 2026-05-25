@@ -8,8 +8,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { jsonResult } from "openclaw/plugin-sdk";
-import type { ToolContext } from "../../types.js";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { writeAllDefaults, backupAndWrite, fileExists } from "../../setup/workspace.js";
 import { WORKFLOW_YAML_TEMPLATE, DEFAULT_ROLE_INSTRUCTIONS } from "../../setup/templates.js";
@@ -17,7 +16,7 @@ import { DATA_DIR } from "../../setup/migrate-layout.js";
 import { getCurrentVersion, readVersionFile } from "../../setup/version.js";
 
 export function createConfigTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "config",
     label: "Config",
     description: `Manage DevClaw workspace configuration.

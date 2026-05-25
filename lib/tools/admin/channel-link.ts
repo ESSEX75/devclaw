@@ -6,15 +6,14 @@
  * (auto-detach). This is the primary way to switch which project a chat
  * controls.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import type { ToolContext } from "../../types.js";
 import { readProjects, writeProjects, type Channel } from "../../projects/index.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createChannelLinkTool(_ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_link",
     label: "Channel Link",
     description:

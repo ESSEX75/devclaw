@@ -12,16 +12,15 @@
  *
  * Read-only by default (surfaces issues). Pass fix=true to apply fixes.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import type { ToolContext } from "../../types.js";
 import { readProjects, getProject } from "../../projects/index.js";
 import { log as auditLog } from "../../audit.js";
 import { checkWorkerHealth, scanOrphanedLabels, fetchGatewaySessions, type HealthFix } from "../../services/heartbeat/health.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
 
 export function createHealthTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "health",
     label: "Health",
     description: `Scan worker health across projects. Detects zombies, stale workers, orphaned state. Pass fix=true to auto-fix. Context-aware: auto-filters in group chats.`,

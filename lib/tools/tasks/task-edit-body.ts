@@ -8,16 +8,15 @@
  * DevClaw adds an explicit audit entry with who, when, and what changed.
  * Optionally posts an auto-comment on the issue for traceability.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import type { ToolContext } from "../../types.js";
 import { log as auditLog } from "../../audit.js";
 import { loadConfig } from "../../config/index.js";
 import { getInitialStateLabel, getCurrentStateLabel } from "../../workflow/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
 
 export function createTaskEditBodyTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_edit_body",
     label: "Task Edit Body",
     description: `Update issue title and/or description. Only allowed in the initial workflow state (e.g. "Planning") — prevents editing in-progress work.

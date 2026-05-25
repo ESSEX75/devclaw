@@ -8,14 +8,13 @@
  *
  * No parameters, no side effects — pure documentation.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import type { ToolContext } from "../../types.js";
 import { requireWorkspaceDir } from "../helpers.js";
 import { DATA_DIR } from "../../setup/migrate-layout.js";
 
 export function createWorkflowGuideTool(_ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "workflow_guide",
     label: "Workflow Guide",
     description:

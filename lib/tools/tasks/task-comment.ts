@@ -6,9 +6,8 @@
  * - Developer worker posts implementation notes
  * - Orchestrator adds summary comments
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import type { ToolContext } from "../../types.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
 import { getAllRoleIds, getFallbackEmoji } from "../../roles/index.js";
@@ -18,7 +17,7 @@ const AUTHOR_ROLES = [...getAllRoleIds(), "orchestrator"];
 type AuthorRole = string;
 
 export function createTaskCommentTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_comment",
     label: "Task Comment",
     description: `Add a comment to an issue. Use this for review feedback, implementation notes, or any discussion that doesn't require a state change.

@@ -7,10 +7,9 @@
  * All roles (including architect) use the standard pipeline via executeCompletion.
  * Architect workflow: Researching → Done (done, closes issue), Researching → Refining (blocked).
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ToolContext } from "../../types.js";
 import type { PluginContext, RunCommand } from "../../context.js";
 import { getRoleWorker, resolveRepoPath, findSlotByIssue } from "../../projects/index.js";
 import { executeCompletion, getRule } from "../../services/pipeline.js";
@@ -176,7 +175,7 @@ async function validatePrExistsForDeveloper(
 }
 
 export function createWorkFinishTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "work_finish",
     label: "Work Finish",
     description: `Complete a task: Developer done (PR created, goes to review) or blocked. Tester pass/fail/refine/blocked. Reviewer approve/reject/blocked. Architect done/blocked. Handles label transition, state update, issue close/reopen, notifications, and audit logging.`,

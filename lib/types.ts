@@ -1,17 +1,11 @@
 /**
- * Shared types for the DevClaw plugin.
- *
- * OpenClawPluginToolContext is declared in the plugin-sdk but not exported.
- * We define a compatible local type for use in tool factory functions.
+ * types.ts — Shared types for OpenClaw config and generic objects.
  */
 
-export type ToolContext = {
-  config?: Record<string, unknown>;
-  workspaceDir?: string;
-  agentDir?: string;
-  agentId?: string;
-  sessionKey?: string;
-  messageChannel?: string;
-  agentAccountId?: string;
-  sandboxed?: boolean;
-};
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
+
+export type OpenClawAgent = NonNullable<
+  NonNullable<OpenClawConfig["agents"]>["list"]
+>[0];
+
+export type OpenClawChannelBinding = NonNullable<OpenClawConfig["bindings"]>[0];

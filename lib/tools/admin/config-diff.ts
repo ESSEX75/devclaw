@@ -6,15 +6,14 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { jsonResult } from "openclaw/plugin-sdk";
-import type { ToolContext } from "../../types.js";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir } from "../helpers.js";
 import { WORKFLOW_YAML_TEMPLATE } from "../../setup/templates.js";
 import { DATA_DIR } from "../../setup/migrate-layout.js";
 
 export function createConfigDiffTool(_ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "config_diff",
     label: "Config Diff",
     description:

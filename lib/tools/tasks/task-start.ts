@@ -8,9 +8,8 @@
  * The heartbeat is the sole dispatcher — this tool only places issues in
  * queues, never dispatches workers directly.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import type { ToolContext } from "../../types.js";
 import { log as auditLog } from "../../audit.js";
 import {
   StateType,
@@ -29,7 +28,7 @@ import { loadConfig } from "../../config/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
 
 export function createTaskStartTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_start",
     label: "Task Start",
     description: `Advance an issue to the next queue in the workflow. State-agnostic: works from any state (Planning, Refining, To Do, etc.) and determines the correct queue automatically using workflow transitions.

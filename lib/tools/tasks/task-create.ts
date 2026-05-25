@@ -9,9 +9,8 @@
  * - A sub-agent finds a bug and needs to file a follow-up issue
  * - Breaking down an epic into smaller tasks
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import type { ToolContext } from "../../types.js";
 import { log as auditLog } from "../../audit.js";
 import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
@@ -20,7 +19,7 @@ import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider,
 const INITIAL_LABEL = DEFAULT_WORKFLOW.states[DEFAULT_WORKFLOW.initial].label;
 
 export function createTaskCreateTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_create",
     label: "Task Create",
     description: `Create a new task (issue) in the project's issue tracker. Use this to file bugs, features, or tasks from chat. Issues are created in "${INITIAL_LABEL}" state for human review before entering the queue.`,

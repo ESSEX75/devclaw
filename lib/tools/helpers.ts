@@ -4,18 +4,18 @@
  * Eliminates repeated boilerplate across tools: workspace validation,
  * project resolution, provider creation.
  */
-import type { ToolContext } from "../types.js";
 import type { RunCommand } from "../context.js";
 import { readProjects, getProject, type Project, type ProjectsData } from "../projects/index.js";
 import { createProvider, type ProviderWithType } from "../providers/index.js";
 import { loadConfig } from "../config/index.js";
 import { loadInstanceName } from "../instance.js";
 import { getOwnerLabel, OWNER_LABEL_COLOR, getNotifyLabel, NOTIFY_LABEL_PREFIX, NOTIFY_LABEL_COLOR } from "../workflow/index.js";
+import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 /**
  * Require workspaceDir from context or throw a clear error.
  */
-export function requireWorkspaceDir(ctx: ToolContext): string {
+export function requireWorkspaceDir(ctx: OpenClawPluginToolContext): string {
   if (!ctx.workspaceDir) {
     throw new Error("No workspace directory available in tool context");
   }
@@ -25,7 +25,7 @@ export function requireWorkspaceDir(ctx: ToolContext): string {
 /**
  * Resolve the channelId from explicit tool param.
  */
-export function resolveChannelId(_ctx: ToolContext, explicitChannelId?: string): string {
+export function resolveChannelId(_ctx: OpenClawPluginToolContext, explicitChannelId?: string): string {
   if (!explicitChannelId) {
     throw new Error(
       "channelId is required. Pass YOUR chat/group ID (the numeric ID of the chat you are in right now).",

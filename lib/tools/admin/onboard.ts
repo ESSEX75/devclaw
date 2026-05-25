@@ -3,13 +3,12 @@
  *
  * Returns step-by-step guidance. Call this before setup.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
-import type { ToolContext } from "../../types.js";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { isPluginConfigured, hasWorkspaceFiles, buildOnboardToolContext, buildReconfigContext } from "../../setup/onboarding.js";
 
 export function createOnboardTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "onboard",
     label: "Onboard",
     description: "Start DevClaw onboarding workflow. Returns step-by-step QA-style guidance. Call this first, then setup with collected answers.",

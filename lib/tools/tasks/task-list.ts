@@ -4,15 +4,14 @@
  * Lists issues grouped by state label with optional filtering by state type,
  * specific label, or text search. Supports terminal (closed) issues.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import type { ToolContext } from "../../types.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { loadWorkflow, StateType, findStateByLabel } from "../../workflow/index.js";
 
 export function createTaskListTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_list",
     label: "Task List",
     description: `Browse issues for a project by workflow state. Shows issues grouped by state label. Use \`tasks_status\` for a quick issue dashboard, this tool for filtered browsing.`,

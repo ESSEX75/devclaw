@@ -6,9 +6,8 @@
  * - Manually attach a local file to an issue
  * - View attachment metadata and local paths
  */
-import { jsonResult } from "openclaw/plugin-sdk";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import type { ToolContext } from "../../types.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
 import {
@@ -21,7 +20,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export function createTaskAttachTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_attach",
     label: "Task Attach",
     description: `Manage file attachments on issues. List existing attachments or add new ones from local files.
@@ -114,7 +113,7 @@ Use cases:
         const filename = path.basename(resolvedPath);
 
         // Detect mime type
-        const { detectMime } = await import("openclaw/plugin-sdk");
+        const { detectMime } = await import("openclaw/plugin-sdk/media-mime");
         const mimeType = await detectMime({ filePath: resolvedPath, buffer }) ?? "application/octet-stream";
 
         const { provider } = await resolveProvider(project, ctx.runCommand);

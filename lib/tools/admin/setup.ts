@@ -4,8 +4,7 @@
  * Creates agent, configures model levels, writes workspace files.
  * Thin wrapper around lib/setup/.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
-import type { ToolContext } from "../../types.js";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { runSetup, type SetupOpts } from "../../setup/index.js";
 import { writeAllDefaults } from "../../setup/workspace.js";
@@ -13,7 +12,7 @@ import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../role
 import { ExecutionMode } from "../../workflow/index.js";
 
 export function createSetupTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "setup",
     label: "Setup",
     description: `Execute DevClaw setup. Creates AGENTS.md, HEARTBEAT.md, TOOLS.md, devclaw/projects.json, devclaw/prompts/, and model level config. Optionally creates a new agent with channel binding. Called after onboard collects configuration.`,

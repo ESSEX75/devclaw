@@ -6,8 +6,7 @@
  *
  * Replaces the manual steps of running glab/gh label create + editing projects.json.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
-import type { ToolContext } from "../../types.js";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -81,7 +80,7 @@ Call \`workflow_guide\` for the full config reference.
 }
 
 export function createProjectRegisterTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "project_register",
     label: "Project Register",
     description: `Register a new project with DevClaw. Creates state labels, adds to projects.json. One-time setup per project.`,

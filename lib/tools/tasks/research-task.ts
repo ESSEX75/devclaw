@@ -12,8 +12,7 @@
  *   → architect calls work_finish(result="done") → "Researching" → "Done" (issue closed)
  *   → operator reviews created tasks in Planning, moves to "To Do" when ready
  */
-import { jsonResult } from "openclaw/plugin-sdk";
-import type { ToolContext } from "../../types.js";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import type { StateLabel } from "../../providers/provider.js";
 import { getRoleWorker, countActiveSlots } from "../../projects/index.js";
@@ -29,7 +28,7 @@ import { resolveModel } from "../../roles/index.js";
 const TO_RESEARCH_LABEL = "To Research";
 
 export function createResearchTaskTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "research_task",
     label: "Research Task",
     description: `Spawn an architect to research a design/architecture problem. Creates a "To Research" issue and dispatches an architect worker.

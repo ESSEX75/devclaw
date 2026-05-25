@@ -4,8 +4,7 @@
  * Fetches all non-terminal issues grouped by state type (hold, active, queue).
  * Use `project_status` for instant local info, this tool for live issue data.
  */
-import { jsonResult } from "openclaw/plugin-sdk";
-import type { ToolContext } from "../../types.js";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
 import { getStateLabelsByType } from "../../services/queue.js";
@@ -15,7 +14,7 @@ import { loadConfig } from "../../config/index.js";
 type IssueSummary = { id: number; title: string; url: string };
 
 export function createTasksStatusTool(ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "tasks_status",
     label: "Tasks Status",
     description:

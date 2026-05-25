@@ -6,8 +6,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { jsonResult } from "openclaw/plugin-sdk";
-import type { ToolContext } from "../../types.js";
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir } from "../helpers.js";
 import { backupAndWrite } from "../../setup/workspace.js";
@@ -17,7 +16,7 @@ import { DATA_DIR } from "../../setup/migrate-layout.js";
 import { log as auditLog } from "../../audit.js";
 
 export function createConfigResetTool(_ctx: PluginContext) {
-  return (toolCtx: ToolContext) => ({
+  return (toolCtx: OpenClawPluginToolContext) => ({
     name: "config_reset",
     label: "Config Reset",
     description:
