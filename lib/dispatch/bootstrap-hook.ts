@@ -11,7 +11,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../context.js";
 import { getSessionKeyRolePattern } from "../roles/index.js";
 import { DATA_DIR } from "../setup/migrate-layout.js";

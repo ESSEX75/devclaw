@@ -10,7 +10,7 @@
  */
 import { homedir } from "node:os";
 import path from "node:path";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../context.js";
 import {
   extractMediaAttachments,
@@ -20,6 +20,8 @@ import {
 import { readProjects, type Project } from "../projects/index.js";
 import { createProvider } from "../providers/index.js";
 import { log as auditLog } from "../audit.js";
+
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
 
 /**
  * Resolve which project a conversation maps to.
@@ -50,15 +52,42 @@ async function resolveProjectFromChannel(
 }
 
 /**
- * Resolve the workspace directory from OpenClaw config.
- * Checks agents.defaults.workspace, then falls back to ~/.openclaw/workspace-devclaw.
+ * Generate a list of unique candidate workspace directories.
+ * Checks all configured agent workspaces, the default agent workspace,
+ * and falls back to the default home directory path.
  */
-function resolveWorkspaceDir(config: Record<string, unknown>): string | null {
-  const agents = config.agents as { defaults?: { workspace?: string }; list?: Array<{ id: string; workspace?: string }> } | undefined;
-  if (agents?.defaults?.workspace) return agents.defaults.workspace;
-  const devclaw = agents?.list?.find((a) => a.id === "devclaw");
-  if (devclaw?.workspace) return devclaw.workspace;
-  return path.join(homedir(), ".openclaw", "workspace-devclaw");
+function workspaceCandidates(config: OpenClawConfig): string[] {
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+
+  const add = (workspace?: string) => {
+    if (!workspace || seen.has(workspace)) return;
+    seen.add(workspace);
+    candidates.push(workspace);
+  };
+
+  for (const agent of config.agents?.list ?? []) {
+    add(agent.workspace);
+  }
+  add(config.agents?.defaults?.workspace);
+  add(path.join(homedir(), ".openclaw", "workspace-devclaw"));
+
+  return candidates;
+}
+
+/**
+ * Resolve the project metadata and its corresponding workspace directory.
+ * Scans candidate workspaces to find a project containing the target conversation ID.
+ */
+async function resolveProjectContextFromChannel(
+  config: OpenClawConfig,
+  conversationId: string,
+): Promise<{ workspaceDir: string; project: Project } | null> {
+  for (const workspaceDir of workspaceCandidates(config)) {
+    const project = await resolveProjectFromChannel(workspaceDir, conversationId);
+    if (project) return { workspaceDir, project };
+  }
+  return null;
 }
 
 /**
@@ -80,15 +109,15 @@ export function registerAttachmentHook(api: OpenClawPluginApi, ctx: PluginContex
     const issueIds = extractIssueReferences(event.content ?? "");
     if (issueIds.length === 0) return;
 
-    // Resolve workspace directory
-    const workspaceDir = resolveWorkspaceDir(ctx.config as unknown as Record<string, unknown>);
-    if (!workspaceDir) return;
-
     const conversationId = eventCtx.conversationId;
     if (!conversationId) return;
 
-    const project = await resolveProjectFromChannel(workspaceDir, conversationId);
-    if (!project) return;
+    const projectContext = await resolveProjectContextFromChannel(
+      ctx.config as unknown as OpenClawConfig,
+      conversationId,
+    );
+    if (!projectContext) return;
+    const { workspaceDir, project } = projectContext;
 
     // Process each referenced issue
     for (const issueId of issueIds) {
@@ -116,7 +145,7 @@ export function registerAttachmentHook(api: OpenClawPluginApi, ctx: PluginContex
           issueId,
           channel: eventCtx.channelId,
           error: (err as Error).message ?? String(err),
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
   });
