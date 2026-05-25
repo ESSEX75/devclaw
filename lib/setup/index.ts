@@ -7,7 +7,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../context.js";
 import { getAllDefaultModels } from "../roles/index.js";
 import { migrateChannelBinding } from "./binding-manager.js";
@@ -147,8 +147,8 @@ function buildModelConfig(overrides?: SetupOpts["models"]): ModelConfig {
 
 function getDefaultWorkspacePath(runtime: PluginRuntime): string | undefined {
   try {
-    const config = runtime.config.loadConfig();
-    return (config as any).agents?.defaults?.workspace ?? undefined;
+    const config = runtime.config.current();
+    return config.agents?.defaults?.workspace ?? undefined;
   } catch {
     return undefined;
   }

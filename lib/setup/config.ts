@@ -4,9 +4,10 @@
  * Handles: tool restrictions, subagent cleanup, heartbeat defaults.
  * Models are stored in workflow.yaml (not openclaw.json).
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import { HEARTBEAT_DEFAULTS } from "../services/heartbeat/index.js";
 import type { ExecutionMode } from "../workflow/index.js";
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
 
 /**
  * Write DevClaw plugin config to openclaw.json plugins section.
@@ -24,16 +25,18 @@ export async function writePluginConfig(
   agentId?: string,
   projectExecution?: ExecutionMode,
 ): Promise<void> {
-  const config = runtime.config.loadConfig() as Record<string, unknown>;
+  const config = structuredClone(runtime.config.current()) as unknown as OpenClawConfig;
 
   ensurePluginStructure(config);
 
-  if (projectExecution) {
-    (config as any).plugins.entries.devclaw.config.projectExecution = projectExecution;
+  if (projectExecution && config.plugins?.entries?.devclaw?.config) {
+    config.plugins.entries.devclaw.config.projectExecution = projectExecution;
   }
 
   // Clean up legacy models from openclaw.json (moved to workflow.yaml)
-  delete (config as any).plugins.entries.devclaw.config.models;
+  if (config.plugins?.entries?.devclaw?.config) {
+    delete config.plugins.entries.devclaw.config.models;
+  }
 
   ensurePluginAllowed(config);
   ensureInternalHooks(config);
@@ -45,45 +48,42 @@ export async function writePluginConfig(
     addToolRestrictions(config, agentId);
   }
 
-  await runtime.config.writeConfigFile(config as any);
+  await runtime.config.replaceConfigFile({
+    nextConfig: config,
+    afterWrite: { mode: "auto" },
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------
 
-function ensurePluginStructure(config: Record<string, unknown>): void {
+function ensurePluginStructure(config: OpenClawConfig): void {
   if (!config.plugins) config.plugins = {};
-  const plugins = config.plugins as Record<string, unknown>;
-  if (!plugins.entries) plugins.entries = {};
-  const entries = plugins.entries as Record<string, unknown>;
-  if (!entries.devclaw) entries.devclaw = {};
-  const devclaw = entries.devclaw as Record<string, unknown>;
-  if (!devclaw.config) devclaw.config = {};
+  if (!config.plugins.entries) config.plugins.entries = {};
+  if (!config.plugins.entries.devclaw) config.plugins.entries.devclaw = {};
+  if (!config.plugins.entries.devclaw.config) config.plugins.entries.devclaw.config = {};
 }
 
 /**
  * Ensure "devclaw" is in plugins.allow so OpenClaw trusts the plugin
  * without requiring manual config after install.
  */
-function ensurePluginAllowed(config: Record<string, unknown>): void {
-  const plugins = config.plugins as Record<string, unknown>;
-  if (!Array.isArray(plugins.allow)) plugins.allow = [];
-  const allow = plugins.allow as string[];
-  if (!allow.includes("devclaw")) allow.push("devclaw");
+function ensurePluginAllowed(config: OpenClawConfig): void {
+  if (!config.plugins) config.plugins = {};
+  if (!Array.isArray(config.plugins.allow)) config.plugins.allow = [];
+  if (!config.plugins.allow.includes("devclaw")) config.plugins.allow.push("devclaw");
 }
 
-function configureSubagentCleanup(config: Record<string, unknown>): void {
+function configureSubagentCleanup(config: OpenClawConfig): void {
   if (!config.agents) config.agents = {};
-  const agents = config.agents as Record<string, unknown>;
-  if (!agents.defaults) agents.defaults = {};
-  const defaults = agents.defaults as Record<string, unknown>;
-  if (!defaults.subagents) defaults.subagents = {};
-  (defaults.subagents as Record<string, unknown>).archiveAfterMinutes = 43200;
+  if (!config.agents.defaults) config.agents.defaults = {};
+  if (!config.agents.defaults.subagents) config.agents.defaults.subagents = {};
+  config.agents.defaults.subagents.archiveAfterMinutes = 43200;
 }
 
-function addToolRestrictions(config: Record<string, unknown>, agentId: string): void {
-  const agent = (config as any).agents?.list?.find((a: { id: string }) => a.id === agentId);
+function addToolRestrictions(config: OpenClawConfig, agentId: string): void {
+  const agent = config.agents?.list?.find((a) => a.id === agentId);
   if (agent) {
     if (!agent.tools) agent.tools = {};
     agent.tools.deny = ["sessions_spawn", "sessions_send"];
@@ -91,16 +91,15 @@ function addToolRestrictions(config: Record<string, unknown>, agentId: string): 
   }
 }
 
-function ensureInternalHooks(config: Record<string, unknown>): void {
+function ensureInternalHooks(config: OpenClawConfig): void {
   if (!config.hooks) config.hooks = {};
-  const hooks = config.hooks as Record<string, unknown>;
-  if (!hooks.internal) hooks.internal = {};
-  (hooks.internal as Record<string, unknown>).enabled = true;
+  if (!config.hooks.internal) config.hooks.internal = {};
+  config.hooks.internal.enabled = true;
 }
 
-function ensureHeartbeatDefaults(config: Record<string, unknown>): void {
-  const devclaw = (config as any).plugins.entries.devclaw.config;
-  if (!devclaw.work_heartbeat) {
+function ensureHeartbeatDefaults(config: OpenClawConfig): void {
+  const devclaw = config.plugins?.entries?.devclaw?.config;
+  if (devclaw && !devclaw.work_heartbeat) {
     devclaw.work_heartbeat = { ...HEARTBEAT_DEFAULTS };
   }
 }
@@ -110,10 +109,10 @@ function ensureHeartbeatDefaults(config: Record<string, unknown>): void {
  * Sets channels.telegram.linkPreview = false if the Telegram channel is configured.
  * Only sets if not already explicitly configured (respects user overrides).
  */
-function ensureTelegramLinkPreviewDisabled(config: Record<string, unknown>): void {
-  const channels = config.channels as Record<string, unknown> | undefined;
+function ensureTelegramLinkPreviewDisabled(config: OpenClawConfig): void {
+  const channels = config.channels;
   if (!channels) return;
-  const telegram = channels.telegram as Record<string, unknown> | undefined;
+  const telegram = channels.telegram;
   if (!telegram) return;
   if (telegram.linkPreview === undefined) {
     telegram.linkPreview = false;

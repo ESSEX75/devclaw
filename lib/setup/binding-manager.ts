@@ -4,7 +4,8 @@
  * Handles detection of existing channel bindings, channel availability,
  * and safe migration of bindings between agents.
  */
-import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
 
 export type ChannelType = string;
 
@@ -30,15 +31,15 @@ export async function analyzeChannelBindings(
   api: OpenClawPluginApi,
   channel: ChannelType,
 ): Promise<BindingAnalysis> {
-  const config = api.runtime.config.loadConfig();
+  const cfg = structuredClone(api.runtime.config.current()) as unknown as OpenClawConfig;
 
   // Check if channel is configured and enabled
-  const channelConfig = (config.channels as any)?.[channel];
+  const channelConfig = cfg.channels?.[channel];
   const channelConfigured = !!channelConfig;
   const channelEnabled = channelConfig?.enabled === true;
 
   // Find existing bindings
-  const bindings = config.bindings ?? [];
+  const bindings = cfg.bindings ?? [];
   let existingChannelWideBinding:
     | BindingAnalysis["existingChannelWideBinding"]
     | undefined;
@@ -46,23 +47,21 @@ export async function analyzeChannelBindings(
 
   for (const binding of bindings) {
     if (binding.match?.channel === channel) {
-      const agent = config.agents?.list?.find(
-        (a) => a.id === binding.agentId,
-      );
+      const agent = cfg.agents?.list?.find((a) => a.id === binding.agentId);
       const agentName = agent?.name ?? binding.agentId;
 
       if (!binding.match.peer) {
         // Channel-wide binding (no peer filter) - potential conflict
         existingChannelWideBinding = {
           agentId: binding.agentId,
-          agentName,
+          agentName: agentName ?? "unknown",
         };
       } else if (binding.match.peer.kind === "group") {
         // Group-specific binding - no conflict
         groupSpecificBindings.push({
           agentId: binding.agentId,
-          agentName,
-          channelId: binding.match.peer.id,
+          agentName: agentName ?? "unknown",
+          channelId: binding.match.peer.id ?? "",
         });
       }
     }
@@ -101,8 +100,8 @@ export async function migrateChannelBinding(
   toAgentId: string,
 ): Promise<void> {
   const runtime = "runtime" in api ? api.runtime : api;
-  const config = runtime.config.loadConfig();
-  const bindings = config.bindings ?? [];
+  const cfg = structuredClone(runtime.config.current()) as OpenClawConfig;
+  const bindings = cfg.bindings ?? [];
 
   // Find the channel-wide binding for this channel and agent
   const bindingIndex = bindings.findIndex(
@@ -120,9 +119,12 @@ export async function migrateChannelBinding(
 
   // Update the binding to point to the new agent
   bindings[bindingIndex].agentId = toAgentId;
-  (config as any).bindings = bindings;
+  cfg.bindings = bindings;
 
-  await runtime.config.writeConfigFile(config);
+  await runtime.config.replaceConfigFile({
+    nextConfig: cfg,
+    afterWrite: { mode: "auto" },
+  });
 }
 
 /**
@@ -133,13 +135,16 @@ export async function removeChannelBinding(
   channel: ChannelType,
   agentId: string,
 ): Promise<void> {
-  const config = api.runtime.config.loadConfig();
-  const bindings = config.bindings ?? [];
+  const cfg = structuredClone(api.runtime.config.current()) as OpenClawConfig;
+  const bindings = cfg.bindings ?? [];
 
   // Filter out the channel-wide binding for this channel and agent
-  (config as any).bindings = bindings.filter(
+  cfg.bindings = bindings.filter(
     (b) => !(b.match?.channel === channel && !b.match.peer && b.agentId === agentId),
   );
 
-  await api.runtime.config.writeConfigFile(config);
+  await api.runtime.config.replaceConfigFile({
+    nextConfig: cfg,
+    afterWrite: { mode: "auto" },
+  });
 }

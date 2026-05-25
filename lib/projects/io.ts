@@ -31,8 +31,9 @@ export async function acquireLock(workspaceDir: string): Promise<void> {
     try {
       await fs.writeFile(lock, String(Date.now()), { flag: "wx" });
       return;
-    } catch (err: any) {
-      if (err.code !== "EEXIST") throw err;
+    } catch (err) {
+      const e = err as NodeJS.ErrnoException;
+      if (e.code !== "EEXIST") throw err;
 
       // Check for stale lock
       try {
@@ -68,7 +69,7 @@ function projectsPath(workspaceDir: string): string {
 export async function readProjects(workspaceDir: string): Promise<ProjectsData> {
   await ensureWorkspaceMigrated(workspaceDir);
   const raw = await fs.readFile(projectsPath(workspaceDir), "utf-8");
-  let data = JSON.parse(raw) as any;
+  let data = JSON.parse(raw) as unknown;
 
   // Auto-migrate legacy schema to new schema
   if (isLegacySchema(data)) {
@@ -82,7 +83,7 @@ export async function readProjects(workspaceDir: string): Promise<ProjectsData> 
   // Apply per-project migrations and persist if any changed
   let migrated = false;
   for (const project of Object.values(typedData.projects)) {
-    if (migrateProject(project as any)) migrated = true;
+    if (migrateProject(project)) migrated = true;
   }
   if (migrated) {
     await writeProjects(workspaceDir, typedData);

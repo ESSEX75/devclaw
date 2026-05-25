@@ -4,20 +4,21 @@
  * Uses Commander.js (provided by OpenClaw plugin SDK context).
  */
 import type { Command } from "commander";
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../context.js";
 import { runSetup } from "./index.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../roles/index.js";
 import { readProjects, writeProjects, type Channel } from "../projects/index.js";
 import { log as auditLog } from "../audit.js";
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
 
 /**
  * Get the default workspace directory from the OpenClaw config.
  */
 function getDefaultWorkspaceDir(runtime: PluginRuntime): string | undefined {
   try {
-    const config = runtime.config.loadConfig();
-    return (config as any).agents?.defaults?.workspace ?? undefined;
+    const config = runtime.config.current() as OpenClawConfig;
+    return config.agents?.defaults?.workspace ?? undefined;
   } catch {
     return undefined;
   }
@@ -48,55 +49,55 @@ export function registerCli(program: Command, ctx: PluginContext): void {
   }
 
   setupCmd.action(async (opts) => {
-      // Build model overrides from CLI flags dynamically
-      const models: Record<string, Record<string, string>> = {};
-      for (const role of getAllRoleIds()) {
-        const roleModels: Record<string, string> = {};
-        for (const level of getLevelsForRole(role)) {
-          // camelCase key: "testerJunior" for --tester-junior, "developerMedior" for --developer-medior
-          const key = `${role}${level.charAt(0).toUpperCase()}${level.slice(1)}`;
-          if (opts[key]) roleModels[level] = opts[key];
-        }
-        if (Object.keys(roleModels).length > 0) models[role] = roleModels;
+    // Build model overrides from CLI flags dynamically
+    const models: Record<string, Record<string, string>> = {};
+    for (const role of getAllRoleIds()) {
+      const roleModels: Record<string, string> = {};
+      for (const level of getLevelsForRole(role)) {
+        // camelCase key: "testerJunior" for --tester-junior, "developerMedior" for --developer-medior
+        const key = `${role}${level.charAt(0).toUpperCase()}${level.slice(1)}`;
+        if (opts[key]) roleModels[level] = opts[key];
       }
+      if (Object.keys(roleModels).length > 0) models[role] = roleModels;
+    }
 
-      const result = await runSetup({
-        runtime: ctx.runtime,
-        newAgentName: opts.newAgent,
-        agentId: opts.agent,
-        workspacePath: opts.workspace,
-        models: Object.keys(models).length > 0 ? models : undefined,
-        runCommand: ctx.runCommand,
-      });
-
-      if (result.agentCreated) {
-        console.log(`Agent "${result.agentId}" created`);
-      }
-
-      console.log("Models configured:");
-      for (const [role, levels] of Object.entries(result.models)) {
-        for (const [level, model] of Object.entries(levels)) {
-          console.log(`  ${role}.${level}: ${model}`);
-        }
-      }
-
-      console.log("Files written:");
-      for (const file of result.filesWritten) {
-        console.log(`  ${file}`);
-      }
-
-      if (result.warnings.length > 0) {
-        console.log("\nWarnings:");
-        for (const w of result.warnings) {
-          console.log(`  ${w}`);
-        }
-      }
-
-      console.log("\nDone! Next steps:");
-      console.log("  1. Add bot to a Telegram group");
-      console.log('  2. Register a project: "Register project <name> at <repo> for group <id>"');
-      console.log("  3. Create your first issue and pick it up");
+    const result = await runSetup({
+      runtime: ctx.runtime,
+      newAgentName: opts.newAgent,
+      agentId: opts.agent,
+      workspacePath: opts.workspace,
+      models: Object.keys(models).length > 0 ? models : undefined,
+      runCommand: ctx.runCommand,
     });
+
+    if (result.agentCreated) {
+      console.log(`Agent "${result.agentId}" created`);
+    }
+
+    console.log("Models configured:");
+    for (const [role, levels] of Object.entries(result.models)) {
+      for (const [level, model] of Object.entries(levels)) {
+        console.log(`  ${role}.${level}: ${model}`);
+      }
+    }
+
+    console.log("Files written:");
+    for (const file of result.filesWritten) {
+      console.log(`  ${file}`);
+    }
+
+    if (result.warnings.length > 0) {
+      console.log("\nWarnings:");
+      for (const w of result.warnings) {
+        console.log(`  ${w}`);
+      }
+    }
+
+    console.log("\nDone! Next steps:");
+    console.log("  1. Add bot to a Telegram group");
+    console.log('  2. Register a project: "Register project <name> at <repo> for group <id>"');
+    console.log("  3. Create your first issue and pick it up");
+  });
 
   // Channel management commands
   const channel = devclaw
@@ -177,8 +178,8 @@ export function registerCli(program: Command, ctx: PluginContext): void {
         console.log(`  Channel ID: ${opts.channelId}`);
         console.log(`  Channel type: ${opts.type}`);
         console.log(`  Channel name: ${newChannel.name}`);
-      } catch (err: any) {
-        console.error(`Error: ${err.message}`);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
     });
@@ -267,8 +268,8 @@ export function registerCli(program: Command, ctx: PluginContext): void {
         console.log(`✓ Channel unlinked from "${project.name}"`);
         console.log(`  Removed: ${channel.name} (${opts.channelId})`);
         console.log(`  Remaining channels: ${project.channels.length}`);
-      } catch (err: any) {
-        console.error(`Error: ${err.message}`);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
     });
@@ -334,8 +335,8 @@ export function registerCli(program: Command, ctx: PluginContext): void {
             }
           }
         }
-      } catch (err: any) {
-        console.error(`Error: ${err.message}`);
+      } catch (err) {
+        console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
     });

@@ -9,25 +9,30 @@ import { resolveRepoPath } from "./io.js";
 import type { RunCommand } from "../context.js";
 
 /** Get first start time from a worker state (handles both old slots and new levels format). */
-function getFirstStartTime(worker: any): string | undefined {
-  if (!worker) return undefined;
+function getFirstStartTime(worker: unknown): string | undefined {
+  if (!worker || typeof worker !== 'object') return undefined;
   // New per-level format
-  if (worker.levels) {
+  if ('levels' in worker && worker.levels && typeof worker.levels === 'object') {
     for (const slots of Object.values(worker.levels)) {
-      if (Array.isArray(slots) && slots.length > 0 && (slots[0] as any)?.startTime) {
-        return (slots[0] as any).startTime;
+      if (Array.isArray(slots) && slots.length > 0 && typeof slots[0] === 'object' && slots[0] && 'startTime' in slots[0]) {
+        return slots[0].startTime as string;
       }
     }
   }
   // Old slot-based format
-  return worker.slots?.[0]?.startTime ?? undefined;
+  if ('slots' in worker && Array.isArray(worker.slots) && worker.slots.length > 0 && typeof worker.slots[0] === 'object' && worker.slots[0] && 'startTime' in worker.slots[0]) {
+    return worker.slots[0].startTime as string;
+  }
+  return undefined;
 }
 
 /**
  * Detect if projects.json is in legacy format (keyed by numeric channelIds).
  */
-export function isLegacySchema(data: any): boolean {
-  const keys = Object.keys(data.projects || {});
+export function isLegacySchema(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false;
+  if (!('projects' in data) || !data.projects || typeof data.projects !== 'object') return false;
+  const keys = Object.keys(data.projects);
   return keys.length > 0 && keys.every(k => /^-?\d+$/.test(k));
 }
 
@@ -59,7 +64,8 @@ export async function getRepoRemote(repoPath: string, runCommand?: RunCommand): 
  *   Input: { "-5176490302": { name: "devclaw", ... }, "-1003843401024": { name: "devclaw", ... } }
  *   Output: { "devclaw": { slug: "devclaw", channels: [...], ... } }
  */
-export async function migrateLegacySchema(data: any, runCommand?: RunCommand): Promise<ProjectsData> {
+export async function migrateLegacySchema(data: unknown, runCommand?: RunCommand): Promise<ProjectsData> {
+  if (!data || typeof data !== 'object' || !('projects' in data)) return { projects: {} };
   const legacyProjects = data.projects as Record<string, LegacyProject>;
   const byName: Record<string, { channelIds: string[]; legacyProjects: LegacyProject[] }> = {};
 
@@ -96,9 +102,10 @@ export async function migrateLegacySchema(data: any, runCommand?: RunCommand): P
     const mergedWorkers = { ...firstProj.workers };
     if (mostRecent !== firstProj) {
       for (const [role, worker] of Object.entries(mostRecent.workers)) {
-        const hasActive = Object.values((worker as any).levels ?? {}).some(
-          (slots: any) => Array.isArray(slots) && slots.some((s: any) => s.active),
-        ) || (worker as any).slots?.some((s: any) => s.active);
+        const w = worker as unknown as { levels?: Record<string, unknown[]>, slots?: unknown[] };
+        const hasActive = Object.values(w.levels ?? {}).some(
+          (slots) => Array.isArray(slots) && slots.some((s) => s && typeof s === 'object' && 'active' in s && s.active),
+        ) || (Array.isArray(w.slots) && w.slots.some((s) => s && typeof s === 'object' && 'active' in s && s.active));
         if (hasActive) {
           mergedWorkers[role] = worker;
         }

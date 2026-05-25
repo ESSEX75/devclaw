@@ -215,11 +215,12 @@ async function readWorkflowFile(dir: string): Promise<DevClawConfig | null> {
     const parsed = YAML.parse(content);
     if (parsed) validateConfig(parsed);
     return parsed as DevClawConfig;
-  } catch (err: any) {
-    if (err?.code === "ENOENT") return null;
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException | { name?: string; message?: string };
+    if ('code' in error && error.code === "ENOENT") return null;
     // Re-throw validation errors with file context
-    if (err?.name === "ZodError") {
-      throw new Error(`Invalid workflow.yaml in ${dir}: ${err.message}`);
+    if ('name' in error && error.name === "ZodError") {
+      throw new Error(`Invalid workflow.yaml in ${dir}: ${error.message}`);
     }
     return null;
   }
@@ -241,7 +242,7 @@ async function readLegacyWorkflowJson(dir: string): Promise<Partial<WorkflowConf
     const parsed = JSON.parse(content) as
       | Partial<WorkflowConfig>
       | { workflow?: Partial<WorkflowConfig> };
-    return (parsed as any).workflow ?? parsed;
+    return 'workflow' in parsed && parsed.workflow ? parsed.workflow : (parsed as Partial<WorkflowConfig>);
   } catch { /* not found */ }
   return null;
 }
