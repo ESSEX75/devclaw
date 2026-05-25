@@ -1,7 +1,7 @@
 /**
  * Heartbeat passes — health, review, review-skip, and test-skip passes.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../../context.js";
 import { type Project } from "../../projects/index.js";
 import {
@@ -27,7 +27,7 @@ import { notify, getNotificationConfig } from "../../dispatch/notify.js";
 export async function performHealthPass(
   workspaceDir: string,
   projectSlug: string,
-  project: any,
+  project: Project,
   sessions: SessionLookup | null,
   provider: import("../../providers/provider.js").IssueProvider,
   staleWorkerHours?: number,

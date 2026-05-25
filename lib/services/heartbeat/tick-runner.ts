@@ -1,7 +1,7 @@
 /**
  * Tick runner — main heartbeat loop that processes each project.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../../context.js";
 import path from "node:path";
 import { readProjects, getProject, type Project } from "../../projects/index.js";

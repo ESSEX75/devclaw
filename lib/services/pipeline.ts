@@ -3,7 +3,7 @@
  *
  * Uses workflow config to determine transitions and side effects.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { StateLabel, IssueProvider } from "../providers/provider.js";
 import { deactivateWorker, loadProjectBySlug, getRoleWorker } from "../projects/index.js";
 import type { RunCommand } from "../context.js";
