@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **OpenClaw SDK Update**: Audited the codebase and updated dependencies to support `openclaw@^2026.5.20`. Added build compatibility constraints to `package.json` for safer plugin loading.
+
 ### Fixed
 
 - **Critical:** work_finish now re-validates PR mergeable status during conflict resolution cycles, preventing infinite loops where developers claim "fixed" without pushing changes (#482, #480, #464, #483)

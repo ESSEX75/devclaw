@@ -28,7 +28,15 @@
   "openclaw": {
     "extensions": [
       "./dist/index.js"
-    ]
+    ],
+    "compat": {
+      "pluginApi": ">=2026.3.2",
+      "minGatewayVersion": "2026.3.2"
+    },
+    "build": {
+      "openclawVersion": "2026.5.20",
+      "pluginSdkVersion": "2026.5.20"
+    }
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -54,10 +62,13 @@
   "devDependencies": {
     "@types/node": "^25.2.3",
     "cockatiel": "^3.2.1",
+    "commander": "^14.0.3",
     "esbuild": "^0.25.0",
+    "openclaw": "^2026.5.20",
     "typescript": "^5.9.3",
-    "yaml": "^2.8.2",
     "unique-names-generator": "^4.7.1",
+    "vitest": "^4.1.7",
+    "yaml": "^2.8.2",
     "zod": "^4.3.6"
   }
 }
