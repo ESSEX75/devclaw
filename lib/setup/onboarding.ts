@@ -96,13 +96,14 @@ DevClaw turns each Telegram group into an autonomous development team:
 **Step 1: Agent Selection**
 Ask: "Do you want to configure DevClaw for the current agent, or create a new dedicated agent?"
 - Current agent → no \`newAgentName\` needed
-- New agent → ask for:
-  1. Agent name
-  2. **Channel binding**: "Which channel should this agent listen to? (telegram/whatsapp/none)"
-     - If telegram/whatsapp selected:
+- New agent → ask for agent name
+- Selected/new agent → ask for:
+  1. **Channel setup**: "Bind this agent to an existing channel account? (telegram/default, telegram/dev, whatsapp/default, none)"
+     - List configured channel accounts from openclaw.json; do not ask for tokens, groups, topics, chat ids, or thread ids
+     - If a channel account is selected:
        a) Check openclaw.json for existing channel bindings
        b) If channel not configured/enabled → warn and recommend skipping binding for now
-       c) If channel-wide binding exists on another agent → ask: "Migrate binding from {agentName}?"
+       c) If a channel-wide binding for that same channel/account exists on another agent → ask: "Migrate binding from {agentName}?"
        d) Collect migration decision
      - If none selected, user can add bindings manually later via openclaw.json
 
@@ -133,9 +134,11 @@ Ask: "Do you want to configure DevClaw for the current agent, or create a new de
 
 **Step 3: Run Setup**
 Call \`setup\` with the collected answers:
-- Current agent: \`setup({})\` or \`setup({ models: { developer: { ... }, tester: { ... } } })\`
-- New agent: \`setup({ newAgentName: "<name>", channelBinding: "telegram"|"whatsapp"|null, migrateFrom: "<agentId>"|null, models: { ... } })\`
-  - \`migrateFrom\`: Include if user wants to migrate an existing channel-wide binding
+- Current agent: \`setup({ channelBinding: "telegram"|"whatsapp"|null, channelAccountId: "<accountId>"|null, channelPeerId: "<groupId[:topic:topicId]>"|null, migrateFrom: "<agentId>"|null, models: { developer: { ... }, tester: { ... } } })\`
+- New agent: \`setup({ newAgentName: "<name>", channelBinding: "telegram"|"whatsapp"|null, channelAccountId: "<accountId>"|null, channelPeerId: "<groupId[:topic:topicId]>"|null, migrateFrom: "<agentId>"|null, models: { ... } })\`
+  - Prefer \`channelPeerId\` for Telegram groups/topics so setup creates an exact binding instead of a broad account-wide fallback.
+  - \`migrateFrom\`: Include only when user wants to migrate an existing channel-wide binding.
+- Setup writes only route bindings; OpenClaw remains responsible for channel account configuration.
 
 **Step 4: Telegram Group Setup (IMPORTANT)**
 After setup completes, explain project isolation best practices:

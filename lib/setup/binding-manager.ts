@@ -98,15 +98,18 @@ export async function migrateChannelBinding(
   channel: ChannelType,
   fromAgentId: string,
   toAgentId: string,
+  accountId?: string | null,
 ): Promise<void> {
   const runtime = "runtime" in api ? api.runtime : api;
   const cfg = structuredClone(runtime.config.current()) as OpenClawConfig;
   const bindings = cfg.bindings ?? [];
+  const normalizedAccountId = normalizeBindingAccountId(accountId);
 
   // Find the channel-wide binding for this channel and agent
   const bindingIndex = bindings.findIndex(
     (b) =>
       b.match?.channel === channel &&
+      normalizeBindingAccountId(b.match.accountId) === normalizedAccountId &&
       !b.match.peer &&
       b.agentId === fromAgentId,
   );
@@ -125,6 +128,85 @@ export async function migrateChannelBinding(
     nextConfig: cfg,
     afterWrite: { mode: "auto" },
   });
+}
+
+/**
+ * Ensure a channel-wide binding exists for an agent.
+ */
+export async function ensureChannelBinding(
+  api: OpenClawPluginApi | PluginRuntime,
+  channel: ChannelType,
+  agentId: string,
+  accountId?: string | null,
+  peerId?: string | null,
+): Promise<void> {
+  const runtime = "runtime" in api ? api.runtime : api;
+  const cfg = structuredClone(runtime.config.current()) as OpenClawConfig;
+  cfg.bindings ??= [];
+  const normalizedAccountId = normalizeBindingAccountId(accountId);
+  const normalizedPeerId = normalizeBindingPeerId(peerId);
+
+  const existing = cfg.bindings.find(
+    (binding) =>
+      binding.match?.channel === channel &&
+      normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
+      normalizeBindingPeerId(binding.match.peer?.id) === normalizedPeerId &&
+      binding.agentId === agentId,
+  );
+
+  if (existing) return;
+
+  if (normalizedPeerId?.includes(":topic:")) {
+    const occupied = cfg.bindings.find(
+      (binding) =>
+        binding.match?.channel === channel &&
+        normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
+        normalizeBindingPeerId(binding.match.peer?.id) === normalizedPeerId,
+    );
+    if (occupied?.agentId) {
+      throw new Error(
+        `${channel}/${normalizedAccountId}/${normalizedPeerId} is already bound to agent "${occupied.agentId}"`,
+      );
+    }
+  }
+
+  const nextBinding = {
+    match: {
+      channel,
+      ...(accountId?.trim() ? { accountId: normalizedAccountId } : {}),
+      ...(normalizedPeerId ? { peer: { kind: "group", id: normalizedPeerId } } : {}),
+    },
+    agentId,
+  } as NonNullable<OpenClawConfig["bindings"]>[number];
+
+  const insertAt = normalizedPeerId
+    ? cfg.bindings.findIndex(
+        (binding) =>
+          binding.match?.channel === channel &&
+          normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
+          !binding.match.peer,
+      )
+    : -1;
+
+  if (insertAt === -1) {
+    cfg.bindings.push(nextBinding);
+  } else {
+    cfg.bindings.splice(insertAt, 0, nextBinding);
+  }
+
+  await runtime.config.replaceConfigFile({
+    nextConfig: cfg,
+    afterWrite: { mode: "auto" },
+  });
+}
+
+function normalizeBindingAccountId(accountId: string | undefined | null): string {
+  return accountId?.trim() || "default";
+}
+
+function normalizeBindingPeerId(peerId: string | undefined | null): string | undefined {
+  const normalized = peerId?.trim();
+  return normalized || undefined;
 }
 
 /**

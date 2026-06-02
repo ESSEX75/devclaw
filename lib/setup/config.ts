@@ -5,15 +5,43 @@
  * Models are stored in workflow.yaml (not openclaw.json).
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import { HEARTBEAT_DEFAULTS } from "../services/heartbeat/index.js";
+import { HEARTBEAT_DEFAULTS } from "../services/heartbeat/config.js";
 import type { ExecutionMode } from "../workflow/index.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
+
+export const DEVCLAW_AGENT_TOOLS = [
+  "task_start",
+  "work_finish",
+  "task_create",
+  "task_set_level",
+  "task_comment",
+  "task_edit_body",
+  "task_attach",
+  "task_owner",
+  "tasks_status",
+  "task_list",
+  "project_status",
+  "health",
+  "project_register",
+  "sync_labels",
+  "channel_link",
+  "channel_unlink",
+  "channel_list",
+  "setup",
+  "onboard",
+  "autoconfigure_models",
+  "research_task",
+  "workflow_guide",
+  "config",
+] as const;
+
+const DEVCLAW_DENIED_TOOLS = ["sessions_spawn", "sessions_send"] as const;
 
 /**
  * Write DevClaw plugin config to openclaw.json plugins section.
  *
  * Configures:
- * - Tool restrictions (deny sessions_spawn, sessions_send) for DevClaw agents
+ * - Tool permissions for DevClaw agents
  * - Subagent cleanup interval (30 days) to keep development sessions alive
  * - Heartbeat defaults
  *
@@ -45,7 +73,8 @@ export async function writePluginConfig(
   ensureTelegramLinkPreviewDisabled(config);
 
   if (agentId) {
-    addToolRestrictions(config, agentId);
+    configureDevClawAgentTools(config, agentId);
+    allowActiveMemoryForAgent(config, agentId);
   }
 
   await runtime.config.replaceConfigFile({
@@ -82,12 +111,34 @@ function configureSubagentCleanup(config: OpenClawConfig): void {
   config.agents.defaults.subagents.archiveAfterMinutes = 43200;
 }
 
-function addToolRestrictions(config: OpenClawConfig, agentId: string): void {
+function configureDevClawAgentTools(config: OpenClawConfig, agentId: string): void {
   const agent = config.agents?.list?.find((a) => a.id === agentId);
   if (agent) {
     if (!agent.tools) agent.tools = {};
-    agent.tools.deny = ["sessions_spawn", "sessions_send"];
+
+    const currentAlsoAllow = Array.isArray(agent.tools.alsoAllow) ? agent.tools.alsoAllow : [];
+    agent.tools.alsoAllow = [...new Set([...currentAlsoAllow, ...DEVCLAW_AGENT_TOOLS])];
+
+    const currentDeny = Array.isArray(agent.tools.deny) ? agent.tools.deny : [];
+    agent.tools.deny = [...new Set([...currentDeny, ...DEVCLAW_DENIED_TOOLS])];
+
     delete agent.tools.allow;
+  }
+}
+
+function allowActiveMemoryForAgent(config: OpenClawConfig, agentId: string): void {
+  const activeMemoryConfig = config.plugins?.entries?.["active-memory"]?.config as
+    | { agents?: unknown }
+    | undefined;
+  if (!activeMemoryConfig) return;
+
+  if (!Array.isArray(activeMemoryConfig.agents)) {
+    activeMemoryConfig.agents = [agentId];
+    return;
+  }
+
+  if (!activeMemoryConfig.agents.includes(agentId)) {
+    activeMemoryConfig.agents.push(agentId);
   }
 }
 
