@@ -15,6 +15,7 @@ import {
   NOTIFY_LABEL_COLOR,
   resolveNotifyChannel,
 } from "../../workflow/index.js";
+import type { Channel } from "../../projects/index.js";
 
 // ---------------------------------------------------------------------------
 // getNotifyLabel / constants
@@ -49,7 +50,7 @@ describe("notify label helpers", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveNotifyChannel (new format)", () => {
-  const channels = [
+  const channels: Array<Omit<Channel, "events">> = [
     { channelId: "-111", channel: "telegram", name: "primary" },
     { channelId: "-222", channel: "whatsapp", name: "dev-chat" },
   ];
@@ -91,7 +92,7 @@ describe("resolveNotifyChannel (new format)", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveNotifyChannel (legacy format)", () => {
-  const channels = [
+  const channels: Array<Omit<Channel, "events">> = [
     { channelId: "-111", channel: "telegram", name: "primary" },
     { channelId: "-222", channel: "whatsapp", name: "dev-chat" },
   ];

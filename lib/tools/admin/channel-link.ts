@@ -39,6 +39,11 @@ export function createChannelLinkTool(_ctx: PluginContext) {
           enum: ["telegram", "whatsapp", "discord", "slack"],
           description: "Channel type. Defaults to 'telegram'.",
         },
+        threadId: {
+          type: "string",
+          description:
+            "Optional thread/topic ID for forum-style channels, e.g. Telegram topic ID.",
+        },
         name: {
           type: "string",
           description:
@@ -51,6 +56,9 @@ export function createChannelLinkTool(_ctx: PluginContext) {
       const channelId = params.channelId as string;
       const projectRef = params.project as string;
       const channelType = (params.channel as Channel["channel"]) ?? "telegram";
+      const threadId = typeof params.threadId === "string" && params.threadId.trim()
+        ? params.threadId.trim()
+        : undefined;
       const channelName = params.name as string | undefined;
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
@@ -79,7 +87,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
 
       // Already linked to this project?
       const alreadyLinked = target.channels.some(
-        (ch) => ch.channelId === channelId,
+        (ch) => ch.channelId === channelId && ch.threadId === threadId,
       );
       if (alreadyLinked) {
         return jsonResult({
@@ -88,6 +96,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
           project: target.name,
           projectSlug: target.slug,
           channelId,
+          threadId,
           announcement: `Channel already linked to "${target.name}".`,
         });
       }
@@ -96,7 +105,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
       let detachedFrom: string | null = null;
       for (const project of Object.values(data.projects)) {
         const idx = project.channels.findIndex(
-          (ch) => ch.channelId === channelId,
+          (ch) => ch.channelId === channelId && ch.threadId === threadId,
         );
         if (idx !== -1) {
           detachedFrom = project.name;
@@ -111,6 +120,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
         channel: channelType,
         name: channelName ?? `channel-${target.channels.length + 1}`,
         events: ["*"],
+        ...(threadId ? { threadId } : {}),
       };
       target.channels.push(newChannel);
 
@@ -120,6 +130,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
         project: target.name,
         projectSlug: target.slug,
         channelId,
+        threadId,
         channelType,
         channelName: newChannel.name,
         detachedFrom,
@@ -134,6 +145,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
         project: target.name,
         projectSlug: target.slug,
         channelId,
+        threadId,
         channelName: newChannel.name,
         detachedFrom,
         announcement: `Channel linked to "${target.name}"${detachNote}.`,
