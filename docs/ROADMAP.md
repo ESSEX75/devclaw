@@ -4,9 +4,9 @@
 
 ### Dynamic Roles and Role Registry
 
-Roles are no longer hardcoded. The `ROLE_REGISTRY` in `lib/roles/registry.ts` defines three built-in roles — **developer**, **tester**, **architect** — each with configurable levels, models, emoji, and completion results. Adding a new role means adding one entry to the registry; everything else (workers, sessions, labels, prompts) derives from it.
+Roles are no longer hardcoded. The `ROLE_REGISTRY` in `lib/roles/registry.ts` defines four built-in roles — **developer**, **tester**, **architect**, and **reviewer** — each with configurable levels, models, emoji, and completion results. Adding a new role means adding one entry to the registry; everything else (workers, sessions, labels, prompts) derives from it.
 
-All roles use a unified junior/medior/senior level scheme (architect uses junior/senior). Per-role model overrides live in `workflow.yaml`.
+Most roles use a unified junior/medior/senior level scheme; architect and reviewer use junior/senior. Per-role model overrides live in `workflow.yaml`.
 
 ### Workflow State Machine
 
@@ -101,16 +101,11 @@ Fourth built-in role with dedicated `Reviewing` state. Reviewers check PRs and c
 
 ---
 
-## Planned
+## Completed
 
-### Channel-agnostic Groups
+### Channel-agnostic Project State
 
-Replace Telegram-specific group IDs with a generic channel identifier that works across any OpenClaw channel. The `channelId` parameter is already used in new tools — the remaining work is migrating older tools and state keys.
-
-Key changes remaining:
-- Migrate `projectGroupId` in older tool signatures
-- Update state keys in `projects.json`
-- Backward-compatible migration on read
+Telegram-specific group IDs have been replaced by channel identifiers and project slugs. Tools use `channelId` to resolve a project from the current chat/channel, and `projects.json` is keyed by project slug with a `channels[]` list per project. Backward-compatible migrations handle older state layouts on read.
 
 ---
 

@@ -239,7 +239,7 @@ No PR, no review cycle — just research → findings → implementation tasks. 
 
 ### Sessions accumulate context
 
-Each developer level gets its own persistent session per project. Your medior dev that's done 5 features on `my-app` already knows the codebase — it doesn't re-read 50K tokens of source code every time it picks up a new task.
+Each role/level/slot gets its own persistent session per project. Your medior developer slot that's done 5 features on `my-app` already knows the codebase — it doesn't re-read 50K tokens of source code every time it picks up a new task.
 
 That's a **~40-60% token saving per task** from session reuse alone.
 
@@ -286,12 +286,12 @@ No orchestrator involvement. Workers self-report, the scheduler fills free slots
 
 Each project is fully isolated — its own queue, workers, sessions, state. No cross-project contamination. Two levels of parallelism control how work gets scheduled:
 
-- **Project-level (`roleExecution`)** — different roles work simultaneously on different tasks (default: `parallel`) or take turns (`sequential`)
+- **Workflow-level (`workflow.roleExecution`)** — different roles work simultaneously on different tasks (default: `parallel`) or take turns (`sequential`)
 - **Plugin-level (`projectExecution`)** — all registered projects dispatch workers independently (default: `parallel`) or only one project runs at a time (`sequential`)
 
 ### Configuration
 
-All scheduling behavior is configurable in `openclaw.json`:
+Plugin-level scheduling is configured in `openclaw.json`:
 
 ```json
 {
@@ -312,16 +312,7 @@ All scheduling behavior is configurable in `openclaw.json`:
 }
 ```
 
-Per-project settings live in `projects.json`:
-
-```json
-{
-  "-1234567890": {
-    "name": "my-app",
-    "roleExecution": "parallel"
-  }
-}
-```
+Role execution and model settings live in `devclaw/workflow.yaml` at workspace or project scope.
 
 | Setting                            | Where           | Default      | What it controls                         |
 | ---------------------------------- | --------------- | ------------ | ---------------------------------------- |
@@ -329,7 +320,7 @@ Per-project settings live in `projects.json`:
 | `work_heartbeat.intervalSeconds`   | `openclaw.json` | `60`         | Seconds between ticks                    |
 | `work_heartbeat.maxPickupsPerTick` | `openclaw.json` | `4`          | Max workers dispatched per tick          |
 | `projectExecution`                 | `openclaw.json` | `"parallel"` | All projects at once, or one at a time   |
-| `roleExecution`                    | `projects.json` | `"parallel"` | All roles at once, or one role at a time |
+| `workflow.roleExecution`           | `workflow.yaml`  | `"parallel"` | All roles at once, or one role at a time |
 
 See the [Configuration reference](docs/CONFIGURATION.md) for the full schema.
 
