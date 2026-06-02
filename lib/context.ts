@@ -31,12 +31,32 @@ export type PluginContext = {
   logger: OpenClawPluginApi["logger"];
 };
 
+type RuntimeWithSystem = {
+  system?: {
+    runCommandWithTimeout?: RunCommand;
+  };
+};
+
 /**
  * Build a PluginContext from the raw plugin API. Called once in register().
  */
 export function createPluginContext(api: OpenClawPluginApi): PluginContext {
+  const runCommand: RunCommand = async (...args) => {
+    const system = (api.runtime as unknown as RuntimeWithSystem)
+      .system;
+    const runCommandWithTimeout = system?.runCommandWithTimeout;
+
+    if (!runCommandWithTimeout) {
+      throw new Error(
+        "OpenClaw runtime.system.runCommandWithTimeout is unavailable for this plugin call",
+      );
+    }
+
+    return runCommandWithTimeout(...args);
+  };
+
   return {
-    runCommand: api.runtime.system.runCommandWithTimeout,
+    runCommand,
     runtime: api.runtime,
     pluginConfig: api.pluginConfig as Record<string, unknown> | undefined,
     config: api.config,
