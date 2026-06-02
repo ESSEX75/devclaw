@@ -8,12 +8,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { RunCommand } from "../context.js";
 import { getAllDefaultModels } from "../roles/index.js";
-import { migrateChannelBinding } from "./binding-manager.js";
+import { ensureChannelBinding, migrateChannelBinding } from "./binding-manager.js";
 import { createAgent, resolveWorkspacePath } from "./agent.js";
 import { writePluginConfig } from "./config.js";
-import { scaffoldWorkspace } from "./workspace.js";
+import { scaffoldWorkspace, writeAllDefaults } from "./workspace.js";
 import { DATA_DIR } from "./migrate-layout.js";
 import type { ExecutionMode } from "../workflow/index.js";
 
@@ -24,9 +23,13 @@ export type SetupOpts = {
   runtime: PluginRuntime;
   /** Create a new agent with this name. Mutually exclusive with agentId. */
   newAgentName?: string;
-  /** Channel binding for new agent. Only used when newAgentName is set. */
+  /** Channel binding for the selected or newly-created agent. */
   channelBinding?: "telegram" | "whatsapp" | null;
-  /** Migrate channel binding from this agent ID. Only used when newAgentName and channelBinding are set. */
+  /** Optional account id for channel-wide bindings in multi-account channel setups. */
+  channelAccountId?: string;
+  /** Optional peer id for group/topic-scoped bindings, e.g. "-100123:topic:331". */
+  channelPeerId?: string;
+  /** Migrate channel-wide binding from this agent ID to the selected or newly-created agent. */
   migrateFrom?: string;
   /** Use an existing agent by ID. Mutually exclusive with newAgentName. */
   agentId?: string;
@@ -34,10 +37,10 @@ export type SetupOpts = {
   workspacePath?: string;
   /** Model overrides per role.level. Missing levels use defaults. */
   models?: Record<string, Partial<Record<string, string>>>;
+  /** Explicitly write packaged defaults into the workspace. Existing files are preserved. */
+  ejectDefaults?: boolean;
   /** Plugin-level project execution mode: parallel or sequential. Default: parallel. */
   projectExecution?: ExecutionMode;
-  /** Injected runCommand for dependency injection. */
-  runCommand?: RunCommand;
 };
 
 export type SetupResult = {
@@ -51,6 +54,10 @@ export type SetupResult = {
     from: string;
     channel: "telegram" | "whatsapp";
   };
+  channelBinding?: "telegram" | "whatsapp" | null;
+  channelAccountId?: string;
+  channelPeerId?: string;
+  defaultsEjected?: boolean;
 };
 
 /**
@@ -71,11 +78,26 @@ export async function runSetup(opts: SetupOpts): Promise<SetupResult> {
 
   const defaultWorkspacePath = getDefaultWorkspacePath(opts.runtime);
   const filesWritten = await scaffoldWorkspace(workspacePath, defaultWorkspacePath);
+  if (opts.ejectDefaults) {
+    filesWritten.push(...await writeAllDefaults(workspacePath, false));
+  }
 
   const models = buildModelConfig(opts.models);
   await writeModelsToWorkflow(workspacePath, models);
 
-  return { agentId, agentCreated, workspacePath, models, filesWritten, warnings, bindingMigrated };
+  return {
+    agentId,
+    agentCreated,
+    workspacePath,
+    models,
+    filesWritten: [...new Set(filesWritten)],
+    warnings,
+    bindingMigrated,
+    channelBinding: opts.channelBinding ?? null,
+    channelAccountId: opts.channelAccountId,
+    channelPeerId: opts.channelPeerId,
+    defaultsEjected: opts.ejectDefaults === true,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -92,18 +114,32 @@ async function resolveOrCreateAgent(
   bindingMigrated?: SetupResult["bindingMigrated"];
 }> {
   if (opts.newAgentName) {
-    if (!opts.runCommand) throw new Error("runCommand is required when creating a new agent");
-    const { agentId, workspacePath } = await createAgent(opts.runtime, opts.newAgentName, opts.runCommand, opts.channelBinding);
+    const { agentId, workspacePath } = await createAgent(
+      opts.runtime,
+      opts.newAgentName,
+    );
+    if (opts.channelBinding && (!opts.migrateFrom || opts.channelPeerId)) {
+      await ensureChannelBinding(opts.runtime, opts.channelBinding, agentId, opts.channelAccountId, opts.channelPeerId);
+    }
     const bindingMigrated = await tryMigrateBinding(opts, agentId, warnings);
     return { agentId, workspacePath, agentCreated: true, bindingMigrated };
   }
 
   if (opts.agentId) {
     const workspacePath = opts.workspacePath ?? resolveWorkspacePath(opts.runtime, opts.agentId);
-    return { agentId: opts.agentId, workspacePath, agentCreated: false };
+    let bindingMigrated: SetupResult["bindingMigrated"];
+    if (opts.channelBinding && opts.migrateFrom && !opts.channelPeerId) {
+      bindingMigrated = await tryMigrateBinding(opts, opts.agentId, warnings);
+    } else if (opts.channelBinding) {
+      await ensureChannelBinding(opts.runtime, opts.channelBinding, opts.agentId, opts.channelAccountId, opts.channelPeerId);
+    }
+    return { agentId: opts.agentId, workspacePath, agentCreated: false, bindingMigrated };
   }
 
   if (opts.workspacePath) {
+    if (opts.channelBinding) {
+      throw new Error("Channel binding requires an agent target. Use --agent or --new-agent, not --workspace.");
+    }
     return { agentId: "unknown", workspacePath: opts.workspacePath, agentCreated: false };
   }
 
@@ -116,8 +152,18 @@ async function tryMigrateBinding(
   warnings: string[],
 ): Promise<SetupResult["bindingMigrated"]> {
   if (!opts.migrateFrom || !opts.channelBinding) return undefined;
+  if (opts.channelPeerId) {
+    warnings.push("Skipping migrateFrom: migration is only supported for channel-wide bindings, not peer-scoped bindings.");
+    return undefined;
+  }
   try {
-    await migrateChannelBinding(opts.runtime, opts.channelBinding, opts.migrateFrom, agentId);
+    await migrateChannelBinding(
+      opts.runtime,
+      opts.channelBinding,
+      opts.migrateFrom,
+      agentId,
+      opts.channelAccountId,
+    );
     return { from: opts.migrateFrom, channel: opts.channelBinding };
   } catch (err) {
     warnings.push(`Failed to migrate binding from "${opts.migrateFrom}": ${(err as Error).message}`);

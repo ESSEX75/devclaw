@@ -7,6 +7,11 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { runSetup, type SetupOpts } from "../../setup/index.js";
+import {
+  ensureRequiredOpenClawScopes,
+  isScopeApprovalRejectedError,
+  isScopeApprovalRequiredError,
+} from "../../setup/scopes.js";
 import { writeAllDefaults } from "../../setup/workspace.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { ExecutionMode } from "../../workflow/index.js";
@@ -27,7 +32,15 @@ export function createSetupTool(ctx: PluginContext) {
         channelBinding: {
           type: "string",
           enum: ["telegram", "whatsapp"],
-          description: "Channel to bind (optional, with newAgentName only).",
+          description: "Channel to bind to the selected or newly-created agent.",
+        },
+        channelAccountId: {
+          type: "string",
+          description: "Optional channel account id for channel-wide bindings, e.g. Telegram account 'dev'.",
+        },
+        channelPeerId: {
+          type: "string",
+          description: "Optional group/topic peer id for exact routing bindings, e.g. '-1003911014709:topic:331'.",
         },
         migrateFrom: {
           type: "string",
@@ -84,20 +97,52 @@ export function createSetupTool(ctx: PluginContext) {
         });
       }
 
-      const result = await runSetup({
-        runtime: ctx.runtime,
-        newAgentName: params.newAgentName as string | undefined,
-        channelBinding:
-          (params.channelBinding as "telegram" | "whatsapp") ?? null,
-        migrateFrom: params.migrateFrom as string | undefined,
-        agentId: params.newAgentName ? undefined : toolCtx.agentId,
-        workspacePath: params.newAgentName ? undefined : toolCtx.workspaceDir,
-        models: params.models as SetupOpts["models"],
-        projectExecution: params.projectExecution as
-          | ExecutionMode
-          | undefined,
-        runCommand: ctx.runCommand,
-      });
+      let scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>>;
+      let result: Awaited<ReturnType<typeof runSetup>>;
+      try {
+        scopePreflight = await ensureRequiredOpenClawScopes(ctx.runCommand);
+        result = await runSetup({
+          runtime: ctx.runtime,
+          newAgentName: params.newAgentName as string | undefined,
+          channelBinding:
+            (params.channelBinding as "telegram" | "whatsapp") ?? null,
+          channelAccountId:
+            typeof params.channelAccountId === "string" ? params.channelAccountId : undefined,
+          channelPeerId:
+            typeof params.channelPeerId === "string" ? params.channelPeerId : undefined,
+          migrateFrom: params.migrateFrom as string | undefined,
+          agentId: params.newAgentName ? undefined : toolCtx.agentId,
+          workspacePath: params.newAgentName ? undefined : toolCtx.workspaceDir,
+          models: params.models as SetupOpts["models"],
+          projectExecution: params.projectExecution as
+            | ExecutionMode
+            | undefined,
+        });
+      } catch (err) {
+        if (isScopeApprovalRequiredError(err)) {
+          return jsonResult({
+            success: false,
+            status: "PENDING_APPROVAL",
+            requiredScopes: err.requiredScopes,
+            missingScopes: err.missingScopes,
+            requestId: err.requestId,
+            summary:
+              `OpenClaw approval is required before DevClaw setup can continue.\n` +
+              `Approve request ${err.requestId} in OpenClaw UI or CLI, then call setup again.`,
+          });
+        }
+
+        if (isScopeApprovalRejectedError(err)) {
+          return jsonResult({
+            success: false,
+            status: err.status.toUpperCase(),
+            requestId: err.requestId,
+            summary: err.message,
+          });
+        }
+
+        throw err;
+      }
 
       const lines = [
         result.agentCreated
@@ -121,11 +166,23 @@ export function createSetupTool(ctx: PluginContext) {
 
       lines.push("Files:", ...result.filesWritten.map((f) => `  ${f}`));
 
+      if (scopePreflight.status === "approved") {
+        lines.push("", "OpenClaw scopes: approved");
+      }
+      if (scopePreflight.warning) {
+        lines.push("", "OpenClaw scopes warning:", `  ${scopePreflight.warning}`);
+      }
       if (result.warnings.length > 0)
         lines.push("", "Warnings:", ...result.warnings.map((w) => `  ${w}`));
       lines.push(
         "",
-        "Next: register a project, then create issues and pick them up.",
+        "Done!",
+        "",
+        "Next steps are messages/actions, not shell menu choices:",
+        "  - Restart the OpenClaw gateway so the new bot/chat binding becomes active.",
+        "  - Add the bot to the selected Telegram/WhatsApp chat.",
+        '  - In that group, send: "Register project <name> at <repo> with base branch <branch>".',
+        "  - Create the first issue and ask DevClaw to pick it up.",
       );
 
       return jsonResult({
