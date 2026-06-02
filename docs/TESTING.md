@@ -59,7 +59,7 @@ import { createTestHarness } from "../testing/index.js";
 
 const h = await createTestHarness({
   projectName: "my-project",
-  groupId: "-1234567890",
+  channelId: "-1234567890",
   workflow: DEFAULT_WORKFLOW,
   workers: {
     developer: { active: true, issueId: "42", level: "medior" },
@@ -174,12 +174,15 @@ describe("pipeline completion", () => {
 
     const result = await executeCompletion({
       workspaceDir: h.workspaceDir,
-      groupId: h.groupId,
-      project: h.project,
-      workflow: h.workflow,
-      provider: h.provider,
+      projectSlug: h.project.slug,
       role: "developer",
       result: "done",
+      issueId: 42,
+      provider: h.provider,
+      repoPath: h.project.repo,
+      projectName: h.project.name,
+      channels: h.project.channels,
+      workflow: h.workflow,
     });
 
     assert.strictEqual(result.rule.to, "To Review");

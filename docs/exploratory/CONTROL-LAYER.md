@@ -60,11 +60,11 @@ JSON Schema constraints on tool parameters. The LLM framework **rejects the call
 |---|---|---|
 | `work_finish` | `role` must be one of `["developer","tester","architect","reviewer"]` | `enum` |
 | `work_finish` | `result` must be one of `["done","pass","fail","refine","blocked","approve","reject"]` | `enum` |
-| `task_create` | `label` must be a valid workflow state label | `enum` |
+| `task_create` | `channelId` and `title` are required | `required` |
 | `research_task` | `complexity` must be `"simple"`, `"medium"`, or `"complex"` | `enum` |
 | `task_comment` | `authorRole` must be a known role or `"orchestrator"` | `enum` |
 | `task_set_level` | `level` must be a valid role level | `enum` |
-| All tools | `projectSlug` is required | `required` |
+| Project-scoped tools | `channelId` is required so the project can be resolved from the current chat/channel | `required` |
 
 ### Soft instructions in schemas
 

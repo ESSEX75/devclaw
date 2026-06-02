@@ -287,7 +287,7 @@ Before completing, the tester MUST create a review comment using `task_comment`:
 
 ```javascript
 task_comment({
-  projectGroupId: "<group-id>",
+  channelId: "<channel-id>",
   issueId: <issue-number>,
   body: "## Test Review\n\n**Tested:**\n- [List what you tested]\n\n**Results:**\n- [Pass/fail details]\n\n**Environment:**\n- [Test environment details]",
   authorRole: "tester"
@@ -300,8 +300,8 @@ After posting the comment, call `work_finish`:
 
 ```javascript
 work_finish({
+  channelId: "<channel-id>",
   role: "tester",
-  projectGroupId: "<group-id>",
   result: "pass",  // or "fail", "refine", "blocked"
   summary: "Brief summary of review outcome"
 })

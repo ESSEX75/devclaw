@@ -24,7 +24,7 @@ The `workflow.yaml` file configures roles, workflow states, and timeouts. Place 
 
 ### Role Configuration
 
-Override which LLM model powers each level, customize levels, or disable roles entirely:
+Override which LLM model powers each level, customize levels, tune per-level concurrency, or disable roles entirely:
 
 ```yaml
 roles:
@@ -32,7 +32,9 @@ roles:
     models:
       junior: anthropic/claude-haiku-4-5
       medior: anthropic/claude-sonnet-4-5
-      senior: anthropic/claude-opus-4-6
+      senior:
+        model: anthropic/claude-opus-4-6
+        maxWorkers: 1
   tester:
     models:
       junior: anthropic/claude-haiku-4-5
@@ -52,9 +54,11 @@ roles:
 |---|---|---|
 | `levels` | string[] | Available levels for this role |
 | `defaultLevel` | string | Default level when not specified |
-| `models` | Record<string, string> | Model ID per level |
+| `models` | Record<string, string \| object> | Model ID per level, or `{ model, maxWorkers }` for per-level concurrency |
 | `emoji` | Record<string, string> | Emoji per level for announcements |
 | `completionResults` | string[] | Valid completion results |
+
+Per-level worker capacity is resolved from `roles.<role>.models.<level>.maxWorkers`, then `workflow.maxWorkersPerLevel`, then the built-in default. The legacy role-level `maxWorkers` field is kept only for backward compatibility and is ignored by the resolver.
 
 **Default models:**
 
@@ -84,6 +88,16 @@ roles:
 
 The workflow section defines the state machine for issue lifecycle — states, transitions, review policy, and the optional test phase.
 
+The default workflow also sets:
+
+```yaml
+workflow:
+  maxWorkersPerLevel: 2
+  roleExecution: parallel
+```
+
+`maxWorkersPerLevel` creates that many slots for each level of each enabled role. With the default developer levels (`junior`, `medior`, `senior`) and `maxWorkersPerLevel: 2`, a project can have up to six developer slots, subject to queue state and `roleExecution`.
+
 See **[Workflow Reference](WORKFLOW.md)** for the full state machine documentation, including state types, built-in actions, review policy options, and how to enable the test phase.
 
 ### Timeouts
@@ -104,6 +118,8 @@ timeouts:
 | `sessionPatchMs` | 30000 | Timeout for session creation (ms) |
 | `dispatchMs` | 600000 | Timeout for task dispatch (ms) |
 | `staleWorkerHours` | 2 | Hours before a worker is considered stale |
+| `sessionContextBudget` | 0.6 | Clear and recreate a worker session when it exceeds this fraction of the context window |
+| `stallTimeoutMinutes` | 15 | Minutes of session inactivity before stall detection/nudging starts |
 
 ---
 
@@ -177,7 +193,6 @@ Control which lifecycle events send notifications:
       "devclaw": {
         "config": {
           "notifications": {
-            "heartbeatDm": true,
             "workerStart": true,
             "workerComplete": true
           }
@@ -190,7 +205,6 @@ Control which lifecycle events send notifications:
 
 | Setting | Default | Description |
 |---|---|---|
-| `heartbeatDm` | `true` | Send heartbeat summary to orchestrator DM |
 | `workerStart` | `true` | Announce when a worker picks up a task |
 | `workerComplete` | `true` | Announce when a worker finishes a task |
 
@@ -214,7 +228,7 @@ Setting `linkPreview: false` on the Telegram channel config causes OpenClaw to p
 
 ### Agent Tool Permissions
 
-Restrict DevClaw tools to your orchestrator agent:
+Restrict DevClaw tools to your orchestrator agent. Setup writes these tools to `tools.alsoAllow`, preserves existing `alsoAllow` entries, and denies direct session-control tools because the plugin owns worker session lifecycle:
 
 ```json
 {
@@ -223,7 +237,7 @@ Restrict DevClaw tools to your orchestrator agent:
       {
         "id": "my-orchestrator",
         "tools": {
-          "allow": [
+          "alsoAllow": [
             "task_start",
             "work_finish",
             "task_create",
@@ -247,6 +261,10 @@ Restrict DevClaw tools to your orchestrator agent:
             "research_task",
             "workflow_guide",
             "config"
+          ],
+          "deny": [
+            "sessions_spawn",
+            "sessions_send"
           ]
         }
       }
@@ -259,56 +277,64 @@ Restrict DevClaw tools to your orchestrator agent:
 
 ## Project State (`projects.json`)
 
-All project state lives in `<workspace>/devclaw/projects.json`, keyed by group ID.
+All project state lives in `<workspace>/devclaw/projects.json`, keyed by project slug.
 
-**Source:** [`lib/projects/index.ts`](../lib/projects/index.ts)
+**Source:** [`lib/projects/types.ts`](../lib/projects/types.ts), [`lib/projects/slots.ts`](../lib/projects/slots.ts)
 
 ### Schema
 
 ```json
 {
   "projects": {
-    "<groupId>": {
+    "my-webapp": {
+      "slug": "my-webapp",
       "name": "my-webapp",
       "repo": "~/git/my-webapp",
+      "repoRemote": "git@github.com:org/my-webapp.git",
       "groupName": "Dev - My Webapp",
       "baseBranch": "development",
       "deployBranch": "development",
       "deployUrl": "https://my-webapp.example.com",
-      "channel": "telegram",
       "provider": "github",
-      "roleExecution": "parallel",
+      "channels": [
+        {
+          "channelId": "-1001234567890",
+          "channel": "telegram",
+          "name": "primary",
+          "events": ["*"],
+          "accountId": "dev",
+          "threadId": "331"
+        }
+      ],
       "workers": {
         "developer": {
-          "active": false,
-          "issueId": null,
-          "startTime": null,
-          "level": null,
-          "sessions": {
-            "junior": null,
-            "medior": "agent:orchestrator:subagent:my-webapp-developer-medior",
-            "senior": null
+          "levels": {
+            "junior": [
+              {
+                "active": false,
+                "issueId": null,
+                "sessionKey": null,
+                "startTime": null
+              }
+            ],
+            "medior": [
+              {
+                "active": true,
+                "issueId": "42",
+                "sessionKey": "agent:orchestrator:subagent:my-webapp-developer-medior-0",
+                "startTime": "2026-06-01T12:00:00.000Z",
+                "previousLabel": "To Do",
+                "name": "Ada"
+              }
+            ],
+            "senior": []
           }
         },
         "tester": {
-          "active": false,
-          "issueId": null,
-          "startTime": null,
-          "level": null,
-          "sessions": {
-            "junior": null,
-            "medior": "agent:orchestrator:subagent:my-webapp-tester-medior",
-            "senior": null
-          }
-        },
-        "architect": {
-          "active": false,
-          "issueId": null,
-          "startTime": null,
-          "level": null,
-          "sessions": {
-            "junior": null,
-            "senior": null
+          "levels": {
+            "junior": [],
+            "medior": [],
+            "senior": []
           }
         }
       }
@@ -321,32 +347,58 @@ All project state lives in `<workspace>/devclaw/projects.json`, keyed by group I
 
 | Field | Type | Description |
 |---|---|---|
+| `slug` | string | Stable project key used in tool calls |
 | `name` | string | Short project name |
 | `repo` | string | Path to git repo (supports `~/` expansion) |
+| `repoRemote` | string | Optional detected git remote URL |
 | `groupName` | string | Group display name |
 | `baseBranch` | string | Base branch for development |
 | `deployBranch` | string | Branch that triggers deployment |
 | `deployUrl` | string | Deployment URL |
-| `channel` | string | Messaging channel (`"telegram"`, `"whatsapp"`, etc.) |
+| `channels` | Channel[] | Messaging endpoints linked to this project |
 | `provider` | `"github"` \| `"gitlab"` | Issue tracker provider (auto-detected, stored for reuse) |
-| `roleExecution` | `"parallel"` \| `"sequential"` | DEVELOPER/TESTER parallelism for this project |
 
-### Worker state fields
+`roleExecution` is resolved from `workflow.yaml` rather than stored on the project record.
 
-Each role in the `workers` record has a `WorkerState` object:
+### Channel fields
+
+Each project can have multiple linked channels:
 
 | Field | Type | Description |
 |---|---|---|
-| `active` | boolean | Whether this role has an active worker |
-| `issueId` | string \| null | Issue being worked on (as string) |
-| `startTime` | string \| null | ISO timestamp when worker became active |
-| `level` | string \| null | Current level (`junior`, `medior`, `senior`) |
-| `sessions` | Record<string, string \| null> | Per-level session keys |
+| `channelId` | string | Chat/group/channel ID |
+| `channel` | `"telegram"` \| `"whatsapp"` \| `"discord"` \| `"slack"` | Messaging provider |
+| `name` | string | Human-readable endpoint name (`primary`, `dev-chat`, etc.) |
+| `events` | string[] | Event filters. `["*"]` receives all project notifications |
+| `accountId` | string | Optional OpenClaw channel account ID |
+| `threadId` | string | Optional thread/topic ID for forum-style channels |
+
+### Worker state fields
+
+Each role in the `workers` record has a `RoleWorkerState` object. It is grouped by level, and each level contains an array of slots:
+
+| Field | Type | Description |
+|---|---|---|
+| `levels` | Record<string, SlotState[]> | Slots grouped by level (`junior`, `medior`, `senior`, etc.) |
+
+Each slot has:
+
+| Field | Type | Description |
+|---|---|---|
+| `active` | boolean | Whether this slot is running a task |
+| `issueId` | string \| null | Issue being worked on |
+| `sessionKey` | string \| null | Reusable OpenClaw session key for this slot |
+| `startTime` | string \| null | ISO timestamp when the slot became active |
+| `previousLabel` | string \| null | Queue label to restore if the worker is healed/requeued |
+| `name` | string | Optional deterministic display name for this slot |
+| `lastIssueId` | string \| null | Previous issue preserved after deactivation for feedback-cycle detection |
 
 ### Key design decisions
 
-- **Session-per-level** — each level gets its own worker session, accumulating context independently. Level selection maps directly to a session key.
-- **Sessions preserved on completion** — when a worker completes a task, the sessions map is preserved (only `active`, `issueId`, and `startTime` are cleared). This enables session reuse.
+- **Project-first state** — projects are keyed by slug and can be linked to multiple channels.
+- **Per-level slots** — each level owns an array of slots. Capacity is configured through `workflow.maxWorkersPerLevel` and per-model `maxWorkers`.
+- **Session-per-slot** — each slot preserves its own session key, accumulating context independently. Level selection plus slot index maps directly to a session key.
+- **Sessions preserved on completion** — when a worker completes a task, `sessionKey` is preserved while `active`, `issueId`, `startTime`, and `previousLabel` are cleared. This enables session reuse.
 - **Atomic writes** — all writes go through temp-file-then-rename to prevent corruption. File locking prevents concurrent read-modify-write races.
 - **Sessions persist indefinitely** — no auto-cleanup. The `health` tool handles manual cleanup.
 - **Dynamic workers** — the `workers` record is keyed by role ID (e.g., `developer`, `tester`, `architect`). New roles are created automatically when dispatched.

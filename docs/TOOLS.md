@@ -14,7 +14,7 @@ Advance an issue to the next queue. State-agnostic — works from any HOLD or QU
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | Yes | Project slug (e.g. 'my-webapp') |
+| `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 | `issueId` | number | Yes | Issue ID to advance |
 | `level` | string | No | Level hint (`junior`, `medior`, `senior`). Applied as a role:level label. |
 
@@ -41,11 +41,12 @@ Complete a task with a result. Called by workers (DEVELOPER/TESTER/ARCHITECT sub
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
+| `channelId` | string | Yes | Current chat/group ID. The active worker is resolved from this channel's project. |
 | `role` | `"developer"` \| `"tester"` \| `"architect"` \| `"reviewer"` | Yes | Worker role |
 | `result` | string | Yes | Completion result (see table below) |
-| `projectSlug` | string | Yes | Project slug (e.g. 'my-webapp') |
 | `summary` | string | No | Brief summary for the announcement |
 | `prUrl` | string | No | PR/MR URL (auto-detected if omitted) |
+| `createdTasks` | array | No | Tasks created during the work session, mainly for architect research completion |
 
 **Valid results by role:**
 
@@ -66,9 +67,9 @@ Complete a task with a result. Called by workers (DEVELOPER/TESTER/ARCHITECT sub
 **What it does atomically:**
 
 1. Validates role:result combination
-2. Resolves project and active worker
+2. Resolves project from `channelId` and finds the active slot for the role
 3. Executes completion via pipeline service (label transition + side effects)
-4. Deactivates worker (sessions map preserved for reuse)
+4. Deactivates the slot (`sessionKey` preserved for reuse)
 5. Sends notification
 6. Ticks queue to fill free worker slots
 7. Writes audit log
@@ -89,10 +90,9 @@ Create a new issue in the project's issue tracker.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | Yes | Project slug (e.g. 'my-webapp') |
+| `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 | `title` | string | Yes | Issue title |
 | `description` | string | No | Full issue body (markdown) |
-| `label` | StateLabel | No | State label. Defaults to `"Planning"`. |
 | `assignees` | string[] | No | GitHub/GitLab usernames to assign |
 | `pickup` | boolean | No | If true, immediately pick up for DEVELOPER after creation |
 
@@ -116,7 +116,7 @@ Set the developer level hint on a HOLD-state issue (Planning, Refining).
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | Yes | Project slug (e.g. 'my-webapp') |
+| `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 | `issueId` | number | Yes | Issue ID to update |
 | `level` | string | Yes | The role:level hint (e.g. 'senior', 'junior') |
 | `reason` | string | No | Audit log reason for the change |
@@ -140,7 +140,7 @@ Add a comment to an issue for feedback, notes, or discussion.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | Yes | Project slug (e.g. 'my-webapp') |
+| `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 | `issueId` | number | Yes | Issue ID to comment on |
 | `body` | string | Yes | Comment body (markdown) |
 | `authorRole` | `"developer"` \| `"tester"` \| `"architect"` \| `"reviewer"` \| `"orchestrator"` | No | Attribution role prefix |
@@ -163,7 +163,7 @@ Update issue title and/or description. Only allowed when the issue is in the ini
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | Yes | Project slug |
+| `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 | `issueId` | number | Yes | Issue ID to edit |
 | `title` | string | No | New title for the issue |
 | `body` | string | No | New body/description for the issue |
@@ -187,7 +187,6 @@ Claim issue ownership for this instance. Adds an `owner:{instanceName}` label so
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `channelId` | string | Yes | Current chat/group ID |
-| `projectSlug` | string | No | Project slug (resolved from channel if omitted) |
 | `issueId` | number | No | Specific issue to claim. Omit to claim all unclaimed queued issues. |
 | `force` | boolean | No | Transfer ownership from another instance. Default: `false`. |
 
@@ -206,20 +205,18 @@ Full project dashboard showing all non-terminal state types with issue details.
 
 **Source:** [`lib/tools/tasks/tasks-status.ts`](../lib/tools/tasks/tasks-status.ts)
 
-**Context:** Auto-filters to project in group chats. Shows all projects in DMs.
-
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | No | Filter to specific project. Omit for all. |
+| `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 
 **Returns per project:**
 
 - **hold** — Waiting for input (Planning, Refining): issue IDs, titles, URLs
 - **active** — Work in progress (Doing, Reviewing, etc.): issue IDs, titles, URLs
 - **queue** — Queued for work (To Do, To Improve, To Review): issue IDs, titles, URLs
-- Worker state per role: active/idle, current issue, level, start time
+- Worker slot state per role and level: active/idle, issue, start time
 - Active workflow summary: review policy, test phase status, state flow
 - Summary totals: `totalHold`, `totalActive`, `totalQueued`
 
@@ -263,7 +260,7 @@ Browse and search issues by workflow state. Returns individual issues grouped by
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | Yes | Project slug |
+| `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 | `stateType` | `"queue"` \| `"active"` \| `"hold"` \| `"terminal"` \| `"all"` | No | Filter by state type. Default: all non-terminal. |
 | `label` | string | No | Specific state label (e.g. `"Planning"`, `"Done"`). Overrides `stateType`. |
 | `search` | string | No | Text search in issue titles (case-insensitive). |
@@ -277,10 +274,10 @@ Browse and search issues by workflow state. Returns individual issues grouped by
 
 **Use cases:**
 
-- Browse all issues in Planning: `{ projectSlug: "my-app", label: "Planning" }`
-- Find blocked work: `{ projectSlug: "my-app", stateType: "hold" }`
-- Search across queues: `{ projectSlug: "my-app", stateType: "queue", search: "auth" }`
-- View completed work: `{ projectSlug: "my-app", stateType: "terminal" }`
+- Browse all issues in Planning: `{ channelId: "-100123", label: "Planning" }`
+- Find blocked work: `{ channelId: "-100123", stateType: "hold" }`
+- Search across queues: `{ channelId: "-100123", stateType: "queue", search: "auth" }`
+- View completed work: `{ channelId: "-100123", stateType: "terminal" }`
 
 **Note:** When browsing terminal states (Done), the tool queries closed issues from the provider.
 
@@ -292,13 +289,11 @@ Worker health scan with optional auto-fix.
 
 **Source:** [`lib/tools/admin/health.ts`](../lib/tools/admin/health.ts)
 
-**Context:** Auto-filters to project in group chats.
-
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | No | Project slug. Omit for all. |
+| `channelId` | string | No | Channel ID identifying one project. Omit to scan all projects. |
 | `fix` | boolean | No | Apply fixes for detected issues. Default: `false` (read-only). |
 | `activeSessions` | string[] | No | Active session IDs for zombie detection. |
 
@@ -327,22 +322,23 @@ One-time project setup. Creates state labels, scaffolds project directory with o
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectGroupId` | string | No | Auto-detected from current group if omitted |
+| `channelId` | string | Yes | Chat/group/channel ID where this project is managed |
 | `name` | string | Yes | Short project name (e.g. `my-webapp`) |
 | `repo` | string | Yes | Path to git repo (e.g. `~/git/my-project`) |
+| `channel` | string | No | Channel type. Defaults to `telegram` |
+| `threadId` | string | No | Optional thread/topic ID for forum-style channels |
 | `groupName` | string | No | Display name. Defaults to `Project: {name}`. |
 | `baseBranch` | string | Yes | Base branch for development |
 | `deployBranch` | string | No | Deploy branch. Defaults to baseBranch. |
 | `deployUrl` | string | No | Deployment URL |
-| `roleExecution` | `"parallel"` \| `"sequential"` | No | DEVELOPER/TESTER parallelism. Default: `"parallel"`. |
 
 **What it does atomically:**
 
-1. Validates project not already registered
+1. Generates the project slug from `name`
 2. Resolves repo path, auto-detects GitHub/GitLab from git remote
 3. Verifies provider health (CLI installed and authenticated)
-4. Creates all state labels (idempotent — safe to run again)
-5. Adds project entry to `projects.json` with empty worker state for all registered roles
+4. Creates state labels, role:level labels, and step routing labels (idempotent)
+5. Creates a project entry or adds the channel to an existing project
 6. Scaffolds project directory with `prompts/` folder and `README.md` explaining prompt and workflow overrides
 7. Writes audit log
 
@@ -359,7 +355,9 @@ Agent + workspace initialization.
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `newAgentName` | string | No | Create a new agent. Omit to configure current workspace. |
-| `channelBinding` | `"telegram"` \| `"whatsapp"` | No | Channel to bind (with `newAgentName` only) |
+| `channelBinding` | `"telegram"` \| `"whatsapp"` | No | Channel to bind to the selected or newly-created agent |
+| `channelAccountId` | string | No | Existing OpenClaw channel account id for the binding, e.g. `default` or `dev` |
+| `channelPeerId` | string | No | Exact group/topic peer id for the binding, e.g. `-1003911014709:topic:331` |
 | `migrateFrom` | string | No | Agent ID to migrate channel binding from |
 | `models` | object | No | Model overrides per role and level (see [Configuration](CONFIGURATION.md#role-configuration)) |
 | `projectExecution` | `"parallel"` \| `"sequential"` | No | Project execution mode |
@@ -367,8 +365,8 @@ Agent + workspace initialization.
 **What it does:**
 
 1. Creates a new agent or configures existing workspace
-2. Optionally binds messaging channel (Telegram/WhatsApp)
-3. Optionally migrates channel binding from another agent
+2. Optionally creates an exact messaging binding (Telegram/WhatsApp account, group, or topic)
+3. Optionally migrates channel-wide binding from another agent
 4. Writes workspace files: AGENTS.md, HEARTBEAT.md, IDENTITY.md, TOOLS.md, SOUL.md, `devclaw/projects.json`, `devclaw/workflow.yaml`
 5. Scaffolds default prompt files for all roles
 
@@ -422,7 +420,7 @@ Spawn an architect for a design investigation. Creates a `To Research` issue wit
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | Yes | Project slug (e.g. 'my-webapp') |
+| `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 | `title` | string | Yes | Design task title |
 | `description` | string | Yes | Detailed background context for the architect |
 | `focusAreas` | string[] | No | Specific areas to investigate |
@@ -487,7 +485,7 @@ Sync GitHub/GitLab labels with the current workflow config. Creates any missing 
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `projectSlug` | string | No | Project slug to sync. Omit to sync all registered projects. |
+| `channelId` | string | No | Channel ID identifying one project. Omit to sync all registered projects. |
 
 **What it does:**
 

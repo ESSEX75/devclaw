@@ -37,7 +37,7 @@ There are three ways to set up DevClaw:
 
 Call the `onboard` tool from any agent that has the DevClaw plugin loaded. The agent walks you through configuration step by step — asking about:
 - Agent selection (current or create new)
-- Channel binding (telegram/whatsapp/none) — for new agents only
+- Channel endpoint binding (for example `telegram/dev`, `telegram/dev/-100123`, `telegram/dev/-100123:topic:331`, or none)
 - Model levels (accept defaults or customize)
 - Optional project registration
 
@@ -52,7 +52,8 @@ openclaw devclaw setup
 The setup wizard walks you through:
 
 1. **Agent** — Create a new orchestrator agent or configure an existing one
-2. **Developer team** — Choose which LLM model powers each level:
+2. **Channel** — Create a binding for an existing OpenClaw channel account, group, or topic; or skip channel setup
+3. **Developer team** — Choose which LLM model powers each level:
    - **Developer junior** (fast, cheap tasks) — default: `anthropic/claude-haiku-4-5`
    - **Developer medior** (standard tasks) — default: `anthropic/claude-sonnet-4-5`
    - **Developer senior** (complex tasks) — default: `anthropic/claude-opus-4-6`
@@ -61,17 +62,24 @@ The setup wizard walks you through:
    - **Tester senior** (thorough review) — default: `anthropic/claude-opus-4-6`
    - **Architect junior** (standard design) — default: `anthropic/claude-sonnet-4-5`
    - **Architect senior** (complex architecture) — default: `anthropic/claude-opus-4-6`
-3. **Workspace** — Writes AGENTS.md, HEARTBEAT.md, workflow.yaml, role templates, and initializes state
+4. **Workspace** — Writes AGENTS.md, HEARTBEAT.md, workflow.yaml, role templates, and initializes state
 
 Non-interactive mode:
 ```bash
 # Create new agent with default models
 openclaw devclaw setup --new-agent "My Dev Orchestrator"
 
+# Create new agent bound to a specific Telegram topic on the dev account
+openclaw devclaw setup --new-agent "Topic Agent" \
+  --channel-binding telegram \
+  --channel-account-id dev \
+  --channel-peer-id "-1003911014709:topic:331"
+
 # Configure existing agent with custom models
 openclaw devclaw setup --agent my-orchestrator \
-  --junior "anthropic/claude-haiku-4-5" \
-  --senior "anthropic/claude-opus-4-6"
+  --developer-junior "anthropic/claude-haiku-4-5" \
+  --developer-senior "anthropic/claude-opus-4-6" \
+  --tester-senior "anthropic/claude-opus-4-6"
 ```
 
 ### Option C: Tool call (agent-driven)
@@ -88,6 +96,8 @@ The tool returns step-by-step instructions that guide the agent through the setu
 setup({
   "newAgentName": "My Dev Orchestrator",
   "channelBinding": "telegram",
+  "channelAccountId": "dev",
+  "channelPeerId": "-1003911014709:topic:331",
   "models": {
     "developer": {
       "junior": "anthropic/claude-haiku-4-5",
@@ -100,9 +110,11 @@ setup({
 })
 ```
 
-## Step 3: Channel binding (optional, for new agents)
+## Step 3: Channel binding (optional)
 
-If you created a new agent during conversational onboarding and selected a channel binding (telegram/whatsapp), the agent is automatically bound. **Skip to step 4.**
+If you selected a channel binding during setup, the agent is automatically bound. **Skip to step 4.**
+
+Setup writes only `bindings[]`. OpenClaw channel accounts, bot tokens, group allowlists, and topic allowlists must already exist in OpenClaw config.
 
 **Smart Migration**: If an existing agent already has a channel-wide binding (e.g., the old orchestrator receives all telegram messages), the onboarding agent will:
 1. Detect the conflict
@@ -126,15 +138,16 @@ If you didn't bind a channel during setup:
 }
 ```
 
-For group-specific bindings:
+For group/topic-specific bindings, setup can now create the binding directly with `channelPeerId`. The resulting OpenClaw binding looks like:
 ```json
 {
   "agentId": "my-orchestrator",
   "match": {
     "channel": "telegram",
+    "accountId": "dev",
     "peer": {
       "kind": "group",
-      "id": "-1234567890"
+      "id": "-1003911014709:topic:331"
     }
   }
 }
@@ -164,36 +177,42 @@ The agent calls `project_register`, which atomically:
 ```json
 {
   "projects": {
-    "-1234567890": {
+    "my-project": {
+      "slug": "my-project",
       "name": "my-project",
       "repo": "~/git/my-project",
       "groupName": "Project: my-project",
       "baseBranch": "development",
       "deployBranch": "development",
-      "channel": "telegram",
       "provider": "github",
-      "roleExecution": "parallel",
+      "channels": [
+        {
+          "channelId": "-1234567890",
+          "channel": "telegram",
+          "name": "primary",
+          "events": ["*"]
+        }
+      ],
       "workers": {
         "developer": {
-          "active": false,
-          "issueId": null,
-          "startTime": null,
-          "level": null,
-          "sessions": { "junior": null, "medior": null, "senior": null }
+          "levels": {
+            "junior": [],
+            "medior": [],
+            "senior": []
+          }
         },
         "tester": {
-          "active": false,
-          "issueId": null,
-          "startTime": null,
-          "level": null,
-          "sessions": { "junior": null, "medior": null, "senior": null }
+          "levels": {
+            "junior": [],
+            "medior": [],
+            "senior": []
+          }
         },
         "architect": {
-          "active": false,
-          "issueId": null,
-          "startTime": null,
-          "level": null,
-          "sessions": { "junior": null, "senior": null }
+          "levels": {
+            "junior": [],
+            "senior": []
+          }
         }
       }
     }
@@ -201,7 +220,7 @@ The agent calls `project_register`, which atomically:
 }
 ```
 
-**Finding the Telegram group ID:** The group ID is the numeric ID of your Telegram supergroup (a negative number like `-1234567890`). When you call `project_register` from within the group, the ID is auto-detected from context.
+**Finding the Telegram group ID:** The group ID is the numeric ID of your Telegram supergroup (a negative number like `-1234567890`). It is stored as the project's `channelId`. When you call `project_register` from within the group, the ID is auto-detected from context.
 
 ## Step 5: Create your first issue
 

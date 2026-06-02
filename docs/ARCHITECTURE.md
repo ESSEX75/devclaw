@@ -2,7 +2,7 @@
 
 ## How it works
 
-One OpenClaw agent process serves multiple group chats — each group gives it a different project context. The orchestrator role, the workers, the task queue, and all state are fully isolated per group.
+One OpenClaw agent process can serve multiple project channels. Each project is registered once in `projects.json` under a stable project slug, and each project can have one or more linked chat/channel endpoints. The orchestrator role, workers, task queue, and state are isolated per project.
 
 ```mermaid
 graph TB
@@ -33,7 +33,7 @@ graph TB
     AGENT --- B_O
 ```
 
-Worker sessions are expensive to start — each new spawn reads the full codebase (~50K tokens). DevClaw maintains **separate sessions per level per role** ([session-per-level design](#session-per-level-design)). When a medior developer finishes task A and picks up task B on the same project, the accumulated context carries over — no re-reading the repo. The plugin handles all session dispatch internally via OpenClaw CLI; the orchestrator agent never calls `sessions_spawn` or `sessions_send`.
+Worker sessions are expensive to start — each new spawn reads the full codebase (~50K tokens). DevClaw maintains **separate sessions per role, level, and slot** ([session-per-slot design](#session-per-slot-design)). When a medior developer slot finishes task A and picks up task B on the same project, the accumulated context carries over — no re-reading the repo. The plugin handles all session dispatch internally via OpenClaw CLI; the orchestrator agent never calls `sessions_spawn` or `sessions_send`.
 
 ```mermaid
 sequenceDiagram
@@ -42,7 +42,7 @@ sequenceDiagram
     participant IT as Issue Tracker
     participant S as Worker Session
 
-    O->>DC: task_start({ issueId: 42, projectSlug: "my-app" })
+    O->>DC: task_start({ channelId: "-100123", issueId: 42 })
     DC->>IT: Advance label to queue (Planning → To Do)
     DC-->>O: { success: true, announcement: "..." }
     Note over DC: Heartbeat picks up on next tick
@@ -59,31 +59,35 @@ Understanding the OpenClaw model is key to understanding how DevClaw works:
 
 - **Agent** — A configured entity in `openclaw.json`. Has a workspace, model, identity files (SOUL.md, IDENTITY.md), and tool permissions. Persists across restarts.
 - **Session** — A runtime conversation instance. Each session has its own context window and conversation history, stored as a `.jsonl` transcript file.
-- **Sub-agent session** — A session created under the orchestrator agent for a specific worker role. NOT a separate agent — it's a child session running under the same agent, with its own isolated context. Format: `agent:<parent>:subagent:<project>-<role>-<level>`.
+- **Sub-agent session** — A session created under the orchestrator agent for a specific worker role/level/slot. NOT a separate agent — it's a child session running under the same agent, with its own isolated context. Format: `agent:<parent>:subagent:<project>-<role>-<level>-<slotIndex>`.
 
-### Session-per-level design
+### Session-per-slot design
 
-Each project maintains **separate sessions per developer level per role**. A project's DEVELOPER might have a junior session, a medior session, and a senior session — each accumulating its own codebase context over time.
+Each project maintains **separate sessions per role level and slot**. A project's DEVELOPER might have two junior slots, two medior slots, and two senior slots by default — each accumulating its own codebase context over time.
 
 ```
 Orchestrator Agent (configured in openclaw.json)
   └─ Main session (long-lived, handles all projects)
        │
        ├─ Project A
-       │    ├─ DEVELOPER sessions: { junior: <key>, medior: <key>, senior: null }
-       │    ├─ TESTER sessions:    { junior: null, medior: <key>, senior: null }
-       │    └─ ARCHITECT sessions: { junior: <key>, senior: null }
+       │    ├─ DEVELOPER levels:
+       │    │    junior[0], junior[1], medior[0], medior[1], senior[0], senior[1]
+       │    ├─ TESTER levels:
+       │    │    junior[0], junior[1], medior[0], medior[1], senior[0], senior[1]
+       │    └─ ARCHITECT levels:
+       │         junior[0], junior[1], senior[0], senior[1]
        │
        └─ Project B
-            ├─ DEVELOPER sessions: { junior: null, medior: <key>, senior: null }
-            └─ TESTER sessions:    { junior: null, medior: <key>, senior: null }
+            ├─ DEVELOPER levels: junior[], medior[], senior[]
+            └─ TESTER levels:    junior[], medior[], senior[]
 ```
 
-Why per-level instead of switching models on one session:
-- **No model switching overhead** — each session always uses the same model
-- **Accumulated context** — a junior session that's done 20 typo fixes knows the project well; a medior session that's done 5 features knows it differently
+Why per-slot instead of switching models on one session:
+- **No model switching overhead** — each slot session always uses the same model
+- **Parallelism without context mixing** — multiple tasks at the same level can run concurrently in separate slots
+- **Accumulated context** — a junior slot that's done 20 typo fixes knows the project well; a medior slot that's done 5 features knows it differently
 - **No cross-model confusion** — conversation history stays with the model that generated it
-- **Deterministic reuse** — level selection directly maps to a session key, no patching needed
+- **Deterministic reuse** — level selection plus slot index directly maps to a session key, no patching needed
 
 ### Plugin-controlled session lifecycle
 
@@ -246,7 +250,7 @@ sequenceDiagram
 
     Note over MS: Decides to pick up #42 for DEVELOPER as medior
 
-    MS->>DC: task_start({ issueId: 42, projectSlug: "my-app", level: "medior" })
+    MS->>DC: task_start({ channelId: "-100123", issueId: 42, level: "medior" })
     DC->>GL: advance label "Planning" → "To Do"
     DC-->>MS: { success: true, announcement: "📋 Advanced #42 to queue" }
 
@@ -255,19 +259,19 @@ sequenceDiagram
 
     Note over DC: Heartbeat picks up on next tick
     DC->>DC: resolve level "medior" → model ID
-    DC->>DC: lookup developer.sessions.medior → null (first time)
+    DC->>DC: find free developer.levels.medior slot with no sessionKey
     DC->>GL: transition label "To Do" → "Doing"
     DC->>GW: sessions.patch({ key: new-session-key, model: "anthropic/claude-sonnet-4-5" })
     DC->>CLI: openclaw gateway call agent --params { sessionKey, message }
     CLI->>DEV: creates session, delivers task
-    DC->>DC: store session key in projects.json + append audit.log
+    DC->>DC: store sessionKey in the selected slot + append audit.log
 
     Note over DEV: Works autonomously — reads code, writes code, creates PR
     Note over DEV: Calls work_finish when done
 
-    DEV->>DC: work_finish({ role: "developer", result: "done", ... })
+    DEV->>DC: work_finish({ channelId: "-100123", role: "developer", result: "done", ... })
     DC->>GL: transition label "Doing" → "To Review"
-    DC->>DC: deactivate worker (sessions preserved)
+    DC->>DC: deactivate slot (sessionKey preserved)
     DC-->>DEV: { announcement: "✅ DEVELOPER DONE #42" }
 
     MS->>TG: "✅ DEVELOPER DONE #42 — moved to review queue"
@@ -283,9 +287,9 @@ sequenceDiagram
     participant CLI as openclaw gateway call agent
     participant DEV as DEVELOPER Session<br/>(medior, existing)
 
-    MS->>DC: task_start({ issueId: 57, projectSlug: "my-app", level: "medior" })
+    MS->>DC: task_start({ channelId: "-100123", issueId: 57, level: "medior" })
     DC->>DC: resolve level "medior" → model ID
-    DC->>DC: lookup developer.sessions.medior → existing key!
+    DC->>DC: find free developer.levels.medior slot with existing sessionKey
     Note over DC: No sessions.patch needed — session already exists
     DC->>CLI: openclaw gateway call agent --params { sessionKey, message }
     CLI->>DEV: delivers task to existing session (has full codebase context)
@@ -322,7 +326,7 @@ sequenceDiagram
     participant PJ as projects.json
     participant AL as audit.log
 
-    A->>QS: tasks_status({ projectGroupId: "-123" })
+    A->>QS: tasks_status({ channelId: "-123" })
     QS->>PJ: readProjects()
     PJ-->>QS: { developer: idle, tester: idle }
     QS->>GL: list issues by label "To Do"
@@ -357,7 +361,7 @@ sequenceDiagram
     HB->>GL: getIssue(42)
     GL-->>HB: { title: "Add login page", labels: ["To Do"] }
     HB->>TIER: resolve "medior" → "anthropic/claude-sonnet-4-5"
-    HB->>PJ: lookup developer.sessions.medior
+    HB->>PJ: find free developer.levels.medior slot
     HB->>GL: transitionLabel(42, "To Do", "Doing")
     alt New session
         HB->>GW: sessions.patch({ key: new-key, model: "anthropic/claude-sonnet-4-5" })
@@ -369,7 +373,7 @@ sequenceDiagram
 
 **Writes:**
 - `Issue Tracker`: label "To Do" → "Doing"
-- `projects.json`: workers.developer.active=true, issueId="42", level="medior", sessions.medior=key
+- `projects.json`: selected developer medior slot active=true, issueId="42", sessionKey=key
 - `audit.log`: 2 entries (dispatch, model_selection)
 - `Session`: task message delivered to worker session via CLI
 
@@ -393,12 +397,12 @@ sequenceDiagram
     participant AL as audit.log
     participant REPO as Git Repo
 
-    DEV->>WF: work_finish({ role: "developer", result: "done", projectGroupId: "-123", summary: "Login page with OAuth" })
+    DEV->>WF: work_finish({ channelId: "-123", role: "developer", result: "done", summary: "Login page with OAuth" })
     WF->>PJ: readProjects()
-    PJ-->>WF: { developer: { active: true, issueId: "42" } }
+    PJ-->>WF: { developer: { levels: { medior: [{ active: true, issueId: "42" }] } } }
     WF->>REPO: git pull
-    WF->>PJ: deactivateWorker(-123, developer)
-    Note over PJ: active→false, issueId→null<br/>sessions map PRESERVED
+    WF->>PJ: deactivateWorker(projectSlug, developer, slot)
+    Note over PJ: active→false, issueId→null<br/>sessionKey PRESERVED
     WF->>GL: transitionLabel "Doing" → "To Review"
     WF->>AL: append { event: "work_finish", role: "developer", result: "done" }
 
@@ -409,7 +413,7 @@ sequenceDiagram
 
 **Writes:**
 - `Git repo`: pulled latest (has DEVELOPER's merged code)
-- `projects.json`: workers.developer.active=false, issueId=null (sessions map preserved for reuse)
+- `projects.json`: developer slot active=false, issueId=null (`sessionKey` preserved for reuse)
 - `Issue Tracker`: label "Doing" → "To Review"
 - `audit.log`: 1 entry (work_finish) + tick entries if workers dispatched
 
@@ -447,8 +451,8 @@ sequenceDiagram
     participant PJ as projects.json
     participant AL as audit.log
 
-    TST->>WF: work_finish({ role: "tester", result: "pass", projectGroupId: "-123" })
-    WF->>PJ: deactivateWorker(-123, tester)
+    TST->>WF: work_finish({ channelId: "-123", role: "tester", result: "pass" })
+    WF->>PJ: deactivateWorker(projectSlug, tester, slot)
     WF->>GL: transitionLabel(42, "Testing", "Done")
     WF->>GL: closeIssue(42)
     WF->>AL: append { event: "work_finish", role: "tester", result: "pass" }
@@ -465,8 +469,8 @@ sequenceDiagram
     participant PJ as projects.json
     participant AL as audit.log
 
-    TST->>WF: work_finish({ role: "tester", result: "fail", projectGroupId: "-123", summary: "OAuth redirect broken" })
-    WF->>PJ: deactivateWorker(-123, tester)
+    TST->>WF: work_finish({ channelId: "-123", role: "tester", result: "fail", summary: "OAuth redirect broken" })
+    WF->>PJ: deactivateWorker(projectSlug, tester, slot)
     WF->>GL: transitionLabel(42, "Testing", "To Improve")
     WF->>GL: reopenIssue(42)
     WF->>AL: append { event: "work_finish", role: "tester", result: "fail" }
@@ -591,24 +595,20 @@ Every piece of data and where it lives:
 ┌────────────────────────────────┐ ┌──────────────────────────────┐
 │ devclaw/projects.json          │ │ OpenClaw Gateway + CLI       │
 │                                │ │ (called by plugin, not agent)│
-│  Per project:                  │ │                              │
-│    workers:                    │ │  openclaw gateway call       │
-│      developer:                │ │    sessions.patch → create   │
-│        active, issueId, level  │ │    sessions.list  → health   │
-│        sessions:               │ │    sessions.delete → cleanup │
-│          junior: <key>         │ │                              │
-│          medior: <key>         │ │  openclaw gateway call agent │
-│          senior: <key>         │ │    --params { sessionKey,    │
-│      tester:                   │ │      message, agentId }      │
-│        active, issueId, level  │ │    → dispatches to session   │
-│        sessions:               │ │                              │
-│          junior: <key>         │ │                              │
-│          medior: <key>         │ │                              │
-│          senior: <key>         │ │                              │
-│      architect:                │ │                              │
-│        sessions:               │ │                              │
-│          junior: <key>         │ │                              │
-│          senior: <key>         │ │                              │
+│  Per project slug:             │ │                              │
+│    channels[]                  │ │  openclaw gateway call       │
+│    workers:                    │ │    sessions.patch → create   │
+│      developer.levels:         │ │    sessions.list  → health   │
+│        junior: [slot, slot]    │ │    sessions.delete → cleanup │
+│        medior: [slot, slot]    │ │                              │
+│        senior: [slot, slot]    │ │  openclaw gateway call agent │
+│      tester.levels:            │ │    --params { sessionKey,    │
+│        junior: [slot, slot]    │ │      message, agentId }      │
+│        medior: [slot, slot]    │ │    → dispatches to session   │
+│        senior: [slot, slot]    │ │                              │
+│      architect.levels:         │ │                              │
+│        junior: [slot, slot]    │ │                              │
+│        senior: [slot, slot]    │ │                              │
 └────────────────────────────────┘ └──────────────────────────────┘
         ↕ append-only
 ┌─────────────────────────────────────────────────────────────────┐
