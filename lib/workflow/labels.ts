@@ -4,6 +4,7 @@
 import type { WorkflowConfig, ReviewPolicy, TestPolicy } from "./types.js";
 import { ReviewPolicy as RP, TestPolicy as TP } from "./types.js";
 import { getLabelColors } from "./queries.js";
+import type { Channel } from "../projects/types.js";
 
 // ---------------------------------------------------------------------------
 // Step routing labels
@@ -44,8 +45,8 @@ export function getNotifyLabel(channel: string, nameOrIndex: string): string {
  */
 export function resolveNotifyChannel(
   issueLabels: string[],
-  channels: Array<{ channelId: string; channel: string; name?: string; accountId?: string }>,
-): { channelId: string; channel: string; accountId?: string } | undefined {
+  channels: Array<Omit<Channel, 'events'>>,
+): Omit<Channel, 'events' | 'name'> | undefined {
   const notifyLabel = issueLabels.find((l) => l.startsWith(NOTIFY_LABEL_PREFIX));
   if (notifyLabel) {
     const value = notifyLabel.slice(NOTIFY_LABEL_PREFIX.length);
@@ -153,4 +154,3 @@ export function getRoleLabels(
 export function getRoleLabelColor(role: string): string {
   return ROLE_LABEL_COLORS[role] ?? "#cccccc";
 }
-

@@ -30,6 +30,11 @@ export function createChannelUnlinkTool(_ctx: PluginContext) {
           type: "string",
           description: "Project name or slug to unlink the channel from",
         },
+        threadId: {
+          type: "string",
+          description:
+            "Optional thread/topic ID when the same channel has multiple project topics.",
+        },
         confirm: {
           type: "boolean",
           description: "Set to true to confirm the removal. Defaults to false (dry-run).",
@@ -40,6 +45,9 @@ export function createChannelUnlinkTool(_ctx: PluginContext) {
     async execute(_id: string, params: Record<string, unknown>) {
       const channelId = params.channelId as string;
       const projectRef = params.project as string;
+      const threadId = typeof params.threadId === "string" && params.threadId.trim()
+        ? params.threadId.trim()
+        : undefined;
       const confirm = params.confirm as boolean | undefined;
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
@@ -66,10 +74,11 @@ export function createChannelUnlinkTool(_ctx: PluginContext) {
       }
 
       // Find the channel
-      const idx = target.channels.findIndex((ch) => ch.channelId === channelId);
+      const idx = target.channels.findIndex((ch) => ch.channelId === channelId && ch.threadId === threadId);
       if (idx === -1) {
+        const threadNote = threadId ? ` thread ${threadId}` : "";
         throw new Error(
-          `Channel ${channelId} not found in project "${target.name}".`,
+          `Channel ${channelId}${threadNote} not found in project "${target.name}".`,
         );
       }
 
@@ -90,6 +99,7 @@ export function createChannelUnlinkTool(_ctx: PluginContext) {
           project: target.name,
           projectSlug: target.slug,
           channelId,
+          threadId,
           channelName: channel.name,
           channelType: channel.channel,
           remainingChannels: target.channels.length - 1,
@@ -108,6 +118,7 @@ export function createChannelUnlinkTool(_ctx: PluginContext) {
         project: target.name,
         projectSlug: target.slug,
         channelId,
+        threadId,
         channelName: channel.name,
         channelType: channel.channel,
       });
@@ -117,6 +128,7 @@ export function createChannelUnlinkTool(_ctx: PluginContext) {
         project: target.name,
         projectSlug: target.slug,
         channelId,
+        threadId,
         channelName: channel.name,
         channelType: channel.channel,
         remainingChannels: target.channels.length,

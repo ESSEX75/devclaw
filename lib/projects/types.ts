@@ -33,6 +33,7 @@ export type Channel = {
   name: string; // e.g. "primary", "dev-chat"
   events: string[]; // e.g. ["*"] for all, ["workerComplete"] for filtered
   accountId?: string; // Optional account ID for multi-account setups
+  threadId?: string; // Optional thread/topic ID for forum-style channels
 };
 
 /**

@@ -9,13 +9,9 @@
  * - reviewNeeded: Issue needs review — human or agent (→ project group)
  * - prMerged: PR/MR was merged into the base branch (→ project group)
  */
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { log as auditLog } from "../audit.js";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../context.js";
-
-const execFileAsync = promisify(execFile);
 
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;
@@ -265,6 +261,7 @@ async function sendMessage(
   workspaceDir: string,
   runtime?: PluginRuntime,
   accountId?: string,
+  threadId?: string,
   runCommand?: RunCommand,
 ): Promise<boolean> {
   let runtimeError: unknown;
@@ -281,6 +278,7 @@ async function sendMessage(
           text: message,
           silent: true,
           accountId,
+          threadId,
         } as never);
         return true;
       } catch (err) {
@@ -303,14 +301,14 @@ async function sendMessage(
     // Fallback: use CLI (for unsupported channels or when runtime isn't available)
     // Note: openclaw message send CLI doesn't expose disable_web_page_preview flag.
     // The runtime API path (above) handles it; CLI fallback won't suppress previews.
-    if (runCommand) {
-      await runCommand(["openclaw", ...args], { timeoutMs: 30_000 });
-    } else {
-      await execFileAsync("openclaw", args, {
-        timeout: 30_000,
-        maxBuffer: 1024 * 1024,
-      });
+    if (!runCommand) {
+      throw new Error("No command runner available for notification CLI fallback");
     }
+
+    if (accountId) args.push("--account", accountId);
+    if (threadId) args.push("--thread-id", threadId);
+
+    await runCommand(["openclaw", ...args], { timeoutMs: 30_000 });
     return true;
   } catch (err) {
     // Log but don't throw — notifications shouldn't break the main flow
@@ -338,6 +336,8 @@ export async function notify(
     channelId?: string;
     /** Channel type for routing (e.g. "telegram", "whatsapp", "discord", "slack") */
     channel?: string;
+    /** Optional thread/topic ID for forum-style channels */
+    threadId?: string;
     /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
     runtime?: PluginRuntime;
     /** Optional account ID for multi-account setups */
@@ -364,10 +364,11 @@ export async function notify(
     eventType: event.type,
     target,
     channel,
+    threadId: opts.threadId,
     message,
   });
 
-  return sendMessage(target, message, channel, opts.workspaceDir, opts.runtime, opts.accountId, opts.runCommand);
+  return sendMessage(target, message, channel, opts.workspaceDir, opts.runtime, opts.accountId, opts.threadId, opts.runCommand);
 }
 
 /**

@@ -104,6 +104,11 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           type: "string",
           description: "Channel type (e.g. 'telegram', 'whatsapp'). Defaults to 'telegram'.",
         },
+        threadId: {
+          type: "string",
+          description:
+            "Optional thread/topic ID for forum-style channels, e.g. Telegram topic ID.",
+        },
         groupName: {
           type: "string",
           description: "Group display name (optional - defaults to 'Project: {name}')",
@@ -128,6 +133,9 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       const name = params.name as string;
       const repo = params.repo as string;
       const channel = (params.channel as string) ?? "telegram";
+      const threadId = typeof params.threadId === "string" && params.threadId.trim()
+        ? params.threadId.trim()
+        : undefined;
       const groupName = (params.groupName as string) ?? `Project: ${name}`;
       const baseBranch = params.baseBranch as string;
       const deployBranch = (params.deployBranch as string) ?? baseBranch;
@@ -147,10 +155,10 @@ export function createProjectRegisterTool(ctx: PluginContext) {
 
       // If project exists, check if this channelId is already registered
       if (existing) {
-        const channelExists = existing.channels.some(ch => ch.channelId === channelId);
+        const channelExists = existing.channels.some(ch => ch.channelId === channelId && ch.threadId === threadId);
         if (channelExists) {
           throw new Error(
-            `Channel ${channelId} is already registered for project "${name}". Each channel can only register once per project.`,
+            `Channel ${channelId}${threadId ? ` thread ${threadId}` : ""} is already registered for project "${name}". Each channel/thread can only register once per project.`,
           );
         }
         // Adding a new channel to an existing project
@@ -207,6 +215,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
           name: `channel-${existing.channels.length + 1}`,
           events: ["*"],
+          ...(threadId ? { threadId } : {}),
         };
         existing.channels.push(newChannel);
         if (repoRemote && !existing.repoRemote) {
@@ -225,6 +234,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
           name: "primary",
           events: ["*"],
+          ...(threadId ? { threadId } : {}),
         };
 
         data.projects[slug] = {
@@ -252,6 +262,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         project: name,
         projectSlug: slug,
         channelId,
+        threadId,
         repo,
         repoRemote: repoRemote || null,
         baseBranch,
@@ -279,6 +290,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         project: name,
         projectSlug: slug,
         channelId,
+        threadId,
         repo,
         repoRemote: repoRemote || null,
         baseBranch,

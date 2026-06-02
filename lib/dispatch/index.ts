@@ -269,6 +269,7 @@ export async function dispatchTask(
       config: notifyConfig,
       channelId: notifyTarget?.channelId,
       channel: notifyTarget?.channel ?? "telegram",
+      threadId: notifyTarget?.threadId,
       runtime,
       accountId: notifyTarget?.accountId,
       runCommand: rc,
@@ -364,4 +365,3 @@ async function auditDispatch(
     issue: opts.issueId, role: opts.role, level: opts.level, model: opts.model,
   });
 }
-

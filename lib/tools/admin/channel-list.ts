@@ -56,6 +56,7 @@ export function createChannelListTool(_ctx: PluginContext) {
           name: ch.name,
           events: ch.events,
           accountId: ch.accountId,
+          threadId: ch.threadId,
         }));
 
         const announcement =
@@ -67,6 +68,8 @@ export function createChannelListTool(_ctx: PluginContext) {
                   (ch) =>
                     `• **${ch.name}** (${ch.type})\n  ID: \`${ch.channelId}\`\n  Events: ${ch.events.join(", ")}${
                       ch.accountId ? `\n  Account: ${ch.accountId}` : ""
+                    }${
+                      ch.threadId ? `\n  Thread: ${ch.threadId}` : ""
                     }`,
                 )
                 .join("\n\n"));
@@ -99,6 +102,7 @@ export function createChannelListTool(_ctx: PluginContext) {
             name: ch.name,
             events: ch.events,
             accountId: ch.accountId,
+            threadId: ch.threadId,
           })),
         }));
 
@@ -112,7 +116,7 @@ export function createChannelListTool(_ctx: PluginContext) {
                   : p.channels
                       .map(
                         (ch) =>
-                          `  • **${ch.name}** (${ch.type}) — \`${ch.channelId}\``,
+                          `  • **${ch.name}** (${ch.type}) — \`${ch.channelId}\`${ch.threadId ? ` / thread ${ch.threadId}` : ""}`,
                       )
                       .join("\n");
               return `**${p.project}** (${p.projectSlug}):\n${channelList}`;
