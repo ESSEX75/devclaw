@@ -128,6 +128,13 @@ const plugin = {
     // CLI, services & hooks
     api.registerCli(({ program }: { program: any }) => registerCli(program, ctx), {
       commands: ["devclaw"],
+      descriptors: [
+        {
+          name: "devclaw",
+          description: "DevClaw development pipeline tools",
+          hasSubcommands: true,
+        },
+      ],
     });
     registerHeartbeatService(api, ctx);
     registerBootstrapHook(api, ctx);
