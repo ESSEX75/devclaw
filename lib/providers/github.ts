@@ -30,11 +30,28 @@ type GhIssue = {
   url: string;
 };
 
+type GhPrStatusCheck = {
+  conclusion?: string | null;
+  status?: string | null;
+};
+
 function toIssue(gh: GhIssue): Issue {
   return {
     iid: gh.number, title: gh.title, description: gh.body ?? "",
     labels: gh.labels.map((l) => l.name), state: gh.state, web_url: gh.url,
   };
+}
+
+function checksPassedFromGithubRollup(rollup: unknown): boolean | undefined {
+  if (!Array.isArray(rollup)) return undefined;
+  if (rollup.length === 0) return true;
+  return rollup.every((check) => {
+    const record = check as GhPrStatusCheck;
+    if (record.conclusion) {
+      return ["SUCCESS", "SKIPPED", "NEUTRAL"].includes(record.conclusion);
+    }
+    return record.status === "COMPLETED";
+  });
 }
 
 export class GitHubProvider implements IssueProvider {
@@ -393,7 +410,7 @@ export class GitHubProvider implements IssueProvider {
   private async findPrsViaTimeline(
     issueId: number,
     state: "open" | "merged" | "all",
-  ): Promise<Array<{ number: number; title: string; body: string; headRefName: string; url: string; mergedAt: string | null; reviewDecision: string | null; state: string; mergeable: string | null }> | null> {
+  ): Promise<Array<{ number: number; title: string; body: string; headRefName: string; baseRefName?: string; url: string; mergedAt: string | null; reviewDecision: string | null; state: string; mergeable: string | null }> | null> {
     const repo = await this.getRepoInfo();
     if (!repo) return null;
 
@@ -405,10 +422,10 @@ export class GitHubProvider implements IssueProvider {
               nodes {
                 __typename
                 ... on ConnectedEvent {
-                  subject { ... on PullRequest { number title body headRefName state url mergedAt reviewDecision mergeable } }
+                  subject { ... on PullRequest { number title body headRefName baseRefName state url mergedAt reviewDecision mergeable } }
                 }
                 ... on CrossReferencedEvent {
-                  source { ... on PullRequest { number title body headRefName state url mergedAt reviewDecision mergeable } }
+                  source { ... on PullRequest { number title body headRefName baseRefName state url mergedAt reviewDecision mergeable } }
                 }
               }
             }
@@ -422,7 +439,7 @@ export class GitHubProvider implements IssueProvider {
 
       // Extract PR data from both event types
       const seen = new Set<number>();
-      const prs: Array<{ number: number; title: string; body: string; headRefName: string; url: string; mergedAt: string | null; reviewDecision: string | null; state: string; mergeable: string | null }> = [];
+      const prs: Array<{ number: number; title: string; body: string; headRefName: string; baseRefName?: string; url: string; mergedAt: string | null; reviewDecision: string | null; state: string; mergeable: string | null }> = [];
 
       for (const node of nodes) {
         const pr = node.subject ?? node.source;
@@ -434,6 +451,7 @@ export class GitHubProvider implements IssueProvider {
           title: pr.title ?? "",
           body: pr.body ?? "",
           headRefName: pr.headRefName ?? "",
+          baseRefName: pr.baseRefName ?? undefined,
           url: pr.url,
           mergedAt: pr.mergedAt ?? null,
           reviewDecision: pr.reviewDecision ?? null,
@@ -607,8 +625,8 @@ export class GitHubProvider implements IssueProvider {
 
   async getPrStatus(issueId: number): Promise<PrStatus> {
     // Check open PRs first — include mergeable for conflict detection
-    type OpenPr = { title: string; body: string; headRefName: string; url: string; number: number; reviewDecision: string; mergeable: string };
-    const open = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,url,number,reviewDecision,mergeable");
+    type OpenPr = { title: string; body: string; headRefName: string; baseRefName?: string; url: string; number: number; reviewDecision: string; mergeable: string; statusCheckRollup?: unknown };
+    const open = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,baseRefName,url,number,reviewDecision,mergeable,statusCheckRollup");
     if (open.length > 0) {
       const pr = open[0];
       let state: PrState;
@@ -639,22 +657,31 @@ export class GitHubProvider implements IssueProvider {
         : pr.mergeable === "MERGEABLE" ? true
         : undefined; // UNKNOWN or missing — don't assume
 
-      return { state, url: pr.url, title: pr.title, sourceBranch: pr.headRefName, mergeable };
+      return {
+        state,
+        url: pr.url,
+        title: pr.title,
+        sourceBranch: pr.headRefName,
+        targetBranch: pr.baseRefName,
+        baseBranch: pr.baseRefName,
+        mergeable,
+        checksPassed: checksPassedFromGithubRollup(pr.statusCheckRollup),
+      };
     }
     // Check merged PRs — also fetch reviewDecision to detect approved-then-merged vs self-merged.
-    type MergedPr = { title: string; body: string; headRefName: string; url: string; reviewDecision: string | null };
-    const merged = await this.findPrsForIssue<MergedPr>(issueId, "merged", "title,body,headRefName,url,reviewDecision");
+    type MergedPr = { title: string; body: string; headRefName: string; baseRefName?: string; url: string; reviewDecision: string | null };
+    const merged = await this.findPrsForIssue<MergedPr>(issueId, "merged", "title,body,headRefName,baseRefName,url,reviewDecision");
     if (merged.length > 0) {
       const pr = merged[0];
       const state = pr.reviewDecision === "APPROVED" ? PrState.APPROVED : PrState.MERGED;
-      return { state, url: pr.url, title: pr.title, sourceBranch: pr.headRefName };
+      return { state, url: pr.url, title: pr.title, sourceBranch: pr.headRefName, targetBranch: pr.baseRefName, baseBranch: pr.baseRefName, checksPassed: true };
     }
     // Check for closed-without-merge PRs. url: non-null = PR was explicitly closed;
     // url: null = no PR has ever been created for this issue.
     const allPrs = await this.findPrsViaTimeline(issueId, "all");
     const closedPr = allPrs?.find((pr) => pr.state === "CLOSED");
     if (closedPr) {
-      return { state: PrState.CLOSED, url: closedPr.url, title: closedPr.title, sourceBranch: closedPr.headRefName };
+      return { state: PrState.CLOSED, url: closedPr.url, title: closedPr.title, sourceBranch: closedPr.headRefName, targetBranch: closedPr.baseRefName, baseBranch: closedPr.baseRefName };
     }
     return { state: PrState.CLOSED, url: null };
   }

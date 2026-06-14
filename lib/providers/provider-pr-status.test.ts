@@ -94,6 +94,7 @@ describe("GitHubProvider.getPrStatus — closed PR handling", () => {
             title: "feat: open pr",
             body: "",
             headRefName: "feature/9-open-pr",
+            baseRefName: "main",
             url: openPrUrl,
             number: 9,
             reviewDecision: "",
@@ -112,6 +113,7 @@ describe("GitHubProvider.getPrStatus — closed PR handling", () => {
 
     assert.strictEqual(status.state, PrState.OPEN);
     assert.strictEqual(status.url, openPrUrl);
+    assert.strictEqual(status.targetBranch, "main");
   });
 
   it("prefers merged PR over closed PR", async () => {
@@ -307,7 +309,7 @@ describe("GitLabProvider.getPrStatus — closed MR handling", () => {
     const closedMrUrl = "https://gitlab.com/owner/repo/-/merge_requests/2";
 
     (provider as any).getRelatedMRs = async () => [
-      { iid: 4, title: "open MR", description: "", web_url: openMrUrl, state: "opened", source_branch: "feature/4", merged_at: null },
+      { iid: 4, title: "open MR", description: "", web_url: openMrUrl, state: "opened", source_branch: "feature/4", target_branch: "develop", merged_at: null },
       { iid: 2, title: "closed MR", description: "", web_url: closedMrUrl, state: "closed", source_branch: "feature/2", merged_at: null },
     ];
     (provider as any).isMrApproved = async () => false;
@@ -319,6 +321,7 @@ describe("GitLabProvider.getPrStatus — closed MR handling", () => {
 
     assert.strictEqual(status.state, PrState.OPEN);
     assert.strictEqual(status.url, openMrUrl);
+    assert.strictEqual(status.targetBranch, "develop");
   });
 
   it("prefers merged MR over closed MR", async () => {

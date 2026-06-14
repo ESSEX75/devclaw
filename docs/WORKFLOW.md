@@ -179,6 +179,8 @@ baseBranch
 
 Sprint child dispatch requires `sprintBranch` in `devclaw/sprints.json`; DevClaw does not infer a fallback target branch for the MVP.
 
+`work_finish(result: "done")` validates the same contract. A developer cannot complete work if the linked PR/MR targets a different branch. For sprint children, merge conflicts mark the step as `conflict` and downstream dependencies remain blocked.
+
 ### State Types
 
 | Type | Description |

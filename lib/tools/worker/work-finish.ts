@@ -18,6 +18,13 @@ import { DATA_DIR } from "../../setup/migrate-layout.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { getAllRoleIds, isValidResult, getCompletionResults } from "../../roles/index.js";
 import { loadWorkflow } from "../../workflow/index.js";
+import {
+  listSprintGraphs,
+  updateSprintStepStatus,
+  SprintStepStatus,
+  type SprintExecutionGraph,
+} from "../../sprints/index.js";
+import type { IssueProvider, PrStatus } from "../../providers/provider.js";
 
 /**
  * Get the current git branch name.
@@ -79,10 +86,11 @@ async function isConflictResolutionCycle(
 async function validatePrExistsForDeveloper(
   issueId: number,
   repoPath: string,
-  provider: Awaited<ReturnType<typeof resolveProvider>>["provider"],
+  provider: IssueProvider,
   runCommand: RunCommand,
   workspaceDir: string,
   projectSlug: string,
+  expectedTargetBranch: string,
 ): Promise<void> {
   try {
     const prStatus = await provider.getPrStatus(issueId);
@@ -102,8 +110,28 @@ async function validatePrExistsForDeveloper(
         `Cannot mark work_finish(done) without an open PR.\n\n` +
         `✗ No PR found for branch: ${branchName}\n\n` +
         `Please create a PR first:\n` +
-        `  gh pr create --base main --head ${branchName} --title "..." --body "..."\n\n` +
+        `  gh pr create --base ${expectedTargetBranch} --head ${branchName} --title "..." --body "..."\n\n` +
         `Then call work_finish again.`,
+      );
+    }
+
+    validatePrTargetBranch(prStatus, expectedTargetBranch);
+
+    const sprintGraph = await getSprintGraphForIssue(workspaceDir, projectSlug, issueId);
+    if (sprintGraph && prStatus.mergeable === false) {
+      await updateSprintStepStatus(
+        workspaceDir,
+        projectSlug,
+        sprintGraph.sprintRootIssueId,
+        issueId,
+        SprintStepStatus.CONFLICT,
+        { event: "sprint_step_conflict", prUrl: prStatus.url ?? undefined },
+      );
+      throw new Error(
+        `Cannot complete work_finish(done) while sprint PR/MR has merge conflicts.\n\n` +
+        `Expected target branch: ${expectedTargetBranch}\n` +
+        `Actual target branch: ${prStatus.targetBranch ?? prStatus.baseBranch ?? "unknown"}\n` +
+        `PR/MR: ${prStatus.url}`,
       );
     }
 
@@ -167,11 +195,35 @@ async function validatePrExistsForDeveloper(
   } catch (err) {
     // Re-throw our own validation errors; swallow provider/network errors.
     // Swallowing keeps work_finish unblocked when the API is unreachable.
-    if (err instanceof Error && (err.message.startsWith("Cannot mark work_finish(done)") || err.message.startsWith("Cannot complete work_finish(done)"))) {
+    if (err instanceof Error && (
+      err.message.startsWith("Cannot mark work_finish(done)") ||
+      err.message.startsWith("Cannot complete work_finish(done)")
+    )) {
       throw err;
     }
     console.warn(`PR validation warning for issue #${issueId}:`, err);
   }
+}
+
+export function validatePrTargetBranch(prStatus: PrStatus, expectedTargetBranch: string): void {
+  const actual = prStatus.targetBranch ?? prStatus.baseBranch;
+  if (!actual) return;
+  if (actual === expectedTargetBranch) return;
+  throw new Error(
+    `Cannot complete work_finish(done): PR/MR target branch mismatch.\n\n` +
+    `Expected target branch: ${expectedTargetBranch}\n` +
+    `Actual target branch: ${actual}\n` +
+    `PR/MR: ${prStatus.url ?? "unknown"}`,
+  );
+}
+
+async function getSprintGraphForIssue(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+): Promise<SprintExecutionGraph | undefined> {
+  const graphs = await listSprintGraphs(workspaceDir, projectSlug);
+  return graphs.find((graph) => graph.steps.some((step) => step.issueId === issueId));
 }
 
 export function createWorkFinishTool(ctx: PluginContext) {
@@ -227,6 +279,7 @@ export function createWorkFinishTool(ctx: PluginContext) {
       let slotIndex: number | null = null;
       let slotLevel: string | null = null;
       let issueId: number | null = null;
+      let expectedTargetBranch: string | null = null;
 
       for (const [level, slots] of Object.entries(roleWorker.levels)) {
         for (let i = 0; i < slots.length; i++) {
@@ -236,6 +289,7 @@ export function createWorkFinishTool(ctx: PluginContext) {
             slotLevel = level;
             slotIndex = i;
             issueId = Number(slots[i]!.issueId);
+            expectedTargetBranch = slots[i]!.prTargetBranch ?? null;
             break;
           }
         }
@@ -257,7 +311,26 @@ export function createWorkFinishTool(ctx: PluginContext) {
 
       // For developers marking work as done, validate that a PR exists
       if (role === "developer" && result === "done") {
-        await validatePrExistsForDeveloper(issueId, repoPath, provider, ctx.runCommand, workspaceDir, project.slug);
+        await validatePrExistsForDeveloper(
+          issueId,
+          repoPath,
+          provider,
+          ctx.runCommand,
+          workspaceDir,
+          project.slug,
+          expectedTargetBranch ?? project.baseBranch,
+        );
+        const sprintGraph = await getSprintGraphForIssue(workspaceDir, project.slug, issueId);
+        if (sprintGraph) {
+          await updateSprintStepStatus(
+            workspaceDir,
+            project.slug,
+            sprintGraph.sprintRootIssueId,
+            issueId,
+            SprintStepStatus.REVIEW,
+            { event: "sprint_step_review", prUrl },
+          );
+        }
       }
 
       const completion = await executeCompletion({

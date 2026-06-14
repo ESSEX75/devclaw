@@ -76,6 +76,16 @@ Complete a task with a result. Called by workers (DEVELOPER/TESTER/ARCHITECT sub
 
 **Scheduling:** After completion, `work_finish` ticks the queue. The scheduler sees the new label (`To Review` or `To Improve`) and dispatches the next worker if a slot is free.
 
+**PR/MR validation for developer `done`:**
+
+- a PR/MR must exist;
+- the PR/MR target branch must match the dispatch `PR TARGET BRANCH`;
+- issue mode expects the project `baseBranch`;
+- sprint child work expects the sprint branch;
+- target mismatch returns a deterministic error with expected and actual branch names.
+
+Sprint child PR/MR conflicts mark the child step as `conflict` in `devclaw/sprints.json`, so downstream steps remain blocked.
+
 ---
 
 ## Task Management
