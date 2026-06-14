@@ -149,6 +149,28 @@ Create a sprint milestone, sprint root issue, child executable issues, sprint br
 
 ---
 
+### `sprint_repair`
+
+Repair managed sprint provider projection from local DevClaw state.
+
+**Source:** [`lib/tools/sprints/sprint-repair.ts`](../lib/tools/sprints/sprint-repair.ts)
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `projectSlug` | string | Yes | Registered project slug. |
+| `sprintRootIssueId` | number | Yes | Sprint root issue ID. |
+| `source` | string | Yes | `local-state` restores provider projection from `devclaw/sprints.json`. `provider` is intentionally rejected until a safe provider-to-local recovery contract exists. |
+
+**CLI equivalent:**
+
+```bash
+openclaw devclaw repair sprint --project <slug> --root-issue <id> --source local-state
+```
+
+---
+
 ### `task_set_level`
 
 Set the developer level hint on a HOLD-state issue (Planning, Refining).

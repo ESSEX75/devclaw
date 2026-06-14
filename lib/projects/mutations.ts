@@ -76,6 +76,9 @@ export async function activateWorker(
     slotIndex?: number;
     /** Deterministic fun name for this slot. */
     name?: string;
+    baseBranch?: string;
+    workBranch?: string;
+    prTargetBranch?: string;
   },
 ): Promise<ProjectsData> {
   await acquireLock(workspaceDir);
@@ -106,6 +109,9 @@ export async function activateWorker(
       previousLabel: params.previousLabel ?? null,
       name: params.name ?? slots[idx]!.name,
       lastIssueId: null,
+      baseBranch: params.baseBranch ?? null,
+      workBranch: params.workBranch ?? null,
+      prTargetBranch: params.prTargetBranch ?? null,
     };
 
     project.workers[role] = rw;
@@ -165,6 +171,9 @@ export async function deactivateWorker(
           previousLabel: null,
           name: slot.name,
           lastIssueId: slot.issueId,
+          baseBranch: null,
+          workBranch: null,
+          prTargetBranch: null,
         };
       }
     }

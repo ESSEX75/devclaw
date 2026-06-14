@@ -159,6 +159,26 @@ The heartbeat queue scanner keeps issue mode unchanged. When `taskMode: sprint` 
 
 If one sprint child is blocked, the scanner continues through the same queue label and can pick a later standalone issue or a ready child from another sprint.
 
+### Dispatch Branch Contract
+
+Every worker dispatch includes an explicit branch contract in the task message and stores the same values in local worker slot state:
+
+- `BASE BRANCH`: project `baseBranch`;
+- `WORK BRANCH`: branch the worker must push commits to;
+- `PR TARGET BRANCH`: branch the worker's PR/MR must target.
+
+Issue mode always targets the project `baseBranch`. Sprint child issues use the rolling-only model: every child work branch targets the sprint branch, not the previous child branch.
+
+```text
+baseBranch
+  -> sprint/100-feature
+      <- step/101-config
+      <- step/102-provider
+      <- step/103-queue
+```
+
+Sprint child dispatch requires `sprintBranch` in `devclaw/sprints.json`; DevClaw does not infer a fallback target branch for the MVP.
+
 ### State Types
 
 | Type | Description |
@@ -438,5 +458,5 @@ Call the `workflow_guide` tool for interactive documentation. It returns compreh
 ## Related
 
 - [Configuration](CONFIGURATION.md) — Config file format, roles, timeouts, `openclaw.json`
-- [Tools Reference](TOOLS.md) — All 24 tools including `task_start`, `work_finish`, `task_list`, `sprint_create`, `workflow_guide`
+- [Tools Reference](TOOLS.md) — All 25 tools including `task_start`, `work_finish`, `task_list`, `sprint_create`, `sprint_repair`, `workflow_guide`
 - [Architecture](ARCHITECTURE.md) — System design, session model, heartbeat internals

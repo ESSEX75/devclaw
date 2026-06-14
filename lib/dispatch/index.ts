@@ -26,6 +26,7 @@ import { slotName } from "../names.js";
 import { buildTaskMessage, buildConflictFixMessage, buildAnnouncement, formatSessionLabel } from "./message-builder.js";
 import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "./session.js";
 import { acknowledgeComments, EYES_EMOJI } from "./acknowledge.js";
+import { resolveDispatchBranchContract, type DispatchBranchContract } from "./branch-contract.js";
 
 export type DispatchOpts = {
   workspaceDir: string;
@@ -146,12 +147,19 @@ export async function dispatchTask(
   }
 
   const sessionAction = existingSessionKey ? "send" : "spawn";
+  const { workflow } = resolvedConfig;
+  const branchContract = await resolveDispatchBranchContract({
+    workspaceDir,
+    project,
+    issueId,
+    issueTitle,
+    workflow,
+  });
 
   // Fetch comments to include in task context
   const comments = await provider.listComments(issueId);
 
   // Fetch PR context based on workflow role semantics (no hardcoded role/label checks)
-  const { workflow } = resolvedConfig;
   const prFeedback = isFeedbackState(workflow, fromLabel)
     ? await fetchPrFeedback(provider, issueId) : undefined;
   const prContext = hasReviewCheck(workflow, role)
@@ -176,6 +184,7 @@ export async function dispatchTask(
         projectName: project.name, channelId: primaryChannelId, role, issueId,
         issueTitle, issueDescription, issueUrl,
         repo: project.repo, baseBranch: project.baseBranch,
+        branchContract,
         comments, resolvedRole, prContext, prFeedback, attachmentContext,
       });
 
@@ -300,7 +309,7 @@ export async function dispatchTask(
   // Step 5: Update worker state
   try {
     await recordWorkerState(workspaceDir, project.slug, role, slotIndex, {
-      issueId, level, sessionKey, sessionAction, fromLabel, name: botName,
+      issueId, level, sessionKey, sessionAction, fromLabel, name: botName, branchContract,
     });
   } catch (err) {
     // Session is already dispatched — log warning but don't fail
@@ -325,7 +334,15 @@ export async function dispatchTask(
 
 async function recordWorkerState(
   workspaceDir: string, slug: string, role: string, slotIndex: number,
-  opts: { issueId: number; level: string; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: string; name?: string },
+  opts: {
+    issueId: number;
+    level: string;
+    sessionKey: string;
+    sessionAction: "spawn" | "send";
+    fromLabel?: string;
+    name?: string;
+    branchContract: DispatchBranchContract;
+  },
 ): Promise<void> {
   await activateWorker(workspaceDir, slug, role, {
     issueId: String(opts.issueId),
@@ -335,6 +352,9 @@ async function recordWorkerState(
     previousLabel: opts.fromLabel,
     slotIndex,
     name: opts.name,
+    baseBranch: opts.branchContract.baseBranch,
+    workBranch: opts.branchContract.workBranch,
+    prTargetBranch: opts.branchContract.prTargetBranch,
   });
 }
 

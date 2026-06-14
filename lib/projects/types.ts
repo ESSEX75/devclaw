@@ -17,6 +17,12 @@ export type SlotState = {
   name?: string;
   /** Last issue this slot worked on (preserved on deactivation for feedback cycle detection). */
   lastIssueId?: string | null;
+  /** Branch the worker must base local work from. */
+  baseBranch?: string | null;
+  /** Branch the worker must push commits to. */
+  workBranch?: string | null;
+  /** Branch the worker's PR/MR must target. */
+  prTargetBranch?: string | null;
 };
 
 /** Per-level worker state: levels map instead of flat slots array. */

@@ -2,6 +2,7 @@
  * message-builder.ts — Task message construction for worker sessions.
  */
 import type { ResolvedRoleConfig } from "../config/index.js";
+import type { DispatchBranchContract } from "./branch-contract.js";
 import { formatPrContext, formatPrFeedback, type PrContext, type PrFeedback } from "./pr-context.js";
 import { getFallbackEmoji } from "../roles/index.js";
 
@@ -22,6 +23,7 @@ export function buildTaskMessage(opts: {
   issueUrl: string;
   repo: string;
   baseBranch: string;
+  branchContract: DispatchBranchContract;
   comments?: Array<{ author: string; body: string; created_at: string }>;
   resolvedRole?: ResolvedRoleConfig;
   prContext?: PrContext;
@@ -87,7 +89,10 @@ export function buildTaskMessage(opts: {
 
   parts.push(
     ``,
-    `Repo: ${repo} | Branch: ${baseBranch} | ${issueUrl}`,
+    `Repo: ${repo} | ${issueUrl}`,
+    `BASE BRANCH: ${opts.branchContract.baseBranch}`,
+    `WORK BRANCH: ${opts.branchContract.workBranch}`,
+    `PR TARGET BRANCH: ${opts.branchContract.prTargetBranch}`,
     `Project: ${projectName} | Channel: ${channelId}`,
   );
 
