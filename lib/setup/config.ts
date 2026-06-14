@@ -14,6 +14,7 @@ export const DEVCLAW_AGENT_TOOLS = [
   "work_finish",
   "task_create",
   "sprint_create",
+  "sprint_repair",
   "task_set_level",
   "task_comment",
   "task_edit_body",

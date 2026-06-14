@@ -263,12 +263,43 @@ export async function markSprintRepaired(
   }
 }
 
+export async function markSprintIntegrityError(
+  workspaceDir: string,
+  projectSlug: string,
+  sprintRootIssueId: number,
+  integrityErrors: string[],
+): Promise<SprintExecutionGraph> {
+  await acquireLock(workspaceDir);
+  try {
+    const data = await readSprints(workspaceDir);
+    const key = sprintKey(projectSlug, sprintRootIssueId);
+    const graph = data.sprints[key];
+    if (!graph) throw new Error(`Sprint graph not found: ${key}`);
+    graph.status = SprintGraphStatus.INTEGRITY_ERROR;
+    graph.updatedAt = new Date().toISOString();
+    data.sprints[key] = normalizeGraph(graph);
+    await writeSprints(workspaceDir, data);
+    await auditLog(workspaceDir, "sprint_projection_integrity_error", {
+      projectSlug,
+      sprintRootIssueId,
+      integrityErrors,
+    });
+    return data.sprints[key]!;
+  } finally {
+    await releaseLock(workspaceDir);
+  }
+}
+
 export function resolveStepReadiness(
   graph: SprintExecutionGraph,
   issueId: number,
 ): SprintReadinessResolution {
   const step = graph.steps.find((candidate) => candidate.issueId === issueId);
   if (!step) return { ready: false, blockedBy: [], reason: "missing_step" };
+
+  if (graph.status === SprintGraphStatus.INTEGRITY_ERROR) {
+    return { ready: false, blockedBy: [], reason: "integrity_error" };
+  }
 
   if (graph.sprintBlockedBy.length > 0) {
     return { ready: false, blockedBy: [...graph.sprintBlockedBy], reason: "sprint_blocked" };

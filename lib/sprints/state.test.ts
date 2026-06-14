@@ -14,6 +14,7 @@ import {
   getSprintGraph,
   listSprintGraphs,
   markSprintRepaired,
+  markSprintIntegrityError,
   markStepBlocked,
   markStepDispatched,
   markStepMerged,
@@ -152,6 +153,25 @@ describe("local sprint execution graph", () => {
       ready: false,
       blockedBy: [101],
       reason: "step_blocked",
+    });
+  });
+
+  it("blocks dispatch readiness while sprint is in integrity_error", async () => {
+    const workspace = await makeWorkspace();
+    await createSprintGraph(workspace, graphFixture());
+    const graph = await markSprintIntegrityError(workspace, "devclaw", 100, ["metadata"]);
+
+    assert.deepStrictEqual(resolveStepReadiness(graph, 101), {
+      ready: false,
+      blockedBy: [],
+      reason: "integrity_error",
+    });
+
+    const repaired = await markSprintRepaired(workspace, "devclaw", 100, ["metadata"]);
+    assert.deepStrictEqual(resolveStepReadiness(repaired, 101), {
+      ready: true,
+      blockedBy: [],
+      reason: "ready",
     });
   });
 });

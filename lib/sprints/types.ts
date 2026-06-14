@@ -59,5 +59,12 @@ export type SprintsData = {
 export type SprintReadinessResolution = {
   ready: boolean;
   blockedBy: number[];
-  reason: "ready" | "sprint_blocked" | "step_blocked" | "already_active" | "terminal" | "missing_step";
+  reason:
+    | "ready"
+    | "sprint_blocked"
+    | "step_blocked"
+    | "already_active"
+    | "terminal"
+    | "missing_step"
+    | "integrity_error";
 };

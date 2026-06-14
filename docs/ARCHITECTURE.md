@@ -589,7 +589,8 @@ Every piece of data and where it lives:
 │                                                                 │
 │  Sprint graph/state is owned by DevClaw local state. Provider    │
 │  sprint methods only project milestone/root/child/dependency/PR  │
-│  data into GitHub/GitLab for UI and audit recovery.              │
+│  data into GitHub/GitLab for UI and audit recovery. Managed      │
+│  labels/body metadata are guarded and repaired from local state.  │
 │                                                                 │
 │  Bootstrap hook → injects role instructions into worker sessions│
 │  workflow_guide → config reference for workflow changes           │
@@ -622,7 +623,9 @@ Every piece of data and where it lives:
 │  NDJSON, one line per event:                                    │
 │  task_start, work_finish, model_selection,                       │
 │  tasks_status, task_list, health, task_create, task_set_level,   │
-│  task_comment, project_register, setup, heartbeat_tick          │
+│  task_comment, project_register, setup, heartbeat_tick,          │
+│  sprint_projection_label_restored,                               │
+│  sprint_projection_integrity_error, sprint_projection_repair     │
 │                                                                 │
 │  Query: cat audit.log | jq 'select(.event=="dispatch")'         │
 └─────────────────────────────────────────────────────────────────┘
@@ -722,6 +725,25 @@ All issue tracker operations go through the `IssueProvider` interface, defined i
 
 Provider selection is handled by `createProvider()` in `lib/providers/index.ts`. Auto-detects GitHub vs GitLab from the git remote URL.
 
+## Sprint managed projection guard
+
+Sprint runtime state lives in `<workspace>/devclaw/sprints.json`. Provider projection is guarded by `lib/sprints/projection-guard.ts`:
+
+- expected labels are derived from the local graph, including `devclaw:sprint`, `sprint:root`, `sprint:child`, `sprint:<milestone>`, `step:<issueId>`, and `blocked:step`;
+- unmanaged labels and unmanaged issue body edits are ignored;
+- removed expected managed labels are re-added via `provider.addLabel`;
+- unexpected managed labels are removed via `provider.removeLabels`;
+- managed metadata tamper marks the graph as `integrity_error`;
+- `resolveStepReadiness()` returns `integrity_error` while the sprint graph is in that state.
+
+Explicit repair is available through the tool `sprint_repair` and the CLI:
+
+```bash
+openclaw devclaw repair sprint --project <slug> --root-issue <id> --source local-state
+```
+
+`--source local-state` restores provider projection from `sprints.json` and clears `integrity_error`. `--source provider` is intentionally rejected until a safe provider-to-local recovery contract exists.
+
 ## Configuration system
 
 DevClaw uses a three-layer config system with `workflow.yaml` files:
@@ -751,6 +773,9 @@ See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
 | Worker stuck/blocked | Worker calls `work_finish` with `"blocked"` | Deactivates worker, transitions to "Refining" (hold state). Requires human decision to proceed. |
 | Config invalid | Zod schema validation at load time | Clear error message with field path. Prevents startup with broken config. |
 | `project_register` fails | Plugin catches error during label creation or state write | Clean error returned. Labels are idempotent, projects.json not written until all labels succeed. |
+| Sprint managed label edited | Provider event handler calls projection guard | Restores/removes managed label from local graph and writes `sprint_projection_label_restored`. |
+| Sprint metadata tampered | Managed metadata block differs from expected block | Marks sprint graph `integrity_error`; dispatch readiness is blocked until explicit repair. |
+| Sprint projection needs repair | Human runs `sprint_repair` or `devclaw repair sprint --source local-state` | Restores managed labels and metadata block from `devclaw/sprints.json`, writes `sprint_projection_repair`, clears `integrity_error`. |
 
 ## File locations
 

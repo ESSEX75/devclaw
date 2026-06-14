@@ -12,7 +12,9 @@ import { readProjects, getProject, type Project } from "../../projects/index.js"
 import { createProvider } from "../../providers/index.js";
 import type { IssueProvider, Issue } from "../../providers/provider.js";
 import {
+  appendManagedSprintMetadata,
   createSprintGraph,
+  expectedManagedLabelsForIssue,
   SprintGraphStatus,
   SprintStepStatus,
   type SprintExecutionGraph,
@@ -205,6 +207,7 @@ export async function createSprintStructure(args: {
     title: milestoneTitle,
     description: args.input.description,
   });
+  const sprintLabel = `sprint:${milestone.title}`;
   const rootIssue = await args.provider.createSprintRoot({
     title: args.input.title,
     body: renderRootBody({
@@ -216,7 +219,7 @@ export async function createSprintStructure(args: {
       sprintBlockedBy,
     }),
     milestoneId: milestone.id,
-    labels: ["sprint:root"],
+    labels: ["devclaw:sprint", "sprint:root", sprintLabel],
     assignees,
   });
   await args.provider.createSprintBranch({
@@ -231,7 +234,7 @@ export async function createSprintStructure(args: {
       title: step.title,
       body: renderChildBody(step, rootIssue.iid, sprintBranch),
       milestoneId: milestone.id,
-      labels: [...new Set(["sprint:child", `step:${step.id}`, ...(step.labels ?? [])])],
+      labels: [...new Set(["devclaw:sprint", "sprint:child", sprintLabel, ...(step.labels ?? [])])],
       assignees,
     });
     childIssues.push(issue);
@@ -266,29 +269,21 @@ export async function createSprintStructure(args: {
     }),
   });
 
-  const metadata = {
-    projectSlug: args.project.slug,
-    sprintRootIssueId: rootIssue.iid,
-    milestone: milestone.title,
-    milestoneId: milestone.id,
-    sprintBranch,
-    baseBranch: args.baseBranch,
-    sprintBlockedBy,
-    steps: steps.map((step) => ({
-      id: step.id,
-      issueId: issueIdByStepId.get(step.id),
-      dependsOn: step.dependsOn,
-    })),
-  };
+  for (const issueId of [rootIssue.iid, ...graph.steps.map((step) => step.issueId)]) {
+    for (const label of expectedManagedLabelsForIssue(graph, issueId)) {
+      await args.provider.addLabel(issueId, label);
+    }
+  }
+
   await args.provider.editIssue(rootIssue.iid, {
-    body: `${renderRootBody({
+    body: appendManagedSprintMetadata(renderRootBody({
       title: args.input.title,
       description: args.input.description,
       milestone: milestone.title,
       sprintBranch,
       steps,
       sprintBlockedBy,
-    })}\n\n<!-- devclaw:sprint-metadata ${JSON.stringify(metadata)} -->`,
+    }), graph),
   });
 
   return { milestone, rootIssue, childIssues, graph };

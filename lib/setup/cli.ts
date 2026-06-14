@@ -16,6 +16,7 @@ import {
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../roles/index.js";
 import { ExecutionMode, type ExecutionMode as ExecutionModeType } from "../workflow/index.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import { repairSprint, type SprintRepairSource } from "../tools/sprints/sprint-repair.js";
 
 /**
  * Get the default workspace directory from the OpenClaw config.
@@ -40,6 +41,13 @@ type SetupCliOptions = {
   ejectDefaults?: boolean;
   projectExecution?: ExecutionModeType;
   [key: string]: string | boolean | undefined;
+};
+
+type SprintRepairCliOptions = {
+  workspace?: string;
+  project?: string;
+  rootIssue?: string;
+  source?: SprintRepairSource;
 };
 
 type ConfiguredAgent = {
@@ -556,4 +564,40 @@ export function registerCli(program: Command, ctx: PluginContext): void {
       throw err;
     }
   });
+
+  devclaw
+    .command("repair")
+    .description("Repair DevClaw managed projections")
+    .command("sprint")
+    .description("Repair a sprint provider projection")
+    .requiredOption("--project <slug>", "Project slug")
+    .requiredOption("--root-issue <id>", "Sprint root issue id")
+    .requiredOption("--source <source>", "Repair source: local-state or provider")
+    .option("--workspace <path>", "Workspace path, defaults to OpenClaw agent workspace")
+    .action(async (opts: SprintRepairCliOptions) => {
+      const workspaceDir = opts.workspace ?? getDefaultWorkspaceDir(ctx.runtime);
+      if (!workspaceDir) throw new Error("Workspace path is required. Pass --workspace <path>.");
+      if (!opts.project) throw new Error("--project is required.");
+      const source = opts.source;
+      if (source !== "local-state" && source !== "provider") {
+        throw new Error("--source must be local-state or provider.");
+      }
+      const sprintRootIssueId = Number(opts.rootIssue);
+      if (!Number.isInteger(sprintRootIssueId) || sprintRootIssueId <= 0) {
+        throw new Error("--root-issue must be a positive integer.");
+      }
+
+      const result = await repairSprint({
+        workspaceDir,
+        ctx,
+        projectSlug: opts.project,
+        sprintRootIssueId,
+        source,
+      });
+
+      console.log(`Sprint repair complete: ${opts.project}:${sprintRootIssueId}`);
+      console.log(`  source: ${result.source}`);
+      console.log(`  repaired: ${result.repaired.length}`);
+      for (const entry of result.repaired) console.log(`  - ${entry}`);
+    });
 }

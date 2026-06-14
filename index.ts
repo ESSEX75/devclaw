@@ -14,6 +14,7 @@ import { createTaskSetLevelTool } from "./lib/tools/tasks/task-set-level.js";
 import { createTaskOwnerTool } from "./lib/tools/tasks/task-owner.js";
 import { createResearchTaskTool } from "./lib/tools/tasks/research-task.js";
 import { createSprintCreateTool } from "./lib/tools/sprints/sprint-create.js";
+import { createSprintRepairTool } from "./lib/tools/sprints/sprint-repair.js";
 
 // Task queries
 import { createTaskListTool } from "./lib/tools/tasks/task-list.js";
@@ -106,6 +107,7 @@ const plugin = {
     api.registerTool(createTaskOwnerTool(ctx), { names: ["task_owner"] });
     api.registerTool(createResearchTaskTool(ctx), { names: ["research_task"] });
     api.registerTool(createSprintCreateTool(ctx), { names: ["sprint_create"] });
+    api.registerTool(createSprintRepairTool(ctx), { names: ["sprint_repair"] });
 
     // Task queries
     api.registerTool(createTaskListTool(ctx), { names: ["task_list"] });
@@ -143,7 +145,7 @@ const plugin = {
     registerAttachmentHook(api, ctx);
 
     api.logger.info(
-      "DevClaw plugin registered (24 tools, 1 CLI command group, 1 service, 3 hooks)",
+      "DevClaw plugin registered (25 tools, 1 CLI command group, 1 service, 3 hooks)",
     );
   },
 };

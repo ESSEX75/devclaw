@@ -103,6 +103,20 @@ DevClaw eliminates entire categories of decisions by making them deterministic. 
 
 This is the deepest lesson from delegation theory: **good delegation isn't about getting someone else to do your work. It's about protecting your attention for the work only you can do.**
 
+## Guarding managed projection
+
+Sprint mode extends the same management rule to provider projection. The local execution graph in `devclaw/sprints.json` is the source of truth; GitHub/GitLab labels, milestones, issue hierarchy, dependencies, PR links, and managed body metadata are mirrors.
+
+DevClaw owns labels with these prefixes: `devclaw:*`, `sprint:*`, `step:*`, and `blocked:*`. If a human removes one that local state says should exist, DevClaw restores it and writes `sprint_projection_label_restored` to the audit log. If a human adds an unexpected managed label, DevClaw removes it for the same reason. Unknown labels and normal issue body edits remain human-owned and are ignored.
+
+The managed sprint metadata block is different. It is a recovery anchor, so manual edits to that block put the sprint into `integrity_error`. While the graph is in `integrity_error`, sprint dispatch readiness returns `integrity_error` until an explicit repair is run:
+
+```bash
+openclaw devclaw repair sprint --project <slug> --root-issue <id> --source local-state
+```
+
+Repair from `local-state` restores provider labels and the metadata block from `sprints.json`, then clears the integrity error. Provider projection never silently mutates DevClaw runtime state.
+
 ## What the theory suggests next
 
 Management research points to a few directions that could extend DevClaw's delegation model:
