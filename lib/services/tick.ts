@@ -21,7 +21,7 @@ import {
   type WorkflowConfig,
   type Role,
 } from "../workflow/index.js";
-import { detectRoleLevelFromLabels, detectStepRouting, findNextIssueForRole } from "./queue-scan.js";
+import { detectRoleLevelFromLabels, detectStepRouting, findDispatchableIssuesForRole } from "./queue-scan.js";
 
 // ---------------------------------------------------------------------------
 // projectTick
@@ -136,7 +136,12 @@ export async function projectTick(opts: {
       }
     }
 
-    const next = await findNextIssueForRole(provider, role, workflow, instanceName);
+    const scan = await findDispatchableIssuesForRole(provider, role, workflow, {
+      instanceName,
+      sprintGate: { workspaceDir, projectSlug },
+    });
+    skipped.push(...scan.skipped);
+    const next = scan.matches[0];
     if (!next) continue;
 
     const { issue, label: currentLabel } = next;

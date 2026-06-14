@@ -145,6 +145,20 @@ Provider data is projection only:
 
 Changing labels, milestone fields, or issue body metadata does not directly mutate readiness. The scanner and pipeline must resolve sprint readiness from the local execution graph.
 
+### Sprint Queue Gating
+
+The heartbeat queue scanner keeps issue mode unchanged. When `taskMode: sprint` is enabled, it applies one extra filter before dispatch:
+
+- sprint root issues are never dispatched directly;
+- child issues are dispatchable only when `resolveStepReadiness()` returns `ready`;
+- step dependencies are satisfied only by `merged` or `done` dependency statuses in `devclaw/sprints.json`;
+- sprint-level blockers block every child in that sprint until repaired/cleared in the graph;
+- `integrity_error` blocks the whole sprint;
+- labels such as `blocked:step` are projection only and do not control readiness;
+- issues that are not part of any sprint graph remain standalone work and can dispatch normally.
+
+If one sprint child is blocked, the scanner continues through the same queue label and can pick a later standalone issue or a ready child from another sprint.
+
 ### State Types
 
 | Type | Description |

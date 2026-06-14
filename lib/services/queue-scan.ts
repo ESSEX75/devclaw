@@ -7,6 +7,7 @@
 import type { Issue, StateLabel } from "../providers/provider.js";
 import type { IssueProvider } from "../providers/provider.js";
 import { getLevelsForRole, getAllLevels } from "../roles/index.js";
+import { listSprintGraphs, resolveStepReadiness, type SprintExecutionGraph } from "../sprints/index.js";
 import {
   getQueueLabels,
   getAllQueueLabels,
@@ -14,6 +15,7 @@ import {
   isOwnedByOrUnclaimed,
   type WorkflowConfig,
   type Role,
+  TaskMode,
 } from "../workflow/index.js";
 
 // ---------------------------------------------------------------------------
@@ -113,6 +115,72 @@ export async function findNextIssueForRole(
   return null;
 }
 
+export type QueueScanSkip = {
+  issueId?: number;
+  role?: Role;
+  reason: string;
+};
+
+export type SprintDispatchGate = {
+  workspaceDir: string;
+  projectSlug: string;
+};
+
+export async function findNextDispatchableIssueForRole(
+  provider: Pick<IssueProvider, "listIssuesByLabel">,
+  role: Role,
+  workflow: WorkflowConfig,
+  opts?: {
+    instanceName?: string;
+    sprintGate?: SprintDispatchGate;
+  },
+): Promise<{ issue: Issue; label: StateLabel; skipped: QueueScanSkip[] } | null> {
+  const candidates = await findDispatchableIssuesForRole(provider, role, workflow, opts);
+  return candidates.matches[0] ?? null;
+}
+
+export async function findDispatchableIssuesForRole(
+  provider: Pick<IssueProvider, "listIssuesByLabel">,
+  role: Role,
+  workflow: WorkflowConfig,
+  opts?: {
+    instanceName?: string;
+    sprintGate?: SprintDispatchGate;
+  },
+): Promise<{
+  matches: Array<{ issue: Issue; label: StateLabel; skipped: QueueScanSkip[] }>;
+  skipped: QueueScanSkip[];
+}> {
+  const labels = getQueueLabels(workflow, role);
+  const skipped: QueueScanSkip[] = [];
+  const sprintGraphs = workflow.taskMode === TaskMode.SPRINT && opts?.sprintGate
+    ? await listSprintGraphs(opts.sprintGate.workspaceDir, opts.sprintGate.projectSlug)
+    : [];
+
+  const matches: Array<{ issue: Issue; label: StateLabel; skipped: QueueScanSkip[] }> = [];
+  for (const label of labels) {
+    try {
+      const issues = await provider.listIssuesByLabel(label);
+      const eligible = opts?.instanceName
+        ? issues.filter((i) => isOwnedByOrUnclaimed(i.labels, opts.instanceName!))
+        : issues;
+
+      for (let index = eligible.length - 1; index >= 0; index--) {
+        const issue = eligible[index]!;
+        const sprintDecision = getSprintDispatchDecision(sprintGraphs, issue);
+        if (!sprintDecision.dispatchable) {
+          skipped.push({ issueId: issue.iid, role, reason: sprintDecision.reason });
+          continue;
+        }
+        matches.push({ issue, label, skipped });
+      }
+    } catch {
+      // Continue scanning other labels. Provider errors are handled by callers.
+    }
+  }
+  return { matches, skipped };
+}
+
 /**
  * Find next issue for any role (optional filter).
  */
@@ -136,4 +204,29 @@ export async function findNextIssue(
     } catch { /* continue */ }
   }
   return null;
+}
+
+function getSprintDispatchDecision(
+  graphs: SprintExecutionGraph[],
+  issue: Issue,
+): { dispatchable: true } | { dispatchable: false; reason: string } {
+  if (graphs.length === 0) return { dispatchable: true };
+
+  for (const graph of graphs) {
+    if (issue.iid === graph.sprintRootIssueId) {
+      return { dispatchable: false, reason: "Sprint root is not dispatchable" };
+    }
+
+    const step = graph.steps.find((candidate) => candidate.issueId === issue.iid);
+    if (!step) continue;
+
+    const readiness = resolveStepReadiness(graph, issue.iid);
+    if (readiness.ready) return { dispatchable: true };
+    return {
+      dispatchable: false,
+      reason: `Sprint step not ready: ${readiness.reason}`,
+    };
+  }
+
+  return { dispatchable: true };
 }

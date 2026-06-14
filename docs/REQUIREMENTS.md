@@ -298,7 +298,7 @@ These behaviors apply to every code-producing issue — with or without a plan.
 
 **R7.2** Each sub-issue follows R1.1: own branch, own PR, own plan (optional).
 
-**R7.3** Sub-issue ordering uses dependency gating (#443): sub-issue N+1 is blocked until sub-issue N is done. Implemented via labels (`blocked:dep`) or GitHub issue dependencies.
+**R7.3** Sub-issue ordering uses dependency gating (#443): sub-issue N+1 is blocked until sub-issue N is done. In sprint mode this is enforced by the local execution graph, not by provider labels.
 
 **R7.4** Sub-issue PRs can be stacked (sub-issue N's PR targets sub-issue N-1's branch) when sequential execution is needed.
 
@@ -312,6 +312,8 @@ These behaviors apply to every code-producing issue — with or without a plan.
 **R7.7** Sprint provider abstraction is projection-only. DevClaw runtime state and dependency gating must use the local execution graph; provider hierarchy, issue links, labels, milestones, and managed body metadata are UI/audit mirrors and recovery inputs, not the runtime source of truth.
 
 **R7.8** Sprint execution graph is persisted locally in `devclaw/sprints.json`. It must survive process restart and record sprint root issue, milestone, sprint branch, sprint-level blockers, child step issue IDs, work branches, PR target branches, step blockers, and step statuses. Readiness is computed from this graph only.
+
+**R7.9** The queue scanner must skip sprint roots, blocked sprint children, sprint-level blocked children, and `integrity_error` sprint children while continuing to scan for other ready work. Standalone issues in sprint-enabled projects remain dispatchable. Projection labels such as `blocked:step` must not control readiness.
 
 ### R8: Progress Tracking
 
