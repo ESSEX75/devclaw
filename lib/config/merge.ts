@@ -46,6 +46,7 @@ export function mergeConfig(
   if (base.workflow || overlay.workflow) {
     merged.workflow = {
       initial: overlay.workflow?.initial ?? base.workflow?.initial,
+      taskMode: overlay.workflow?.taskMode ?? base.workflow?.taskMode,
       reviewPolicy: overlay.workflow?.reviewPolicy ?? base.workflow?.reviewPolicy,
       testPolicy: overlay.workflow?.testPolicy ?? base.workflow?.testPolicy,
       roleExecution: overlay.workflow?.roleExecution ?? base.workflow?.roleExecution,
@@ -58,6 +59,9 @@ export function mergeConfig(
     // Clean up undefined initial
     if (merged.workflow.initial === undefined) {
       delete merged.workflow.initial;
+    }
+    if (merged.workflow.taskMode === undefined) {
+      delete merged.workflow.taskMode;
     }
   }
 

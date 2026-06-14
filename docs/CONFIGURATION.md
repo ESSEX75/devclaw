@@ -86,15 +86,23 @@ Per-level worker capacity is resolved from `roles.<role>.models.<level>.maxWorke
 
 ### Workflow States
 
-The workflow section defines the state machine for issue lifecycle — states, transitions, review policy, and the optional test phase.
+The workflow section defines the task execution mode, state machine for issue lifecycle, states, transitions, review policy, and the optional test phase.
 
 The default workflow also sets:
 
 ```yaml
 workflow:
+  taskMode: issue
   maxWorkersPerLevel: 2
   roleExecution: parallel
 ```
+
+`taskMode` controls the execution model:
+
+| Value | Behavior |
+|---|---|
+| `issue` (default) | Current stable mode: one issue, one work branch, one PR/MR into the project base branch. |
+| `sprint` | Planned sprint execution mode. Sprint structures are created by `sprint_create`; normal `task_create` still creates standalone issues. |
 
 `maxWorkersPerLevel` creates that many slots for each level of each enabled role. With the default developer levels (`junior`, `medior`, `senior`) and `maxWorkersPerLevel: 2`, a project can have up to six developer slots, subject to queue state and `roleExecution`.
 

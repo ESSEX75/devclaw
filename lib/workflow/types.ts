@@ -23,8 +23,16 @@ export const ReviewPolicy = {
   HUMAN: "human",
   AGENT: "agent",
   SKIP: "skip",
+  SPRINT: "sprint",
 } as const;
 export type ReviewPolicy = (typeof ReviewPolicy)[keyof typeof ReviewPolicy];
+
+/** Task execution mode. */
+export const TaskMode = {
+  ISSUE: "issue",
+  SPRINT: "sprint",
+} as const;
+export type TaskMode = (typeof TaskMode)[keyof typeof TaskMode];
 
 /** Test policy for automated testing after review. */
 export const TestPolicy = {
@@ -92,6 +100,7 @@ export type StateConfig = {
 
 export type WorkflowConfig = {
   initial: string;
+  taskMode?: TaskMode;
   reviewPolicy?: ReviewPolicy;
   testPolicy?: TestPolicy;
   roleExecution?: ExecutionMode;

@@ -69,6 +69,7 @@ export function createProjectStatusTool(ctx: PluginContext) {
         (s) => s.role === "tester" && (s.type === StateType.QUEUE || s.type === StateType.ACTIVE),
       );
       const workflowSummary = {
+        taskMode: workflow.taskMode ?? "issue",
         reviewPolicy: workflow.reviewPolicy ?? "human",
         roleExecution: workflow.roleExecution ?? ExecutionMode.PARALLEL,
         testPhase: hasTestPhase,

@@ -114,7 +114,7 @@ Three-layer merge: **built-in defaults → workspace yaml → project yaml**. Va
 
 | Setting | Default | Effect |
 |---|---|---|
-| `workflow.reviewPolicy` | `human` | `human` / `agent` / `auto` — controls review routing |
+| `workflow.reviewPolicy` | `human` | `human` / `agent` / `skip` / `sprint` — controls review routing |
 | `roles.<role>.models` | Registry defaults | Which model runs at each level |
 | `roles.<role>.levels` | Registry defaults | Available level names |
 | `roles.<role>.completionResults` | Registry defaults | Valid results for `work_finish` |

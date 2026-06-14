@@ -32,7 +32,8 @@ const StateConfigSchema = z.object({
 
 const WorkflowConfigSchema = z.object({
   initial: z.string(),
-  reviewPolicy: z.enum(["human", "agent", "skip"]).optional(),
+  taskMode: z.enum(["issue", "sprint"]).optional(),
+  reviewPolicy: z.enum(["human", "agent", "skip", "sprint"]).optional(),
   testPolicy: z.enum(["skip", "agent"]).optional(),
   roleExecution: z.enum(["parallel", "sequential"]).optional(),
   maxWorkersPerLevel: z.number().int().positive().optional(),
@@ -95,13 +96,22 @@ export function validateConfig(raw: unknown): void {
  * - Terminal states have no outgoing transitions
  */
 export function validateWorkflowIntegrity(
-  workflow: { initial: string; states: Record<string, { type: string; role?: string; on?: Record<string, unknown> }> },
+  workflow: {
+    initial: string;
+    taskMode?: string;
+    reviewPolicy?: string;
+    states: Record<string, { type: string; role?: string; on?: Record<string, unknown> }>;
+  },
 ): string[] {
   const errors: string[] = [];
   const stateKeys = new Set(Object.keys(workflow.states));
 
   if (!stateKeys.has(workflow.initial)) {
     errors.push(`Initial state "${workflow.initial}" does not exist in states`);
+  }
+
+  if (workflow.reviewPolicy === "sprint" && workflow.taskMode !== "sprint") {
+    errors.push(`reviewPolicy "sprint" requires taskMode "sprint"`);
   }
 
   for (const [key, state] of Object.entries(workflow.states)) {

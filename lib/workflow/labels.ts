@@ -103,6 +103,7 @@ export function resolveReviewRouting(
   if (policy === RP.HUMAN) return "review:human";
   if (policy === RP.AGENT) return "review:agent";
   if (policy === RP.SKIP) return "review:skip";
+  if (policy === RP.SPRINT) return "review:human";
   return "review:human";
 }
 

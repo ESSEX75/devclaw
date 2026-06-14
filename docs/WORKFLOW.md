@@ -41,6 +41,7 @@ Each state has a type, label, color, and optional transitions. The default confi
 ```yaml
 workflow:
   initial: planning
+  taskMode: issue
   reviewPolicy: human
   states:
     planning:
@@ -175,14 +176,23 @@ The `reviewPolicy` field controls how PRs are reviewed after a developer complet
 
 ```yaml
 workflow:
-  reviewPolicy: human  # Options: human, agent, auto
+  taskMode: issue       # Options: issue, sprint
+  reviewPolicy: human   # Options: human, agent, skip, sprint
 ```
+
+`taskMode` controls the execution model:
+
+| Mode | Behavior |
+|---|---|
+| `issue` (default) | Current stable mode: one issue, one work branch, one PR/MR into the project base branch. |
+| `sprint` | Planned sprint execution mode. Sprint structures are created by `sprint_create`; normal `task_create` still creates standalone issues. |
 
 | Policy | Behavior |
 |---|---|
 | `human` (default) | All PRs need human approval on GitHub/GitLab. The heartbeat service auto-merges when the PR is approved. PR comments or changes-requested reviews automatically move the issue to "To Improve". |
 | `agent` | An agent reviewer checks every PR before merge. The reviewer agent is dispatched automatically and calls `work_finish` with approve/reject. |
-| `auto` | Junior/medior developer tasks → agent review. Senior developer tasks → human review. Useful for catching obvious issues with AI while reserving human review for complex work. |
+| `skip` | Review phase is skipped. PRs are auto-merged after development according to the workflow transitions. |
+| `sprint` | Valid only with `taskMode: sprint`. Child PRs/MRs can auto-merge into `sprintBranch`; the final PR/MR still waits for human review. |
 
 ### Per-Issue Overrides
 

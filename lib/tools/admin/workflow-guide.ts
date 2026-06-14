@@ -101,6 +101,7 @@ roles:
     models:
       senior: anthropic/claude-opus-4-6
 workflow:
+  taskMode: issue
   reviewPolicy: agent
 \`\`\`
 This changes only the senior developer model and review policy; everything else inherits.`;
@@ -274,7 +275,16 @@ If a role has no prompt file, the worker gets a generic system prompt. When enab
 function buildReviewSection(): string {
   return `# Review Policy
 
-## reviewPolicy (FIXED — 3 values)
+## taskMode (FIXED — 2 values)
+
+Set in \`workflow.taskMode\`:
+
+| Value | Behavior |
+|-------|----------|
+| \`issue\` | **(default)** Current stable mode: one issue, one work branch, one PR/MR into the project base branch. |
+| \`sprint\` | Planned sprint execution mode. Sprint structures are created by \`sprint_create\`; \`task_create\` still creates standalone issues. |
+
+## reviewPolicy (FIXED — 4 values)
 
 Set in \`workflow.reviewPolicy\`:
 
@@ -282,7 +292,8 @@ Set in \`workflow.reviewPolicy\`:
 |---------|----------|
 | \`human\` | **(default)** All PRs wait for human approval on GitHub/GitLab. The heartbeat polls PR status and auto-merges when approved. |
 | \`agent\` | Every PR is reviewed by an agent (reviewer role) before merge. Agent can approve or reject. |
-| \`auto\`  | Hybrid: junior/medior developers → agent review, senior developers → human review. |
+| \`skip\`  | Review phase is skipped. PRs are auto-merged after development according to workflow transitions. |
+| \`sprint\` | Valid only with \`taskMode: sprint\`. Child PRs/MRs can auto-merge into \`sprintBranch\`; the final PR/MR still waits for human review. |
 
 ## How review routing works
 
@@ -290,7 +301,8 @@ Set in \`workflow.reviewPolicy\`:
 2. Heartbeat checks \`reviewPolicy\` to decide routing:
    - \`human\`: issue stays in \`toReview\`, heartbeat polls PR for approval
    - \`agent\`: heartbeat dispatches a reviewer worker to check the PR
-   - \`auto\`: checks the developer level that worked on the issue
+   - \`skip\`: review is skipped
+   - \`sprint\`: sprint mode handles child PR/MR routing through sprint execution
 3. The \`toReview\` state should have a \`check: prApproved\` field for human review flow
 
 ## Per-issue override labels (FIXED format, applied to individual issues)

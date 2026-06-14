@@ -165,7 +165,7 @@ You → Orchestrator → task_create + task_start(level: "senior")
 
 **Maximum automation. Senior dev researches, implements, and the system merges.**
 
-Same as mode 5, but with `reviewPolicy: agent` or `reviewPolicy: auto`. The PR is reviewed by an agent reviewer (or auto-merged for senior work under `auto` policy). No human in the loop unless something fails.
+Same as mode 5, but with `reviewPolicy: agent` or `reviewPolicy: skip`. The PR is reviewed by an agent reviewer or the review phase is skipped according to workflow policy. No human in the loop unless something fails.
 
 **Flow:**
 ```

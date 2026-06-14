@@ -77,7 +77,8 @@ Configurable per project in `workflow.yaml` → `workflow.reviewPolicy`:
 
 - **human** (default): All PRs need human approval on GitHub/GitLab. Heartbeat auto-merges when approved.
 - **agent**: Agent reviewer checks every PR before merge.
-- **auto**: Junior/medior → agent review, senior → human review.
+- **skip**: Review phase is skipped and PRs are auto-merged after development.
+- **sprint**: Sprint mode only; child PRs/MRs can auto-merge into `sprintBranch`, final PR/MR waits for human review.
 
 ### Test Phase (optional)
 

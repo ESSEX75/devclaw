@@ -176,6 +176,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 
   const workflow: WorkflowConfig = {
     initial: config.workflow?.initial ?? DEFAULT_WORKFLOW.initial,
+    taskMode: config.workflow?.taskMode ?? DEFAULT_WORKFLOW.taskMode,
     reviewPolicy: config.workflow?.reviewPolicy ?? DEFAULT_WORKFLOW.reviewPolicy,
     testPolicy: config.workflow?.testPolicy ?? DEFAULT_WORKFLOW.testPolicy,
     roleExecution: config.workflow?.roleExecution ?? DEFAULT_WORKFLOW.roleExecution,

@@ -6,6 +6,7 @@ import {
   StateType,
   ExecutionMode,
   ReviewPolicy,
+  TaskMode,
   TestPolicy,
   Action,
   WorkflowEvent,
@@ -14,6 +15,7 @@ import {
 
 export const DEFAULT_WORKFLOW: WorkflowConfig = {
   initial: "planning",
+  taskMode: TaskMode.ISSUE,
   reviewPolicy: ReviewPolicy.HUMAN,
   testPolicy: TestPolicy.SKIP,
   roleExecution: ExecutionMode.PARALLEL,

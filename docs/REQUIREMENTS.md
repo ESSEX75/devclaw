@@ -321,11 +321,13 @@ These behaviors apply to every code-producing issue — with or without a plan.
 
 ### R9: Configuration
 
-**R9.1** No new config keys for plans. Plan support is built-in — any issue with a `<!-- devclaw:plan -->` block in its body is a planned issue.
+**R9.1** `workflow.taskMode` controls the execution model. Default is `issue`, preserving the current one issue → one branch → one PR/MR flow. `sprint` is project-level opt-in for sprint structures created by `sprint_create`.
 
-**R9.2** Existing config unchanged: `reviewPolicy`, `testPolicy`, `roleExecution`, `maxWorkersPerLevel`.
+**R9.2** Existing config remains backward-compatible: missing `taskMode` resolves to `issue`; existing `reviewPolicy`, `testPolicy`, `roleExecution`, and `maxWorkersPerLevel` settings keep their behavior.
 
-**R9.3** Per-issue overrides via labels: `review:human/agent/skip`, `test:skip`. Apply to the whole issue (all steps share the same PR).
+**R9.3** `workflow.reviewPolicy` supports `human`, `agent`, `skip`, and sprint-only `sprint`. `reviewPolicy: sprint` is valid only when `taskMode: sprint`.
+
+**R9.4** Per-issue overrides via labels: `review:human/agent/skip`, `test:skip`. Apply to the whole issue in issue mode.
 
 ---
 
