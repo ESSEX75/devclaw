@@ -760,6 +760,7 @@ See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
 | Plugin manifest | `~/.openclaw/extensions/devclaw/openclaw.plugin.json` | Plugin registration |
 | Agent config | `~/.openclaw/openclaw.json` | Agent definition + tool permissions + model config |
 | Worker state | `<workspace>/devclaw/projects.json` | Per-project worker state |
+| Sprint execution graph | `<workspace>/devclaw/sprints.json` | Runtime source of truth for sprint dependencies, branches, and step states |
 | Workflow config (workspace) | `<workspace>/devclaw/workflow.yaml` | Workspace-level role/workflow overrides |
 | Workflow config (project) | `<workspace>/devclaw/projects/<project>/workflow.yaml` | Project-specific overrides |
 | Default role instructions | `<workspace>/devclaw/prompts/<role>.md` | Default `developer.md`, `tester.md`, `architect.md` |

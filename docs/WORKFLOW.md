@@ -132,6 +132,19 @@ workflow:
 
 The architect role has dedicated `To Research` and `Researching` states. Design tasks are triggered via the `research_task` tool, which creates an issue and transitions it through `To Research` → `Researching`. The architect posts findings as comments, creates implementation tasks in Planning, and completes with `work_finish`.
 
+## Sprint Execution Graph
+
+When `workflow.taskMode: sprint` is enabled, sprint dependency and dispatch state lives in `<workspace>/devclaw/sprints.json`. This graph is the runtime source of truth for sprint-level dependencies, step-level dependencies, sprint/work branches, and step status.
+
+Provider data is projection only:
+
+- labels are for filtering and UI;
+- milestones/root/child issue hierarchy is for provider visibility;
+- issue body metadata is backup/recovery data;
+- provider dependency relationships are an audit/UI mirror.
+
+Changing labels, milestone fields, or issue body metadata does not directly mutate readiness. The scanner and pipeline must resolve sprint readiness from the local execution graph.
+
 ### State Types
 
 | Type | Description |

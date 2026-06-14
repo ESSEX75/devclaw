@@ -311,6 +311,8 @@ These behaviors apply to every code-producing issue — with or without a plan.
 
 **R7.7** Sprint provider abstraction is projection-only. DevClaw runtime state and dependency gating must use the local execution graph; provider hierarchy, issue links, labels, milestones, and managed body metadata are UI/audit mirrors and recovery inputs, not the runtime source of truth.
 
+**R7.8** Sprint execution graph is persisted locally in `devclaw/sprints.json`. It must survive process restart and record sprint root issue, milestone, sprint branch, sprint-level blockers, child step issue IDs, work branches, PR target branches, step blockers, and step statuses. Readiness is computed from this graph only.
+
 ### R8: Progress Tracking
 
 **R8.1** For planned issues: the checklist in the issue body IS the progress view. Updated after each step.
