@@ -251,6 +251,7 @@ Restrict DevClaw tools to your orchestrator agent. Setup writes these tools to `
             "task_start",
             "work_finish",
             "task_create",
+            "sprint_create",
             "task_set_level",
             "task_comment",
             "task_edit_body",

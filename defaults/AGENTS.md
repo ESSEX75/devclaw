@@ -47,6 +47,7 @@ All orchestration goes through these tools. You do NOT manually manage sessions,
 |---|---|
 | `project_register` | One-time project setup: creates labels, scaffolds role files, adds to projects.json |
 | `task_create` | Create issues from chat (bugs, features, tasks) |
+| `sprint_create` | Create sprint milestone, root issue, child issues, sprint branch, and local execution graph |
 | `task_start` | Advance an issue to the next queue (state-agnostic). Optional level hint for dispatch. Heartbeat handles actual dispatch. |
 | `task_set_level` | Set level hint on HOLD-state issues (Planning, Refining) before advancing |
 | `task_list` | Browse/search issues by workflow state (queue, active, hold, terminal) |

@@ -106,6 +106,49 @@ Create a new issue in the project's issue tracker.
 
 ---
 
+### `sprint_create`
+
+Create a sprint milestone, sprint root issue, child executable issues, sprint branch, and local execution graph. Only works for projects with `workflow.taskMode: sprint`. Use `task_create` for standalone issues.
+
+**Source:** [`lib/tools/sprints/sprint-create.ts`](../lib/tools/sprints/sprint-create.ts)
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `projectSlug` | string | Yes | Registered project slug. Not a channel ID. |
+| `title` | string | Yes | Sprint title / delivery scope. |
+| `description` | string | No | Sprint root issue body / delivery context. |
+| `baseBranch` | string | No | Base branch override. Defaults to project `baseBranch`. |
+| `assignees` | string[] | No | GitHub/GitLab usernames assigned to sprint issues. |
+| `steps` | array | Yes | Child executable issues. Each step needs `id` and `title`. |
+| `sprintBlockedBy` | string[] | No | Sprint root issue IDs that block this sprint, e.g. `["#100"]`. |
+
+**Step fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | string | Yes | Stable step id, unique inside the sprint. |
+| `title` | string | Yes | Child issue title. |
+| `body` | string | No | Child issue body. |
+| `acceptanceCriteria` | string[] | No | Rendered into the child issue body. |
+| `dependsOn` | string[] | No | Explicit dependency step ids. Omit for default linear dependency on the previous step. Use `[]` for parallel start. |
+| `labels` | string[] | No | Additional provider labels for filtering/search. |
+
+**What it creates:**
+
+1. Sprint milestone.
+2. Sprint root issue.
+3. Mandatory `sprintBranch` from the resolved base branch.
+4. Child executable issues.
+5. Local `devclaw/sprints.json` execution graph.
+6. Managed issue body metadata backup.
+7. Provider projection links.
+
+**Dependency behavior:** Missing `dependsOn` creates a linear chain. Explicit `dependsOn` supports parallel and custom graphs.
+
+---
+
 ### `task_set_level`
 
 Set the developer level hint on a HOLD-state issue (Planning, Refining).
