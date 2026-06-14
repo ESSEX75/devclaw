@@ -8,6 +8,8 @@ import {
   type IssueComment,
   type PrStatus,
   type PrReviewComment,
+  type SprintProviderCapabilities,
+  type SprintReadinessCheck,
   PrState,
 } from "./provider.js";
 import type { RunCommand } from "../context.js";
@@ -73,6 +75,108 @@ export class GitHubProvider implements IssueProvider {
       this.repoInfo = null;
     }
     return this.repoInfo;
+  }
+
+  async getSprintCapabilities(): Promise<SprintProviderCapabilities> {
+    return {
+      issues: true,
+      milestones: true,
+      branches: true,
+      pullRequests: true,
+      autoMerge: true,
+      nativeSubIssues: false,
+      nativeDependencies: false,
+    };
+  }
+
+  async checkSprintReadiness(opts: { baseBranch: string; reviewPolicy?: string }): Promise<{
+    blocking: SprintReadinessCheck[];
+    warnings: SprintReadinessCheck[];
+  }> {
+    const blocking: SprintReadinessCheck[] = [];
+    const warnings: SprintReadinessCheck[] = [];
+
+    try {
+      await this.gh(["auth", "status"]);
+    } catch (err) {
+      return {
+        blocking: [{
+          code: "provider_auth",
+          message: `GitHub CLI authentication failed: ${(err as Error).message}`,
+        }],
+        warnings,
+      };
+    }
+
+    const repo = await this.getRepoInfo();
+    if (!repo) {
+      return {
+        blocking: [{
+          code: "repository_not_found",
+          message: "GitHub repository could not be resolved from the current repo.",
+        }],
+        warnings,
+      };
+    }
+
+    try {
+      await this.gh(["api", `repos/${repo.owner}/${repo.name}/branches/${encodeURIComponent(opts.baseBranch)}`]);
+    } catch {
+      blocking.push({
+        code: "base_branch_missing",
+        message: `Base branch "${opts.baseBranch}" does not exist on GitHub.`,
+        details: { baseBranch: opts.baseBranch },
+      });
+    }
+
+    try {
+      const raw = await this.gh(["repo", "view", "--json", "viewerPermission,hasIssuesEnabled"]);
+      const repoView = JSON.parse(raw) as { viewerPermission?: string; hasIssuesEnabled?: boolean };
+      const permission = repoView.viewerPermission ?? "UNKNOWN";
+      const canWrite = ["ADMIN", "MAINTAIN", "WRITE"].includes(permission);
+      if (!repoView.hasIssuesEnabled) {
+        blocking.push({
+          code: "missing_sprint_capability",
+          message: "GitHub issues are disabled for this repository.",
+          details: { capability: "issues" },
+        });
+      }
+      if (!canWrite) {
+        blocking.push({
+          code: "provider_permissions",
+          message: `GitHub permission "${permission}" is insufficient for sprint issue, milestone, branch, and PR operations.`,
+          details: { permission },
+        });
+      }
+      if ((opts.reviewPolicy === "sprint" || opts.reviewPolicy === "skip") && !canWrite) {
+        blocking.push({
+          code: "auto_merge_blocked",
+          message: `GitHub permission "${permission}" cannot satisfy automatic sprint merge behavior.`,
+          details: { reviewPolicy: opts.reviewPolicy, permission },
+        });
+      }
+    } catch (err) {
+      blocking.push({
+        code: "provider_permissions",
+        message: `GitHub repository permission check failed: ${(err as Error).message}`,
+      });
+    }
+
+    const capabilities = await this.getSprintCapabilities();
+    if (!capabilities.nativeSubIssues) {
+      warnings.push({
+        code: "native_sub_issues_unavailable",
+        message: "GitHub native sub-issues are unavailable; DevClaw will use issue body metadata fallback.",
+      });
+    }
+    if (!capabilities.nativeDependencies) {
+      warnings.push({
+        code: "native_dependencies_unavailable",
+        message: "GitHub native dependency relationships are unavailable; DevClaw will keep the graph in local state.",
+      });
+    }
+
+    return { blocking, warnings };
   }
 
   /**

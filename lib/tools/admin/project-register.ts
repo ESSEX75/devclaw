@@ -15,9 +15,14 @@ import { resolveRepoPath } from "../../projects/index.js";
 import { createProvider } from "../../providers/index.js";
 import { log as auditLog } from "../../audit.js";
 import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
-import { getRoleLabels } from "../../workflow/index.js";
+import { getLabelColors, getRoleLabels, getStateLabels } from "../../workflow/index.js";
 import { loadConfig } from "../../config/index.js";
 import { DATA_DIR } from "../../setup/migrate-layout.js";
+import {
+  checkSprintReinitReadiness,
+  runSprintReadinessWritePhase,
+  sprintModeEnabled,
+} from "../../setup/sprint-readiness.js";
 
 /**
  * Scaffold project directory with prompts/ folder and a README explaining overrides.
@@ -167,32 +172,80 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       // 2. Resolve repo path
       const repoPath = resolveRepoPath(repo);
 
+      const resolvedConfig = await loadConfig(workspaceDir, name);
+
       // 3. Create provider and verify it works
       const { provider, type: providerType } = await createProvider({ repo, runCommand: ctx.runCommand });
 
-      const healthy = await provider.healthCheck();
-      if (!healthy) {
-        const cliName = providerType === "github" ? "gh" : "glab";
-        const cliInstallUrl = providerType === "github"
-          ? "https://cli.github.com"
-          : "https://gitlab.com/gitlab-org/cli";
-        throw new Error(
-          `${providerType.toUpperCase()} health check failed for ${repoPath}. ` +
-          `Detected provider: ${providerType}. ` +
-          `Ensure '${cliName}' CLI is installed, authenticated (${cliName} auth status), ` +
-          `and the repo has a ${providerType.toUpperCase()} remote. ` +
-          `Install ${cliName} from: ${cliInstallUrl}`
-        );
+      const sprintReadiness = await checkSprintReinitReadiness({
+        provider,
+        project: { baseBranch },
+        config: resolvedConfig,
+      });
+      if (sprintReadiness.state !== "ready") {
+        await auditLog(workspaceDir, "project_register_sprint_reinit_failed", {
+          project: name,
+          projectSlug: slug,
+          blocking: sprintReadiness.blocking,
+          warnings: sprintReadiness.warnings,
+        });
+        return jsonResult({
+          success: false,
+          project: name,
+          projectSlug: slug,
+          reinit: sprintReadiness,
+          message: "Sprint mode readiness failed before provider writes. No labels, milestones, branches, or issues were created.",
+        });
+      }
+      if (!sprintModeEnabled(resolvedConfig)) {
+        const healthy = await provider.healthCheck();
+        if (!healthy) {
+          const cliName = providerType === "github" ? "gh" : "glab";
+          const cliInstallUrl = providerType === "github"
+            ? "https://cli.github.com"
+            : "https://gitlab.com/gitlab-org/cli";
+          throw new Error(
+            `${providerType.toUpperCase()} health check failed for ${repoPath}. ` +
+            `Detected provider: ${providerType}. ` +
+            `Ensure '${cliName}' CLI is installed, authenticated (${cliName} auth status), ` +
+            `and the repo has a ${providerType.toUpperCase()} remote. ` +
+            `Install ${cliName} from: ${cliInstallUrl}`,
+          );
+        }
       }
 
-      // 4. Create all state labels (idempotent)
-      await provider.ensureAllStateLabels();
-
-      // 4b. Create role:level + step routing labels (e.g. developer:junior, review:human, test:skip)
-      const resolvedConfig = await loadConfig(workspaceDir, name);
+      // 4. Create labels only after sprint readiness checks pass.
+      const stateLabels = getStateLabels(resolvedConfig.workflow);
+      const labelColors = getLabelColors(resolvedConfig.workflow);
       const roleLabels = getRoleLabels(resolvedConfig.roles);
-      for (const { name: labelName, color } of roleLabels) {
-        await provider.ensureLabel(labelName, color);
+      const writeResult = await runSprintReadinessWritePhase({
+        readiness: sprintReadiness,
+        write: async (recordCreated) => {
+          for (const label of stateLabels) {
+            await provider.ensureLabel(label, labelColors[label]);
+            if (sprintModeEnabled(resolvedConfig)) recordCreated({ type: "label", id: label });
+          }
+          for (const { name: labelName, color } of roleLabels) {
+            await provider.ensureLabel(labelName, color);
+            if (sprintModeEnabled(resolvedConfig)) recordCreated({ type: "label", id: labelName });
+          }
+        },
+      });
+      if (writeResult.state === "reinit_partial") {
+        await auditLog(workspaceDir, "project_register_sprint_reinit_partial", {
+          project: name,
+          projectSlug: slug,
+          blocking: writeResult.blocking,
+          warnings: writeResult.warnings,
+          created: writeResult.created,
+        });
+        return jsonResult({
+          success: false,
+          project: name,
+          projectSlug: slug,
+          reinit: writeResult,
+          message: "Sprint mode reinit reached partial state during provider writes. Run repair before creating sprints.",
+        });
       }
 
       // 5. Auto-detect repoRemote from git

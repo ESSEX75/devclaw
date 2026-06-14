@@ -167,10 +167,17 @@ Go to the Telegram/WhatsApp group for the project and tell the orchestrator agen
 
 The agent calls `project_register`, which atomically:
 - Validates the repo and auto-detects GitHub/GitLab from remote
+- In sprint mode, runs read-only readiness checks before any provider writes
 - Creates all state labels (idempotent)
 - Scaffolds role instruction files (`devclaw/projects/<project>/prompts/developer.md`, `tester.md`, `architect.md`)
 - Adds the project entry to `projects.json`
 - Logs the registration event
+
+For projects using `workflow.taskMode: sprint`, registration and repair use typed reinit readiness states:
+
+- `ready` - provider auth, permissions, repo, base branch, mandatory sprint capabilities, and merge policy checks passed.
+- `reinit_failed` - a blocking read-only check failed. No labels, milestones, branches, or issues were created.
+- `reinit_partial` - read-only checks passed, but a provider write failed after partial setup. Run `sync_labels` with `repair: true` after fixing the provider problem.
 
 **Initial state in `projects.json`:**
 
@@ -290,7 +297,7 @@ Change which model powers each level in `workflow.yaml` — see [Configuration](
 | Plugin installation | You (once) | `openclaw plugins install @laurentenhoor/devclaw` |
 | Agent + workspace setup | Plugin (`setup`) | Creates agent, configures models, writes workspace files |
 | Channel binding migration | Plugin (`setup` with `migrateFrom`) | Automatically moves channel-wide bindings between agents |
-| Label setup | Plugin (`project_register`) | State labels, created idempotently via IssueProvider |
+| Label setup | Plugin (`project_register`, `sync_labels`) | State labels, created idempotently via IssueProvider after sprint readiness checks when sprint mode is enabled |
 | Prompt file scaffolding | Plugin (`project_register`) | Creates `devclaw/projects/<project>/prompts/<role>.md` for each role |
 | Project registration | Plugin (`project_register`) | Entry in `projects.json` with empty worker state |
 | Telegram group setup | You (once per project) | Add bot to group |

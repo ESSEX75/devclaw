@@ -10,6 +10,8 @@ import type {
   StateLabel,
   IssueComment,
   PrStatus,
+  SprintProviderCapabilities,
+  SprintReadinessCheck,
 } from "../providers/provider.js";
 import { getStateLabels } from "../workflow/index.js";
 import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../workflow/index.js";
@@ -47,6 +49,8 @@ export type ProviderCall =
   | { method: "mergePr"; args: { issueId: number } }
   | { method: "getPrDiff"; args: { issueId: number } }
   | { method: "getPrReviewComments"; args: { issueId: number } }
+  | { method: "getSprintCapabilities"; args: {} }
+  | { method: "checkSprintReadiness"; args: { baseBranch: string; reviewPolicy?: string } }
   | { method: "addComment"; args: { issueId: number; body: string } }
   | { method: "editIssue"; args: { issueId: number; updates: { title?: string; body?: string } } }
   | { method: "healthCheck"; args: {} };
@@ -72,6 +76,24 @@ export class TestProvider implements IssueProvider {
   prDiffs = new Map<number, string>();
   /** All calls, in order. */
   calls: ProviderCall[] = [];
+  /** Sprint capability overrides for readiness tests. */
+  sprintCapabilities: SprintProviderCapabilities = {
+    issues: true,
+    milestones: true,
+    branches: true,
+    pullRequests: true,
+    autoMerge: true,
+    nativeSubIssues: false,
+    nativeDependencies: false,
+  };
+  /** Sprint readiness failures/warnings for readiness tests. */
+  sprintReadiness: {
+    blocking: SprintReadinessCheck[];
+    warnings: SprintReadinessCheck[];
+  } = {
+    blocking: [],
+    warnings: [],
+  };
 
   private nextIssueId = 1;
   private workflow: WorkflowConfig;
@@ -127,12 +149,44 @@ export class TestProvider implements IssueProvider {
     this.mergePrFailures.clear();
     this.prDiffs.clear();
     this.calls = [];
+    this.sprintCapabilities = {
+      issues: true,
+      milestones: true,
+      branches: true,
+      pullRequests: true,
+      autoMerge: true,
+      nativeSubIssues: false,
+      nativeDependencies: false,
+    };
+    this.sprintReadiness = {
+      blocking: [],
+      warnings: [],
+    };
     this.nextIssueId = 1;
   }
 
   // -------------------------------------------------------------------------
   // IssueProvider implementation
   // -------------------------------------------------------------------------
+
+  async getSprintCapabilities(): Promise<SprintProviderCapabilities> {
+    this.calls.push({ method: "getSprintCapabilities", args: {} });
+    return this.sprintCapabilities;
+  }
+
+  async checkSprintReadiness(opts: { baseBranch: string; reviewPolicy?: string }): Promise<{
+    blocking: SprintReadinessCheck[];
+    warnings: SprintReadinessCheck[];
+  }> {
+    this.calls.push({
+      method: "checkSprintReadiness",
+      args: { baseBranch: opts.baseBranch, reviewPolicy: opts.reviewPolicy },
+    });
+    return {
+      blocking: [...this.sprintReadiness.blocking],
+      warnings: [...this.sprintReadiness.warnings],
+    };
+  }
 
   async ensureLabel(name: string, color: string): Promise<void> {
     this.calls.push({ method: "ensureLabel", args: { name, color } });

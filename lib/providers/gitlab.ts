@@ -8,6 +8,8 @@ import {
   type IssueComment,
   type PrStatus,
   type PrReviewComment,
+  type SprintProviderCapabilities,
+  type SprintReadinessCheck,
   PrState,
 } from "./provider.js";
 import type { RunCommand } from "../context.js";
@@ -47,6 +49,120 @@ export class GitLabProvider implements IssueProvider {
       const result = await this.runCommand(["glab", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
       return result.stdout.trim();
     });
+  }
+
+  async getSprintCapabilities(): Promise<SprintProviderCapabilities> {
+    return {
+      issues: true,
+      milestones: true,
+      branches: true,
+      pullRequests: true,
+      autoMerge: true,
+      nativeSubIssues: false,
+      nativeDependencies: true,
+    };
+  }
+
+  async checkSprintReadiness(opts: { baseBranch: string; reviewPolicy?: string }): Promise<{
+    blocking: SprintReadinessCheck[];
+    warnings: SprintReadinessCheck[];
+  }> {
+    const blocking: SprintReadinessCheck[] = [];
+    const warnings: SprintReadinessCheck[] = [];
+
+    try {
+      await this.glab(["auth", "status"]);
+    } catch (err) {
+      return {
+        blocking: [{
+          code: "provider_auth",
+          message: `GitLab CLI authentication failed: ${(err as Error).message}`,
+        }],
+        warnings,
+      };
+    }
+
+    let project: {
+      id?: number;
+      issues_enabled?: boolean;
+      merge_requests_enabled?: boolean;
+      permissions?: {
+        project_access?: { access_level?: number } | null;
+        group_access?: { access_level?: number } | null;
+      };
+    } | null = null;
+    try {
+      const raw = await this.glab(["api", "projects/:id", "--method", "GET"]);
+      project = JSON.parse(raw);
+    } catch (err) {
+      return {
+        blocking: [{
+          code: "repository_not_found",
+          message: `GitLab project could not be resolved: ${(err as Error).message}`,
+        }],
+        warnings,
+      };
+    }
+
+    try {
+      await this.glab(["api", `projects/:id/repository/branches/${encodeURIComponent(opts.baseBranch)}`, "--method", "GET"]);
+    } catch {
+      blocking.push({
+        code: "base_branch_missing",
+        message: `Base branch "${opts.baseBranch}" does not exist on GitLab.`,
+        details: { baseBranch: opts.baseBranch },
+      });
+    }
+
+    const projectAccess = project?.permissions?.project_access?.access_level ?? 0;
+    const groupAccess = project?.permissions?.group_access?.access_level ?? 0;
+    const accessLevel = Math.max(projectAccess, groupAccess);
+    const canWrite = accessLevel >= 30;
+
+    if (!project?.issues_enabled) {
+      blocking.push({
+        code: "missing_sprint_capability",
+        message: "GitLab issues are disabled for this project.",
+        details: { capability: "issues" },
+      });
+    }
+    if (!project?.merge_requests_enabled) {
+      blocking.push({
+        code: "missing_sprint_capability",
+        message: "GitLab merge requests are disabled for this project.",
+        details: { capability: "pullRequests" },
+      });
+    }
+    if (!canWrite) {
+      blocking.push({
+        code: "provider_permissions",
+        message: `GitLab access level ${accessLevel} is insufficient for sprint issue, milestone, branch, and MR operations.`,
+        details: { accessLevel },
+      });
+    }
+    if ((opts.reviewPolicy === "sprint" || opts.reviewPolicy === "skip") && !canWrite) {
+      blocking.push({
+        code: "auto_merge_blocked",
+        message: `GitLab access level ${accessLevel} cannot satisfy automatic sprint merge behavior.`,
+        details: { reviewPolicy: opts.reviewPolicy, accessLevel },
+      });
+    }
+
+    const capabilities = await this.getSprintCapabilities();
+    if (!capabilities.nativeSubIssues) {
+      warnings.push({
+        code: "native_sub_issues_unavailable",
+        message: "GitLab native sub-issues are unavailable; DevClaw will use issue body metadata fallback.",
+      });
+    }
+    if (!capabilities.nativeDependencies) {
+      warnings.push({
+        code: "native_dependencies_unavailable",
+        message: "GitLab native dependency relationships are unavailable; DevClaw will keep the graph in local state.",
+      });
+    }
+
+    return { blocking, warnings };
   }
 
   /** Get MRs linked to an issue via GitLab's native related_merge_requests API. */

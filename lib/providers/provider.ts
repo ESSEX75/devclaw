@@ -67,10 +67,45 @@ export type PrReviewComment = {
 };
 
 // ---------------------------------------------------------------------------
+// Sprint readiness types
+// ---------------------------------------------------------------------------
+
+export type SprintProviderCapabilities = {
+  issues: boolean;
+  milestones: boolean;
+  branches: boolean;
+  pullRequests: boolean;
+  autoMerge: boolean;
+  nativeSubIssues: boolean;
+  nativeDependencies: boolean;
+};
+
+export type SprintReadinessCheck = {
+  code:
+    | "provider_auth"
+    | "provider_permissions"
+    | "repository_not_found"
+    | "base_branch_missing"
+    | "missing_sprint_capability"
+    | "auto_merge_blocked"
+    | "native_sub_issues_unavailable"
+    | "native_dependencies_unavailable"
+    | "optional_labels_need_normalization"
+    | "provider_unavailable";
+  message: string;
+  details?: Record<string, unknown>;
+};
+
+// ---------------------------------------------------------------------------
 // Provider interface
 // ---------------------------------------------------------------------------
 
 export interface IssueProvider {
+  getSprintCapabilities(): Promise<SprintProviderCapabilities>;
+  checkSprintReadiness(opts: { baseBranch: string; reviewPolicy?: string }): Promise<{
+    blocking: SprintReadinessCheck[];
+    warnings: SprintReadinessCheck[];
+  }>;
   ensureLabel(name: string, color: string): Promise<void>;
   ensureAllStateLabels(): Promise<void>;
   createIssue(title: string, description: string, label: StateLabel, assignees?: string[]): Promise<Issue>;

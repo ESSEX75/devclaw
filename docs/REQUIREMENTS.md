@@ -329,6 +329,8 @@ These behaviors apply to every code-producing issue — with or without a plan.
 
 **R9.4** Per-issue overrides via labels: `review:human/agent/skip`, `test:skip`. Apply to the whole issue in issue mode.
 
+**R9.5** Sprint mode requires reinit readiness before sprint structures can be created. Reinit is all-checks-before-writes: provider auth, repository, base branch, permissions, mandatory sprint operations, and auto-merge policy checks must pass before labels, milestones, branches, or issues are written. Failures return `reinit_failed` with `blocking[]`, `warnings[]`, and `created: []`; provider failures after partial writes return `reinit_partial`.
+
 ---
 
 ## 4. State & Transition Reference

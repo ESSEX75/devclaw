@@ -20,6 +20,11 @@ import {
   getRoleLabels,
 } from "../../workflow/index.js";
 import { log as auditLog } from "../../audit.js";
+import {
+  checkSprintReinitReadiness,
+  runSprintReadinessWritePhase,
+  sprintModeEnabled,
+} from "../../setup/sprint-readiness.js";
 
 export function createSyncLabelsTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -37,12 +42,18 @@ export function createSyncLabelsTool(ctx: PluginContext) {
           description:
             "Channel ID identifying the project. Omit to sync all registered projects.",
         },
+        repair: {
+          type: "boolean",
+          description:
+            "Repair sprint-mode reinit by rerunning readiness checks and idempotent label writes.",
+        },
       },
     },
 
     async execute(_id: string, params: Record<string, unknown>) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
       const targetChannelId = params.channelId as string | undefined;
+      const repair = params.repair === true;
 
       const data = await readProjects(workspaceDir);
       let slugs: string[];
@@ -68,6 +79,7 @@ export function createSyncLabelsTool(ctx: PluginContext) {
         stateLabels: string[];
         roleLabels: string[];
         error?: string;
+        reinit?: unknown;
       }> = [];
 
       for (const slug of slugs) {
@@ -83,23 +95,57 @@ export function createSyncLabelsTool(ctx: PluginContext) {
             runCommand: ctx.runCommand,
           });
 
+          const sprintReadiness = await checkSprintReinitReadiness({
+            provider,
+            project,
+            config: resolvedConfig,
+          });
+          if (sprintReadiness.state !== "ready") {
+            results.push({
+              project: slug,
+              stateLabels: [],
+              roleLabels: [],
+              error: "Sprint mode readiness failed before provider writes.",
+              reinit: sprintReadiness,
+            });
+            continue;
+          }
+
           // State labels from the resolved workflow (not DEFAULT_WORKFLOW)
           const stateLabels = getStateLabels(resolvedConfig.workflow);
           const labelColors = getLabelColors(resolvedConfig.workflow);
-          for (const label of stateLabels) {
-            await provider.ensureLabel(label, labelColors[label]);
-          }
 
           // Role:level + step routing labels
           const roleLabels = getRoleLabels(resolvedConfig.roles);
-          for (const { name, color } of roleLabels) {
-            await provider.ensureLabel(name, color);
+          const writeResult = await runSprintReadinessWritePhase({
+            readiness: sprintReadiness,
+            write: async (recordCreated) => {
+              for (const label of stateLabels) {
+                await provider.ensureLabel(label, labelColors[label]);
+                if (sprintModeEnabled(resolvedConfig)) recordCreated({ type: "label", id: label });
+              }
+              for (const { name, color } of roleLabels) {
+                await provider.ensureLabel(name, color);
+                if (sprintModeEnabled(resolvedConfig)) recordCreated({ type: "label", id: name });
+              }
+            },
+          });
+          if (writeResult.state === "reinit_partial") {
+            results.push({
+              project: slug,
+              stateLabels: [],
+              roleLabels: [],
+              error: "Sprint mode reinit reached partial state during provider writes.",
+              reinit: writeResult,
+            });
+            continue;
           }
 
           results.push({
             project: slug,
             stateLabels,
             roleLabels: roleLabels.map((r) => r.name),
+            reinit: sprintModeEnabled(resolvedConfig) || repair ? writeResult : undefined,
           });
         } catch (err) {
           results.push({
@@ -114,6 +160,7 @@ export function createSyncLabelsTool(ctx: PluginContext) {
       await auditLog(workspaceDir, "sync_labels", {
         projects: results.map((r) => r.project),
         errors: results.filter((r) => r.error).length,
+        repair,
       });
 
       return jsonResult({
