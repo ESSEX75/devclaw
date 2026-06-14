@@ -10,8 +10,14 @@ import type {
   StateLabel,
   IssueComment,
   PrStatus,
+  SprintBranch,
+  SprintDependency,
+  SprintMilestone,
+  SprintPullRequest,
   SprintProviderCapabilities,
   SprintReadinessCheck,
+  SprintTree,
+  ManagedProjectionGuardResult,
 } from "../providers/provider.js";
 import { getStateLabels } from "../workflow/index.js";
 import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../workflow/index.js";
@@ -51,6 +57,19 @@ export type ProviderCall =
   | { method: "getPrReviewComments"; args: { issueId: number } }
   | { method: "getSprintCapabilities"; args: {} }
   | { method: "checkSprintReadiness"; args: { baseBranch: string; reviewPolicy?: string } }
+  | { method: "createSprintMilestone"; args: { title: string; description?: string } }
+  | { method: "createSprintRoot"; args: { title: string; body: string; milestoneId?: string; labels?: string[]; assignees?: string[] } }
+  | { method: "createChildIssue"; args: { title: string; body: string; milestoneId?: string; labels?: string[]; assignees?: string[] } }
+  | { method: "linkChildIssue"; args: { rootIssueId: number; childIssueId: number } }
+  | { method: "assignIssue"; args: { issueId: number; assignees: string[] } }
+  | { method: "createSprintBranch"; args: { branch: string; fromBranch: string } }
+  | { method: "createWorkBranch"; args: { branch: string; fromBranch: string } }
+  | { method: "createPullRequest"; args: { title: string; body: string; sourceBranch: string; targetBranch: string; issueId?: number } }
+  | { method: "linkPullRequestToIssue"; args: { issueId: number; pullRequestId: string; pullRequestUrl: string } }
+  | { method: "readSprintTree"; args: { rootIssueId: number } }
+  | { method: "readDependencies"; args: { issueIds: number[] } }
+  | { method: "closeSprintMilestone"; args: { milestoneId: string } }
+  | { method: "guardManagedProjection"; args: { rootIssueId: number; expectedMetadata: Record<string, unknown>; repair?: boolean } }
   | { method: "addComment"; args: { issueId: number; body: string } }
   | { method: "editIssue"; args: { issueId: number; updates: { title?: string; body?: string } } }
   | { method: "healthCheck"; args: {} };
@@ -76,6 +95,14 @@ export class TestProvider implements IssueProvider {
   prDiffs = new Map<number, string>();
   /** All calls, in order. */
   calls: ProviderCall[] = [];
+  /** Sprint projection stores for provider contract tests. */
+  sprintMilestones = new Map<string, SprintMilestone & { closed?: boolean }>();
+  sprintRootChildren = new Map<number, number[]>();
+  sprintIssueMilestones = new Map<number, string>();
+  sprintBranches = new Map<string, SprintBranch>();
+  sprintDependencies: SprintDependency[] = [];
+  sprintPullRequests = new Map<string, SprintPullRequest & { issueId?: number }>();
+  managedProjectionErrors: string[] = [];
   /** Sprint capability overrides for readiness tests. */
   sprintCapabilities: SprintProviderCapabilities = {
     issues: true,
@@ -96,6 +123,8 @@ export class TestProvider implements IssueProvider {
   };
 
   private nextIssueId = 1;
+  private nextMilestoneId = 1;
+  private nextPullRequestId = 1;
   private workflow: WorkflowConfig;
 
   constructor(opts?: { workflow?: WorkflowConfig }) {
@@ -148,6 +177,13 @@ export class TestProvider implements IssueProvider {
     this.mergedMrUrls.clear();
     this.mergePrFailures.clear();
     this.prDiffs.clear();
+    this.sprintMilestones.clear();
+    this.sprintRootChildren.clear();
+    this.sprintIssueMilestones.clear();
+    this.sprintBranches.clear();
+    this.sprintDependencies = [];
+    this.sprintPullRequests.clear();
+    this.managedProjectionErrors = [];
     this.calls = [];
     this.sprintCapabilities = {
       issues: true,
@@ -163,6 +199,8 @@ export class TestProvider implements IssueProvider {
       warnings: [],
     };
     this.nextIssueId = 1;
+    this.nextMilestoneId = 1;
+    this.nextPullRequestId = 1;
   }
 
   // -------------------------------------------------------------------------
@@ -186,6 +224,153 @@ export class TestProvider implements IssueProvider {
       blocking: [...this.sprintReadiness.blocking],
       warnings: [...this.sprintReadiness.warnings],
     };
+  }
+
+  async createSprintMilestone(input: { title: string; description?: string }): Promise<SprintMilestone> {
+    this.calls.push({ method: "createSprintMilestone", args: input });
+    const id = String(this.nextMilestoneId++);
+    const milestone = {
+      id,
+      title: input.title,
+      url: `https://example.com/milestones/${id}`,
+    };
+    this.sprintMilestones.set(id, milestone);
+    return milestone;
+  }
+
+  async createSprintRoot(input: {
+    title: string;
+    body: string;
+    milestoneId?: string;
+    labels?: string[];
+    assignees?: string[];
+  }): Promise<Issue> {
+    this.calls.push({ method: "createSprintRoot", args: input });
+    const issue = await this.createIssue(input.title, input.body, input.labels?.[0] ?? "sprint:root", input.assignees);
+    issue.labels = [...new Set([...(input.labels ?? ["sprint:root"])])];
+    if (input.milestoneId) this.sprintIssueMilestones.set(issue.iid, input.milestoneId);
+    this.sprintRootChildren.set(issue.iid, []);
+    return issue;
+  }
+
+  async createChildIssue(input: {
+    title: string;
+    body: string;
+    milestoneId?: string;
+    labels?: string[];
+    assignees?: string[];
+  }): Promise<Issue> {
+    this.calls.push({ method: "createChildIssue", args: input });
+    const issue = await this.createIssue(input.title, input.body, input.labels?.[0] ?? "sprint:child", input.assignees);
+    issue.labels = [...new Set([...(input.labels ?? ["sprint:child"])])];
+    if (input.milestoneId) this.sprintIssueMilestones.set(issue.iid, input.milestoneId);
+    return issue;
+  }
+
+  async linkChildIssue(input: { rootIssueId: number; childIssueId: number }): Promise<void> {
+    this.calls.push({ method: "linkChildIssue", args: input });
+    const children = this.sprintRootChildren.get(input.rootIssueId) ?? [];
+    if (!children.includes(input.childIssueId)) children.push(input.childIssueId);
+    this.sprintRootChildren.set(input.rootIssueId, children);
+  }
+
+  async assignIssue(input: { issueId: number; assignees: string[] }): Promise<void> {
+    this.calls.push({ method: "assignIssue", args: input });
+  }
+
+  async createSprintBranch(input: { branch: string; fromBranch: string }): Promise<SprintBranch> {
+    this.calls.push({ method: "createSprintBranch", args: input });
+    const branch = { name: input.branch, base: input.fromBranch };
+    this.sprintBranches.set(input.branch, branch);
+    return branch;
+  }
+
+  async createWorkBranch(input: { branch: string; fromBranch: string }): Promise<SprintBranch> {
+    this.calls.push({ method: "createWorkBranch", args: input });
+    const branch = { name: input.branch, base: input.fromBranch };
+    this.sprintBranches.set(input.branch, branch);
+    return branch;
+  }
+
+  async createPullRequest(input: {
+    title: string;
+    body: string;
+    sourceBranch: string;
+    targetBranch: string;
+    issueId?: number;
+  }): Promise<SprintPullRequest> {
+    this.calls.push({ method: "createPullRequest", args: input });
+    const id = String(this.nextPullRequestId++);
+    const pr = {
+      id,
+      url: `https://example.com/pull/${id}`,
+      sourceBranch: input.sourceBranch,
+      targetBranch: input.targetBranch,
+      issueId: input.issueId,
+    };
+    this.sprintPullRequests.set(id, pr);
+    return pr;
+  }
+
+  async linkPullRequestToIssue(input: { issueId: number; pullRequestId: string; pullRequestUrl: string }): Promise<void> {
+    this.calls.push({ method: "linkPullRequestToIssue", args: input });
+    const pr = this.sprintPullRequests.get(input.pullRequestId);
+    if (pr) pr.issueId = input.issueId;
+  }
+
+  async readSprintTree(input: { rootIssueId: number }): Promise<SprintTree> {
+    this.calls.push({ method: "readSprintTree", args: input });
+    const rootIssue = await this.getIssue(input.rootIssueId);
+    const childIds = this.sprintRootChildren.get(input.rootIssueId) ?? [];
+    const childIssues = childIds.map((id) => {
+      const issue = this.issues.get(id);
+      if (!issue) throw new Error(`Issue #${id} not found in TestProvider`);
+      return issue;
+    });
+    const milestoneId = this.sprintIssueMilestones.get(input.rootIssueId);
+    const milestone = milestoneId ? this.sprintMilestones.get(milestoneId) : undefined;
+    const issueIds = [input.rootIssueId, ...childIds];
+    return {
+      milestone,
+      rootIssue,
+      childIssues,
+      dependencies: this.sprintDependencies.filter((dep) =>
+        issueIds.includes(dep.blockedIssueId) || issueIds.includes(dep.blockingIssueId),
+      ),
+      pullRequests: [...this.sprintPullRequests.values()].filter((pr) =>
+        pr.issueId !== undefined && issueIds.includes(pr.issueId),
+      ),
+    };
+  }
+
+  async readDependencies(input: { issueIds: number[] }): Promise<SprintDependency[]> {
+    this.calls.push({ method: "readDependencies", args: input });
+    return this.sprintDependencies.filter((dep) =>
+      input.issueIds.includes(dep.blockedIssueId) || input.issueIds.includes(dep.blockingIssueId),
+    );
+  }
+
+  async closeSprintMilestone(input: { milestoneId: string }): Promise<void> {
+    this.calls.push({ method: "closeSprintMilestone", args: input });
+    const milestone = this.sprintMilestones.get(input.milestoneId);
+    if (milestone) milestone.closed = true;
+  }
+
+  async guardManagedProjection(input: {
+    rootIssueId: number;
+    expectedMetadata: Record<string, unknown>;
+    repair?: boolean;
+  }): Promise<ManagedProjectionGuardResult> {
+    this.calls.push({ method: "guardManagedProjection", args: input });
+    if (this.managedProjectionErrors.length === 0) {
+      return { ok: true, repaired: [], integrityErrors: [] };
+    }
+    if (input.repair) {
+      const repaired = [...this.managedProjectionErrors];
+      this.managedProjectionErrors = [];
+      return { ok: true, repaired, integrityErrors: [] };
+    }
+    return { ok: false, repaired: [], integrityErrors: [...this.managedProjectionErrors] };
   }
 
   async ensureLabel(name: string, color: string): Promise<void> {

@@ -562,6 +562,7 @@ Every piece of data and where it lives:
 │  Labels: [Planning | To Do | Doing | To Review | Reviewing | ...]│
 │  State: open / closed                                           │
 │  PRs: linked pull/merge requests (status polled for To Review)  │
+│  Sprint projection: milestones, hierarchy, dependencies, PR links│
 │  Created by: orchestrator (task_create), workers, or humans     │
 └─────────────────────────────────────────────────────────────────┘
         ↕ gh/glab CLI (read/write, auto-detected)
@@ -585,6 +586,10 @@ Every piece of data and where it lives:
 │  channel_unlink → remove channel from project                   │
 │  channel_list   → list project-channel bindings                 │
 │  config         → reset/diff/version for workspace config       │
+│                                                                 │
+│  Sprint graph/state is owned by DevClaw local state. Provider    │
+│  sprint methods only project milestone/root/child/dependency/PR  │
+│  data into GitHub/GitLab for UI and audit recovery.              │
 │                                                                 │
 │  Bootstrap hook → injects role instructions into worker sessions│
 │  workflow_guide → config reference for workflow changes           │

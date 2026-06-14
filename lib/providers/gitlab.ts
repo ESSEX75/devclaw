@@ -165,6 +165,191 @@ export class GitLabProvider implements IssueProvider {
     return { blocking, warnings };
   }
 
+  async createSprintMilestone(input: { title: string; description?: string }): Promise<import("./provider.js").SprintMilestone> {
+    const raw = await this.glab([
+      "api", "projects/:id/milestones",
+      "--method", "POST",
+      "--field", `title=${input.title}`,
+      "--field", `description=${input.description ?? ""}`,
+    ]);
+    const milestone = JSON.parse(raw) as { id: number; iid?: number; title: string; web_url?: string };
+    return { id: String(milestone.iid ?? milestone.id), title: milestone.title, url: milestone.web_url };
+  }
+
+  private async createSprintIssue(input: {
+    title: string;
+    body: string;
+    milestoneId?: string;
+    labels?: string[];
+    assignees?: string[];
+  }): Promise<Issue> {
+    const args = [
+      "issue", "create",
+      "--title", input.title,
+      "--description", input.body,
+    ];
+    if (input.labels?.length) args.push("--label", input.labels.join(","));
+    if (input.milestoneId) args.push("--milestone", input.milestoneId);
+    if (input.assignees?.length) args.push("--assignee", input.assignees.join(","));
+    const stdout = await this.glab(args);
+    const match = stdout.match(/\/issues\/(\d+)/);
+    if (!match) throw new Error(`Failed to parse issue URL: ${stdout}`);
+    return this.getIssue(parseInt(match[1], 10));
+  }
+
+  async createSprintRoot(input: {
+    title: string;
+    body: string;
+    milestoneId?: string;
+    labels?: string[];
+    assignees?: string[];
+  }): Promise<Issue> {
+    return this.createSprintIssue({
+      ...input,
+      labels: [...new Set(["sprint:root", ...(input.labels ?? [])])],
+    });
+  }
+
+  async createChildIssue(input: {
+    title: string;
+    body: string;
+    milestoneId?: string;
+    labels?: string[];
+    assignees?: string[];
+  }): Promise<Issue> {
+    return this.createSprintIssue({
+      ...input,
+      labels: [...new Set(["sprint:child", ...(input.labels ?? [])])],
+    });
+  }
+
+  async linkChildIssue(input: { rootIssueId: number; childIssueId: number }): Promise<void> {
+    await this.addComment(
+      input.rootIssueId,
+      `DevClaw sprint projection: child issue #${input.childIssueId}`,
+    );
+    await this.addComment(
+      input.childIssueId,
+      `DevClaw sprint projection: parent sprint issue #${input.rootIssueId}`,
+    );
+  }
+
+  async assignIssue(input: { issueId: number; assignees: string[] }): Promise<void> {
+    if (input.assignees.length === 0) return;
+    await this.glab(["issue", "update", String(input.issueId), "--assignee", input.assignees.join(",")]);
+  }
+
+  private async createBranch(input: { branch: string; fromBranch: string }): Promise<import("./provider.js").SprintBranch> {
+    try {
+      await this.glab([
+        "api", "projects/:id/repository/branches",
+        "--method", "POST",
+        "--field", `branch=${input.branch}`,
+        "--field", `ref=${input.fromBranch}`,
+      ]);
+    } catch (err) {
+      if (!String((err as Error).message).includes("already exists")) throw err;
+    }
+    return { name: input.branch, base: input.fromBranch };
+  }
+
+  async createSprintBranch(input: { branch: string; fromBranch: string }): Promise<import("./provider.js").SprintBranch> {
+    return this.createBranch(input);
+  }
+
+  async createWorkBranch(input: { branch: string; fromBranch: string }): Promise<import("./provider.js").SprintBranch> {
+    return this.createBranch(input);
+  }
+
+  async createPullRequest(input: {
+    title: string;
+    body: string;
+    sourceBranch: string;
+    targetBranch: string;
+    issueId?: number;
+  }): Promise<import("./provider.js").SprintPullRequest> {
+    const description = input.issueId ? `${input.body}\n\nCloses #${input.issueId}` : input.body;
+    const stdout = await this.glab([
+      "mr", "create",
+      "--title", input.title,
+      "--description", description,
+      "--source-branch", input.sourceBranch,
+      "--target-branch", input.targetBranch,
+    ]);
+    const match = stdout.match(/\/merge_requests\/(\d+)/);
+    return {
+      id: match?.[1] ?? stdout,
+      url: stdout.trim(),
+      sourceBranch: input.sourceBranch,
+      targetBranch: input.targetBranch,
+    };
+  }
+
+  async linkPullRequestToIssue(input: { issueId: number; pullRequestId: string; pullRequestUrl: string }): Promise<void> {
+    await this.addComment(
+      input.issueId,
+      `DevClaw sprint projection: merge request ${input.pullRequestUrl} (${input.pullRequestId})`,
+    );
+  }
+
+  async readSprintTree(input: { rootIssueId: number }): Promise<import("./provider.js").SprintTree> {
+    const rootIssue = await this.getIssue(input.rootIssueId);
+    const comments = await this.listComments(input.rootIssueId);
+    const childIds = [...new Set(comments.flatMap((comment) =>
+      [...comment.body.matchAll(/child issue #(\d+)/gi)].map((match) => Number(match[1])),
+    ))];
+    const childIssues = await Promise.all(childIds.map((id) => this.getIssue(id)));
+    return {
+      rootIssue,
+      childIssues,
+      dependencies: await this.readDependencies({ issueIds: [input.rootIssueId, ...childIds] }),
+      pullRequests: [],
+    };
+  }
+
+  async readDependencies(input: { issueIds: number[] }): Promise<import("./provider.js").SprintDependency[]> {
+    const dependencies: import("./provider.js").SprintDependency[] = [];
+    for (const issueId of input.issueIds) {
+      const comments = await this.listComments(issueId);
+      for (const comment of comments) {
+        for (const match of comment.body.matchAll(/#(\d+)\s+blocks\s+#(\d+)/gi)) {
+          dependencies.push({
+            blockingIssueId: Number(match[1]),
+            blockedIssueId: Number(match[2]),
+            native: false,
+          });
+        }
+      }
+    }
+    return dependencies;
+  }
+
+  async closeSprintMilestone(input: { milestoneId: string }): Promise<void> {
+    await this.glab([
+      "api", `projects/:id/milestones/${input.milestoneId}`,
+      "--method", "PUT",
+      "--field", "state_event=close",
+    ]);
+  }
+
+  async guardManagedProjection(input: {
+    rootIssueId: number;
+    expectedMetadata: Record<string, unknown>;
+    repair?: boolean;
+  }): Promise<import("./provider.js").ManagedProjectionGuardResult> {
+    const issue = await this.getIssue(input.rootIssueId);
+    const expected = JSON.stringify(input.expectedMetadata);
+    if (issue.description.includes(expected)) {
+      return { ok: true, repaired: [], integrityErrors: [] };
+    }
+    const error = "Sprint root issue managed metadata differs from DevClaw state.";
+    if (!input.repair) return { ok: false, repaired: [], integrityErrors: [error] };
+    await this.editIssue(input.rootIssueId, {
+      body: `${issue.description}\n\n<!-- devclaw:sprint-metadata ${expected} -->`,
+    });
+    return { ok: true, repaired: ["rootIssue.metadata"], integrityErrors: [] };
+  }
+
   /** Get MRs linked to an issue via GitLab's native related_merge_requests API. */
   private async getRelatedMRs(issueId: number): Promise<GitLabMR[]> {
     try {

@@ -309,6 +309,8 @@ These behaviors apply to every code-producing issue — with or without a plan.
 - GitLab: work items hierarchy (GraphQL) where available
 - Fallback: label-based linking (`epic:60`, `blocked:dep`)
 
+**R7.7** Sprint provider abstraction is projection-only. DevClaw runtime state and dependency gating must use the local execution graph; provider hierarchy, issue links, labels, milestones, and managed body metadata are UI/audit mirrors and recovery inputs, not the runtime source of truth.
+
 ### R8: Progress Tracking
 
 **R8.1** For planned issues: the checklist in the issue body IS the progress view. Updated after each step.

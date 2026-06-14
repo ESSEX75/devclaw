@@ -336,7 +336,7 @@ One-time project setup. Creates state labels, scaffolds project directory with o
 
 1. Generates the project slug from `name`
 2. Resolves repo path, auto-detects GitHub/GitLab from git remote
-3. Verifies provider health (CLI installed and authenticated)
+3. Verifies provider health, or in sprint mode runs typed readiness checks before any provider write
 4. Creates state labels, role:level labels, and step routing labels (idempotent)
 5. Creates a project entry or adds the channel to an existing project
 6. Scaffolds project directory with `prompts/` folder and `README.md` explaining prompt and workflow overrides
@@ -486,13 +486,15 @@ Sync GitHub/GitLab labels with the current workflow config. Creates any missing 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `channelId` | string | No | Channel ID identifying one project. Omit to sync all registered projects. |
+| `repair` | boolean | No | Rerun sprint-mode readiness and idempotent label writes after a partial reinit failure. |
 
 **What it does:**
 
 1. Loads the resolved workflow config (built-in → workspace → project)
 2. Derives all required labels: state labels, role:level labels, step routing labels
-3. Creates any missing labels on the GitHub/GitLab repo via the provider
-4. Reports created vs. already-existing labels
+3. In sprint mode, runs provider readiness before label writes
+4. Creates any missing labels on the GitHub/GitLab repo via the provider
+5. Reports created vs. already-existing labels
 
 **When to use:** After editing `workflow.yaml` to add custom states, change label names, or enable the test phase.
 

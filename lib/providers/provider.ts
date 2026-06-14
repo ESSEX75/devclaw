@@ -97,6 +97,49 @@ export type SprintReadinessCheck = {
 };
 
 // ---------------------------------------------------------------------------
+// Sprint projection types
+// ---------------------------------------------------------------------------
+
+export type SprintMilestone = {
+  id: string;
+  title: string;
+  url?: string;
+};
+
+export type SprintBranch = {
+  name: string;
+  base: string;
+  url?: string;
+};
+
+export type SprintPullRequest = {
+  id: string;
+  url: string;
+  sourceBranch: string;
+  targetBranch: string;
+};
+
+export type SprintDependency = {
+  blockedIssueId: number;
+  blockingIssueId: number;
+  native: boolean;
+};
+
+export type SprintTree = {
+  milestone?: SprintMilestone;
+  rootIssue: Issue;
+  childIssues: Issue[];
+  dependencies: SprintDependency[];
+  pullRequests: SprintPullRequest[];
+};
+
+export type ManagedProjectionGuardResult = {
+  ok: boolean;
+  repaired: string[];
+  integrityErrors: string[];
+};
+
+// ---------------------------------------------------------------------------
 // Provider interface
 // ---------------------------------------------------------------------------
 
@@ -106,6 +149,41 @@ export interface IssueProvider {
     blocking: SprintReadinessCheck[];
     warnings: SprintReadinessCheck[];
   }>;
+  createSprintMilestone(input: { title: string; description?: string }): Promise<SprintMilestone>;
+  createSprintRoot(input: {
+    title: string;
+    body: string;
+    milestoneId?: string;
+    labels?: string[];
+    assignees?: string[];
+  }): Promise<Issue>;
+  createChildIssue(input: {
+    title: string;
+    body: string;
+    milestoneId?: string;
+    labels?: string[];
+    assignees?: string[];
+  }): Promise<Issue>;
+  linkChildIssue(input: { rootIssueId: number; childIssueId: number }): Promise<void>;
+  assignIssue(input: { issueId: number; assignees: string[] }): Promise<void>;
+  createSprintBranch(input: { branch: string; fromBranch: string }): Promise<SprintBranch>;
+  createWorkBranch(input: { branch: string; fromBranch: string }): Promise<SprintBranch>;
+  createPullRequest(input: {
+    title: string;
+    body: string;
+    sourceBranch: string;
+    targetBranch: string;
+    issueId?: number;
+  }): Promise<SprintPullRequest>;
+  linkPullRequestToIssue(input: { issueId: number; pullRequestId: string; pullRequestUrl: string }): Promise<void>;
+  readSprintTree(input: { rootIssueId: number }): Promise<SprintTree>;
+  readDependencies(input: { issueIds: number[] }): Promise<SprintDependency[]>;
+  closeSprintMilestone(input: { milestoneId: string }): Promise<void>;
+  guardManagedProjection(input: {
+    rootIssueId: number;
+    expectedMetadata: Record<string, unknown>;
+    repair?: boolean;
+  }): Promise<ManagedProjectionGuardResult>;
   ensureLabel(name: string, color: string): Promise<void>;
   ensureAllStateLabels(): Promise<void>;
   createIssue(title: string, description: string, label: StateLabel, assignees?: string[]): Promise<Issue>;
