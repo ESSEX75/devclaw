@@ -290,6 +290,85 @@ export async function markSprintIntegrityError(
   }
 }
 
+export async function markSprintFinalPrCreated(
+  workspaceDir: string,
+  projectSlug: string,
+  sprintRootIssueId: number,
+  finalPrUrl: string,
+): Promise<SprintExecutionGraph> {
+  await acquireLock(workspaceDir);
+  try {
+    const data = await readSprints(workspaceDir);
+    const key = sprintKey(projectSlug, sprintRootIssueId);
+    const graph = data.sprints[key];
+    if (!graph) throw new Error(`Sprint graph not found: ${key}`);
+    graph.finalPrUrl = finalPrUrl;
+    graph.updatedAt = new Date().toISOString();
+    data.sprints[key] = normalizeGraph(graph);
+    await writeSprints(workspaceDir, data);
+    await auditLog(workspaceDir, "sprint_final_pr_create", {
+      projectSlug,
+      sprintRootIssueId,
+      finalPrUrl,
+    });
+    return data.sprints[key]!;
+  } finally {
+    await releaseLock(workspaceDir);
+  }
+}
+
+export async function markSprintFinalReviewRequired(
+  workspaceDir: string,
+  projectSlug: string,
+  sprintRootIssueId: number,
+  reason: string,
+): Promise<SprintExecutionGraph> {
+  await acquireLock(workspaceDir);
+  try {
+    const data = await readSprints(workspaceDir);
+    const key = sprintKey(projectSlug, sprintRootIssueId);
+    const graph = data.sprints[key];
+    if (!graph) throw new Error(`Sprint graph not found: ${key}`);
+    graph.status = SprintGraphStatus.FINAL_REVIEW_REQUIRED;
+    graph.updatedAt = new Date().toISOString();
+    data.sprints[key] = normalizeGraph(graph);
+    await writeSprints(workspaceDir, data);
+    await auditLog(workspaceDir, "sprint_final_review_required", {
+      projectSlug,
+      sprintRootIssueId,
+      reason,
+    });
+    return data.sprints[key]!;
+  } finally {
+    await releaseLock(workspaceDir);
+  }
+}
+
+export async function markSprintDone(
+  workspaceDir: string,
+  projectSlug: string,
+  sprintRootIssueId: number,
+): Promise<SprintExecutionGraph> {
+  await acquireLock(workspaceDir);
+  try {
+    const data = await readSprints(workspaceDir);
+    const key = sprintKey(projectSlug, sprintRootIssueId);
+    const graph = data.sprints[key];
+    if (!graph) throw new Error(`Sprint graph not found: ${key}`);
+    graph.status = SprintGraphStatus.DONE;
+    graph.updatedAt = new Date().toISOString();
+    data.sprints[key] = normalizeGraph(graph);
+    await writeSprints(workspaceDir, data);
+    await auditLog(workspaceDir, "sprint_done", {
+      projectSlug,
+      sprintRootIssueId,
+    });
+    return data.sprints[key]!;
+  } finally {
+    await releaseLock(workspaceDir);
+  }
+}
+
 export function resolveStepReadiness(
   graph: SprintExecutionGraph,
   issueId: number,

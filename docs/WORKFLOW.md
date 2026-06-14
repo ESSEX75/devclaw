@@ -243,6 +243,16 @@ workflow:
 | `skip` | Review phase is skipped. PRs are auto-merged after development according to the workflow transitions. |
 | `sprint` | Valid only with `taskMode: sprint`. Child PRs/MRs can auto-merge into `sprintBranch`; the final PR/MR still waits for human review. |
 
+Sprint mode policy details:
+
+| Policy | Child PR/MR into sprint branch | Final PR/MR into base branch |
+|---|---|---|
+| `human` | Waits for human/provider merge | Waits for human/provider merge |
+| `sprint` | Auto-merges only when mergeability and checks are verified | Final PR is created, then waits for human review/merge |
+| `skip` | Auto-merges only when mergeability and checks are verified | Auto-merges only when mergeability and checks are verified |
+
+If final auto-merge is requested but DevClaw cannot verify checks and mergeability, the sprint graph becomes `final_review_required`. Root issue and milestone close only after final PR/MR merge is verified/executed.
+
 ### Per-Issue Overrides
 
 Override the project-level policy for a single issue using labels:

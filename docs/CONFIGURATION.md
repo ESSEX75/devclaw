@@ -106,6 +106,14 @@ workflow:
 
 When `taskMode: sprint` is enabled, `project_register` and `sync_labels` run sprint readiness checks before any provider write. Blocking failures return `reinit_failed` with `blocking[]`, `warnings[]`, and `created: []`. A provider failure after partial label writes returns `reinit_partial` with the created resources so the setup can be repaired idempotently.
 
+Sprint merge policy is controlled by `workflow.reviewPolicy`:
+
+| Value | Sprint behavior |
+|---|---|
+| `human` | Child and final PRs/MRs wait for human/provider merge. |
+| `sprint` | Child PRs/MRs auto-merge into `sprintBranch` after verified checks; final PR/MR waits for human review/merge. |
+| `skip` | Child and final PRs/MRs auto-merge only after mergeability and checks are verified. Unsafe final auto-merge sets `final_review_required`. |
+
 `maxWorkersPerLevel` creates that many slots for each level of each enabled role. With the default developer levels (`junior`, `medior`, `senior`) and `maxWorkersPerLevel: 2`, a project can have up to six developer slots, subject to queue state and `roleExecution`.
 
 See **[Workflow Reference](WORKFLOW.md)** for the full state machine documentation, including state types, built-in actions, review policy options, and how to enable the test phase.

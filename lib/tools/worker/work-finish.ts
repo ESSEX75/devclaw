@@ -342,6 +342,7 @@ export function createWorkFinishTool(ctx: PluginContext) {
         slotIndex,
         runtime: ctx.runtime,
         workflow,
+        projectBaseBranch: project.baseBranch,
         createdTasks,
         runCommand: ctx.runCommand,
       });

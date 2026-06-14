@@ -11,6 +11,7 @@ import { notify, getNotificationConfig } from "../dispatch/notify.js";
 import { log as auditLog } from "../audit.js";
 import { loadConfig } from "../config/index.js";
 import { detectStepRouting } from "./queue-scan.js";
+import { processSprintMergePolicy } from "../sprints/index.js";
 import {
   DEFAULT_WORKFLOW,
   Action,
@@ -73,6 +74,8 @@ export async function executeCompletion(opts: {
   level?: string;
   /** Slot index within the level's array */
   slotIndex?: number;
+  /** Project base branch, used by sprint final PR creation. */
+  projectBaseBranch?: string;
   runCommand: RunCommand;
 }): Promise<CompletionOutput> {
   const rc = opts.runCommand;
@@ -222,6 +225,17 @@ export async function executeCompletion(opts: {
 
   // Deactivate worker last (non-critical — session cleanup)
   await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });
+
+  if (role === "developer" && result === "done") {
+    await processSprintMergePolicy({
+      workspaceDir,
+      projectSlug,
+      issueId,
+      provider,
+      workflow,
+      projectBaseBranch: opts.projectBaseBranch,
+    });
+  }
 
   // Send review routing notification when developer completes
   if (role === "developer" && result === "done") {

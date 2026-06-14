@@ -495,7 +495,7 @@ export class TestProvider implements IssueProvider {
     // Simulate successful merge — update PR status to merged
     const existing = this.prStatuses.get(issueId);
     if (existing) {
-      this.prStatuses.set(issueId, { state: "merged", url: existing.url });
+      this.prStatuses.set(issueId, { ...existing, state: "merged" });
     }
   }
 
