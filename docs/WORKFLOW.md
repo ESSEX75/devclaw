@@ -167,7 +167,7 @@ Every worker dispatch includes an explicit branch contract in the task message a
 - `WORK BRANCH`: branch the worker must push commits to;
 - `PR TARGET BRANCH`: branch the worker's PR/MR must target.
 
-Issue mode always targets the project `baseBranch`. Sprint child issues use the rolling-only model: every child work branch targets the sprint branch, not the previous child branch.
+Issue mode always targets the project `baseBranch`. Sprint child issues use the rolling-only model: every child work branch targets the sprint branch.
 
 ```text
 baseBranch
@@ -180,6 +180,16 @@ baseBranch
 Sprint child dispatch requires `sprintBranch` in `devclaw/sprints.json`; DevClaw does not infer a fallback target branch for the MVP.
 
 `work_finish(result: "done")` validates the same contract. A developer cannot complete work if the linked PR/MR targets a different branch. For sprint children, merge conflicts mark the step as `conflict` and downstream dependencies remain blocked.
+
+### Sprint Status Output
+
+`tasks_status` and `task_list` preserve their issue-mode fields. In sprint mode they also add `taskMode: "sprint"` and `sprints[]`, where each sprint contains:
+
+- root issue ID/title/state/URL;
+- milestone, `sprintBranch`, final PR URL, graph status, and merged/total progress;
+- child steps with state, blockers, PR URL, PR target branch, and active worker when one is assigned.
+
+Statuses such as `integrity_error`, `conflict`, and `final_review_required` are displayed from `devclaw/sprints.json`. Labels can make these states visible in the provider UI, but labels do not control scanner readiness or pipeline decisions.
 
 ### State Types
 
@@ -234,7 +244,7 @@ workflow:
 | Mode | Behavior |
 |---|---|
 | `issue` (default) | Current stable mode: one issue, one work branch, one PR/MR into the project base branch. |
-| `sprint` | Planned sprint execution mode. Sprint structures are created by `sprint_create`; normal `task_create` still creates standalone issues. |
+| `sprint` | Project-level opt-in sprint execution mode. Sprint structures are created by `sprint_create`; normal `task_create` still creates standalone issues. |
 
 | Policy | Behavior |
 |---|---|
@@ -252,6 +262,16 @@ Sprint mode policy details:
 | `skip` | Auto-merges only when mergeability and checks are verified | Auto-merges only when mergeability and checks are verified |
 
 If final auto-merge is requested but DevClaw cannot verify checks and mergeability, the sprint graph becomes `final_review_required`. Root issue and milestone close only after final PR/MR merge is verified/executed.
+
+## Migration Notes
+
+Old projects without `workflow.taskMode` continue as `issue` mode. Their existing issues, labels, workers, and review/test policies keep the current one issue -> one branch -> one PR/MR behavior.
+
+To adopt sprint mode, set `workflow.taskMode: sprint`, choose a compatible `reviewPolicy`, run `project_register` for new projects or `sync_labels` for existing projects, and only then create sprint work with `sprint_create`. `task_create` remains standalone and does not create root issues, child issues, milestones, sprint branches, or graphs.
+
+If native sub-issues or native dependencies are unavailable, the provider layer falls back to projection through issues, labels, links, managed metadata, and local graph state where supported. The local graph remains authoritative either way.
+
+`reinit_failed` means readiness checks failed before provider writes, so fix the blocking item and retry. `reinit_partial` means provider writes started and then failed; fix the provider/auth/repository problem and rerun `sync_labels` with repair. `integrity_error` means managed provider projection no longer matches local state; run `sprint_repair` or `devclaw repair sprint --source local-state` to restore projection from `devclaw/sprints.json`.
 
 ### Per-Issue Overrides
 

@@ -276,7 +276,7 @@ Claim issue ownership for this instance. Adds an `owner:{instanceName}` label so
 
 ### `tasks_status`
 
-Full project dashboard showing all non-terminal state types with issue details.
+Full project dashboard showing all non-terminal state types with issue details. In `workflow.taskMode: sprint`, the response also includes sprint trees from `devclaw/sprints.json` plus provider issue titles/URLs.
 
 **Source:** [`lib/tools/tasks/tasks-status.ts`](../lib/tools/tasks/tasks-status.ts)
 
@@ -291,9 +291,14 @@ Full project dashboard showing all non-terminal state types with issue details.
 - **hold** — Waiting for input (Planning, Refining): issue IDs, titles, URLs
 - **active** — Work in progress (Doing, Reviewing, etc.): issue IDs, titles, URLs
 - **queue** — Queued for work (To Do, To Improve, To Review): issue IDs, titles, URLs
-- Worker slot state per role and level: active/idle, issue, start time
-- Active workflow summary: review policy, test phase status, state flow
 - Summary totals: `totalHold`, `totalActive`, `totalQueued`
+
+When sprint mode is enabled, the response adds:
+
+- `taskMode: "sprint"`
+- `sprints[]` with root issue, milestone, `sprintBranch`, final PR URL, graph status, progress, and child steps
+- each step includes state, blockers, PR URL, PR target branch, and active worker when a local slot owns the issue
+- `integrity_error`, `conflict`, and `final_review_required` are returned directly from the local sprint graph
 
 ---
 
@@ -327,7 +332,7 @@ Instant local project info for the current channel. Returns registration details
 
 ### `task_list`
 
-Browse and search issues by workflow state. Returns individual issues grouped by state label.
+Browse and search issues by workflow state. Returns individual issues grouped by state label. In `workflow.taskMode: sprint`, it also includes the same `sprints[]` tree returned by `tasks_status`.
 
 **Source:** [`lib/tools/tasks/task-list.ts`](../lib/tools/tasks/task-list.ts)
 
@@ -346,6 +351,8 @@ Browse and search issues by workflow state. Returns individual issues grouped by
 - State label, type, and role
 - Issue list: ID, title, URL
 - Total count (before limit)
+
+When sprint mode is enabled, the response preserves the issue list fields and adds `taskMode: "sprint"` plus `sprints[]`. This keeps old `task_list` consumers working while giving operators the sprint tree without reading a flat issue list.
 
 **Use cases:**
 

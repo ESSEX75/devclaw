@@ -102,9 +102,13 @@ workflow:
 | Value | Behavior |
 |---|---|
 | `issue` (default) | Current stable mode: one issue, one work branch, one PR/MR into the project base branch. |
-| `sprint` | Planned sprint execution mode. Sprint structures are created by `sprint_create`; normal `task_create` still creates standalone issues. |
+| `sprint` | Project-level opt-in sprint execution mode. Sprint structures are created by `sprint_create`; normal `task_create` still creates standalone issues. |
 
 When `taskMode: sprint` is enabled, `project_register` and `sync_labels` run sprint readiness checks before any provider write. Blocking failures return `reinit_failed` with `blocking[]`, `warnings[]`, and `created: []`. A provider failure after partial label writes returns `reinit_partial` with the created resources so the setup can be repaired idempotently.
+
+Existing projects without `workflow.taskMode` resolve to `issue`. Enabling `taskMode: sprint` does not migrate existing issues into sprint graphs; create new sprint work with `sprint_create` after `project_register` or `sync_labels` reports sprint readiness.
+
+Sprint mode MVP uses the rolling-only branch strategy: every child work branch opens its PR/MR into the required `sprintBranch`, and the final PR/MR targets `project.baseBranch`. DevClaw does not infer a fallback sprint branch, and it does not hardcode a default branch name.
 
 Sprint merge policy is controlled by `workflow.reviewPolicy`:
 
@@ -113,6 +117,8 @@ Sprint merge policy is controlled by `workflow.reviewPolicy`:
 | `human` | Child and final PRs/MRs wait for human/provider merge. |
 | `sprint` | Child PRs/MRs auto-merge into `sprintBranch` after verified checks; final PR/MR waits for human review/merge. |
 | `skip` | Child and final PRs/MRs auto-merge only after mergeability and checks are verified. Unsafe final auto-merge sets `final_review_required`. |
+
+Provider labels are projection for filtering and UI, not authoritative runtime state. Sprint readiness, dependencies, branch contracts, conflicts, and final review requirements come from the local graph in `devclaw/sprints.json`.
 
 `maxWorkersPerLevel` creates that many slots for each level of each enabled role. With the default developer levels (`junior`, `medior`, `senior`) and `maxWorkersPerLevel: 2`, a project can have up to six developer slots, subject to queue state and `roleExecution`.
 

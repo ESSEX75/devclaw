@@ -10,6 +10,7 @@ import { log as auditLog } from "../../audit.js";
 import { getStateLabelsByType } from "../../services/queue.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { loadConfig } from "../../config/index.js";
+import { buildSprintStatusSummaries } from "./sprint-status.js";
 
 type IssueSummary = { id: number; title: string; url: string };
 
@@ -90,7 +91,7 @@ export function createTasksStatusTool(ctx: PluginContext) {
         queue: statesByType.queue.map((s) => ({ label: s.label, role: s.role, priority: s.priority })),
       };
 
-      return jsonResult({
+      const baseResult = {
         success: true,
         project: project.name,
         stateLabels,
@@ -98,6 +99,17 @@ export function createTasksStatusTool(ctx: PluginContext) {
         hold,
         active,
         queue,
+      };
+
+      if ((workflow.taskMode ?? "issue") !== "sprint") {
+        return jsonResult(baseResult);
+      }
+
+      const sprints = await buildSprintStatusSummaries({ workspaceDir, project, provider });
+      return jsonResult({
+        ...baseResult,
+        taskMode: "sprint",
+        sprints,
       });
     },
   });

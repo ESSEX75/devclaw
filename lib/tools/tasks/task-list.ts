@@ -9,6 +9,7 @@ import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { loadWorkflow, StateType, findStateByLabel } from "../../workflow/index.js";
+import { buildSprintStatusSummaries } from "./sprint-status.js";
 
 export function createTaskListTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -123,12 +124,23 @@ export function createTaskListTool(ctx: PluginContext) {
         totalIssues,
       });
 
-      return jsonResult({
+      const baseResult = {
         success: true,
         project: project.name,
         filter: { stateType: stateType ?? null, label: label ?? null, search: search ?? null },
         states: nonEmpty,
         totalIssues,
+      };
+
+      if ((workflow.taskMode ?? "issue") !== "sprint") {
+        return jsonResult(baseResult);
+      }
+
+      const sprints = await buildSprintStatusSummaries({ workspaceDir, project, provider });
+      return jsonResult({
+        ...baseResult,
+        taskMode: "sprint",
+        sprints,
       });
     },
   });

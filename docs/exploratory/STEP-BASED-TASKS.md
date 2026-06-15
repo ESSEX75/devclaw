@@ -1,6 +1,6 @@
 # Step-Based Task Model
 
-Design for hierarchical issue → step layering with sequential execution and stacked PRs.
+Historical design notes for hierarchical issue → step layering. Current sprint-mode MVP uses rolling sprint branches, not branch chaining between child issues.
 
 **Related:** [#443 — Dependency gating](https://github.com/laurentenhoor/devclaw/issues/443)
 
@@ -12,7 +12,7 @@ Today, DevClaw treats every GitHub issue as an atomic unit of work. One issue = 
 
 1. **No decomposition inside an issue.** An architect creates separate issues for each implementation task, but there's no parent-child relationship or ordering. They float independently.
 2. **No sequential gating.** All "To Do" issues are eligible for pickup simultaneously. If step 2 depends on step 1's code, the step-2 developer works against stale main and produces conflicts or incorrect code.
-3. **No PR stacking.** Each PR targets `main` independently. When steps are sequential, step 2's PR should stack on step 1's branch so the developer sees the prior work.
+3. **No branch coordination.** Each PR targets the project base branch independently. Sequential sprint work needs child PRs to target a shared sprint branch so the developer sees prior merged sprint work.
 4. **No progress tracking.** There's no way to see "feature X is 3/5 steps done" at the issue level.
 
 ---
@@ -21,7 +21,7 @@ Today, DevClaw treats every GitHub issue as an atomic unit of work. One issue = 
 
 - **Issue → Step hierarchy** using GitHub sub-issues as the native substrate
 - **Sequential by default** — steps dispatch in order; step N+1 is blocked until step N completes
-- **Stacked PRs** — each step's PR targets the previous step's branch (not `main`), collapsing to `main` when the stack is fully merged
+- **Rolling sprint branch** — each step's PR targets the sprint branch, and the final PR targets the project base branch
 - **Visible progress** — parent issue shows step completion as a checklist, updated by the pipeline
 - **Backward compatible** — standalone issues (no parent) continue to work exactly as today
 
@@ -133,21 +133,19 @@ When `findNextIssueForRole` finds a queued issue, add a dependency check before 
 
 This also satisfies issue #443's core requirement (dependency gating) for the sub-issue case.
 
-### Branch Targeting (PR Stacking)
+### Branch Targeting
 
-When a developer is dispatched for step N (N > 1) in a sequential stack:
+When a developer is dispatched for a sprint child:
 
-1. Look up step N-1's PR to find its source branch
-2. Include the base branch override in the task message:
+1. Read `sprintBranch` from `devclaw/sprints.json`
+2. Include the branch contract in the task message:
    ```
-   BASE BRANCH: feat/42-step-1-auth-setup (stacked on step 1)
-   Create your PR targeting this branch, NOT main.
+   BASE BRANCH: main
+   PR TARGET BRANCH: sprint/42-auth
    ```
-3. The developer creates their PR against the previous step's branch
+3. The developer creates their PR/MR against the sprint branch
 
-When step N-1's PR merges into `main`:
-- GitHub automatically retargets step N's PR to `main`
-- If step N's PR has conflicts after retarget, the heartbeat detects this via `mergeable: false` and transitions to `To Improve`
+After all child work is merged into the sprint branch, DevClaw creates a final PR/MR from `sprintBranch` to `project.baseBranch`.
 
 ### Pipeline Completion (pipeline.ts)
 
@@ -247,15 +245,15 @@ Step completion notifications include parent context:
 
 ```
 Step 1: feat/101-auth-middleware     → PR #201 (base: main)
-Step 2: feat/102-login-endpoints     → PR #202 (base: feat/101-auth-middleware)
-Step 3: feat/103-jwt-refresh         → PR #203 (base: feat/102-login-endpoints)
+Step 2: feat/102-login-endpoints     → PR #202 (base: sprint/100-auth)
+Step 3: feat/103-jwt-refresh         → PR #203 (base: sprint/100-auth)
 ```
 
-1. PR #201 reviewed + merged into `main`
-2. GitHub auto-retargets PR #202 to `main`
-3. PR #202 reviewed + merged into `main`
-4. GitHub auto-retargets PR #203 to `main`
-5. PR #203 reviewed + merged → root issue #100 auto-closed
+1. PR #201 reviewed + merged into `sprint/100-auth`
+2. PR #202 reviewed + merged into `sprint/100-auth`
+3. PR #203 reviewed + merged into `sprint/100-auth`
+4. Final PR from `sprint/100-auth` to the project base branch is reviewed or auto-merged according to policy
+5. Root issue #100 auto-closes after final merge succeeds
 
 ### Conflict Handling
 
@@ -267,9 +265,9 @@ If retargeting causes conflicts:
 
 ### Review Order
 
-Reviews follow step order naturally — step 1's PR is ready for review first, step 2's PR becomes reviewable only after step 1 merges (since its base changes).
+Reviews follow step order naturally — step 1's PR is ready for review first, step 2's PR becomes reviewable only after its graph dependencies are merged.
 
-For `steps:parallel` mode, PRs all target `main` directly (no stacking).
+For `steps:parallel` mode, child PRs can target the same sprint branch once their graph dependencies are clear.
 
 ---
 
@@ -277,7 +275,7 @@ For `steps:parallel` mode, PRs all target `main` directly (no stacking).
 
 ### Phase 1: Sub-Issue Discovery + Dependency Gating
 
-**Scope:** Read-only sub-issue awareness. No new tools, no PR stacking yet.
+**Scope:** Read-only sub-issue awareness. No new tools; branch chaining remains deferred.
 
 1. Add `listSubIssues` and `getParentIssue` to `IssueProvider` interface
 2. Implement in GitHub provider via GraphQL (with `sub_issues` feature header)
@@ -350,12 +348,12 @@ Tracking steps in local state. Rejected because:
 - State divergence between local storage and GitHub
 - Loses the benefits of GitHub's sub-issue UI
 
-### Monorepo-style stacked PRs (e.g., Graphite/ghstack)
+### Monorepo-style branch chains
 
-Full-blown PR stacking tools that rewrite commit history. Rejected because:
+Full branch-chain tools that rewrite commit history. Rejected because:
 - Over-engineered for our sequential-step use case
 - Requires complex rebase automation
-- GitHub's auto-retarget on merge handles our case natively
+- Rolling sprint branches cover the MVP without provider-specific retarget automation
 
 ---
 

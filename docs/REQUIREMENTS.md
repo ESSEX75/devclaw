@@ -108,18 +108,18 @@ Each sub-issue follows the "1 issue = 1 branch = 1 PR" rule independently. Sub-i
 
 **Steps ≠ Sub-issues.** Steps are internal to an issue (commits on one branch). Sub-issues are separate issues (separate branches, separate PRs).
 
-### Where Stacked PRs Fit
+### Where Sprint Branching Fits
 
-Stacked PRs are only relevant for **sub-issues with ordering**, not for steps.
+Branch chaining between sub-issues is deferred. Sprint mode MVP uses a rolling branch model where child PRs target the sprint branch.
 
 ```
 Issue #60: Overhaul auth [epic, sequential]
-  ├─ Issue #61: OAuth provider    → PR to main
-  ├─ Issue #62: Password hashing  → PR stacked on #61's branch
-  └─ Issue #63: Admin dashboard   → PR stacked on #62's branch
+  ├─ Issue #61: OAuth provider    → PR to sprint branch
+  ├─ Issue #62: Password hashing  → PR to sprint branch
+  └─ Issue #63: Admin dashboard   → PR to sprint branch
 ```
 
-Steps within a single issue don't create separate PRs — they're commits on one branch. Stacking only happens between issues.
+Steps within a single issue don't create separate PRs — they're commits on one branch. Sprint child issues each create their own PR/MR into `sprintBranch`; the final PR/MR targets `project.baseBranch`.
 
 ### Summary Table
 
@@ -129,7 +129,7 @@ Steps within a single issue don't create separate PRs — they're commits on one
 | Research | 1 | 0 | 0 | none | none |
 | Multi-step feature | 1 | 1 | 1 | N (commits) | in issue body |
 | Epic (independent parts) | 1 root + N | N | N | per sub-issue | per sub-issue |
-| Epic (sequential parts) | 1 root + N | N | N (stacked) | per sub-issue | per sub-issue |
+| Epic (sequential parts) | 1 root + N | N | N into sprint branch | per sub-issue | per sub-issue |
 
 ### The Plan Format
 
@@ -205,7 +205,7 @@ Both coexist. Simple issues use phase-level testing. Planned issues use step-lev
 
 **R1.4** Research issues have no branch and no PR. Their output is knowledge (comments, plan creation).
 
-**R1.5** Sub-issues (epics) each follow R1.1 independently — each sub-issue gets its own branch and PR. Sub-issue ordering may use PR stacking (sub-issue N's PR targets sub-issue N-1's branch).
+**R1.5** Sub-issues (epics) each follow R1.1 independently — each sub-issue gets its own branch and PR. In sprint mode, ordered sub-issues target the shared `sprintBranch`.
 
 ### R2: Plans — Steps Inside an Issue
 
@@ -300,7 +300,7 @@ These behaviors apply to every code-producing issue — with or without a plan.
 
 **R7.3** Sub-issue ordering uses dependency gating (#443): sub-issue N+1 is blocked until sub-issue N is done. In sprint mode this is enforced by the local execution graph, not by provider labels.
 
-**R7.4** Sub-issue PRs can be stacked (sub-issue N's PR targets sub-issue N-1's branch) when sequential execution is needed.
+**R7.4** Sprint MVP uses rolling branch targeting: every child PR/MR targets the sprint branch. Branch chaining between child issues is deferred.
 
 **R7.5** Root epic issues are not directly dispatchable. They track progress across sub-issues. Auto-closed when all sub-issues reach terminal states.
 
@@ -315,13 +315,15 @@ These behaviors apply to every code-producing issue — with or without a plan.
 
 **R7.9** The queue scanner must skip sprint roots, blocked sprint children, sprint-level blocked children, and `integrity_error` sprint children while continuing to scan for other ready work. Standalone issues in sprint-enabled projects remain dispatchable. Projection labels such as `blocked:step` must not control readiness.
 
+**R7.10** `sprintBranch` is mandatory in the local graph. Child PR/MR target branches must match it, and the final PR/MR target must come from `project.baseBranch`.
+
 ### R8: Progress Tracking
 
 **R8.1** For planned issues: the checklist in the issue body IS the progress view. Updated after each step.
 
 **R8.2** For epics with sub-issues: the root issue body shows sub-issue status (auto-updated).
 
-**R8.3** `task_list` and `project_status` show plans and epic hierarchies.
+**R8.3** `tasks_status` and `task_list` show sprint trees with root issue, child issues, milestone, sprint branch, final PR, progress, dependencies, conflicts, integrity errors, final-review-required state, and active workers.
 
 **R8.4** Notifications include step context: "Step 2/4 done" for planned issues, "Sub-issue 1/3 done" for epics.
 
@@ -486,22 +488,22 @@ ISSUE #60: Overhaul authentication [epic label, not dispatched]
 │
 ├─ ISSUE #61: Add OAuth provider
 │   ├─ branch: feat/61-oauth
-│   ├─ PR: feat/61-oauth → main
+│   ├─ PR: feat/61-oauth → sprint/60-auth
 │   ├─ plan: [step 1, step 2, step 3]
 │   └─ session: developer worker A
 │
 ├─ ISSUE #62: Migrate password hashing (blocked until #61 done)
 │   ├─ branch: feat/62-passwords
-│   ├─ PR: feat/62-passwords → feat/61-oauth (stacked)
+│   ├─ PR: feat/62-passwords → sprint/60-auth
 │   └─ session: developer worker A or B
 │
 └─ ISSUE #63: Update admin dashboard (blocked until #62 done)
     ├─ branch: feat/63-admin
-    ├─ PR: feat/63-admin → feat/62-passwords (stacked)
+    ├─ PR: feat/63-admin → sprint/60-auth
     └─ session: developer worker
 ```
 
-Each sub-issue is independent (own branch, own PR, own plan). Ordering enforced by dependency gating. PRs stack when sequential.
+Each sub-issue is independent (own branch, own PR, own plan). Ordering is enforced by dependency gating in the local graph; child PRs target the sprint branch.
 
 ---
 
@@ -517,7 +519,7 @@ Core plan support. No sub-issues, no stacking.
 - [ ] Step-aware dispatch in `dispatch/index.ts` — include step context in task message
 - [ ] Step-aware completion in `pipeline.ts` — update plan, loop or transition to review
 - [ ] `plan_task` tool — create issue with plan in body
-- [ ] Extend `task_list` to show step progress
+- [x] Extend `tasks_status` and `task_list` to show sprint progress
 - [ ] Unit tests with `TestProvider`
 
 ### Phase 2: Session Reuse + Step Context
