@@ -11,6 +11,7 @@ import path from "node:path";
 import type { Project } from "../../projects/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { SprintStepStatus, updateSprintStepStatus } from "../../sprints/index.js";
+import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
 import { createSprintStructure } from "../sprints/sprint-create.js";
 import { buildSprintStatusSummaries } from "./sprint-status.js";
 
@@ -55,6 +56,7 @@ describe("buildSprintStatusSummaries", () => {
       workspaceDir: workspace,
       provider,
       project,
+      workflow: DEFAULT_WORKFLOW,
       baseBranch: "main",
       input: {
         projectSlug: "devclaw",

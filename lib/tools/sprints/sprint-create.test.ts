@@ -13,6 +13,7 @@ import type { Project } from "../../projects/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { SprintStepStatus, readSprints } from "../../sprints/index.js";
 import { createTaskCreateTool } from "../tasks/task-create.js";
+import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
 import {
   createSprintStructure,
   resolveSprintSteps,
@@ -100,6 +101,7 @@ describe("sprint_create input and graph", () => {
       workspaceDir: workspace,
       provider,
       project: projectFixture(),
+      workflow: DEFAULT_WORKFLOW,
       baseBranch: "main",
       input: {
         projectSlug: "devclaw",
@@ -138,6 +140,56 @@ describe("sprint_create input and graph", () => {
     assert.strictEqual(provider.callsTo("createSprintBranch").length, 1);
     assert.strictEqual(provider.callsTo("linkChildIssue").length, 3);
     assert.strictEqual(provider.callsTo("editIssue").length, 1);
+  });
+
+  it("projects developer queue label onto sprint children while preserving routing labels", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+
+    const result = await createSprintStructure({
+      workspaceDir: workspace,
+      provider,
+      project: projectFixture(),
+      workflow: DEFAULT_WORKFLOW,
+      baseBranch: "main",
+      input: {
+        projectSlug: "devclaw",
+        title: "Routing labels",
+        steps: [
+          {
+            id: "ready",
+            title: "Ready step",
+            labels: ["developer:junior", "review:human", "test:skip", "owner:main", "notify:telegram:direct"],
+          },
+          {
+            id: "blocked",
+            title: "Blocked step",
+            labels: ["tester:senior", "reviewer:junior", "review:agent", "review:skip"],
+          },
+        ],
+      },
+    });
+
+    const rootLabels = new Set(result.rootIssue.labels);
+    assert.strictEqual(rootLabels.has("To Do"), false);
+
+    const readyLabels = new Set(result.childIssues[0]!.labels);
+    assert.strictEqual(readyLabels.has("To Do"), true);
+    assert.strictEqual(readyLabels.has("devclaw:sprint"), true);
+    assert.strictEqual(readyLabels.has("sprint:child"), true);
+    assert.strictEqual(readyLabels.has("developer:junior"), true);
+    assert.strictEqual(readyLabels.has("review:human"), true);
+    assert.strictEqual(readyLabels.has("test:skip"), true);
+    assert.strictEqual(readyLabels.has("owner:main"), true);
+    assert.strictEqual(readyLabels.has("notify:telegram:direct"), true);
+
+    const blockedLabels = new Set(result.childIssues[1]!.labels);
+    assert.strictEqual(blockedLabels.has("To Do"), true);
+    assert.strictEqual(blockedLabels.has("tester:senior"), true);
+    assert.strictEqual(blockedLabels.has("reviewer:junior"), true);
+    assert.strictEqual(blockedLabels.has("review:agent"), true);
+    assert.strictEqual(blockedLabels.has("review:skip"), true);
+    assert.strictEqual(blockedLabels.has("blocked:step"), true);
   });
 
   it("keeps task_create scoped to standalone issues", () => {

@@ -145,6 +145,8 @@ Provider data is projection only:
 
 Changing labels, milestone fields, or issue body metadata does not directly mutate readiness. The scanner and pipeline must resolve sprint readiness from the local execution graph.
 
+Sprint child issues are projected into the configured developer queue label, such as `To Do`, so the existing queue scanner can discover them. That queue label only makes the issue a candidate; `devclaw/sprints.json` remains the authority for whether the child can dispatch.
+
 ### Sprint Queue Gating
 
 The heartbeat queue scanner keeps issue mode unchanged. When `taskMode: sprint` is enabled, it applies one extra filter before dispatch:

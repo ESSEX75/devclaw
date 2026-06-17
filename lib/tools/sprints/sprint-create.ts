@@ -24,6 +24,7 @@ import {
   checkSprintReinitReadiness,
   sprintModeEnabled,
 } from "../../setup/sprint-readiness.js";
+import { getRevertLabel, type WorkflowConfig } from "../../workflow/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export type SprintCreateStepInput = {
@@ -151,6 +152,7 @@ export function createSprintCreateTool(ctx: PluginContext) {
         workspaceDir,
         provider,
         project,
+        workflow: resolvedConfig.workflow,
         input,
         baseBranch,
       });
@@ -189,6 +191,7 @@ export async function createSprintStructure(args: {
   workspaceDir: string;
   provider: IssueProvider;
   project: Project;
+  workflow: WorkflowConfig;
   input: SprintCreateInput;
   baseBranch: string;
 }): Promise<{
@@ -202,6 +205,7 @@ export async function createSprintStructure(args: {
   const sprintBranch = `sprint/${slugPart(milestoneTitle)}`;
   const sprintBlockedBy = parseIssueIds(args.input.sprintBlockedBy ?? []);
   const assignees = args.input.assignees ?? [];
+  const childQueueLabel = getRequiredChildQueueLabel(args.workflow);
 
   const milestone = await args.provider.createSprintMilestone({
     title: milestoneTitle,
@@ -234,7 +238,7 @@ export async function createSprintStructure(args: {
       title: step.title,
       body: renderChildBody(step, rootIssue.iid, sprintBranch),
       milestoneId: milestone.id,
-      labels: [...new Set(["devclaw:sprint", "sprint:child", sprintLabel, ...(step.labels ?? [])])],
+      labels: [...new Set([childQueueLabel, "devclaw:sprint", "sprint:child", sprintLabel, ...(step.labels ?? [])])],
       assignees,
     });
     childIssues.push(issue);
@@ -287,6 +291,12 @@ export async function createSprintStructure(args: {
   });
 
   return { milestone, rootIssue, childIssues, graph };
+}
+
+function getRequiredChildQueueLabel(workflow: WorkflowConfig): string {
+  const label = getRevertLabel(workflow, "developer");
+  if (!label) throw new Error("Sprint child issue creation requires a developer queue label.");
+  return label;
 }
 
 export function validateSprintCreateInput(params: Record<string, unknown>): SprintCreateInput {

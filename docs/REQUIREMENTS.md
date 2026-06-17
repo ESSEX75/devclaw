@@ -315,7 +315,9 @@ These behaviors apply to every code-producing issue — with or without a plan.
 
 **R7.9** The queue scanner must skip sprint roots, blocked sprint children, sprint-level blocked children, and `integrity_error` sprint children while continuing to scan for other ready work. Standalone issues in sprint-enabled projects remain dispatchable. Projection labels such as `blocked:step` must not control readiness.
 
-**R7.10** `sprintBranch` is mandatory in the local graph. Child PR/MR target branches must match it, and the final PR/MR target must come from `project.baseBranch`.
+**R7.10** Sprint child issues must be projected into the configured developer queue label so the scheduler can discover them through the normal provider queue scan. This label is discovery-only; dispatch readiness still comes from the local sprint graph.
+
+**R7.11** `sprintBranch` is mandatory in the local graph. Child PR/MR target branches must match it, and the final PR/MR target must come from `project.baseBranch`.
 
 ### R8: Progress Tracking
 
