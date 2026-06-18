@@ -197,6 +197,31 @@ describe("sprint queue scanner dependency gating", () => {
     assert.deepStrictEqual(result.matches.map((match) => match.issue.iid), [101]);
   });
 
+  it("does not rely on blocked:step label to skip graph-blocked children", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+    seedIssue(provider, 101, ["To Do"]);
+    seedIssue(provider, 102, ["To Do", "blocked:step"]);
+    await createSprintGraph(workspace, {
+      projectSlug: "devclaw",
+      sprintRootIssueId: 100,
+      milestone: "sprint-blocked-label-projection",
+      sprintBranch: "sprint/blocked-label-projection",
+      status: SprintGraphStatus.ACTIVE,
+      sprintBlockedBy: [],
+      steps: [
+        { issueId: 101, order: 1, workBranch: "step/101", prTargetBranch: "sprint/blocked-label-projection", status: SprintStepStatus.READY },
+        { issueId: 102, order: 2, workBranch: "step/102", prTargetBranch: "sprint/blocked-label-projection", status: SprintStepStatus.BLOCKED, blockedBy: [101] },
+      ],
+    });
+
+    const result = await scanDeveloperQueue(workspace, provider);
+
+    assert.deepStrictEqual(result.matches.map((match) => match.issue.iid), [101]);
+    assert.deepStrictEqual(result.skipped.map((skip) => skip.issueId), [102]);
+    assert.match(result.skipped[0]!.reason, /step_blocked/);
+  });
+
   it("preserves issue mode behavior even when a graph exists", async () => {
     const workspace = await makeWorkspace();
     const provider = new TestProvider();

@@ -122,6 +122,8 @@ Provider labels are projection for filtering and UI, not authoritative runtime s
 
 Provider-native relationships are projection too. GitHub sub-issues and issue dependencies are written when available so the sprint is visible in GitHub UI, but scheduler and merge behavior still use `devclaw/sprints.json`.
 
+Managed labels such as `step:<issueId>` and `blocked:step` are restored from `devclaw/sprints.json`. They describe the local graph in the provider UI; they do not drive dispatch decisions.
+
 `maxWorkersPerLevel` creates that many slots for each level of each enabled role. With the default developer levels (`junior`, `medior`, `senior`) and `maxWorkersPerLevel: 2`, a project can have up to six developer slots, subject to queue state and `roleExecution`.
 
 See **[Workflow Reference](WORKFLOW.md)** for the full state machine documentation, including state types, built-in actions, review policy options, and how to enable the test phase.

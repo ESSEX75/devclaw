@@ -179,11 +179,15 @@ describe("sprint_create input and graph", () => {
 
     const rootLabels = new Set(result.rootIssue.labels);
     assert.strictEqual(rootLabels.has("To Do"), false);
+    assert.strictEqual(rootLabels.has(`step:${result.rootIssue.iid}`), false);
+    assert.strictEqual(rootLabels.has("blocked:step"), false);
 
     const readyLabels = new Set(result.childIssues[0]!.labels);
     assert.strictEqual(readyLabels.has("To Do"), true);
     assert.strictEqual(readyLabels.has("devclaw:sprint"), true);
     assert.strictEqual(readyLabels.has("sprint:child"), true);
+    assert.strictEqual(readyLabels.has(`step:${result.childIssues[0]!.iid}`), true);
+    assert.strictEqual(readyLabels.has("blocked:step"), false);
     assert.strictEqual(readyLabels.has("developer:junior"), true);
     assert.strictEqual(readyLabels.has("review:human"), true);
     assert.strictEqual(readyLabels.has("test:skip"), true);
@@ -196,6 +200,7 @@ describe("sprint_create input and graph", () => {
     assert.strictEqual(blockedLabels.has("reviewer:junior"), true);
     assert.strictEqual(blockedLabels.has("review:agent"), true);
     assert.strictEqual(blockedLabels.has("review:skip"), true);
+    assert.strictEqual(blockedLabels.has(`step:${result.childIssues[1]!.iid}`), true);
     assert.strictEqual(blockedLabels.has("blocked:step"), true);
   });
 

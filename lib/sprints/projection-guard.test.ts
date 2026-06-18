@@ -105,6 +105,28 @@ describe("sprint managed projection guard", () => {
     assert.ok((await readAuditEvents(workspace)).includes("sprint_projection_label_restored"));
   });
 
+  it("restores removed step label when the local graph contains the child issue", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+    seedProvider(provider);
+    const graph = await createSprintGraph(workspace, graphFixture());
+
+    const result = await handleProjectionLabelChange({
+      workspaceDir: workspace,
+      provider,
+      graph,
+      issueId: 102,
+      label: "step:102",
+      action: "removed",
+    });
+
+    assert.deepStrictEqual(result, { action: "restored", restored: ["step:102"] });
+    assert.deepStrictEqual(provider.callsTo("addLabel").at(-1)?.args, {
+      issueId: 102,
+      label: "step:102",
+    });
+  });
+
   it("restores removed sprint slug label from local graph projection", async () => {
     const workspace = await makeWorkspace();
     const provider = new TestProvider();
@@ -156,6 +178,24 @@ describe("sprint managed projection guard", () => {
       issueId: 101,
       labels: ["blocked:manual"],
     });
+  });
+
+  it("does not add blocked:step to ready children during repair", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+    seedProvider(provider);
+    const graph = await createSprintGraph(workspace, graphFixture());
+
+    await repairSprintProjectionFromLocalState({
+      workspaceDir: workspace,
+      provider,
+      graph,
+    });
+
+    assert.strictEqual(provider.issues.get(101)?.labels.includes("step:101"), true);
+    assert.strictEqual(provider.issues.get(101)?.labels.includes("blocked:step"), false);
+    assert.strictEqual(provider.issues.get(102)?.labels.includes("step:102"), true);
+    assert.strictEqual(provider.issues.get(102)?.labels.includes("blocked:step"), true);
   });
 
   it("marks sprint integrity_error when managed metadata is tampered and blocks readiness", async () => {
@@ -218,6 +258,8 @@ describe("sprint managed projection guard", () => {
     const updated = await getSprintGraph(workspace, "devclaw", 100);
 
     assert.ok(result.repaired.includes("label:102:blocked:step"));
+    assert.ok(result.repaired.includes("label:101:step:101"));
+    assert.ok(result.repaired.includes("label:102:step:102"));
     assert.strictEqual(updated?.status, SprintGraphStatus.ACTIVE);
     assert.deepStrictEqual(
       expectedManagedLabelsForIssue(graph, 100).filter((label) => label.startsWith("sprint:")),
