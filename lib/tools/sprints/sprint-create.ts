@@ -279,6 +279,15 @@ export async function createSprintStructure(args: {
     }
   }
 
+  for (const step of graph.steps) {
+    for (const blockingIssueId of step.blockedBy ?? []) {
+      await args.provider.linkIssueDependency({
+        blockedIssueId: step.issueId,
+        blockingIssueId,
+      });
+    }
+  }
+
   await args.provider.editIssue(rootIssue.iid, {
     body: appendManagedSprintMetadata(renderRootBody({
       title: args.input.title,

@@ -145,6 +145,8 @@ Provider data is projection only:
 
 Changing labels, milestone fields, or issue body metadata does not directly mutate readiness. The scanner and pipeline must resolve sprint readiness from the local execution graph.
 
+When the provider supports native relationships, DevClaw projects the local graph into that UI surface as well. On GitHub, the sprint root is linked to child issues through native sub-issues, and blocked children are linked to their blockers through native issue dependencies. These relationships are issue-level projection and do not require a GitHub Project.
+
 Sprint child issues are projected into the configured developer queue label, such as `To Do`, so the existing queue scanner can discover them. That queue label only makes the issue a candidate; `devclaw/sprints.json` remains the authority for whether the child can dispatch.
 
 ### Sprint Queue Gating
@@ -271,7 +273,7 @@ Old projects without `workflow.taskMode` continue as `issue` mode. Their existin
 
 To adopt sprint mode, set `workflow.taskMode: sprint`, choose a compatible `reviewPolicy`, run `project_register` for new projects or `sync_labels` for existing projects, and only then create sprint work with `sprint_create`. `task_create` remains standalone and does not create root issues, child issues, milestones, sprint branches, or graphs.
 
-If native sub-issues or native dependencies are unavailable, the provider layer falls back to projection through issues, labels, links, managed metadata, and local graph state where supported. The local graph remains authoritative either way.
+If native sub-issues or native dependencies are unavailable or a provider write fails, the provider layer falls back to projection through issues, labels, comments, managed metadata, issue bodies, and local graph state where supported. The local graph remains authoritative either way.
 
 `reinit_failed` means readiness checks failed before provider writes, so fix the blocking item and retry. `reinit_partial` means provider writes started and then failed; fix the provider/auth/repository problem and rerun `sync_labels` with repair. `integrity_error` means managed provider projection no longer matches local state; run `sprint_repair` or `devclaw repair sprint --source local-state` to restore projection from `devclaw/sprints.json`.
 

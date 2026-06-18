@@ -22,6 +22,7 @@ import {
 } from "../workflow/index.js";
 
 type GhIssue = {
+  id?: number;
   number: number;
   title: string;
   body: string;
@@ -37,7 +38,10 @@ type GhPrStatusCheck = {
 
 function toIssue(gh: GhIssue): Issue {
   return {
-    iid: gh.number, title: gh.title, description: gh.body ?? "",
+    iid: gh.number,
+    ...(gh.id !== undefined ? { providerId: gh.id } : {}),
+    title: gh.title,
+    description: gh.body ?? "",
     labels: gh.labels.map((l) => l.name), state: gh.state, web_url: gh.url,
   };
 }
@@ -101,8 +105,8 @@ export class GitHubProvider implements IssueProvider {
       branches: true,
       pullRequests: true,
       autoMerge: true,
-      nativeSubIssues: false,
-      nativeDependencies: false,
+      nativeSubIssues: true,
+      nativeDependencies: true,
     };
   }
 
@@ -257,9 +261,7 @@ export class GitHubProvider implements IssueProvider {
   async linkChildIssue(input: { rootIssueId: number; childIssueId: number }): Promise<void> {
     const capabilities = await this.getSprintCapabilities();
     if (capabilities.nativeSubIssues) {
-      // Keep native hierarchy behind this provider method. If GitHub exposes it
-      // for the authenticated repo, this can move to the native API without
-      // changing sprint runtime code.
+      await this.tryCreateNativeSubIssue(input);
     }
     await this.addComment(
       input.rootIssueId,
@@ -269,6 +271,54 @@ export class GitHubProvider implements IssueProvider {
       input.childIssueId,
       `DevClaw sprint projection: parent sprint issue #${input.rootIssueId}`,
     );
+  }
+
+  async linkIssueDependency(input: { blockedIssueId: number; blockingIssueId: number }): Promise<void> {
+    const capabilities = await this.getSprintCapabilities();
+    if (capabilities.nativeDependencies) {
+      await this.tryCreateNativeBlockedByDependency(input);
+    }
+    await this.addComment(
+      input.blockingIssueId,
+      `DevClaw sprint projection: #${input.blockingIssueId} blocks #${input.blockedIssueId}`,
+    );
+    await this.addComment(
+      input.blockedIssueId,
+      `DevClaw sprint projection: blocked by #${input.blockingIssueId}`,
+    );
+  }
+
+  private async getIssueProviderId(issueId: number): Promise<number> {
+    const raw = await this.gh(["api", `repos/:owner/:repo/issues/${issueId}`, "--jq", ".id"]);
+    const providerId = Number(raw);
+    if (!Number.isInteger(providerId)) throw new Error(`GitHub issue #${issueId} did not return a numeric database id.`);
+    return providerId;
+  }
+
+  private async tryCreateNativeSubIssue(input: { rootIssueId: number; childIssueId: number }): Promise<void> {
+    try {
+      const childProviderId = await this.getIssueProviderId(input.childIssueId);
+      await this.gh([
+        "api", `repos/:owner/:repo/issues/${input.rootIssueId}/sub_issues`,
+        "--method", "POST",
+        "--field", `sub_issue_id=${childProviderId}`,
+      ]);
+    } catch (err) {
+      console.warn(`[sprint_projection_warning] Failed to create native GitHub sub-issue link #${input.rootIssueId} -> #${input.childIssueId}: ${(err as Error).message}`);
+    }
+  }
+
+  private async tryCreateNativeBlockedByDependency(input: { blockedIssueId: number; blockingIssueId: number }): Promise<void> {
+    try {
+      const blockingProviderId = await this.getIssueProviderId(input.blockingIssueId);
+      await this.gh([
+        "api", `repos/:owner/:repo/issues/${input.blockedIssueId}/dependencies/blocked_by`,
+        "--method", "POST",
+        "--field", `issue_id=${blockingProviderId}`,
+      ]);
+    } catch (err) {
+      console.warn(`[sprint_projection_warning] Failed to create native GitHub dependency #${input.blockedIssueId} blocked by #${input.blockingIssueId}: ${(err as Error).message}`);
+    }
   }
 
   async assignIssue(input: { issueId: number; assignees: string[] }): Promise<void> {

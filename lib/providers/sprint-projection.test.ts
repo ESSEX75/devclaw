@@ -29,6 +29,7 @@ describe("sprint projection provider contract", () => {
       milestoneId: milestone.id,
     });
     await provider.linkChildIssue({ rootIssueId: root.iid, childIssueId: child.iid });
+    await provider.linkIssueDependency({ blockedIssueId: child.iid, blockingIssueId: root.iid });
     await provider.assignIssue({ issueId: child.iid, assignees: ["egor"] });
     const sprintBranch = await provider.createSprintBranch({
       branch: "sprint/100-devclaw-sprint-mode",
@@ -50,12 +51,6 @@ describe("sprint projection provider contract", () => {
       pullRequestId: pr.id,
       pullRequestUrl: pr.url,
     });
-    provider.sprintDependencies.push({
-      blockingIssueId: root.iid,
-      blockedIssueId: child.iid,
-      native: false,
-    });
-
     const tree = await provider.readSprintTree({ rootIssueId: root.iid });
     const dependencies = await provider.readDependencies({ issueIds: [root.iid, child.iid] });
 
@@ -113,6 +108,7 @@ describe("sprint projection provider contract", () => {
       assert.strictEqual(typeof provider.createSprintRoot, "function");
       assert.strictEqual(typeof provider.createChildIssue, "function");
       assert.strictEqual(typeof provider.linkChildIssue, "function");
+      assert.strictEqual(typeof provider.linkIssueDependency, "function");
       assert.strictEqual(typeof provider.assignIssue, "function");
       assert.strictEqual(typeof provider.createSprintBranch, "function");
       assert.strictEqual(typeof provider.createWorkBranch, "function");
@@ -123,5 +119,44 @@ describe("sprint projection provider contract", () => {
       assert.strictEqual(typeof provider.closeSprintMilestone, "function");
       assert.strictEqual(typeof provider.guardManagedProjection, "function");
     }
+  });
+
+  it("GitHub provider writes native relationships and keeps comment fallback", async () => {
+    const calls: string[][] = [];
+    const runCommand = (async (cmd: string[]) => {
+      calls.push(cmd);
+      const args = cmd.slice(1);
+      const path = args[1] ?? "";
+      if (args[0] === "api" && path === "repos/:owner/:repo/issues/101") {
+        return { stdout: "9001", stderr: "", code: 0, signal: null, killed: false, termination: null };
+      }
+      if (args[0] === "api" && path === "repos/:owner/:repo/issues/102") {
+        return { stdout: "9002", stderr: "", code: 0, signal: null, killed: false, termination: null };
+      }
+      return { stdout: "{}", stderr: "", code: 0, signal: null, killed: false, termination: null };
+    }) as unknown as RunCommand;
+    const provider = new GitHubProvider({ repoPath: "/tmp/repo", runCommand });
+
+    await provider.linkChildIssue({ rootIssueId: 100, childIssueId: 101 });
+    await provider.linkIssueDependency({ blockedIssueId: 102, blockingIssueId: 101 });
+
+    assert.ok(calls.some((cmd) =>
+      cmd.includes("repos/:owner/:repo/issues/100/sub_issues")
+      && cmd.includes("--field")
+      && cmd.includes("sub_issue_id=9001")
+    ));
+    assert.ok(calls.some((cmd) =>
+      cmd.includes("repos/:owner/:repo/issues/102/dependencies/blocked_by")
+      && cmd.includes("--field")
+      && cmd.includes("issue_id=9001")
+    ));
+    assert.ok(calls.some((cmd) =>
+      cmd.includes("repos/:owner/:repo/issues/100/comments")
+      && cmd.includes("body=DevClaw sprint projection: child issue #101")
+    ));
+    assert.ok(calls.some((cmd) =>
+      cmd.includes("repos/:owner/:repo/issues/102/comments")
+      && cmd.includes("body=DevClaw sprint projection: blocked by #101")
+    ));
   });
 });

@@ -15,6 +15,7 @@ export type StateLabel = string;
 
 export type Issue = {
   iid: number;
+  providerId?: number;
   title: string;
   description: string;
   labels: string[];
@@ -171,6 +172,7 @@ export interface IssueProvider {
     assignees?: string[];
   }): Promise<Issue>;
   linkChildIssue(input: { rootIssueId: number; childIssueId: number }): Promise<void>;
+  linkIssueDependency(input: { blockedIssueId: number; blockingIssueId: number }): Promise<void>;
   assignIssue(input: { issueId: number; assignees: string[] }): Promise<void>;
   createSprintBranch(input: { branch: string; fromBranch: string }): Promise<SprintBranch>;
   createWorkBranch(input: { branch: string; fromBranch: string }): Promise<SprintBranch>;

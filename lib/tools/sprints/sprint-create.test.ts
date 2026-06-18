@@ -139,6 +139,13 @@ describe("sprint_create input and graph", () => {
     assert.strictEqual(provider.callsTo("createSprintMilestone").length, 1);
     assert.strictEqual(provider.callsTo("createSprintBranch").length, 1);
     assert.strictEqual(provider.callsTo("linkChildIssue").length, 3);
+    assert.deepStrictEqual(
+      provider.callsTo("linkIssueDependency").map((call) => call.args),
+      [
+        { blockedIssueId: result.childIssues[2]!.iid, blockingIssueId: result.childIssues[0]!.iid },
+        { blockedIssueId: result.childIssues[2]!.iid, blockingIssueId: result.childIssues[1]!.iid },
+      ],
+    );
     assert.strictEqual(provider.callsTo("editIssue").length, 1);
   });
 

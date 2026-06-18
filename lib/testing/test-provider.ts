@@ -61,6 +61,7 @@ export type ProviderCall =
   | { method: "createSprintRoot"; args: { title: string; body: string; milestoneId?: string; labels?: string[]; assignees?: string[] } }
   | { method: "createChildIssue"; args: { title: string; body: string; milestoneId?: string; labels?: string[]; assignees?: string[] } }
   | { method: "linkChildIssue"; args: { rootIssueId: number; childIssueId: number } }
+  | { method: "linkIssueDependency"; args: { blockedIssueId: number; blockingIssueId: number } }
   | { method: "assignIssue"; args: { issueId: number; assignees: string[] } }
   | { method: "createSprintBranch"; args: { branch: string; fromBranch: string } }
   | { method: "createWorkBranch"; args: { branch: string; fromBranch: string } }
@@ -272,6 +273,15 @@ export class TestProvider implements IssueProvider {
     const children = this.sprintRootChildren.get(input.rootIssueId) ?? [];
     if (!children.includes(input.childIssueId)) children.push(input.childIssueId);
     this.sprintRootChildren.set(input.rootIssueId, children);
+  }
+
+  async linkIssueDependency(input: { blockedIssueId: number; blockingIssueId: number }): Promise<void> {
+    this.calls.push({ method: "linkIssueDependency", args: input });
+    if (!this.sprintDependencies.some((dep) =>
+      dep.blockedIssueId === input.blockedIssueId && dep.blockingIssueId === input.blockingIssueId
+    )) {
+      this.sprintDependencies.push({ ...input, native: this.sprintCapabilities.nativeDependencies });
+    }
   }
 
   async assignIssue(input: { issueId: number; assignees: string[] }): Promise<void> {

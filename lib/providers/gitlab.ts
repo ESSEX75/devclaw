@@ -69,7 +69,7 @@ export class GitLabProvider implements IssueProvider {
       pullRequests: true,
       autoMerge: true,
       nativeSubIssues: false,
-      nativeDependencies: true,
+      nativeDependencies: false,
     };
   }
 
@@ -241,6 +241,17 @@ export class GitLabProvider implements IssueProvider {
     await this.addComment(
       input.childIssueId,
       `DevClaw sprint projection: parent sprint issue #${input.rootIssueId}`,
+    );
+  }
+
+  async linkIssueDependency(input: { blockedIssueId: number; blockingIssueId: number }): Promise<void> {
+    await this.addComment(
+      input.blockingIssueId,
+      `DevClaw sprint projection: #${input.blockingIssueId} blocks #${input.blockedIssueId}`,
+    );
+    await this.addComment(
+      input.blockedIssueId,
+      `DevClaw sprint projection: blocked by #${input.blockingIssueId}`,
     );
   }
 
