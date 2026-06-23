@@ -47,6 +47,12 @@ export type IssueRuntimeState = {
   archivedAt?: string | null;
 };
 
+export type IssueRuntimeStateInput = Omit<IssueRuntimeState,
+  "integrityStatus" | "integrityErrors" | "projectionVersion" | "createdAt" | "updatedAt"
+> & Partial<Pick<IssueRuntimeState,
+  "integrityStatus" | "integrityErrors" | "projectionVersion" | "createdAt" | "updatedAt"
+>>;
+
 export type ArchivedIssueSummary = {
   issueId: number;
   finalWorkflowState: string;
@@ -65,4 +71,3 @@ export type IssueStateStore = {
   issues: Record<string, IssueRuntimeState>;
   archive: IssueArchive;
 };
-

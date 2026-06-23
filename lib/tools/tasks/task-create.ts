@@ -14,6 +14,7 @@ import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
 import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
+import { detectNotifyTarget, writeIssueRuntimeState } from "../../issues/index.js";
 
 /** Derive the initial state label from the workflow config. */
 const INITIAL_LABEL = DEFAULT_WORKFLOW.states[DEFAULT_WORKFLOW.initial].label;
@@ -64,6 +65,18 @@ export function createTaskCreateTool(ctx: PluginContext) {
       const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
 
       const issue = await provider.createIssue(title, description, label, assignees);
+      const sourceChannel = project.channels.find((ch) => ch.channelId === channelId) ?? project.channels[0];
+      const notifyTarget = sourceChannel ? { channel: sourceChannel.channel, name: sourceChannel.name } : detectNotifyTarget(issue.labels, project.channels);
+      await writeIssueRuntimeState({
+        workspaceDir,
+        project,
+        issue,
+        providerType,
+        workflow: DEFAULT_WORKFLOW,
+        workflowLabel: label,
+        workflowState: DEFAULT_WORKFLOW.initial,
+        notifyTarget,
+      });
 
       // Mark as system-managed (best-effort).
       provider.reactToIssue(issue.iid, "eyes").catch(() => {});

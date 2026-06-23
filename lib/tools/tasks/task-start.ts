@@ -26,6 +26,7 @@ import {
 import { getLevelsForRole } from "../../roles/index.js";
 import { loadConfig } from "../../config/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
+import { detectNotifyTarget, writeIssueRuntimeState } from "../../issues/index.js";
 
 export function createTaskStartTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -64,7 +65,7 @@ Examples:
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider } = await resolveProvider(project, ctx.runCommand);
+      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
       const workflow = resolvedConfig.workflow;
 
@@ -111,6 +112,22 @@ Examples:
 
       // Auto-assign owner label (best-effort)
       autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => {});
+
+      const nextLabels = issue.labels
+        .filter((candidate) => candidate !== currentLabel && !candidate.startsWith(`${targetRole}:`))
+        .concat(targetLabel);
+      if (levelHint && targetRole) nextLabels.push(`${targetRole}:${levelHint}`);
+      await writeIssueRuntimeState({
+        workspaceDir,
+        project,
+        issue: { ...issue, labels: nextLabels },
+        providerType,
+        workflow,
+        workflowLabel: targetLabel,
+        assignedRole: targetRole ?? null,
+        assignedLevel: levelHint ?? undefined,
+        notifyTarget: detectNotifyTarget(nextLabels, project.channels),
+      });
 
       await auditLog(workspaceDir, "task_start", {
         project: project.name, issueId,

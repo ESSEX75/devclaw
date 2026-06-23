@@ -16,6 +16,8 @@ import {
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../roles/index.js";
 import { ExecutionMode, type ExecutionMode as ExecutionModeType } from "../workflow/index.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import { repairIssueFromLocalState } from "../tools/issues/issue-repair.js";
+import { cleanupIssueState } from "../tools/issues/issues-cleanup.js";
 
 /**
  * Get the default workspace directory from the OpenClaw config.
@@ -431,6 +433,56 @@ export function registerCli(program: Command, ctx: PluginContext): void {
   const devclaw = program
     .command("devclaw")
     .description("DevClaw development pipeline tools");
+
+  const repairCmd = devclaw
+    .command("repair")
+    .description("Repair DevClaw-managed provider projections");
+
+  repairCmd
+    .command("issue")
+    .description("Repair one issue projection from local state")
+    .requiredOption("--project <slug>", "Project slug")
+    .requiredOption("--issue <id>", "Issue ID")
+    .requiredOption("--source <source>", "Repair source; only local-state is supported")
+    .option("--dry-run", "Show planned changes without writing")
+    .option("--apply", "Apply the repair. Required instead of --dry-run for write mode")
+    .option("--workspace <path>", "Workspace path")
+    .action(async (opts: { project: string; issue: string; source: string; dryRun?: boolean; apply?: boolean; workspace?: string }) => {
+      if (opts.dryRun && opts.apply) throw new Error("Choose either --dry-run or --apply, not both.");
+      if (!opts.dryRun && !opts.apply) throw new Error("Repair requires an explicit mode: pass --dry-run or --apply.");
+      const workspaceDir = opts.workspace ?? getDefaultWorkspaceDir(ctx.runtime);
+      if (!workspaceDir) throw new Error("Workspace path is required. Pass --workspace or configure an agent default workspace.");
+      const result = await repairIssueFromLocalState({
+        workspaceDir,
+        projectSlug: opts.project,
+        issueId: Number(opts.issue),
+        source: opts.source,
+        dryRun: !opts.apply,
+        runCommand: ctx.runCommand,
+      });
+      console.log(JSON.stringify(result, null, 2));
+    });
+
+  const issuesCmd = devclaw
+    .command("issues")
+    .description("Manage project-local issue state");
+
+  issuesCmd
+    .command("cleanup")
+    .description("Archive old closed issues into inline archive.issues")
+    .requiredOption("--project <slug>", "Project slug")
+    .requiredOption("--older-than <duration>", "Retention window, e.g. 30d")
+    .option("--workspace <path>", "Workspace path")
+    .action(async (opts: { project: string; olderThan: string; workspace?: string }) => {
+      const workspaceDir = opts.workspace ?? getDefaultWorkspaceDir(ctx.runtime);
+      if (!workspaceDir) throw new Error("Workspace path is required. Pass --workspace or configure an agent default workspace.");
+      const result = await cleanupIssueState({
+        workspaceDir,
+        projectSlug: opts.project,
+        olderThan: opts.olderThan,
+      });
+      console.log(JSON.stringify(result, null, 2));
+    });
 
   const setupCmd = devclaw
     .command("setup")

@@ -22,6 +22,7 @@ import { fetchPrFeedback, fetchPrContext, type PrFeedback, type PrContext } from
 import { formatAttachmentsForTask } from "./attachments.js";
 import { loadRoleInstructions } from "./bootstrap-hook.js";
 import { slotName } from "../names.js";
+import { writeIssueRuntimeState } from "../issues/index.js";
 
 import { buildTaskMessage, buildConflictFixMessage, buildAnnouncement, formatSessionLabel } from "./message-builder.js";
 import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "./session.js";
@@ -301,6 +302,29 @@ export async function dispatchTask(
   try {
     await recordWorkerState(workspaceDir, project.slug, role, slotIndex, {
       issueId, level, sessionKey, sessionAction, fromLabel, name: botName,
+    });
+    await writeIssueRuntimeState({
+      workspaceDir,
+      project,
+      issue: {
+        iid: issueId,
+        labels: (issue?.labels ?? [])
+          .filter((label) => label !== fromLabel && !label.startsWith(`${role}:`))
+          .concat(toLabel, `${role}:${level}:${botName}`),
+        state: "open",
+      },
+      providerType: project.provider === "github" ? "github" : "gitlab",
+      workflow,
+      workflowLabel: toLabel,
+      assignedRole: role,
+      assignedLevel: level,
+      activeWorker: {
+        role,
+        level,
+        slotIndex,
+        sessionKey,
+        startedAt: new Date().toISOString(),
+      },
     });
   } catch (err) {
     // Session is already dispatched — log warning but don't fail

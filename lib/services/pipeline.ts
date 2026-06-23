@@ -11,6 +11,7 @@ import { notify, getNotificationConfig } from "../dispatch/notify.js";
 import { log as auditLog } from "../audit.js";
 import { loadConfig } from "../config/index.js";
 import { detectStepRouting } from "./queue-scan.js";
+import { writeIssueRuntimeState } from "../issues/index.js";
 import {
   DEFAULT_WORKFLOW,
   Action,
@@ -219,6 +220,20 @@ export async function executeCompletion(opts: {
         break;
     }
   }
+
+  await writeIssueRuntimeState({
+    workspaceDir,
+    project: { slug: projectSlug, channels },
+    issue: {
+      ...issue,
+      labels: issue.labels.filter((label) => label !== rule.from).concat(rule.to),
+    },
+    providerType: provider.constructor.name.toLowerCase().includes("github") ? "github" : "gitlab",
+    workflow,
+    workflowLabel: rule.to,
+    activeWorker: null,
+    closedAt: rule.actions.includes(Action.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
+  });
 
   // Deactivate worker last (non-critical — session cleanup)
   await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });

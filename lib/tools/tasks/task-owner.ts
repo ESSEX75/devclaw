@@ -10,6 +10,7 @@ import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { loadConfig } from "../../config/index.js";
 import { loadInstanceName } from "../../instance.js";
+import { writeIssueRuntimeState } from "../../issues/index.js";
 import {
   detectOwner,
   getOwnerLabel,
@@ -54,7 +55,7 @@ export function createTaskOwnerTool(ctx: PluginContext) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider } = await resolveProvider(project, ctx.runCommand);
+      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
       const instanceName = await loadInstanceName(
         workspaceDir,
@@ -87,6 +88,14 @@ export function createTaskOwnerTool(ctx: PluginContext) {
             await provider.removeLabels(issueIdParam, [oldLabel]);
           }
           await provider.addLabel(issueIdParam, ownerLabel);
+          await writeIssueRuntimeState({
+            workspaceDir,
+            project,
+            issue: { ...issue, labels: issue.labels.filter((label) => !label.startsWith(OWNER_LABEL_PREFIX)).concat(ownerLabel) },
+            providerType,
+            workflow: resolvedConfig.workflow,
+            owner: instanceName,
+          });
           claimed.push(issueIdParam);
         }
       } else {
@@ -112,6 +121,14 @@ export function createTaskOwnerTool(ctx: PluginContext) {
                 await provider.removeLabels(issue.iid, [oldLabel]);
               }
               await provider.addLabel(issue.iid, ownerLabel);
+              await writeIssueRuntimeState({
+                workspaceDir,
+                project,
+                issue: { ...issue, labels: issue.labels.filter((label) => !label.startsWith(OWNER_LABEL_PREFIX)).concat(ownerLabel) },
+                providerType,
+                workflow,
+                owner: instanceName,
+              });
               claimed.push(issue.iid);
             }
           } catch {

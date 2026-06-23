@@ -13,6 +13,8 @@ import { createTaskAttachTool } from "./lib/tools/tasks/task-attach.js";
 import { createTaskSetLevelTool } from "./lib/tools/tasks/task-set-level.js";
 import { createTaskOwnerTool } from "./lib/tools/tasks/task-owner.js";
 import { createResearchTaskTool } from "./lib/tools/tasks/research-task.js";
+import { createIssueRepairTool } from "./lib/tools/issues/issue-repair.js";
+import { createIssuesCleanupTool } from "./lib/tools/issues/issues-cleanup.js";
 
 // Task queries
 import { createTaskListTool } from "./lib/tools/tasks/task-list.js";
@@ -104,6 +106,8 @@ const plugin = {
     api.registerTool(createTaskSetLevelTool(ctx), { names: ["task_set_level"] });
     api.registerTool(createTaskOwnerTool(ctx), { names: ["task_owner"] });
     api.registerTool(createResearchTaskTool(ctx), { names: ["research_task"] });
+    api.registerTool(createIssueRepairTool(ctx), { names: ["issue_repair"] });
+    api.registerTool(createIssuesCleanupTool(ctx), { names: ["issues_cleanup"] });
 
     // Task queries
     api.registerTool(createTaskListTool(ctx), { names: ["task_list"] });

@@ -11,6 +11,7 @@ import { log as auditLog } from "../../audit.js";
 import { StateType, findStateByLabel, getCurrentStateLabel, getRoleLabelColor } from "../../workflow/index.js";
 import { loadConfig } from "../../config/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
+import { writeIssueRuntimeState } from "../../issues/index.js";
 
 export function createTaskSetLevelTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -96,12 +97,26 @@ Examples:
       await provider.ensureLabel(newRoleLabel, getRoleLabelColor(role));
       await provider.addLabel(issueId, newRoleLabel);
       const levelChanged = fromLevel !== newLevel;
+      const nextLabels = issue.labels
+        .filter((label) => !label.startsWith(`${role}:`))
+        .concat(newRoleLabel);
 
       // Apply notify label for channel routing (best-effort).
       applyNotifyLabel(provider, issueId, project, channelId, issue.labels);
 
       // Auto-assign owner label to this instance (best-effort).
       autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => {});
+
+      await writeIssueRuntimeState({
+        workspaceDir,
+        project,
+        issue: { ...issue, labels: nextLabels },
+        providerType,
+        workflow: resolvedConfig.workflow,
+        workflowLabel: currentState,
+        assignedRole: role,
+        assignedLevel: newLevel,
+      });
 
       await auditLog(workspaceDir, "task_set_level", {
         project: project.name, issueId,
