@@ -136,7 +136,7 @@ export async function projectTick(opts: {
       }
     }
 
-    const next = await findNextIssueForRole(provider, role, workflow, instanceName);
+    const next = await findNextIssueForRole(provider, role, workflow, instanceName, { workspaceDir, projectSlug });
     if (!next) continue;
 
     const { issue, label: currentLabel } = next;
@@ -159,7 +159,7 @@ export async function projectTick(opts: {
     }
 
     // Level selection: label → heuristic (must happen before free slot check)
-    const selectedLevel = resolveLevelForIssue(issue, role);
+    const selectedLevel = resolveLevelForIssue(issue, role, next.localState);
 
     // Check per-level slot availability
     const freeSlot = findFreeSlot(roleWorker, selectedLevel);
@@ -217,7 +217,13 @@ export async function projectTick(opts: {
  * 2. Inherit from another role's label (e.g. developer:medior → tester uses medior)
  * 3. Heuristic fallback (first dispatch, no labels yet)
  */
-function resolveLevelForIssue(issue: Issue, role: Role): string {
+function resolveLevelForIssue(issue: Issue, role: Role, localState?: { assignedRole?: string | null; assignedLevel?: string | null }): string {
+  if (localState?.assignedLevel) {
+    if (localState.assignedRole === role) return localState.assignedLevel;
+    const levels = getLevelsForRole(role);
+    if (levels.includes(localState.assignedLevel)) return localState.assignedLevel;
+  }
+
   const roleLevel = detectRoleLevelFromLabels(issue.labels);
 
   // Own role label

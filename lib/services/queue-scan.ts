@@ -6,6 +6,7 @@
  */
 import type { Issue, StateLabel } from "../providers/provider.js";
 import type { IssueProvider } from "../providers/provider.js";
+import { readIssueStateStore, type IssueRuntimeState } from "../issues/index.js";
 import { getLevelsForRole, getAllLevels } from "../roles/index.js";
 import {
   getQueueLabels,
@@ -95,19 +96,33 @@ export function detectRoleFromLabel(
 // ---------------------------------------------------------------------------
 
 export async function findNextIssueForRole(
-  provider: Pick<IssueProvider, "listIssuesByLabel">,
+  provider: Pick<IssueProvider, "listIssuesByLabel" | "getIssue">,
   role: Role,
   workflow: WorkflowConfig,
   instanceName?: string,
-): Promise<{ issue: Issue; label: StateLabel } | null> {
+  localState?: { workspaceDir: string; projectSlug: string },
+): Promise<{ issue: Issue; label: StateLabel; localState?: IssueRuntimeState } | null> {
   const labels = getQueueLabels(workflow, role);
+
+  if (localState) {
+    const next = await findNextIssueForRoleFromLocalState(
+      provider,
+      labels,
+      instanceName,
+      localState.workspaceDir,
+      localState.projectSlug,
+    );
+    if (next) return next;
+  }
+
   for (const label of labels) {
     try {
       const issues = await provider.listIssuesByLabel(label);
       const eligible = instanceName
         ? issues.filter((i) => isOwnedByOrUnclaimed(i.labels, instanceName))
         : issues;
-      if (eligible.length > 0) return { issue: eligible[eligible.length - 1]!, label };
+      const compatible = await filterUninitializedIssues(eligible, localState);
+      if (compatible.length > 0) return { issue: compatible[compatible.length - 1]!, label };
     } catch { /* continue */ }
   }
   return null;
@@ -136,4 +151,47 @@ export async function findNextIssue(
     } catch { /* continue */ }
   }
   return null;
+}
+
+async function findNextIssueForRoleFromLocalState(
+  provider: Pick<IssueProvider, "getIssue">,
+  queueLabels: StateLabel[],
+  instanceName: string | undefined,
+  workspaceDir: string,
+  projectSlug: string,
+): Promise<{ issue: Issue; label: StateLabel; localState: IssueRuntimeState } | null> {
+  const store = await readIssueStateStore(workspaceDir, projectSlug);
+  const localCandidates = Object.values(store.issues)
+    .filter((state) =>
+      state.managed
+      && state.archivedAt == null
+      && state.integrityStatus !== "integrity_error"
+      && queueLabels.includes(state.workflowLabel),
+    )
+    .sort((a, b) => a.issueId - b.issueId);
+
+  for (const state of localCandidates) {
+    try {
+      const issue = await provider.getIssue(state.issueId);
+      if (issue.state === "closed" || issue.state === "CLOSED") continue;
+      if (instanceName && !isOwnedByOrUnclaimed(issue.labels, instanceName)) continue;
+      return { issue, label: state.workflowLabel, localState: state };
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+async function filterUninitializedIssues(
+  issues: Issue[],
+  localState?: { workspaceDir: string; projectSlug: string },
+): Promise<Issue[]> {
+  if (!localState || issues.length === 0) return issues;
+  const store = await readIssueStateStore(localState.workspaceDir, localState.projectSlug);
+  return issues.filter((issue) => {
+    const state = store.issues[String(issue.iid)];
+    return !state || state.integrityStatus === "projection_uninitialized";
+  });
 }
