@@ -107,4 +107,35 @@ describe("buildSprintStatusSummaries", () => {
     assert.strictEqual(summaries[0]!.steps[1]!.prTargetBranch, "sprint/sprint-code-memory-plugin");
     assert.strictEqual(summaries[0]!.steps[1]!.worker, "developer:senior:Ada");
   });
+
+  it("recovers step PR URLs from provider tree when local prUrl is missing", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+    const project = projectFixture();
+
+    const created = await createSprintStructure({
+      workspaceDir: workspace,
+      provider,
+      project,
+      workflow: DEFAULT_WORKFLOW,
+      baseBranch: "main",
+      input: {
+        projectSlug: "devclaw",
+        title: "Code memory plugin",
+        steps: [{ id: "provider", title: "Provider contract" }],
+      },
+    });
+
+    const pr = await provider.createPullRequest({
+      title: "Provider contract",
+      body: "Fixes #" + created.childIssues[0]!.iid,
+      sourceBranch: created.graph.steps[0]!.workBranch,
+      targetBranch: "sprint/sprint-code-memory-plugin",
+      issueId: created.childIssues[0]!.iid,
+    });
+
+    const summaries = await buildSprintStatusSummaries({ workspaceDir: workspace, project, provider });
+
+    assert.strictEqual(summaries[0]!.steps[0]!.prUrl, pr.url);
+  });
 });

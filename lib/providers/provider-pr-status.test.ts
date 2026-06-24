@@ -23,6 +23,66 @@ const mockRunCommand: RunCommand = async () => ({
 // ---------------------------------------------------------------------------
 
 describe("GitHubProvider.getPrStatus — closed PR handling", () => {
+  it("keeps non-sprint PR body Refs linkage behavior", async () => {
+    const calls: string[][] = [];
+    const provider = new GitHubProvider({
+      repoPath: "/fake",
+      runCommand: async (args) => {
+        calls.push(args);
+        return {
+          stdout: "https://github.com/owner/repo/pull/9\n",
+          stderr: "",
+          exitCode: 0,
+          code: 0,
+          signal: null,
+          killed: false,
+          termination: "exit",
+        } as any;
+      },
+    });
+
+    await provider.createPullRequest({
+      title: "Regular PR",
+      body: "Regular body",
+      sourceBranch: "issue/42-regular",
+      targetBranch: "main",
+      issueId: 42,
+    });
+
+    const bodyIndex = calls[0]!.indexOf("--body") + 1;
+    assert.strictEqual(calls[0]![bodyIndex], "Regular body\n\nRefs #42");
+  });
+
+  it("does not duplicate Refs when sprint PR body already has a closing keyword", async () => {
+    const calls: string[][] = [];
+    const provider = new GitHubProvider({
+      repoPath: "/fake",
+      runCommand: async (args) => {
+        calls.push(args);
+        return {
+          stdout: "https://github.com/owner/repo/pull/10\n",
+          stderr: "",
+          exitCode: 0,
+          code: 0,
+          signal: null,
+          killed: false,
+          termination: "exit",
+        } as any;
+      },
+    });
+
+    await provider.createPullRequest({
+      title: "Sprint PR",
+      body: "Sprint body\n\nFixes #42",
+      sourceBranch: "sprint/100-feature/task/42-work",
+      targetBranch: "sprint/100-feature",
+      issueId: 42,
+    });
+
+    const bodyIndex = calls[0]!.indexOf("--body") + 1;
+    assert.strictEqual(calls[0]![bodyIndex], "Sprint body\n\nFixes #42");
+  });
+
   it("returns url:null when no PR has ever been created", async () => {
     const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
 

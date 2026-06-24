@@ -143,6 +143,29 @@ describe("dispatch branch contract", () => {
     assert.ok(message.includes("BASE BRANCH: main"));
     assert.ok(message.includes("WORK BRANCH: step/101-config"));
     assert.ok(message.includes("PR TARGET BRANCH: sprint/100-feature"));
+    assert.ok(message.includes("SPRINT PR BODY MUST INCLUDE: Fixes #101"));
     assert.ok(!message.includes("Branch: main"));
+  });
+
+  it("does not add sprint PR body instructions for issue mode", () => {
+    const message = buildTaskMessage({
+      projectName: "DevClaw",
+      channelId: "-100",
+      role: "developer",
+      issueId: 101,
+      issueTitle: "Config",
+      issueDescription: "Implement config",
+      issueUrl: "https://example.com/issues/101",
+      repo: "/tmp/devclaw",
+      baseBranch: "main",
+      branchContract: {
+        mode: "issue",
+        baseBranch: "main",
+        workBranch: "issue/101-config",
+        prTargetBranch: "main",
+      },
+    });
+
+    assert.ok(!message.includes("SPRINT PR BODY MUST INCLUDE"));
   });
 });

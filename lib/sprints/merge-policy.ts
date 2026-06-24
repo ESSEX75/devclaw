@@ -92,7 +92,7 @@ export async function processSprintMergePolicy(input: {
   if (!finalPrUrl) {
     const pr = await input.provider.createPullRequest({
       title: `Finalize ${fresh.milestone}`,
-      body: `Final sprint PR for ${fresh.milestone}.`,
+      body: renderFinalSprintPrBody(fresh),
       sourceBranch: fresh.sprintBranch,
       targetBranch: projectBaseBranch,
       issueId: fresh.sprintRootIssueId,
@@ -183,17 +183,25 @@ export async function reconcileMergedSprintFinalPrs(input: {
   );
   const results: SprintFinalizationResult[] = [];
   for (const graph of candidates) {
-    if (!graph.finalPrUrl) {
+    let finalPrUrl = graph.finalPrUrl;
+    if (!finalPrUrl) {
+      const recoveredStatus = await input.provider.getPrStatus(graph.sprintRootIssueId);
+      if (recoveredStatus.url) {
+        finalPrUrl = recoveredStatus.url;
+        await markSprintFinalPrCreated(input.workspaceDir, input.projectSlug, graph.sprintRootIssueId, finalPrUrl);
+      }
+    }
+    if (!finalPrUrl) {
       results.push({ finalized: false, reason: "final_pr_missing" });
       continue;
     }
     const status = await input.provider.getPrStatus(graph.sprintRootIssueId);
-    const statusUrlMatches = !status.url || status.url === graph.finalPrUrl;
+    const statusUrlMatches = !status.url || status.url === finalPrUrl;
     if (status.state !== "merged" || !statusUrlMatches) {
       results.push({
         finalized: false,
         reason: "final_pr_not_merged",
-        finalPrUrl: graph.finalPrUrl,
+        finalPrUrl,
       });
       continue;
     }
@@ -202,7 +210,7 @@ export async function reconcileMergedSprintFinalPrs(input: {
       projectSlug: input.projectSlug,
       sprintRootIssueId: graph.sprintRootIssueId,
       provider: input.provider,
-      mergedFinalPrUrl: status.url ?? graph.finalPrUrl,
+      mergedFinalPrUrl: status.url ?? finalPrUrl,
     }));
   }
   return results;
@@ -219,4 +227,12 @@ async function getSprintGraphForStep(
 
 function allChildrenMergedOrDone(graph: SprintExecutionGraph): boolean {
   return graph.steps.every((step) => step.status === "merged" || step.status === "done");
+}
+
+function renderFinalSprintPrBody(graph: SprintExecutionGraph): string {
+  return [
+    `Final sprint PR for ${graph.milestone}.`,
+    "",
+    `Fixes #${graph.sprintRootIssueId}`,
+  ].join("\n");
 }

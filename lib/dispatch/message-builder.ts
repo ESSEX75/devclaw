@@ -93,6 +93,9 @@ export function buildTaskMessage(opts: {
     `BASE BRANCH: ${opts.branchContract.baseBranch}`,
     `WORK BRANCH: ${opts.branchContract.workBranch}`,
     `PR TARGET BRANCH: ${opts.branchContract.prTargetBranch}`,
+    ...(opts.branchContract.mode === "sprint"
+      ? [`SPRINT PR BODY MUST INCLUDE: Fixes #${issueId}`]
+      : []),
     `Project: ${projectName} | Channel: ${channelId}`,
   );
 

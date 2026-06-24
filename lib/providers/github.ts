@@ -370,7 +370,9 @@ export class GitHubProvider implements IssueProvider {
     targetBranch: string;
     issueId?: number;
   }): Promise<import("./provider.js").SprintPullRequest> {
-    const body = input.issueId ? `${input.body}\n\nRefs #${input.issueId}` : input.body;
+    const body = input.issueId && !referencesIssue(input.body, input.issueId)
+      ? `${input.body}\n\nRefs #${input.issueId}`
+      : input.body;
     const url = await this.gh([
       "pr", "create",
       "--title", input.title,
@@ -401,12 +403,38 @@ export class GitHubProvider implements IssueProvider {
       [...comment.body.matchAll(/child issue #(\d+)/gi)].map((match) => Number(match[1])),
     ))];
     const childIssues = await Promise.all(childIds.map((id) => this.getIssue(id)));
+    const issueIds = [input.rootIssueId, ...childIds];
+    const pullRequests = await this.readSprintPullRequests(issueIds);
     return {
       rootIssue,
       childIssues,
       dependencies: await this.readDependencies({ issueIds: [input.rootIssueId, ...childIds] }),
-      pullRequests: [],
+      pullRequests,
     };
+  }
+
+  private async readSprintPullRequests(issueIds: number[]): Promise<import("./provider.js").SprintPullRequest[]> {
+    const byUrl = new Map<string, import("./provider.js").SprintPullRequest>();
+    for (const issueId of issueIds) {
+      const prs = await this.findPrsForIssue<{
+        number?: number;
+        url: string;
+        headRefName?: string;
+        baseRefName?: string;
+        title: string;
+        body: string;
+      }>(issueId, "all", "number,url,headRefName,baseRefName,title,body");
+      for (const pr of prs) {
+        if (!pr.url) continue;
+        byUrl.set(pr.url, {
+          id: pr.number ? String(pr.number) : pr.url,
+          url: pr.url,
+          sourceBranch: pr.headRefName ?? "",
+          targetBranch: pr.baseRefName ?? "",
+        });
+      }
+    }
+    return [...byUrl.values()];
   }
 
   async readDependencies(input: { issueIds: number[] }): Promise<import("./provider.js").SprintDependency[]> {
@@ -1160,4 +1188,9 @@ function findIssueNumber(value: unknown, exclude: number): number | null {
     }
   }
   return null;
+}
+
+function referencesIssue(body: string, issueId: number): boolean {
+  const escaped = String(issueId).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?)\\s+#${escaped}\\b`, "i").test(body);
 }

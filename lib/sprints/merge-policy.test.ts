@@ -137,7 +137,7 @@ describe("sprint merge policy", () => {
     assert.strictEqual(provider.callsTo("mergePr").length, 1);
     assert.deepStrictEqual(provider.callsTo("createPullRequest").at(-1)?.args, {
       title: "Finalize sprint-feature",
-      body: "Final sprint PR for sprint-feature.",
+      body: "Final sprint PR for sprint-feature.\n\nFixes #100",
       sourceBranch: "sprint/100-feature",
       targetBranch: "main",
       issueId: 100,
@@ -190,6 +190,32 @@ describe("sprint merge policy", () => {
     assert.strictEqual(data.archive?.["devclaw:100"]?.status, SprintGraphStatus.DONE);
     assert.strictEqual(provider.issues.get(100)?.state, "closed");
     assert.strictEqual(provider.callsTo("closeSprintMilestone").at(-1)?.args.milestoneId, "1");
+  });
+
+  it("recovers missing final PR URL from provider status before finalizing", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+    provider.seedIssue({ iid: 100, title: "Root", labels: [] });
+    provider.sprintMilestones.set("1", { id: "1", title: "sprint-feature" });
+    provider.sprintIssueMilestones.set(100, "1");
+    await createGraph(workspace);
+    provider.prStatuses.set(100, {
+      state: PrState.MERGED,
+      url: "https://example.com/pull/final",
+      targetBranch: "main",
+      mergeable: true,
+      checksPassed: true,
+    });
+
+    const results = await reconcileMergedSprintFinalPrs({
+      workspaceDir: workspace,
+      projectSlug: "devclaw",
+      provider,
+    });
+    const data = await readSprints(workspace);
+
+    assert.strictEqual(results[0]?.finalized, true);
+    assert.strictEqual(data.archive?.["devclaw:100"]?.finalPrUrl, "https://example.com/pull/final");
   });
 
   it("does not finalize when final PR is not merged and is idempotent after done", async () => {
