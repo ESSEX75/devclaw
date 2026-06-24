@@ -62,6 +62,12 @@ describe("sprint projection provider contract", () => {
       blockedIssueId: child.iid,
       native: false,
     }]);
+    assert.ok((provider.comments.get(root.iid) ?? []).some((comment) =>
+      comment.body.includes(`#${root.iid} blocks #${child.iid}`),
+    ));
+    assert.ok((provider.comments.get(child.iid) ?? []).some((comment) =>
+      comment.body.includes(`blocked by #${root.iid}`),
+    ));
     assert.strictEqual(tree.pullRequests[0]?.targetBranch, sprintBranch.name);
     assert.strictEqual(provider.sprintBranches.get(sprintBranch.name)?.base, "main");
     assert.strictEqual(provider.sprintBranches.get(workBranch.name)?.base, sprintBranch.name);
@@ -158,5 +164,43 @@ describe("sprint projection provider contract", () => {
       cmd.includes("repos/:owner/:repo/issues/102/comments")
       && cmd.includes("body=DevClaw sprint projection: blocked by #101")
     ));
+  });
+
+  it("GitHub provider reads native dependency timeline events", async () => {
+    const calls: string[][] = [];
+    const runCommand = (async (cmd: string[]) => {
+      calls.push(cmd);
+      const args = cmd.slice(1);
+      const path = args[1] ?? "";
+      if (args[0] === "api" && path === "repos/:owner/:repo/issues/102/timeline") {
+        return {
+          stdout: JSON.stringify([
+            { event: "blocked_by_added", issue: { number: 101 } },
+          ]),
+          stderr: "",
+          code: 0,
+          signal: null,
+          killed: false,
+          termination: null,
+        };
+      }
+      if (args[0] === "api" && path === "repos/:owner/:repo/issues/101/timeline") {
+        return { stdout: "[]", stderr: "", code: 0, signal: null, killed: false, termination: null };
+      }
+      if (args[0] === "api" && path.endsWith("/comments")) {
+        return { stdout: "", stderr: "", code: 0, signal: null, killed: false, termination: null };
+      }
+      return { stdout: "{}", stderr: "", code: 0, signal: null, killed: false, termination: null };
+    }) as unknown as RunCommand;
+    const provider = new GitHubProvider({ repoPath: "/tmp/repo", runCommand });
+
+    const dependencies = await provider.readDependencies({ issueIds: [101, 102] });
+
+    assert.deepStrictEqual(dependencies, [{
+      blockedIssueId: 102,
+      blockingIssueId: 101,
+      native: true,
+    }]);
+    assert.ok(calls.some((cmd) => cmd.includes("repos/:owner/:repo/issues/102/timeline")));
   });
 });

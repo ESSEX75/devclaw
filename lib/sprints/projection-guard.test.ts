@@ -198,6 +198,28 @@ describe("sprint managed projection guard", () => {
     assert.strictEqual(provider.issues.get(102)?.labels.includes("blocked:step"), true);
   });
 
+  it("repairs missing dependency fallback comments from local graph", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+    seedProvider(provider);
+    const graph = await createSprintGraph(workspace, graphFixture());
+
+    const result = await repairSprintProjectionFromLocalState({
+      workspaceDir: workspace,
+      provider,
+      graph,
+    });
+
+    assert.ok(result.repaired.includes("dependency-comment:101->102"));
+    assert.ok(result.repaired.includes("dependency-comment:102:blocked-by:101"));
+    assert.ok((provider.comments.get(101) ?? []).some((comment) =>
+      comment.body.includes("#101 blocks #102"),
+    ));
+    assert.ok((provider.comments.get(102) ?? []).some((comment) =>
+      comment.body.includes("blocked by #101"),
+    ));
+  });
+
   it("marks sprint integrity_error when managed metadata is tampered and blocks readiness", async () => {
     const workspace = await makeWorkspace();
     const graph = await createSprintGraph(workspace, graphFixture());

@@ -410,12 +410,20 @@ export class GitHubProvider implements IssueProvider {
   }
 
   async readDependencies(input: { issueIds: number[] }): Promise<import("./provider.js").SprintDependency[]> {
-    const dependencies: import("./provider.js").SprintDependency[] = [];
+    const byKey = new Map<string, import("./provider.js").SprintDependency>();
+    const add = (dependency: import("./provider.js").SprintDependency) => {
+      const key = `${dependency.blockedIssueId}:${dependency.blockingIssueId}`;
+      const existing = byKey.get(key);
+      if (!existing || dependency.native) byKey.set(key, dependency);
+    };
     for (const issueId of input.issueIds) {
+      for (const dependency of await this.readNativeDependenciesForIssue(issueId)) {
+        add(dependency);
+      }
       const comments = await this.listComments(issueId);
       for (const comment of comments) {
         for (const match of comment.body.matchAll(/#(\d+)\s+blocks\s+#(\d+)/gi)) {
-          dependencies.push({
+          add({
             blockingIssueId: Number(match[1]),
             blockedIssueId: Number(match[2]),
             native: false,
@@ -423,7 +431,33 @@ export class GitHubProvider implements IssueProvider {
         }
       }
     }
-    return dependencies;
+    return [...byKey.values()];
+  }
+
+  private async readNativeDependenciesForIssue(issueId: number): Promise<import("./provider.js").SprintDependency[]> {
+    try {
+      const raw = await this.gh([
+        "api", `repos/:owner/:repo/issues/${issueId}/timeline`,
+        "--paginate",
+        "-H", "Accept: application/vnd.github+json",
+      ]);
+      const events = JSON.parse(raw) as unknown[];
+      const dependencies: import("./provider.js").SprintDependency[] = [];
+      for (const event of events) {
+        const record = event as Record<string, unknown>;
+        if (record.event !== "blocked_by_added" && record.event !== "blocked_by_removed") continue;
+        const blockingIssueId = findIssueNumber(record, issueId);
+        if (!blockingIssueId) continue;
+        dependencies.push({
+          blockedIssueId: issueId,
+          blockingIssueId,
+          native: true,
+        });
+      }
+      return dependencies;
+    } catch {
+      return [];
+    }
   }
 
   async closeSprintMilestone(input: { milestoneId: string }): Promise<void> {
@@ -1105,4 +1139,25 @@ export class GitHubProvider implements IssueProvider {
   async healthCheck(): Promise<boolean> {
     try { await this.gh(["auth", "status"]); return true; } catch { return false; }
   }
+}
+
+function findIssueNumber(value: unknown, exclude: number): number | null {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0 && value !== exclude) return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findIssueNumber(item, exclude);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const direct = record.number ?? record.issue_number;
+    if (typeof direct === "number" && Number.isInteger(direct) && direct > 0 && direct !== exclude) return direct;
+    for (const nested of Object.values(record)) {
+      const found = findIssueNumber(nested, exclude);
+      if (found) return found;
+    }
+  }
+  return null;
 }

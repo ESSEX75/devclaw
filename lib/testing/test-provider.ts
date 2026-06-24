@@ -282,6 +282,8 @@ export class TestProvider implements IssueProvider {
     )) {
       this.sprintDependencies.push({ ...input, native: this.sprintCapabilities.nativeDependencies });
     }
+    await this.addComment(input.blockingIssueId, `DevClaw sprint projection: #${input.blockingIssueId} blocks #${input.blockedIssueId}`);
+    await this.addComment(input.blockedIssueId, `DevClaw sprint projection: blocked by #${input.blockingIssueId}`);
   }
 
   async assignIssue(input: { issueId: number; assignees: string[] }): Promise<void> {

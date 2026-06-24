@@ -141,6 +141,21 @@ export async function repairSprintProjectionFromLocalState(input: RepairSprintPr
   });
   repaired.push(`metadata:${input.graph.sprintRootIssueId}`);
 
+  for (const step of input.graph.steps) {
+    for (const blockingIssueId of step.blockedBy ?? []) {
+      const blockingComment = `DevClaw sprint projection: #${blockingIssueId} blocks #${step.issueId}`;
+      const blockedComment = `DevClaw sprint projection: blocked by #${blockingIssueId}`;
+      if (!await hasComment(input.provider, blockingIssueId, blockingComment)) {
+        await input.provider.addComment(blockingIssueId, blockingComment);
+        repaired.push(`dependency-comment:${blockingIssueId}->${step.issueId}`);
+      }
+      if (!await hasComment(input.provider, step.issueId, blockedComment)) {
+        await input.provider.addComment(step.issueId, blockedComment);
+        repaired.push(`dependency-comment:${step.issueId}:blocked-by:${blockingIssueId}`);
+      }
+    }
+  }
+
   await markSprintRepaired(
     input.workspaceDir,
     input.graph.projectSlug,
@@ -185,4 +200,17 @@ function managedSprintMetadata(graph: SprintExecutionGraph): Record<string, unkn
       blockedBy: step.blockedBy ?? [],
     })),
   };
+}
+
+async function hasComment(
+  provider: Pick<RepairSprintProjectionInput["provider"], "listComments">,
+  issueId: number,
+  body: string,
+): Promise<boolean> {
+  try {
+    const comments = await provider.listComments(issueId);
+    return comments.some((comment) => comment.body.includes(body));
+  } catch {
+    return false;
+  }
 }
