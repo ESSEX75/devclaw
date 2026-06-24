@@ -60,6 +60,7 @@ export function expectedManagedLabelsForIssue(
   if (!step) return [];
 
   const labels = ["devclaw:sprint", "sprint:child", sprintLabel, `step:${issueId}`];
+  if (graph.reviewPolicy === "sprint") labels.push("review:sprint");
   if (step.status === SprintStepStatus.BLOCKED || (step.blockedBy ?? []).length > 0 || graph.sprintBlockedBy.length > 0) {
     labels.push("blocked:step");
   }
@@ -70,7 +71,7 @@ export async function handleProjectionLabelChange(input: ProjectionLabelChange):
   action: "ignored" | "restored";
   restored: string[];
 }> {
-  if (!isManagedProjectionLabel(input.label)) {
+  if (!isManagedProjectionLabel(input.label) && !isManagedSprintReviewLabel(input.graph, input.label)) {
     return { action: "ignored", restored: [] };
   }
 
@@ -102,6 +103,10 @@ export async function handleProjectionLabelChange(input: ProjectionLabelChange):
   }
 
   return { action: "ignored", restored: [] };
+}
+
+function isManagedSprintReviewLabel(graph: SprintExecutionGraph, label: string): boolean {
+  return graph.reviewPolicy === "sprint" && label.startsWith("review:");
 }
 
 export async function handleProjectionBodyChange(input: ProjectionBodyChange): Promise<{
@@ -191,6 +196,7 @@ function managedSprintMetadata(graph: SprintExecutionGraph): Record<string, unkn
     sprintRootIssueId: graph.sprintRootIssueId,
     milestone: graph.milestone,
     sprintBranch: graph.sprintBranch,
+    reviewPolicy: graph.reviewPolicy,
     sprintBlockedBy: graph.sprintBlockedBy,
     steps: graph.steps.map((step) => ({
       issueId: step.issueId,

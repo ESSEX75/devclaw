@@ -312,6 +312,7 @@ Set in \`workflow.reviewPolicy\`:
 | \`review:human\` | Force human review for this issue regardless of policy |
 | \`review:agent\` | Force agent review for this issue |
 | \`review:skip\`  | Skip review entirely — go straight to done/test |
+| \`review:sprint\` | Sprint child PR uses sprint routing; final sprint PR still waits for human review |
 | \`test:skip\`    | Skip the test phase for this issue (if testing enabled) |
 
 These labels are applied to the issue on GitHub/GitLab and override the global policy.

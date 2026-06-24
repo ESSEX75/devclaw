@@ -127,4 +127,9 @@ describe("resolveReviewRouting", () => {
     assert.strictEqual(resolveReviewRouting(ReviewPolicy.SKIP, "medior"), "review:skip");
     assert.strictEqual(resolveReviewRouting(ReviewPolicy.SKIP, "senior"), "review:skip");
   });
+
+  it("should return review:sprint for SPRINT policy", () => {
+    assert.strictEqual(resolveReviewRouting(ReviewPolicy.SPRINT, "junior"), "review:sprint");
+    assert.strictEqual(resolveReviewRouting(ReviewPolicy.SPRINT, "senior"), "review:sprint");
+  });
 });

@@ -13,7 +13,7 @@ import type { Project } from "../../projects/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { SprintStepStatus, readSprints } from "../../sprints/index.js";
 import { createTaskCreateTool } from "../tasks/task-create.js";
-import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
+import { DEFAULT_WORKFLOW, ReviewPolicy, TaskMode } from "../../workflow/index.js";
 import {
   createSprintStructure,
   resolveSprintSteps,
@@ -202,6 +202,33 @@ describe("sprint_create input and graph", () => {
     assert.strictEqual(blockedLabels.has("review:skip"), true);
     assert.strictEqual(blockedLabels.has(`step:${result.childIssues[1]!.iid}`), true);
     assert.strictEqual(blockedLabels.has("blocked:step"), true);
+  });
+
+  it("uses review:sprint for sprint child issues", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+
+    const result = await createSprintStructure({
+      workspaceDir: workspace,
+      provider,
+      project: projectFixture(),
+      workflow: { ...DEFAULT_WORKFLOW, taskMode: TaskMode.SPRINT, reviewPolicy: ReviewPolicy.SPRINT },
+      baseBranch: "main",
+      input: {
+        projectSlug: "devclaw",
+        title: "Sprint review routing",
+        steps: [
+          { id: "one", title: "Step one", labels: ["developer:junior", "review:human"] },
+        ],
+      },
+    });
+
+    const childLabels = new Set(result.childIssues[0]!.labels);
+    const graph = (await readSprints(workspace)).sprints[`devclaw:${result.rootIssue.iid}`]!;
+
+    assert.strictEqual(childLabels.has("review:sprint"), true);
+    assert.strictEqual(childLabels.has("review:human"), false);
+    assert.strictEqual(graph.reviewPolicy, ReviewPolicy.SPRINT);
   });
 
   it("keeps task_create scoped to standalone issues", () => {

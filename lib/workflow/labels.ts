@@ -15,12 +15,13 @@ export const StepRouting = {
   HUMAN: "human",
   AGENT: "agent",
   SKIP: "skip",
+  SPRINT: "sprint",
 } as const;
 export type StepRoutingValue = (typeof StepRouting)[keyof typeof StepRouting];
 
 /** Known step routing labels (created on the provider during project registration). */
 export const STEP_ROUTING_LABELS: readonly string[] = [
-  "review:human", "review:agent", "review:skip",
+  "review:human", "review:agent", "review:skip", "review:sprint",
   "test:skip",
 ];
 
@@ -99,11 +100,11 @@ export function isOwnedByOrUnclaimed(
  */
 export function resolveReviewRouting(
   policy: ReviewPolicy, _level: string,
-): "review:human" | "review:agent" | "review:skip" {
+): "review:human" | "review:agent" | "review:skip" | "review:sprint" {
   if (policy === RP.HUMAN) return "review:human";
   if (policy === RP.AGENT) return "review:agent";
   if (policy === RP.SKIP) return "review:skip";
-  if (policy === RP.SPRINT) return "review:human";
+  if (policy === RP.SPRINT) return "review:sprint";
   return "review:human";
 }
 

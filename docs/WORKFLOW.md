@@ -288,6 +288,7 @@ Override the project-level policy for a single issue using labels:
 | `review:human` | Force human review |
 | `review:agent` | Force agent review |
 | `review:skip` | Skip review entirely |
+| `review:sprint` | Sprint child PR auto-merges into the sprint branch; final PR still waits for human review |
 
 **Source:** [`lib/workflow/queries.ts`](../lib/workflow/queries.ts) — `resolveReviewRouting()`
 

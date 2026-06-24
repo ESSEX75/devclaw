@@ -180,6 +180,47 @@ describe("sprint managed projection guard", () => {
     });
   });
 
+  it("repairs stale sprint child review routing labels", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+    seedProvider(provider);
+    const graph = await createSprintGraph(workspace, {
+      ...graphFixture(),
+      reviewPolicy: "sprint",
+    });
+    provider.seedIssue({
+      iid: 101,
+      title: "Step 1",
+      description: "step 1",
+      labels: ["review:human"],
+    });
+
+    const removed = await handleProjectionLabelChange({
+      workspaceDir: workspace,
+      provider,
+      graph,
+      issueId: 101,
+      label: "review:human",
+      action: "added",
+    });
+    const restored = await handleProjectionLabelChange({
+      workspaceDir: workspace,
+      provider,
+      graph,
+      issueId: 101,
+      label: "review:sprint",
+      action: "removed",
+    });
+
+    assert.deepStrictEqual(removed, { action: "restored", restored: ["review:human"] });
+    assert.deepStrictEqual(restored, { action: "restored", restored: ["review:sprint"] });
+    assert.deepStrictEqual(provider.callsTo("removeLabels").at(-1)?.args, {
+      issueId: 101,
+      labels: ["review:human"],
+    });
+    assert.strictEqual(provider.issues.get(101)?.labels.includes("review:sprint"), true);
+  });
+
   it("does not add blocked:step to ready children during repair", async () => {
     const workspace = await makeWorkspace();
     const provider = new TestProvider();

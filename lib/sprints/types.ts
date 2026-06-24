@@ -45,6 +45,7 @@ export type SprintExecutionGraph = {
   milestone: string;
   sprintBranch: string;
   status: SprintGraphStatus;
+  reviewPolicy?: string;
   sprintBlockedBy: number[];
   steps: SprintStep[];
   finalPrUrl?: string;

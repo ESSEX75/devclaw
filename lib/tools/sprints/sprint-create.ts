@@ -24,7 +24,7 @@ import {
   checkSprintReinitReadiness,
   sprintModeEnabled,
 } from "../../setup/sprint-readiness.js";
-import { getRevertLabel, type WorkflowConfig } from "../../workflow/index.js";
+import { getRevertLabel, ReviewPolicy, type WorkflowConfig } from "../../workflow/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export type SprintCreateStepInput = {
@@ -238,7 +238,7 @@ export async function createSprintStructure(args: {
       title: step.title,
       body: renderChildBody(step, rootIssue.iid, sprintBranch),
       milestoneId: milestone.id,
-      labels: [...new Set([childQueueLabel, "devclaw:sprint", "sprint:child", sprintLabel, ...(step.labels ?? [])])],
+      labels: [...new Set([childQueueLabel, "devclaw:sprint", "sprint:child", sprintLabel, ...sprintChildLabels(step.labels ?? [], args.workflow)])],
       assignees,
     });
     childIssues.push(issue);
@@ -255,6 +255,7 @@ export async function createSprintStructure(args: {
     milestone: milestone.title,
     sprintBranch,
     status: SprintGraphStatus.ACTIVE,
+    reviewPolicy: args.workflow.reviewPolicy,
     sprintBlockedBy,
     steps: steps.map((step, index) => {
       const issueId = issueIdByStepId.get(step.id);
@@ -306,6 +307,11 @@ function getRequiredChildQueueLabel(workflow: WorkflowConfig): string {
   const label = getRevertLabel(workflow, "developer");
   if (!label) throw new Error("Sprint child issue creation requires a developer queue label.");
   return label;
+}
+
+function sprintChildLabels(labels: string[], workflow: WorkflowConfig): string[] {
+  if (workflow.reviewPolicy !== ReviewPolicy.SPRINT) return labels;
+  return [...labels.filter((label) => !label.startsWith("review:")), "review:sprint"];
 }
 
 export function validateSprintCreateInput(params: Record<string, unknown>): SprintCreateInput {
