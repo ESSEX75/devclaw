@@ -8,7 +8,9 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import { loadWorkflow, StateType, findStateByLabel } from "../../workflow/index.js";
+import { loadConfig } from "../../config/index.js";
+import { StateType, findStateByLabel } from "../../workflow/index.js";
+import { loadProjectionViewContext, summarizeTaskIssue, type TaskIssueSummary } from "./projection-view.js";
 
 export function createTaskListTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -53,7 +55,14 @@ export function createTaskListTool(ctx: PluginContext) {
 
       const { project } = await resolveProject(workspaceDir, channelId);
       const { provider } = await resolveProvider(project, ctx.runCommand);
-      const workflow = await loadWorkflow(workspaceDir, project.name);
+      const projectConfig = await loadConfig(workspaceDir, project.name);
+      const workflow = projectConfig.workflow;
+      const projectionCtx = await loadProjectionViewContext({
+        workspaceDir,
+        projectSlug: project.slug,
+        workflow,
+        roles: Object.keys(projectConfig.roles),
+      });
 
       // Determine which labels to fetch
       type FetchEntry = { label: string; type: string; role?: string; issueState: "open" | "closed" | "all" };
@@ -88,7 +97,7 @@ export function createTaskListTool(ctx: PluginContext) {
         label: string;
         type: string;
         role?: string;
-        issues: Array<{ id: number; title: string; url: string }>;
+        issues: TaskIssueSummary[];
         total: number;
       }> = [];
 
@@ -106,7 +115,7 @@ export function createTaskListTool(ctx: PluginContext) {
           label: entry.label,
           type: entry.type,
           role: entry.role,
-          issues: limited.map((i) => ({ id: i.iid, title: i.title, url: i.web_url })),
+          issues: limited.map((i) => summarizeTaskIssue(i, projectionCtx)),
           total,
         });
       }

@@ -10,8 +10,9 @@ import { log as auditLog } from "../../audit.js";
 import { getStateLabelsByType } from "../../services/queue.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { loadConfig } from "../../config/index.js";
+import { loadProjectionViewContext, summarizeTaskIssue, type TaskIssueSummary } from "./projection-view.js";
 
-type IssueSummary = { id: number; title: string; url: string };
+type IssueSummary = TaskIssueSummary;
 
 export function createTasksStatusTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -42,6 +43,12 @@ export function createTasksStatusTool(ctx: PluginContext) {
       const projectConfig = await loadConfig(workspaceDir, project.name);
       const workflow = projectConfig.workflow;
       const statesByType = getStateLabelsByType(workflow);
+      const projectionCtx = await loadProjectionViewContext({
+        workspaceDir,
+        projectSlug: project.slug,
+        workflow,
+        roles: Object.keys(projectConfig.roles),
+      });
 
       // Fetch issues for each state type
       const hold: Record<string, { count: number; issues: IssueSummary[] }> = {};
@@ -49,7 +56,7 @@ export function createTasksStatusTool(ctx: PluginContext) {
         const issues = await provider.listIssues({ label, state: "open" }).catch(() => []);
         hold[label] = {
           count: issues.length,
-          issues: issues.map((i) => ({ id: i.iid, title: i.title, url: i.web_url })),
+          issues: issues.map((i) => summarizeTaskIssue(i, projectionCtx)),
         };
       }
 
@@ -58,7 +65,7 @@ export function createTasksStatusTool(ctx: PluginContext) {
         const issues = await provider.listIssues({ label, state: "open" }).catch(() => []);
         active[label] = {
           count: issues.length,
-          issues: issues.map((i) => ({ id: i.iid, title: i.title, url: i.web_url })),
+          issues: issues.map((i) => summarizeTaskIssue(i, projectionCtx)),
         };
       }
 
@@ -67,7 +74,7 @@ export function createTasksStatusTool(ctx: PluginContext) {
         const issues = await provider.listIssues({ label, state: "open" }).catch(() => []);
         queue[label] = {
           count: issues.length,
-          issues: issues.map((i) => ({ id: i.iid, title: i.title, url: i.web_url })),
+          issues: issues.map((i) => summarizeTaskIssue(i, projectionCtx)),
         };
       }
 
