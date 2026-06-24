@@ -59,7 +59,7 @@ export function expectedManagedLabelsForIssue(
   const step = graph.steps.find((candidate) => candidate.issueId === issueId);
   if (!step) return [];
 
-  const labels = ["devclaw:sprint", "sprint:child", sprintLabel, `step:${issueId}`];
+  const labels = ["devclaw:sprint", "sprint:child", sprintLabel, `step:${step.order}`];
   if (graph.reviewPolicy === "sprint") labels.push("review:sprint");
   if (step.status === SprintStepStatus.BLOCKED || (step.blockedBy ?? []).length > 0 || graph.sprintBlockedBy.length > 0) {
     labels.push("blocked:step");
@@ -134,9 +134,19 @@ export async function repairSprintProjectionFromLocalState(input: RepairSprintPr
 }> {
   const repaired: string[] = [];
   for (const issueId of [input.graph.sprintRootIssueId, ...input.graph.steps.map((step) => step.issueId)]) {
+    const issue = await input.provider.getIssue(issueId);
     for (const label of expectedManagedLabelsForIssue(input.graph, issueId)) {
       await input.provider.addLabel(issueId, label);
       repaired.push(`label:${issueId}:${label}`);
+    }
+    const expected = new Set(expectedManagedLabelsForIssue(input.graph, issueId));
+    const staleManagedLabels = issue.labels.filter((label) =>
+      (isManagedProjectionLabel(label) || isManagedSprintReviewLabel(input.graph, label)) &&
+      !expected.has(label)
+    );
+    if (staleManagedLabels.length > 0) {
+      await input.provider.removeLabels(issueId, staleManagedLabels);
+      repaired.push(...staleManagedLabels.map((label) => `label-removed:${issueId}:${label}`));
     }
   }
 

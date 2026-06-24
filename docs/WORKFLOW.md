@@ -147,7 +147,7 @@ Changing labels, milestone fields, or issue body metadata does not directly muta
 
 When the provider supports native relationships, DevClaw projects the local graph into that UI surface as well. On GitHub, the sprint root is linked to child issues through native sub-issues, and blocked children are linked to their blockers through native issue dependencies. These relationships are issue-level projection and do not require a GitHub Project.
 
-Managed sprint labels are restored from the local graph. Every child issue receives `step:<issueId>` after the graph is created. Blocked children also receive `blocked:step`; ready children must not. These labels are UI/projection state only.
+Managed sprint labels are restored from the local graph. Every child issue receives `step:<order>` after the graph is created. Blocked children also receive `blocked:step`; ready children must not. These labels are UI/projection state only.
 
 Sprint child issues are projected into the configured developer queue label, such as `To Do`, so the existing queue scanner can discover them. That queue label only makes the issue a candidate; `devclaw/sprints.json` remains the authority for whether the child can dispatch.
 

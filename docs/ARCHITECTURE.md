@@ -729,7 +729,7 @@ Provider selection is handled by `createProvider()` in `lib/providers/index.ts`.
 
 Sprint runtime state lives in `<workspace>/devclaw/sprints.json`. Provider projection is guarded by `lib/sprints/projection-guard.ts`:
 
-- expected labels are derived from the local graph, including `devclaw:sprint`, `sprint:root`, `sprint:child`, `sprint:<milestone>`, `step:<issueId>`, and `blocked:step`;
+- expected labels are derived from the local graph, including `devclaw:sprint`, `sprint:root`, `sprint:child`, `sprint:<milestone>`, `step:<order>`, and `blocked:step`;
 - unmanaged labels and unmanaged issue body edits are ignored;
 - removed expected managed labels are re-added via `provider.addLabel`;
 - unexpected managed labels are removed via `provider.removeLabels`;
