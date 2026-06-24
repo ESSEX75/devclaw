@@ -216,9 +216,12 @@ Full project dashboard showing all non-terminal state types with issue details.
 - **hold** — Waiting for input (Planning, Refining): issue IDs, titles, URLs
 - **active** — Work in progress (Doing, Reviewing, etc.): issue IDs, titles, URLs
 - **queue** — Queued for work (To Do, To Improve, To Review): issue IDs, titles, URLs
+- Per issue projection details: provider labels, local `workflowState`/`workflowLabel`, local role/level, `integrityStatus`, missing/unexpected managed labels, unmanaged human labels, and a repair hint when drift/error exists
 - Worker slot state per role and level: active/idle, issue, start time
 - Active workflow summary: review policy, test phase status, state flow
 - Summary totals: `totalHold`, `totalActive`, `totalQueued`
+
+For initialized managed issues, local `issues.json` is runtime truth and provider labels are visual projection. `projection_uninitialized` marks old issues without local state. `integrity_error` marks managed metadata tamper or unrecoverable projection inconsistency; repair from local state before dispatching.
 
 ---
 
@@ -269,7 +272,7 @@ Browse and search issues by workflow state. Returns individual issues grouped by
 **Returns per matching state:**
 
 - State label, type, and role
-- Issue list: ID, title, URL
+- Issue list: ID, title, URL, provider labels, local state, projection integrity, missing/unexpected managed labels, unmanaged human labels, and repair hint when applicable
 - Total count (before limit)
 
 **Use cases:**
@@ -280,6 +283,8 @@ Browse and search issues by workflow state. Returns individual issues grouped by
 - View completed work: `{ channelId: "-100123", stateType: "terminal" }`
 
 **Note:** When browsing terminal states (Done), the tool queries closed issues from the provider.
+
+Provider labels are displayed for parity with GitHub/GitLab. For initialized DevClaw-managed issues, the local `issues.json` entry is the authoritative workflow state.
 
 ---
 
@@ -495,6 +500,44 @@ Sync GitHub/GitLab labels with the current workflow config. Creates any missing 
 4. Reports created vs. already-existing labels
 
 **When to use:** After editing `workflow.yaml` to add custom states, change label names, or enable the test phase.
+
+---
+
+### `issue_repair` / `devclaw repair issue`
+
+Repair one provider projection from local issue state. The implementation is named `issue_repair`; the packaged CLI entrypoint is `devclaw repair issue`.
+
+**Source:** [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts), [`lib/setup/cli.ts`](../lib/setup/cli.ts)
+
+```bash
+devclaw repair issue --project my-webapp --issue 42 --source local-state --dry-run
+devclaw repair issue --project my-webapp --issue 42 --source local-state --apply
+```
+
+**Behavior:**
+
+- `--source local-state` is the only supported repair source. Provider import is intentionally unsupported because provider projection is not authoritative.
+- `--dry-run` reports missing/unexpected managed labels and metadata changes without writing.
+- `--apply` restores provider labels and managed metadata from `devclaw/projects/<project>/issues.json`, preserving unmanaged human labels.
+- Successful apply clears local `integrity_error`.
+
+---
+
+### `devclaw issues cleanup`
+
+Archive old closed local issue records into inline `archive.issues`.
+
+**Source:** [`lib/tools/issues/issues-cleanup.ts`](../lib/tools/issues/issues-cleanup.ts), [`lib/setup/cli.ts`](../lib/setup/cli.ts)
+
+```bash
+devclaw issues cleanup --project my-webapp --older-than 30d
+```
+
+**Behavior:**
+
+- Moves closed issue records older than the retention window from `issues` to `archive.issues` inside the same `issues.json`.
+- Skips `integrity_error` records so they can be inspected or repaired first.
+- Does not write `issues.archive.jsonl`; that file is outside the MVP.
 
 ---
 

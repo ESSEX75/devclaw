@@ -200,7 +200,7 @@ graph TB
     TCR -->|creates issue| GL
     TCR -->|appends| AL
 
-    ST -->|lists issues by label| GL
+    ST -->|lists issues by label projection| GL
     ST -->|reads| PJ
     ST -->|appends| AL
 
@@ -556,7 +556,7 @@ Every piece of data and where it lives:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ Issue Tracker (source of truth for tasks)                       │
+│ Issue Tracker (visible task surface + label projection)         │
 │                                                                 │
 │  Issue #42: "Add login page"                                    │
 │  Labels: [Planning | To Do | Doing | To Review | Reviewing | ...]│
@@ -571,12 +571,12 @@ Every piece of data and where it lives:
 │                                                                 │
 │  setup          → agent creation + workspace + model config     │
 │  task_start     → advance issue to queue (state-agnostic)       │
-│  work_finish    → label + state + git pull + tick queue          │
+│  work_finish    → local issue state + label projection + git pull│
 │  task_create    → create issue in tracker                       │
 │  task_set_level → set level hint on HOLD-state issues           │
 │  task_comment   → add comment to issue                          │
 │  task_owner     → claim issue ownership (multi-instance)        │
-│  tasks_status   → read labels + read state                      │
+│  tasks_status   → read provider projection + local issue state   │
 │  project_status → local project info (no API calls)             │
 │  health         → check sessions + fix zombies                  │
 │  project_register → labels + prompts + state init (one-time)    │
@@ -740,7 +740,9 @@ See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
 | `openclaw gateway call agent` fails | Plugin catches error during dispatch | Plugin rolls back: reverts label, clears active state. Returns error. No orphaned state. |
 | `sessions.patch` fails | Plugin catches error during session creation | Plugin rolls back label transition. Returns error. |
 | projects.json corrupted | Tool can't parse JSON | Manual fix needed. Atomic writes (temp+rename) prevent partial writes. File locking prevents concurrent races. |
-| Label out of sync | Heartbeat verifies label before transitioning | Throws error if label doesn't match expected state. |
+| Provider label drift | Heartbeat projection pass compares labels with `issues.json` | Restores missing/extra managed labels while preserving unmanaged human labels. |
+| Managed metadata missing/tampered | Heartbeat projection pass compares provider metadata with `issues.json` | Marks local issue `integrity_error`; external gates and dispatch skip until repaired with `devclaw repair issue --source local-state`. |
+| Old issue without local state | No `issues.json` entry for provider issue | Compatibility path treats it as `projection_uninitialized` and keeps legacy label-first behavior until initialized/backfilled. |
 | Worker already active | Heartbeat checks `active` flag | Skips dispatch: role already active on project. Must complete current task first. |
 | Stale worker (>2h) | `health` and heartbeat health check | `fix=true`: deactivates worker, reverts label to queue. Task available for next pickup. |
 | Worker stuck/blocked | Worker calls `work_finish` with `"blocked"` | Deactivates worker, transitions to "Refining" (hold state). Requires human decision to proceed. |

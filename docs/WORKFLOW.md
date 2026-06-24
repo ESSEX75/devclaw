@@ -131,6 +131,21 @@ workflow:
 
 The architect role has dedicated `To Research` and `Researching` states. Design tasks are triggered via the `research_task` tool, which creates an issue and transitions it through `To Research` → `Researching`. The architect posts findings as comments, creates implementation tasks in Planning, and completes with `work_finish`.
 
+### Managed Issue Projection
+
+For initialized DevClaw-managed issues, `devclaw/projects/<project>/issues.json` is the runtime authority. Provider labels are required visual projection, not truth. The required `eyes` reaction remains a visual compatibility marker for managed issues and PRs.
+
+- Queue dispatch uses local `workflowState`/`workflowLabel` when a local issue record exists.
+- Provider labels remain visible in GitHub/GitLab and in `task_list`/`tasks_status`.
+- Manual provider label edits do not mutate local state.
+- Heartbeat repairs recoverable managed-label drift and preserves unmanaged human labels.
+- Missing or tampered managed metadata sets `integrity_error`; repair with `devclaw repair issue --project <slug> --issue <id> --source local-state --dry-run` and then `--apply`.
+- Old issues without local state use the compatibility/backfill path and are shown as `projection_uninitialized`.
+
+### Sprint Child Creation Invariant
+
+When sprint/task-mode decomposition creates child issues, each child must be initialized as its own managed issue before it can be dispatched: create the provider issue, write its local `issues.json` record, render managed metadata, apply provider projection labels, and add the `eyes` compatibility marker. Root/container issues are not dispatchable unless they also have a normal managed runtime state.
+
 ### State Types
 
 | Type | Description |
@@ -186,13 +201,15 @@ workflow:
 
 ### Per-Issue Overrides
 
-Override the project-level policy for a single issue using labels:
+Override the project-level policy for a single issue through DevClaw-managed state. Provider labels are still rendered for visibility:
 
 | Label | Effect |
 |---|---|
 | `review:human` | Force human review |
 | `review:agent` | Force agent review |
 | `review:skip` | Skip review entirely |
+
+For initialized DevClaw-managed issues, these labels are projection from `devclaw/projects/<project>/issues.json`. Editing `review:*`, `test:*`, state, owner, or role labels directly in GitHub/GitLab does not change runtime state. The heartbeat projection pass restores recoverable drift and marks metadata tamper as `integrity_error`.
 
 **Source:** [`lib/workflow/queries.ts`](../lib/workflow/queries.ts) — `resolveReviewRouting()`
 
@@ -254,6 +271,8 @@ By default, approved PRs go straight to Done. To add automated QA after review, 
 - Per-project: `devclaw/projects/<project>/prompts/tester.md`
 
 **Per-issue skip:** Add the `test:skip` label to bypass testing for a specific issue.
+
+For initialized managed issues, `test:skip` is also a provider projection of local state. Use DevClaw tools to change issue routing; provider label edits are not imported as runtime changes.
 
 ### Pipeline with Test Phase
 

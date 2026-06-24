@@ -76,9 +76,9 @@ Each project is fully isolated — own queue, workers, sessions, and state. Work
 
 ### Process enforcement
 
-GitHub/GitLab issues are the single source of truth — not an internal database. Every tool call wraps the full operation into deterministic code with rollback on failure:
+GitHub/GitLab issues are the visible task surface; initialized managed issue runtime state is stored locally in `issues.json`. Every tool call wraps the full operation into deterministic code with rollback on failure:
 
-- **[External task state](#your-issues-stay-in-your-tracker)** — labels, transitions, and status queries go through your issue tracker
+- **[External task surface](#your-issues-stay-in-your-tracker)** — issues, projected labels, and status visibility stay in your issue tracker
 - **[Atomic operations](#what-atomic-means-here)** — label transition + state update + session dispatch + audit log in one call
 - **[Tool-based guardrails](#the-toolbox)** — 23 tools enforce the process; the agent provides intent, the plugin handles mechanics
 
@@ -187,7 +187,7 @@ stateDiagram-v2
 
 By default, PRs go through **human review** on GitHub/GitLab. The heartbeat polls for approvals and auto-merges. You can switch to agent review or enable an [optional test phase](docs/WORKFLOW.md#test-phase-optional) in `workflow.yaml`.
 
-These labels live on your actual GitHub/GitLab issues. Not in some internal database — in the tool you already use. Filter by `Doing` in GitHub to see what's in progress. Set up a webhook on `Done` to trigger deploys. The issue tracker is the source of truth.
+These labels live on your actual GitHub/GitLab issues. Not in some detached tracker — in the tool you already use. For initialized DevClaw-managed issues, runtime truth is stored in `<workspace>/devclaw/projects/<project>/issues.json`; provider labels are the visual projection of that state. Filter by `Doing` in GitHub to see what's in progress, but manual label edits do not mutate local runtime state.
 
 ### What "atomic" means here
 
@@ -259,15 +259,16 @@ Full trace of every task, every level selection, every label transition, every h
 
 ## Automatic scheduling
 
-DevClaw doesn't wait for you to tell it what to do next. A background scheduling system continuously scans for available work and dispatches workers — zero LLM tokens, pure deterministic code. This is the engine that keeps the pipeline moving: when DEV finishes, the PR goes through review. When review feedback comes back, the scheduler dispatches DEV to fix it. No hand-offs, no orchestrator reasoning — just label-driven scheduling.
+DevClaw doesn't wait for you to tell it what to do next. A background scheduling system continuously scans for available work and dispatches workers — zero LLM tokens, pure deterministic code. This is the engine that keeps the pipeline moving: when DEV finishes, the PR goes through review. When review feedback comes back, the scheduler dispatches DEV to fix it. No hand-offs, no orchestrator reasoning — just local-state scheduling with provider labels kept as projection.
 
 ### The `work_heartbeat`
 
-Every tick (default: 60 seconds), the scheduler runs two passes:
+Every tick (default: 60 seconds), the scheduler runs these passes:
 
-1. **Health pass** — detects workers stuck for >2 hours, reverts their labels back to queue, deactivates them. Catches crashed sessions, context overflows, or workers that died without reporting back.
-2. **Review pass** — polls open PRs in `To Review` state. Auto-merges when approved, dispatches DEV fix when changes requested or merge conflict detected.
-3. **Queue pass** — scans for available tasks by priority (`To Improve` > `To Review` > `To Do`), fills free worker slots.
+1. **Projection integrity pass** — compares `<workspace>/devclaw/projects/<project>/issues.json` with provider labels/metadata. Recoverable label drift is repaired; metadata tamper marks the issue `integrity_error`.
+2. **Health pass** — detects workers stuck for >2 hours, reverts their labels back to queue, deactivates them. Catches crashed sessions, context overflows, or workers that died without reporting back.
+3. **Review pass** — polls open PRs in `To Review` state. Auto-merges when approved, dispatches DEV fix when changes requested or merge conflict detected.
+4. **Queue pass** — scans for available tasks by local runtime state priority (`To Improve` > `To Review` > `To Do`), fills free worker slots.
 
 All CLI calls and JSON reads. Workers only consume tokens when they actually start coding or reviewing. The heartbeat scheduler runs at regular intervals to pick up new tasks.
 
@@ -330,7 +331,7 @@ See the [Configuration reference](docs/CONFIGURATION.md) for the full schema.
 
 ### Your issues stay in your tracker
 
-DevClaw doesn't have its own task database. All task state lives in **GitHub Issues** or **GitLab Issues** — auto-detected from your git remote. Pipeline labels are created on your repo when you register a project. Your project manager sees progress in GitHub without knowing DevClaw exists. Your CI/CD can trigger on label changes. If you stop using DevClaw, your issues and labels stay exactly where they are.
+DevClaw uses **GitHub Issues** or **GitLab Issues** as the visible task surface, auto-detected from your git remote. For initialized DevClaw-managed issues, runtime state lives in `<workspace>/devclaw/projects/<project>/issues.json`; provider labels and the required `eyes` reaction are compatibility/projection markers. Your project manager still sees progress in GitHub/GitLab, and if you stop using DevClaw, your issues and labels stay where they are.
 
 The provider is pluggable (`IssueProvider` interface). GitHub and GitLab work today. Jira, Linear, or anything else just needs to implement the same interface.
 
@@ -505,6 +506,8 @@ DevClaw gives the orchestrator 23 tools. These aren't just convenience wrappers 
 | `health`               | Detect zombie workers, stale sessions, state inconsistencies                            |
 | `project_register`     | One-time project setup: creates labels, scaffolds instructions, initializes state       |
 | `sync_labels`          | Sync GitHub/GitLab labels with workflow config after editing `workflow.yaml`            |
+| `devclaw repair issue` | CLI repair of provider projection from local issue state                                |
+| `devclaw issues cleanup` | CLI archive of old closed local issue records into inline `archive.issues`           |
 | `channel_link`         | Link a chat/channel to a project (auto-detaches previous project)                      |
 | `channel_unlink`       | Remove a channel from a project                                                         |
 | `channel_list`         | List channels for a project or all projects                                             |

@@ -91,7 +91,7 @@ With testing enabled, the flow becomes:
                                                 → fail → To Improve
 ```
 
-Issue labels are the single source of truth for task state.
+For initialized DevClaw-managed issues, local `<workspace>/devclaw/projects/<project>/issues.json` is the runtime source of truth. Provider labels are required visual projection only; do not manually edit labels expecting DevClaw runtime state to change.
 
 ### Developer Assignment
 
