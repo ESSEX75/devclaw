@@ -18,6 +18,7 @@ import { ExecutionMode } from "../../workflow/index.js";
 import type { HeartbeatConfig } from "./config.js";
 import {
   performHealthPass,
+  performProjectionIntegrityPass,
   performReviewPass,
   performReviewSkipPass,
   performTestSkipPass,
@@ -94,6 +95,13 @@ export async function tick(opts: {
         runCommand,
       });
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
+
+      await performProjectionIntegrityPass(
+        workspaceDir,
+        project,
+        provider,
+        resolvedConfig,
+      );
 
       // Health pass: auto-fix zombies and stale workers
       result.totalHealthFixes += await performHealthPass(

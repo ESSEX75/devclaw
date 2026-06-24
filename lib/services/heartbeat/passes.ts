@@ -13,6 +13,7 @@ import {
 import { reviewPass } from "./review.js";
 import { reviewSkipPass } from "./review-skip.js";
 import { testSkipPass } from "./test-skip.js";
+import { projectionIntegrityPass } from "./projection.js";
 import type { ResolvedConfig } from "../../config/types.js";
 import { resolveNotifyChannel } from "../../workflow/index.js";
 import { notify, getNotificationConfig } from "../../dispatch/notify.js";
@@ -80,6 +81,25 @@ export async function performHealthPass(
   fixedCount += statelessFixes.filter((f) => f.fixed).length;
 
   return fixedCount;
+}
+
+/**
+ * Run projection integrity checks for initialized DevClaw-managed issues.
+ */
+export async function performProjectionIntegrityPass(
+  workspaceDir: string,
+  project: Project,
+  provider: import("../../providers/provider.js").IssueProvider,
+  resolvedConfig: ResolvedConfig,
+): Promise<number> {
+  const result = await projectionIntegrityPass({
+    workspaceDir,
+    project,
+    provider,
+    workflow: resolvedConfig.workflow,
+    roles: Object.keys(resolvedConfig.roles),
+  });
+  return result.repaired + result.errors;
 }
 
 /**
