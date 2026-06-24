@@ -12,10 +12,10 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { createTestHarness, type TestHarness } from "../testing/index.js";
 import { dispatchTask } from "../dispatch/index.js";
-import { executeCompletion } from "./pipeline.js";
+import { cleanupTerminalStateLabels, executeCompletion } from "./pipeline.js";
 import { projectTick } from "./tick.js";
 import { reviewPass } from "./heartbeat/review.js";
-import { DEFAULT_WORKFLOW, ReviewPolicy, type WorkflowConfig } from "../workflow/index.js";
+import { DEFAULT_WORKFLOW, ReviewPolicy, StateType, type WorkflowConfig } from "../workflow/index.js";
 import { readProjects, getRoleWorker, getProject, countActiveSlots } from "../projects/index.js";
 
 // ---------------------------------------------------------------------------
@@ -334,12 +334,62 @@ describe("E2E pipeline", () => {
 
       const issue = await h.provider.getIssue(30);
       assert.ok(issue.labels.includes("Done"));
+      assert.ok(!issue.labels.includes("Testing"));
       assert.strictEqual(issue.state, "closed");
 
       // Verify closeIssue was called
       const closeCalls = h.provider.callsTo("closeIssue");
       assert.strictEqual(closeCalls.length, 1);
       assert.strictEqual(closeCalls[0].args.issueId, 30);
+    });
+
+    it("should remove stale workflow state labels on terminal transition while preserving human labels", async () => {
+      h.provider.seedIssue({ iid: 31, title: "Verify cleanup", labels: ["Testing", "Doing", "bug"] });
+
+      await executeCompletion({
+        workspaceDir: h.workspaceDir,
+        projectSlug: h.project.slug,
+        channels: h.project.channels,
+        role: "tester",
+        result: "pass",
+        issueId: 31,
+        summary: "All tests pass",
+        provider: h.provider,
+        repoPath: "/tmp/test-repo",
+        projectName: "test-project",
+        runCommand: h.runCommand,
+      });
+      const issue = await h.provider.getIssue(31);
+
+      assert.ok(issue.labels.includes("Done"));
+      assert.ok(issue.labels.includes("bug"));
+      assert.ok(!issue.labels.includes("Testing"));
+      assert.ok(!issue.labels.includes("Doing"));
+    });
+
+    it("should cleanup custom workflow state labels even if provider transition missed them", async () => {
+      h.provider.seedIssue({ iid: 32, title: "Custom cleanup", labels: ["QA Active", "QA Done", "human"] });
+      const workflow: WorkflowConfig = {
+        ...DEFAULT_WORKFLOW,
+        states: {
+          ...DEFAULT_WORKFLOW.states,
+          testing: {
+            ...DEFAULT_WORKFLOW.states.testing!,
+            label: "QA Active",
+          },
+          done: {
+            type: StateType.TERMINAL,
+            label: "QA Done",
+            color: "#5cb85c",
+          },
+        },
+      };
+
+      const removed = await cleanupTerminalStateLabels(h.provider, 32, "QA Done", workflow);
+      const issue = await h.provider.getIssue(32);
+
+      assert.deepStrictEqual(removed, ["QA Active"]);
+      assert.deepStrictEqual(issue.labels.sort(), ["QA Done", "human"]);
     });
   });
 

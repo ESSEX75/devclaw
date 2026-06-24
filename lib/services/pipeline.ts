@@ -15,6 +15,9 @@ import { processSprintMergePolicy } from "../sprints/index.js";
 import {
   DEFAULT_WORKFLOW,
   Action,
+  StateType,
+  findStateByLabel,
+  getStateLabels,
   getCompletionRule,
   getNextStateDescription,
   getCompletionEmoji,
@@ -210,6 +213,7 @@ export async function executeCompletion(opts: {
   // Finally deactivate worker (last — ensures label is set even if deactivation fails)
   
   await provider.transitionLabel(issueId, rule.from as StateLabel, rule.to as StateLabel);
+  await cleanupTerminalStateLabels(provider, issueId, rule.to, workflow);
 
   // Execute post-transition actions
   for (const action of rule.actions) {
@@ -292,4 +296,24 @@ export async function executeCompletion(opts: {
     issueClosed: rule.actions.includes(Action.CLOSE_ISSUE),
     issueReopened: rule.actions.includes(Action.REOPEN_ISSUE),
   };
+}
+
+export async function cleanupTerminalStateLabels(
+  provider: Pick<IssueProvider, "getIssue" | "removeLabels">,
+  issueId: number,
+  targetLabel: string,
+  workflow: WorkflowConfig,
+): Promise<string[]> {
+  const targetState = findStateByLabel(workflow, targetLabel);
+  if (targetState?.type !== StateType.TERMINAL) return [];
+
+  const stateLabels = getStateLabels(workflow);
+  const issue = await provider.getIssue(issueId);
+  const staleLabels = issue.labels.filter((label) =>
+    stateLabels.includes(label) && label !== targetLabel,
+  );
+  if (staleLabels.length === 0) return [];
+
+  await provider.removeLabels(issueId, staleLabels);
+  return staleLabels;
 }
