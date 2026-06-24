@@ -489,19 +489,19 @@ Identical to current behavior. Zero changes needed.
 ISSUE #60: Overhaul authentication [epic label, not dispatched]
 │
 ├─ ISSUE #61: Add OAuth provider
-│   ├─ branch: feat/61-oauth
-│   ├─ PR: feat/61-oauth → sprint/60-auth
+│   ├─ branch: sprint/60-sprint-auth/task/61-oauth
+│   ├─ PR: sprint/60-sprint-auth/task/61-oauth → sprint/60-sprint-auth
 │   ├─ plan: [step 1, step 2, step 3]
 │   └─ session: developer worker A
 │
 ├─ ISSUE #62: Migrate password hashing (blocked until #61 done)
-│   ├─ branch: feat/62-passwords
-│   ├─ PR: feat/62-passwords → sprint/60-auth
+│   ├─ branch: sprint/60-sprint-auth/task/62-passwords
+│   ├─ PR: sprint/60-sprint-auth/task/62-passwords → sprint/60-sprint-auth
 │   └─ session: developer worker A or B
 │
 └─ ISSUE #63: Update admin dashboard (blocked until #62 done)
-    ├─ branch: feat/63-admin
-    ├─ PR: feat/63-admin → sprint/60-auth
+    ├─ branch: sprint/60-sprint-auth/task/63-admin
+    ├─ PR: sprint/60-sprint-auth/task/63-admin → sprint/60-sprint-auth
     └─ session: developer worker
 ```
 

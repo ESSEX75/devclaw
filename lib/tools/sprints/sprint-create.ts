@@ -202,7 +202,6 @@ export async function createSprintStructure(args: {
 }> {
   const steps = resolveSprintSteps(args.input.steps);
   const milestoneTitle = toSprintMilestoneTitle(args.input.title);
-  const sprintBranch = `sprint/${slugPart(milestoneTitle)}`;
   const sprintBlockedBy = parseIssueIds(args.input.sprintBlockedBy ?? []);
   const assignees = args.input.assignees ?? [];
   const childQueueLabel = getRequiredChildQueueLabel(args.workflow);
@@ -218,7 +217,7 @@ export async function createSprintStructure(args: {
       title: args.input.title,
       description: args.input.description,
       milestone: milestone.title,
-      sprintBranch,
+      sprintBranch: "pending until sprint root issue is created",
       steps,
       sprintBlockedBy,
     }),
@@ -226,6 +225,7 @@ export async function createSprintStructure(args: {
     labels: ["devclaw:sprint", "sprint:root", sprintLabel],
     assignees,
   });
+  const sprintBranch = toSprintBranchName(rootIssue.iid, milestoneTitle);
   await args.provider.createSprintBranch({
     branch: sprintBranch,
     fromBranch: args.baseBranch,
@@ -264,7 +264,7 @@ export async function createSprintStructure(args: {
       return {
         issueId,
         order: index + 1,
-        workBranch: `step/${issueId}-${slugPart(step.id)}`,
+        workBranch: toSprintWorkBranchName(rootIssue.iid, milestoneTitle, issueId, step.id),
         prTargetBranch: sprintBranch,
         blockedBy,
         status: blockedBy.length > 0 || sprintBlockedBy.length > 0
@@ -440,10 +440,24 @@ function toSprintMilestoneTitle(title: string): string {
   return `sprint-${slugPart(title)}`;
 }
 
-function slugPart(value: string): string {
+export function toSprintBranchName(rootIssueId: number, sprintTitle: string): string {
+  return `sprint/${rootIssueId}-${slugPart(sprintTitle)}`;
+}
+
+export function toSprintWorkBranchName(
+  rootIssueId: number,
+  sprintTitle: string,
+  stepIssueId: number,
+  stepTitle: string,
+): string {
+  return `${toSprintBranchName(rootIssueId, sprintTitle)}/task/${stepIssueId}-${slugPart(stepTitle)}`;
+}
+
+export function slugPart(value: string): string {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "sprint";
 }

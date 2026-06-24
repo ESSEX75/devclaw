@@ -177,10 +177,10 @@ Issue mode always targets the project `baseBranch`. Sprint child issues use the 
 
 ```text
 baseBranch
-  -> sprint/100-feature
-      <- step/101-config
-      <- step/102-provider
-      <- step/103-queue
+  -> sprint/100-sprint-feature
+      <- sprint/100-sprint-feature/task/101-config
+      <- sprint/100-sprint-feature/task/102-provider
+      <- sprint/100-sprint-feature/task/103-queue
 ```
 
 Sprint child dispatch requires `sprintBranch` in `devclaw/sprints.json`; DevClaw does not infer a fallback target branch for the MVP.

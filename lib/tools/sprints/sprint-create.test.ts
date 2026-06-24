@@ -17,6 +17,9 @@ import { DEFAULT_WORKFLOW, ReviewPolicy, TaskMode } from "../../workflow/index.j
 import {
   createSprintStructure,
   resolveSprintSteps,
+  slugPart,
+  toSprintBranchName,
+  toSprintWorkBranchName,
   validateSprintCreateInput,
 } from "./sprint-create.js";
 
@@ -40,6 +43,19 @@ function projectFixture(): Project {
 }
 
 describe("sprint_create input and graph", () => {
+  it("normalizes predictable sprint branch names", () => {
+    assert.strictEqual(
+      toSprintBranchName(100, "Sprint: DevClaw   sprint mode!!!"),
+      "sprint/100-sprint-devclaw-sprint-mode",
+    );
+    assert.strictEqual(
+      toSprintWorkBranchName(100, "Sprint: DevClaw mode", 201, "Config & Validation"),
+      "sprint/100-sprint-devclaw-mode/task/201-config-validation",
+    );
+    assert.strictEqual(slugPart(" -- "), "sprint");
+    assert.strictEqual(slugPart("A".repeat(100)).length, 80);
+  });
+
   it("defaults dependency graph to a linear chain", () => {
     const steps = resolveSprintSteps([
       { id: "config", title: "Config" },
@@ -121,11 +137,16 @@ describe("sprint_create input and graph", () => {
 
     assert.strictEqual(result.childIssues.length, 3);
     assert.strictEqual(graph.sprintBlockedBy[0], 42);
-    assert.strictEqual(graph.sprintBranch, "sprint/sprint-devclaw-sprint-mode");
+    assert.strictEqual(graph.sprintBranch, `sprint/${result.rootIssue.iid}-sprint-devclaw-sprint-mode`);
     assert.deepStrictEqual(graph.steps.map((step) => step.prTargetBranch), [
       graph.sprintBranch,
       graph.sprintBranch,
       graph.sprintBranch,
+    ]);
+    assert.deepStrictEqual(graph.steps.map((step) => step.workBranch), [
+      `${graph.sprintBranch}/task/${result.childIssues[0]!.iid}-config`,
+      `${graph.sprintBranch}/task/${result.childIssues[1]!.iid}-provider`,
+      `${graph.sprintBranch}/task/${result.childIssues[2]!.iid}-scanner`,
     ]);
     assert.deepStrictEqual(graph.steps.map((step) => step.status), [
       SprintStepStatus.BLOCKED,

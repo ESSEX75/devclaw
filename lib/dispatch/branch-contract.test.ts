@@ -61,14 +61,14 @@ describe("dispatch branch contract", () => {
       projectSlug: "devclaw",
       sprintRootIssueId: 100,
       milestone: "sprint-feature",
-      sprintBranch: "sprint/100-feature",
+      sprintBranch: "sprint/100-sprint-feature",
       status: SprintGraphStatus.ACTIVE,
       sprintBlockedBy: [],
       steps: [{
         issueId: 101,
         order: 1,
-        workBranch: "step/101-config",
-        prTargetBranch: "sprint/100-feature",
+        workBranch: "sprint/100-sprint-feature/task/101-config",
+        prTargetBranch: "sprint/100-sprint-feature",
         status: SprintStepStatus.READY,
       }],
     });
@@ -84,8 +84,8 @@ describe("dispatch branch contract", () => {
     assert.deepStrictEqual(contract, {
       mode: "sprint",
       baseBranch: "main",
-      workBranch: "step/101-config",
-      prTargetBranch: "sprint/100-feature",
+      workBranch: "sprint/100-sprint-feature/task/101-config",
+      prTargetBranch: "sprint/100-sprint-feature",
       sprintRootIssueId: 100,
     });
   });
@@ -134,15 +134,15 @@ describe("dispatch branch contract", () => {
       branchContract: {
         mode: "sprint",
         baseBranch: "main",
-        workBranch: "step/101-config",
-        prTargetBranch: "sprint/100-feature",
+        workBranch: "sprint/100-sprint-feature/task/101-config",
+        prTargetBranch: "sprint/100-sprint-feature",
         sprintRootIssueId: 100,
       },
     });
 
     assert.ok(message.includes("BASE BRANCH: main"));
-    assert.ok(message.includes("WORK BRANCH: step/101-config"));
-    assert.ok(message.includes("PR TARGET BRANCH: sprint/100-feature"));
+    assert.ok(message.includes("WORK BRANCH: sprint/100-sprint-feature/task/101-config"));
+    assert.ok(message.includes("PR TARGET BRANCH: sprint/100-sprint-feature"));
     assert.ok(message.includes("SPRINT PR BODY MUST INCLUDE: Fixes #101"));
     assert.ok(!message.includes("Branch: main"));
   });

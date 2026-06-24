@@ -72,8 +72,8 @@ describe("buildSprintStatusSummaries", () => {
     await provider.createPullRequest({
       title: "Provider contract",
       body: "Addresses issue",
-      sourceBranch: "step/1-provider-contract",
-      targetBranch: "sprint/sprint-code-memory-plugin",
+      sourceBranch: created.graph.steps[0]!.workBranch,
+      targetBranch: created.graph.sprintBranch,
       issueId: created.childIssues[0]!.iid,
     });
 
@@ -98,13 +98,13 @@ describe("buildSprintStatusSummaries", () => {
     assert.strictEqual(summaries.length, 1);
     assert.strictEqual(summaries[0]!.root.title, "Code memory plugin");
     assert.strictEqual(summaries[0]!.milestone, "sprint-code-memory-plugin");
-    assert.strictEqual(summaries[0]!.sprintBranch, "sprint/sprint-code-memory-plugin");
+    assert.strictEqual(summaries[0]!.sprintBranch, created.graph.sprintBranch);
     assert.deepStrictEqual(summaries[0]!.progress, { merged: 1, total: 2 });
     assert.strictEqual(summaries[0]!.steps[0]!.state, SprintStepStatus.MERGED);
     assert.strictEqual(summaries[0]!.steps[0]!.prUrl, "https://example.com/pull/77");
     assert.deepStrictEqual(summaries[0]!.steps[1]!.blockedBy, [created.childIssues[0]!.iid]);
     assert.strictEqual(summaries[0]!.steps[1]!.state, SprintStepStatus.CONFLICT);
-    assert.strictEqual(summaries[0]!.steps[1]!.prTargetBranch, "sprint/sprint-code-memory-plugin");
+    assert.strictEqual(summaries[0]!.steps[1]!.prTargetBranch, created.graph.sprintBranch);
     assert.strictEqual(summaries[0]!.steps[1]!.worker, "developer:senior:Ada");
   });
 
@@ -130,7 +130,7 @@ describe("buildSprintStatusSummaries", () => {
       title: "Provider contract",
       body: "Fixes #" + created.childIssues[0]!.iid,
       sourceBranch: created.graph.steps[0]!.workBranch,
-      targetBranch: "sprint/sprint-code-memory-plugin",
+      targetBranch: created.graph.sprintBranch,
       issueId: created.childIssues[0]!.iid,
     });
 
