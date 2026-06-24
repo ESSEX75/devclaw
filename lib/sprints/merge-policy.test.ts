@@ -14,7 +14,10 @@ import { PrState } from "../providers/provider.js";
 import { DEFAULT_WORKFLOW, ReviewPolicy, TaskMode } from "../workflow/index.js";
 import {
   createSprintGraph,
+  finalizeMergedSprint,
   getSprintGraph,
+  readSprints,
+  reconcileMergedSprintFinalPrs,
   processSprintMergePolicy,
   resolveSprintMergePolicy,
   SprintGraphStatus,
@@ -107,6 +110,8 @@ describe("sprint merge policy", () => {
     const workspace = await makeWorkspace();
     const provider = new TestProvider();
     provider.seedIssue({ iid: 100, title: "Root", labels: [] });
+    provider.sprintMilestones.set("1", { id: "1", title: "sprint-feature" });
+    provider.sprintIssueMilestones.set(100, "1");
     await createGraph(workspace);
     provider.prStatuses.set(101, {
       state: PrState.OPEN,
@@ -138,6 +143,80 @@ describe("sprint merge policy", () => {
       issueId: 100,
     });
     assert.strictEqual(graph?.steps.find((step) => step.issueId === 101)?.status, SprintStepStatus.MERGED);
+  });
+
+  it("finalizes reviewPolicy: sprint after a human merges the final PR", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+    provider.seedIssue({ iid: 100, title: "Root", labels: [] });
+    provider.sprintMilestones.set("1", { id: "1", title: "sprint-feature" });
+    provider.sprintIssueMilestones.set(100, "1");
+    await createGraph(workspace);
+    provider.prStatuses.set(101, {
+      state: PrState.OPEN,
+      url: "https://example.com/pr/101",
+      targetBranch: "sprint/100-feature",
+      mergeable: true,
+      checksPassed: true,
+    });
+
+    await processSprintMergePolicy({
+      workspaceDir: workspace,
+      projectSlug: "devclaw",
+      issueId: 101,
+      provider,
+      workflow: workflow(ReviewPolicy.SPRINT),
+      projectBaseBranch: "main",
+    });
+    provider.prStatuses.set(100, {
+      state: PrState.MERGED,
+      url: "https://example.com/pull/1",
+      targetBranch: "main",
+      mergeable: true,
+      checksPassed: true,
+    });
+
+    const results = await reconcileMergedSprintFinalPrs({
+      workspaceDir: workspace,
+      projectSlug: "devclaw",
+      provider,
+    });
+    const graph = await getSprintGraph(workspace, "devclaw", 100);
+    const data = await readSprints(workspace);
+
+    assert.strictEqual(results[0]?.finalized, true);
+    assert.strictEqual(graph?.status, SprintGraphStatus.DONE);
+    assert.strictEqual(data.sprints["devclaw:100"], undefined);
+    assert.strictEqual(data.archive?.["devclaw:100"]?.status, SprintGraphStatus.DONE);
+    assert.strictEqual(provider.issues.get(100)?.state, "closed");
+    assert.strictEqual(provider.callsTo("closeSprintMilestone").at(-1)?.args.milestoneId, "1");
+  });
+
+  it("does not finalize when final PR is not merged and is idempotent after done", async () => {
+    const workspace = await makeWorkspace();
+    const provider = new TestProvider();
+    provider.seedIssue({ iid: 100, title: "Root", labels: [] });
+    await createGraph(workspace);
+    await finalizeMergedSprint({
+      workspaceDir: workspace,
+      projectSlug: "devclaw",
+      sprintRootIssueId: 100,
+      provider,
+      mergedFinalPrUrl: "https://example.com/pr/final",
+    });
+    provider.resetCalls();
+
+    const second = await finalizeMergedSprint({
+      workspaceDir: workspace,
+      projectSlug: "devclaw",
+      sprintRootIssueId: 100,
+      provider,
+      mergedFinalPrUrl: "https://example.com/pr/final",
+    });
+
+    assert.strictEqual(second.finalized, false);
+    assert.strictEqual(second.reason, "already_done");
+    assert.strictEqual(provider.callsTo("closeIssue").length, 0);
   });
 
   it("reviewPolicy: skip marks final_review_required when final checks cannot be verified", async () => {
@@ -204,9 +283,12 @@ describe("sprint merge policy", () => {
       projectBaseBranch: "main",
     });
     const graph = await getSprintGraph(workspace, "devclaw", 100);
+    const data = await readSprints(workspace);
 
     assert.strictEqual(result.finalMerged, true);
     assert.strictEqual(graph?.status, SprintGraphStatus.DONE);
+    assert.strictEqual(data.sprints["devclaw:100"], undefined);
+    assert.strictEqual(data.archive?.["devclaw:100"]?.status, SprintGraphStatus.DONE);
     assert.deepStrictEqual(provider.callsTo("mergePr").map((call) => call.args.issueId), [101, 100]);
     assert.strictEqual(provider.callsTo("closeIssue").at(-1)?.args.issueId, 100);
   });

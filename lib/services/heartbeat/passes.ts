@@ -13,6 +13,7 @@ import {
 import { reviewPass } from "./review.js";
 import { reviewSkipPass } from "./review-skip.js";
 import { testSkipPass } from "./test-skip.js";
+import { reconcileMergedSprintFinalPrs } from "../../sprints/index.js";
 import type { ResolvedConfig } from "../../config/types.js";
 import { resolveNotifyChannel } from "../../workflow/index.js";
 import { notify, getNotificationConfig } from "../../dispatch/notify.js";
@@ -80,6 +81,22 @@ export async function performHealthPass(
   fixedCount += statelessFixes.filter((f) => f.fixed).length;
 
   return fixedCount;
+}
+
+/**
+ * Finalize sprint graphs after a human merges the final sprint PR.
+ */
+export async function performSprintFinalizationPass(
+  workspaceDir: string,
+  projectSlug: string,
+  provider: import("../../providers/provider.js").IssueProvider,
+): Promise<number> {
+  const results = await reconcileMergedSprintFinalPrs({
+    workspaceDir,
+    projectSlug,
+    provider,
+  });
+  return results.filter((result) => result.finalized).length;
 }
 
 /**

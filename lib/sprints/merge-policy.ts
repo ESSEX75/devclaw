@@ -27,6 +27,12 @@ export type SprintMergePolicyResult = {
   finalReviewRequired: boolean;
 };
 
+export type SprintFinalizationResult = {
+  finalized: boolean;
+  finalPrUrl?: string;
+  reason?: "not_found" | "already_done" | "final_pr_missing" | "final_pr_not_merged";
+};
+
 export function resolveSprintMergePolicy(workflow: WorkflowConfig): SprintMergePolicy {
   const policy = workflow.reviewPolicy ?? ReviewPolicy.HUMAN;
   if (policy === ReviewPolicy.SKIP) return { childAutoMerge: true, finalAutoMerge: true };
@@ -116,12 +122,13 @@ export async function processSprintMergePolicy(input: {
   }
 
   await input.provider.mergePr(fresh.sprintRootIssueId);
-  await input.provider.closeIssue(fresh.sprintRootIssueId);
-  const tree = await input.provider.readSprintTree({ rootIssueId: fresh.sprintRootIssueId });
-  if (tree.milestone?.id) {
-    await input.provider.closeSprintMilestone({ milestoneId: tree.milestone.id });
-  }
-  await markSprintDone(input.workspaceDir, input.projectSlug, fresh.sprintRootIssueId);
+  await finalizeMergedSprint({
+    workspaceDir: input.workspaceDir,
+    projectSlug: input.projectSlug,
+    sprintRootIssueId: fresh.sprintRootIssueId,
+    provider: input.provider,
+    mergedFinalPrUrl: finalStatus.url ?? finalPrUrl,
+  });
   await auditLog(input.workspaceDir, "sprint_final_auto_merge", {
     projectSlug: input.projectSlug,
     sprintRootIssueId: fresh.sprintRootIssueId,
@@ -129,6 +136,76 @@ export async function processSprintMergePolicy(input: {
   });
   result.finalMerged = true;
   return result;
+}
+
+export async function finalizeMergedSprint(input: {
+  workspaceDir: string;
+  projectSlug: string;
+  sprintRootIssueId: number;
+  provider: IssueProvider;
+  mergedFinalPrUrl?: string;
+}): Promise<SprintFinalizationResult> {
+  const graph = await getSprintGraph(input.workspaceDir, input.projectSlug, input.sprintRootIssueId);
+  if (!graph) return { finalized: false, reason: "not_found" };
+  if (graph.status === "done") {
+    return {
+      finalized: false,
+      reason: "already_done",
+      finalPrUrl: input.mergedFinalPrUrl ?? graph.finalPrUrl,
+    };
+  }
+
+  const finalPrUrl = input.mergedFinalPrUrl ?? graph.finalPrUrl;
+  if (!finalPrUrl) return { finalized: false, reason: "final_pr_missing" };
+
+  await input.provider.closeIssue(input.sprintRootIssueId);
+  const tree = await input.provider.readSprintTree({ rootIssueId: input.sprintRootIssueId });
+  if (tree.milestone?.id) {
+    await input.provider.closeSprintMilestone({ milestoneId: tree.milestone.id });
+  }
+  await markSprintDone(input.workspaceDir, input.projectSlug, input.sprintRootIssueId);
+  await auditLog(input.workspaceDir, "sprint_finalize_merged", {
+    projectSlug: input.projectSlug,
+    sprintRootIssueId: input.sprintRootIssueId,
+    prUrl: finalPrUrl,
+  });
+  return { finalized: true, finalPrUrl };
+}
+
+export async function reconcileMergedSprintFinalPrs(input: {
+  workspaceDir: string;
+  projectSlug: string;
+  provider: IssueProvider;
+}): Promise<SprintFinalizationResult[]> {
+  const graphs = await listSprintGraphs(input.workspaceDir, input.projectSlug);
+  const candidates = graphs.filter((graph) =>
+    graph.status === "active" || graph.status === "final_review_required",
+  );
+  const results: SprintFinalizationResult[] = [];
+  for (const graph of candidates) {
+    if (!graph.finalPrUrl) {
+      results.push({ finalized: false, reason: "final_pr_missing" });
+      continue;
+    }
+    const status = await input.provider.getPrStatus(graph.sprintRootIssueId);
+    const statusUrlMatches = !status.url || status.url === graph.finalPrUrl;
+    if (status.state !== "merged" || !statusUrlMatches) {
+      results.push({
+        finalized: false,
+        reason: "final_pr_not_merged",
+        finalPrUrl: graph.finalPrUrl,
+      });
+      continue;
+    }
+    results.push(await finalizeMergedSprint({
+      workspaceDir: input.workspaceDir,
+      projectSlug: input.projectSlug,
+      sprintRootIssueId: graph.sprintRootIssueId,
+      provider: input.provider,
+      mergedFinalPrUrl: status.url ?? graph.finalPrUrl,
+    }));
+  }
+  return results;
 }
 
 async function getSprintGraphForStep(

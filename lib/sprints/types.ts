@@ -54,6 +54,7 @@ export type SprintExecutionGraph = {
 
 export type SprintsData = {
   sprints: Record<string, SprintExecutionGraph>;
+  archive?: Record<string, SprintExecutionGraph>;
 };
 
 export type SprintReadinessResolution = {

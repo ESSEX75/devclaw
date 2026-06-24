@@ -20,6 +20,7 @@ import {
   performHealthPass,
   performReviewPass,
   performReviewSkipPass,
+  performSprintFinalizationPass,
   performTestSkipPass,
 } from "./passes.js";
 
@@ -94,6 +95,12 @@ export async function tick(opts: {
         runCommand,
       });
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
+
+      await performSprintFinalizationPass(
+        workspaceDir,
+        slug,
+        provider,
+      );
 
       // Health pass: auto-fix zombies and stale workers
       result.totalHealthFixes += await performHealthPass(

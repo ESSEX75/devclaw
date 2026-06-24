@@ -68,10 +68,14 @@ async function releaseLock(workspaceDir: string): Promise<void> {
 export async function readSprints(workspaceDir: string): Promise<SprintsData> {
   try {
     const raw = await fs.readFile(sprintsPath(workspaceDir), "utf-8");
-    return JSON.parse(raw) as SprintsData;
+    const data = JSON.parse(raw) as SprintsData;
+    return {
+      sprints: data.sprints ?? {},
+      archive: data.archive ?? {},
+    };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      return { sprints: {} };
+      return { sprints: {}, archive: {} };
     }
     throw err;
   }
@@ -121,7 +125,8 @@ export async function getSprintGraph(
   sprintRootIssueId: number,
 ): Promise<SprintExecutionGraph | undefined> {
   const data = await readSprints(workspaceDir);
-  return data.sprints[sprintKey(projectSlug, sprintRootIssueId)];
+  const key = sprintKey(projectSlug, sprintRootIssueId);
+  return data.sprints[key] ?? data.archive?.[key];
 }
 
 export async function listSprintGraphs(
@@ -353,11 +358,13 @@ export async function markSprintDone(
   try {
     const data = await readSprints(workspaceDir);
     const key = sprintKey(projectSlug, sprintRootIssueId);
-    const graph = data.sprints[key];
+    const graph = data.sprints[key] ?? data.archive?.[key];
     if (!graph) throw new Error(`Sprint graph not found: ${key}`);
     graph.status = SprintGraphStatus.DONE;
     graph.updatedAt = new Date().toISOString();
-    data.sprints[key] = normalizeGraph(graph);
+    data.archive ??= {};
+    data.archive[key] = normalizeGraph(graph);
+    delete data.sprints[key];
     await writeSprints(workspaceDir, data);
     await auditLog(workspaceDir, "sprint_done", {
       projectSlug,
