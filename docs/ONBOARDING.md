@@ -227,10 +227,10 @@ The agent calls `project_register`, which atomically:
 Issues can be created in multiple ways:
 - **Via the agent** — Ask the orchestrator in the Telegram group: "Create an issue for adding a login page" (uses `task_create`)
 - **Via workers** — DEVELOPER/TESTER workers can call `task_create` to file follow-up bugs they discover
-- **Via CLI** — `cd ~/git/my-project && gh issue create --title "My first task" --label "To Do"` (or `glab issue create`)
-- **Via web UI** — Create an issue and add the "To Do" label
+- **Via CLI** — prefer DevClaw CLI/tools so `issues.json` is initialized; raw `gh issue create` needs explicit backfill before managed dispatch
+- **Via web UI** — create the provider issue only when you plan to backfill it into DevClaw local state
 
-Note: `task_create` defaults to the "Planning" label. Use "To Do" explicitly when the task is ready for immediate work.
+Note: `task_create` creates a managed issue directly in the first developer queue, normally "To Do". Provider-only issues created outside DevClaw are not normal dispatch candidates until they have local issue state.
 
 ## Step 6: Test the pipeline
 

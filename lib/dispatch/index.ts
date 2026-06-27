@@ -202,6 +202,9 @@ export async function dispatchTask(
   // handled exclusively by transitionLabel(). Accidentally removing a state label
   // makes the issue invisible to the queue scanner. See #473 for context.
   let issue: { labels: string[] } | undefined;
+  let reviewPolicyForState: string | null = null;
+  let testPolicyForState: string | null = null;
+  let ownerForState: string | null = null;
   try {
     issue = await provider.getIssue(issueId);
     const stateLabels = getStateLabels(workflow);
@@ -220,6 +223,7 @@ export async function dispatchTask(
       const reviewLabel = resolveReviewRouting(
         workflow.reviewPolicy ?? ReviewPolicy.HUMAN, level,
       );
+      reviewPolicyForState = reviewLabel.slice("review:".length);
       const oldRouting = issue.labels.filter((l) => l.startsWith("review:"));
       const safeRouting = filterNonStateLabels(oldRouting, stateLabels);
       if (safeRouting.length > 0) await provider.removeLabels(issueId, safeRouting);
@@ -232,6 +236,7 @@ export async function dispatchTask(
       const testLabel = resolveTestRouting(
         workflow.testPolicy ?? TestPolicy.SKIP, level,
       );
+      testPolicyForState = testLabel.slice("test:".length);
       const oldTestRouting = issue.labels.filter((l) => l.startsWith("test:"));
       const safeTestRouting = filterNonStateLabels(oldTestRouting, stateLabels);
       if (safeTestRouting.length > 0) await provider.removeLabels(issueId, safeTestRouting);
@@ -244,6 +249,9 @@ export async function dispatchTask(
       const ownerLabel = getOwnerLabel(opts.instanceName);
       await provider.ensureLabel(ownerLabel, OWNER_LABEL_COLOR);
       await provider.addLabel(issueId, ownerLabel);
+      ownerForState = opts.instanceName;
+    } else {
+      ownerForState = detectOwner(issue.labels);
     }
   } catch {
     // Best-effort — label failure must not abort dispatch
@@ -318,6 +326,9 @@ export async function dispatchTask(
       workflowLabel: toLabel,
       assignedRole: role,
       assignedLevel: level,
+      owner: ownerForState,
+      reviewPolicy: reviewPolicyForState,
+      testPolicy: testPolicyForState,
       activeWorker: {
         role,
         level,

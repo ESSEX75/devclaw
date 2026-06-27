@@ -94,7 +94,7 @@ Create a new issue in the project's issue tracker.
 | `title` | string | Yes | Issue title |
 | `description` | string | No | Full issue body (markdown) |
 | `assignees` | string[] | No | GitHub/GitLab usernames to assign |
-| `pickup` | boolean | No | If true, immediately pick up for DEVELOPER after creation |
+| `pickup` | boolean | No | Deprecated compatibility flag. Ordinary tasks are queued for heartbeat dispatch by default. |
 
 **Use cases:**
 
@@ -102,7 +102,7 @@ Create a new issue in the project's issue tracker.
 - Workers file follow-up bugs discovered during development
 - Breaking down epics into smaller tasks
 
-**Default behavior:** Creates issues in `"Planning"` state. Only use `"To Do"` when the user explicitly requests immediate work.
+**Default behavior:** Creates a managed issue directly in the first developer queue state, normally `"To Do"`. The tool writes local `issues.json`, renders managed metadata, and applies provider labels as projection. `"Planning"` remains a hold state for explicit refinement/research flows, not the default landing state for ordinary tasks.
 
 ---
 
@@ -221,7 +221,7 @@ Full project dashboard showing all non-terminal state types with issue details.
 - Active workflow summary: review policy, test phase status, state flow
 - Summary totals: `totalHold`, `totalActive`, `totalQueued`
 
-For initialized managed issues, local `issues.json` is runtime truth and provider labels are visual projection. `projection_uninitialized` marks old issues without local state. `integrity_error` marks managed metadata tamper or unrecoverable projection inconsistency; repair from local state before dispatching.
+For initialized managed issues, local `issues.json` is runtime truth and provider labels are visual projection. `tasks_status` lists managed issues from local state first, so provider label drift does not hide an issue. `projection_uninitialized` marks old provider-only issues without local state; initialize/backfill them before managed dispatch. `integrity_error` marks managed metadata tamper or unrecoverable projection inconsistency; repair from local state before dispatching.
 
 ---
 

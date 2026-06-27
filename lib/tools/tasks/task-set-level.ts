@@ -8,10 +8,10 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
-import { StateType, findStateByLabel, getCurrentStateLabel, getRoleLabelColor } from "../../workflow/index.js";
+import { StateType, findStateByLabel, getRoleLabelColor } from "../../workflow/index.js";
 import { loadConfig } from "../../config/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
-import { writeIssueRuntimeState } from "../../issues/index.js";
+import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../issues/index.js";
 
 export function createTaskSetLevelTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -61,13 +61,14 @@ Examples:
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
 
       const issue = await provider.getIssue(issueId);
-      const currentState = getCurrentStateLabel(issue.labels, resolvedConfig.workflow);
-      if (!currentState) {
-        throw new Error(`Issue #${issueId} has no recognized state label. Cannot perform update.`);
+      const runtimeState = await resolveIssueRuntimeState({ workspaceDir, project, issue, workflow: resolvedConfig.workflow });
+      if (runtimeState.kind !== "managed") {
+        throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_set_level.`);
       }
+      const currentState = runtimeState.workflowLabel;
 
       // Restrict to HOLD states only — use task_start for queue/active transitions
-      const currentStateConfig = findStateByLabel(resolvedConfig.workflow, currentState);
+      const currentStateConfig = runtimeState.stateConfig ?? findStateByLabel(resolvedConfig.workflow, currentState);
       if (currentStateConfig?.type !== StateType.HOLD) {
         throw new Error(`task_set_level only works on HOLD states (Planning, Refining). Issue #${issueId} is in "${currentState}". Use task_start to advance issues.`);
       }

@@ -18,7 +18,6 @@ import {
   type WorkflowConfig,
 } from "../../workflow/types.js";
 import {
-  getCurrentStateLabel,
   findStateByLabel,
   findStateKeyByLabel,
   getRoleLabelColor,
@@ -26,7 +25,7 @@ import {
 import { getLevelsForRole } from "../../roles/index.js";
 import { loadConfig } from "../../config/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
-import { detectNotifyTarget, writeIssueRuntimeState } from "../../issues/index.js";
+import { detectNotifyTarget, resolveIssueRuntimeState, writeIssueRuntimeState } from "../../issues/index.js";
 
 export function createTaskStartTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -70,12 +69,12 @@ Examples:
       const workflow = resolvedConfig.workflow;
 
       const issue = await provider.getIssue(issueId);
-      const currentLabel = getCurrentStateLabel(issue.labels, workflow);
-      if (!currentLabel) {
-        throw new Error(`Issue #${issueId} has no recognized state label.`);
+      const runtimeState = await resolveIssueRuntimeState({ workspaceDir, project, issue, workflow });
+      if (runtimeState.kind !== "managed") {
+        throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_start.`);
       }
-
-      const currentState = findStateByLabel(workflow, currentLabel);
+      const currentLabel = runtimeState.workflowLabel;
+      const currentState = runtimeState.stateConfig ?? findStateByLabel(workflow, currentLabel);
       if (!currentState) {
         throw new Error(`No state config for label "${currentLabel}".`);
       }

@@ -304,13 +304,14 @@ This traces a single issue from creation to completion, showing every component 
 
 ### Phase 1: Issue created
 
-Issues are created by the orchestrator agent or by sub-agent sessions via `task_create` or directly via `gh`/`glab`. The orchestrator can create issues based on user requests in Telegram, backlog planning, or QA feedback. Sub-agents can also create issues when they discover bugs during development.
+Issues are created by the orchestrator agent or by sub-agent sessions via `task_create`. The orchestrator can create issues based on user requests in Telegram, backlog planning, or QA feedback. Sub-agents can also create issues when they discover bugs during development. Raw provider issues created via `gh`/`glab` must be backfilled into local state before managed dispatch.
 
 ```
-Orchestrator Agent → Issue Tracker: creates issue #42 with label "Planning"
+Orchestrator Agent → Issue Tracker: creates managed issue #42 with label "To Do"
+DevClaw → issues.json: writes workflowState=todo, workflowLabel=To Do
 ```
 
-**State:** Issue tracker has issue #42 labeled "Planning". Nothing in DevClaw yet.
+**State:** Issue tracker has issue #42 labeled "To Do"; DevClaw has local runtime state for #42.
 
 ### Phase 2: Heartbeat detects work
 
@@ -689,7 +690,7 @@ graph LR
     end
 ```
 
-**Key boundary:** The orchestrator is a planner and dispatcher — it never writes code. All implementation work (code edits, git operations, tests) must go through sub-agent sessions via the `task_create` → `task_start` → heartbeat dispatch pipeline. This ensures audit trails, level selection, and testing for every code change.
+**Key boundary:** The orchestrator is a planner and dispatcher — it never writes code. All implementation work (code edits, git operations, tests) must go through sub-agent sessions via the `task_create` → heartbeat dispatch pipeline. `task_start` remains for explicitly advancing hold/refining issues. This ensures audit trails, level selection, and testing for every code change.
 
 ## IssueProvider abstraction
 
@@ -742,7 +743,7 @@ See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
 | projects.json corrupted | Tool can't parse JSON | Manual fix needed. Atomic writes (temp+rename) prevent partial writes. File locking prevents concurrent races. |
 | Provider label drift | Heartbeat projection pass compares labels with `issues.json` | Restores missing/extra managed labels while preserving unmanaged human labels. |
 | Managed metadata missing/tampered | Heartbeat projection pass compares provider metadata with `issues.json` | Marks local issue `integrity_error`; external gates and dispatch skip until repaired with `devclaw repair issue --source local-state`. |
-| Old issue without local state | No `issues.json` entry for provider issue | Compatibility path treats it as `projection_uninitialized` and keeps legacy label-first behavior until initialized/backfilled. |
+| Old issue without local state | No `issues.json` entry for provider issue | Treated as `projection_uninitialized`; not a normal managed dispatch candidate until explicitly initialized/backfilled. |
 | Worker already active | Heartbeat checks `active` flag | Skips dispatch: role already active on project. Must complete current task first. |
 | Stale worker (>2h) | `health` and heartbeat health check | `fix=true`: deactivates worker, reverts label to queue. Task available for next pickup. |
 | Worker stuck/blocked | Worker calls `work_finish` with `"blocked"` | Deactivates worker, transitions to "Refining" (hold state). Requires human decision to proceed. |

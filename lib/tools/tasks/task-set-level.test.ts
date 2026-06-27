@@ -45,17 +45,16 @@ describe("detectLevelFromLabels — colon format", () => {
     assert.strictEqual(detectLevelFromLabels(["reviewer:medior", "Reviewing"]), "medior");
   });
 
-  it("should prioritize colon format over dot format", () => {
-    // Colon format should win since it's checked first
+  it("should ignore legacy dot-format labels when colon format is present", () => {
     assert.strictEqual(detectLevelFromLabels(["developer:senior", "dev.junior"]), "senior");
   });
 
-  it("should fall back to dot format", () => {
-    assert.strictEqual(detectLevelFromLabels(["developer.senior", "Doing"]), "senior");
+  it("should not fall back to legacy dot format", () => {
+    assert.strictEqual(detectLevelFromLabels(["developer.senior", "Doing"]), null);
   });
 
-  it("should fall back to plain level name", () => {
-    assert.strictEqual(detectLevelFromLabels(["senior", "Doing"]), "senior");
+  it("should not treat plain level names as runtime routing labels", () => {
+    assert.strictEqual(detectLevelFromLabels(["senior", "Doing"]), null);
   });
 
   it("should return null when no level found", () => {

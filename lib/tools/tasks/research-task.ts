@@ -8,9 +8,9 @@
  * Flow:
  *   research_task() → issue created in "To Research" → architect dispatched
  *   → architect researches, posts findings with task_comment
- *   → architect creates implementation tasks with task_create (land in Planning)
+ *   → architect creates implementation tasks with task_create (queued in To Do)
  *   → architect calls work_finish(result="done") → "Researching" → "Done" (issue closed)
- *   → operator reviews created tasks in Planning, moves to "To Do" when ready
+ *   → heartbeat dispatches queued implementation tasks
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
@@ -41,7 +41,7 @@ enough for a developer to start implementation immediately.
 The architect will:
 1. Research the problem systematically (codebase, docs, web)
 2. Post findings as comments via task_comment
-3. Create implementation tasks via task_create (land in Planning for operator review)
+3. Create implementation tasks via task_create (queued for heartbeat dispatch)
 4. Call work_finish(result="done", summary="<recommendation + task numbers>") — closes the research issue
 
 Example:

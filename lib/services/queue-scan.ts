@@ -24,7 +24,8 @@ import {
 export function detectLevelFromLabels(labels: string[]): string | null {
   const lower = labels.map((l) => l.toLowerCase());
 
-  // Priority 1: Match role:level labels (e.g., "developer:senior", "developer:senior:Ada")
+  // Match projected role:level labels (e.g., "developer:senior", "developer:senior:Ada").
+  // Managed dispatch uses issues.json first; labels are only a compatibility fallback.
   for (const l of lower) {
     const parts = l.split(":");
     if (parts.length < 2) continue;
@@ -33,19 +34,7 @@ export function detectLevelFromLabels(labels: string[]): string | null {
     if (all.includes(level)) return level;
   }
 
-  // Priority 2: Match legacy role.level labels (e.g., "dev.senior", "qa.mid")
-  for (const l of lower) {
-    const dot = l.indexOf(".");
-    if (dot === -1) continue;
-    const role = l.slice(0, dot);
-    const level = l.slice(dot + 1);
-    const roleLevels = getLevelsForRole(role);
-    if (roleLevels.includes(level)) return level;
-  }
-
-  // Fallback: plain level name
-  const all = getAllLevels();
-  return all.find((l) => lower.includes(l)) ?? null;
+  return null;
 }
 
 /**
@@ -105,14 +94,13 @@ export async function findNextIssueForRole(
   const labels = getQueueLabels(workflow, role);
 
   if (localState) {
-    const next = await findNextIssueForRoleFromLocalState(
+    return findNextIssueForRoleFromLocalState(
       provider,
       labels,
       instanceName,
       localState.workspaceDir,
       localState.projectSlug,
     );
-    if (next) return next;
   }
 
   for (const label of labels) {

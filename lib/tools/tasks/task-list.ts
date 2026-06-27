@@ -11,6 +11,7 @@ import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider 
 import { loadConfig } from "../../config/index.js";
 import { StateType, findStateByLabel } from "../../workflow/index.js";
 import { loadProjectionViewContext, summarizeTaskIssue, type TaskIssueSummary } from "./projection-view.js";
+import { readIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
 
 export function createTaskListTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -63,6 +64,9 @@ export function createTaskListTool(ctx: PluginContext) {
         workflow,
         roles: Object.keys(projectConfig.roles),
       });
+      const store = await readIssueStateStore(workspaceDir, project.slug);
+      const localStates = Object.values(store.issues)
+        .filter((state) => state.managed && state.archivedAt == null);
 
       // Determine which labels to fetch
       type FetchEntry = { label: string; type: string; role?: string; issueState: "open" | "closed" | "all" };
@@ -102,20 +106,27 @@ export function createTaskListTool(ctx: PluginContext) {
       }> = [];
 
       for (const entry of labelsToFetch) {
-        let issues = await provider.listIssues({ label: entry.label, state: entry.issueState }).catch(() => []);
+        let states = localStates.filter((state) => state.workflowLabel === entry.label);
 
         if (searchLower) {
-          issues = issues.filter((i) => i.title.toLowerCase().includes(searchLower));
+          const filtered: IssueRuntimeState[] = [];
+          for (const state of states) {
+            const issue = await provider.getIssue(state.issueId).catch(() => null);
+            if ((issue?.title ?? `Issue #${state.issueId}`).toLowerCase().includes(searchLower)) {
+              filtered.push(state);
+            }
+          }
+          states = filtered;
         }
 
-        const total = issues.length;
-        const limited = issues.slice(0, limit);
+        const total = states.length;
+        const limited = states.slice(0, limit);
 
         results.push({
           label: entry.label,
           type: entry.type,
           role: entry.role,
-          issues: limited.map((i) => summarizeTaskIssue(i, projectionCtx)),
+          issues: await summarizeLocalStates(limited, provider, projectionCtx),
           total,
         });
       }
@@ -141,4 +152,24 @@ export function createTaskListTool(ctx: PluginContext) {
       });
     },
   });
+}
+
+async function summarizeLocalStates(
+  states: IssueRuntimeState[],
+  provider: Awaited<ReturnType<typeof resolveProvider>>["provider"],
+  projectionCtx: Awaited<ReturnType<typeof loadProjectionViewContext>>,
+): Promise<TaskIssueSummary[]> {
+  const result: TaskIssueSummary[] = [];
+  for (const state of states.sort((a, b) => a.issueId - b.issueId)) {
+    const issue = await provider.getIssue(state.issueId).catch(() => ({
+      iid: state.issueId,
+      title: `Issue #${state.issueId}`,
+      description: "",
+      labels: [],
+      state: "unknown",
+      web_url: "",
+    }));
+    result.push(summarizeTaskIssue(issue, projectionCtx));
+  }
+  return result;
 }

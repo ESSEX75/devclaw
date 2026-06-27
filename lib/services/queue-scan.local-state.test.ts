@@ -86,7 +86,7 @@ describe("findNextIssueForRole local state", () => {
     });
   });
 
-  it("preserves compatibility path for uninitialized issues", async () => {
+  it("does not silently dispatch provider-only issues in managed local-state mode", async () => {
     await withStore([], async (tmpDir, provider) => {
       provider.seedIssue({ iid: 456, labels: ["To Do", "bug"], description: "Legacy body" });
 
@@ -98,8 +98,8 @@ describe("findNextIssueForRole local state", () => {
         { workspaceDir: tmpDir, projectSlug: "devclaw" },
       );
 
-      assert.strictEqual(next?.issue.iid, 456);
-      assert.strictEqual(next?.localState, undefined);
+      assert.strictEqual(next, null);
+      assert.strictEqual(provider.callsTo("listIssuesByLabel").length, 0);
     });
   });
 });

@@ -10,9 +10,8 @@ import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { loadConfig } from "../../config/index.js";
 import { loadInstanceName } from "../../instance.js";
-import { writeIssueRuntimeState } from "../../issues/index.js";
+import { readIssueStateStore, writeIssueRuntimeState } from "../../issues/index.js";
 import {
-  detectOwner,
   getOwnerLabel,
   OWNER_LABEL_COLOR,
   OWNER_LABEL_PREFIX,
@@ -72,7 +71,8 @@ export function createTaskOwnerTool(ctx: PluginContext) {
       if (issueIdParam !== undefined) {
         // Claim a single issue
         const issue = await provider.getIssue(issueIdParam);
-        const currentOwner = detectOwner(issue.labels);
+        const store = await readIssueStateStore(workspaceDir, project.slug);
+        const currentOwner = store.issues[String(issueIdParam)]?.owner ?? null;
 
         if (currentOwner === instanceName) {
           skipped.push({ issueId: issueIdParam, reason: "Already owned by this instance" });
@@ -102,37 +102,45 @@ export function createTaskOwnerTool(ctx: PluginContext) {
         // Claim all unclaimed queued issues
         const workflow = resolvedConfig.workflow;
         const queueLabels = getAllQueueLabels(workflow);
+        const store = await readIssueStateStore(workspaceDir, project.slug);
+        const candidateStates = Object.values(store.issues)
+          .filter((state) =>
+            state.managed
+            && state.archivedAt == null
+            && state.integrityStatus !== "integrity_error"
+            && queueLabels.includes(state.workflowLabel),
+          )
+          .sort((a, b) => a.issueId - b.issueId);
 
-        for (const label of queueLabels) {
+        for (const state of candidateStates) {
           try {
-            const issues = await provider.listIssuesByLabel(label);
-            for (const issue of issues) {
-              const currentOwner = detectOwner(issue.labels);
-              if (currentOwner === instanceName) continue; // already ours
-              if (currentOwner && !force) {
-                skipped.push({
-                  issueId: issue.iid,
-                  reason: `Owned by "${currentOwner}"`,
-                });
-                continue;
-              }
-              if (currentOwner) {
-                const oldLabel = getOwnerLabel(currentOwner);
-                await provider.removeLabels(issue.iid, [oldLabel]);
-              }
-              await provider.addLabel(issue.iid, ownerLabel);
-              await writeIssueRuntimeState({
-                workspaceDir,
-                project,
-                issue: { ...issue, labels: issue.labels.filter((label) => !label.startsWith(OWNER_LABEL_PREFIX)).concat(ownerLabel) },
-                providerType,
-                workflow,
-                owner: instanceName,
+            const currentOwner = state.owner ?? null;
+            if (currentOwner === instanceName) continue; // already ours
+            if (currentOwner && !force) {
+              skipped.push({
+                issueId: state.issueId,
+                reason: `Owned by "${currentOwner}"`,
               });
-              claimed.push(issue.iid);
+              continue;
             }
+            const issue = await provider.getIssue(state.issueId);
+            if (issue.state === "closed" || issue.state === "CLOSED") continue;
+            if (currentOwner) {
+              const oldLabel = getOwnerLabel(currentOwner);
+              await provider.removeLabels(issue.iid, [oldLabel]);
+            }
+            await provider.addLabel(issue.iid, ownerLabel);
+            await writeIssueRuntimeState({
+              workspaceDir,
+              project,
+              issue: { ...issue, labels: issue.labels.filter((label) => !label.startsWith(OWNER_LABEL_PREFIX)).concat(ownerLabel) },
+              providerType,
+              workflow,
+              owner: instanceName,
+            });
+            claimed.push(issue.iid);
           } catch {
-            // Skip label query failures
+            skipped.push({ issueId: state.issueId, reason: "Provider fetch/update failed" });
           }
         }
       }

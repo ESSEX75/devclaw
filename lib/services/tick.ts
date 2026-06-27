@@ -144,14 +144,14 @@ export async function projectTick(opts: {
 
     // Step routing: check for review:human / review:skip / test:skip labels
     if (role === "reviewer") {
-      const routing = detectStepRouting(issue.labels, "review");
+      const routing = next.localState?.reviewPolicy ?? detectStepRouting(issue.labels, "review");
       if (routing === "human" || routing === "skip") {
         skipped.push({ role, reason: `review:${routing} label` });
         continue;
       }
     }
     if (role === "tester") {
-      const routing = detectStepRouting(issue.labels, "test");
+      const routing = next.localState?.testPolicy ?? detectStepRouting(issue.labels, "test");
       if (routing === "skip") {
         skipped.push({ role, reason: "test:skip label" });
         continue;

@@ -341,10 +341,7 @@ Tasks can come from anywhere — the orchestrator creates them from chat, worker
 
 ```
 You:    "Create an issue: fix the broken OAuth redirect"
-Agent:  creates issue #43 with label "Planning"
-
-You:    "Move #43 to To Do"
-Agent:  transitions label Planning → To Do
+Agent:  creates managed issue #43 with label "To Do" and local issues.json state
 
 You:    "Add a comment on #42: needs to handle the edge case for expired tokens"
 Agent:  adds comment attributed to "orchestrator"
@@ -494,7 +491,7 @@ DevClaw gives the orchestrator 23 tools. These aren't just convenience wrappers 
 | ---------------------- | --------------------------------------------------------------------------------------- |
 | `task_start`           | Advance an issue to the next queue (state-agnostic). Heartbeat handles dispatch.        |
 | `work_finish`          | Complete a task — transitions label, updates state, closes/reopens issue                |
-| `task_create`          | Create a new issue (used by workers to file bugs they discover)                         |
+| `task_create`          | Create a managed issue directly in the developer queue                                  |
 | `task_set_level`       | Set level hint on HOLD-state issues (Planning, Refining) before advancing               |
 | `task_comment`         | Add a comment to an issue (with role attribution)                                       |
 | `task_edit_body`       | Edit issue title/description (initial state only; audit-logged)                         |

@@ -100,12 +100,10 @@ You → Orchestrator → research_task → creates "To Research" issue
                                           │
                                     ├── researches codebase, docs, web
                                     ├── posts findings (task_comment)
-                                    ├── creates implementation tasks (task_create → Planning)
+                                    ├── creates implementation tasks (task_create → To Do)
                                     └── work_finish(done) → research issue closed
                                           │
-                                    You review Planning tasks
-                                          │
-                                    Approve → To Do → Developer worker → PR → Human review
+                                    Heartbeat dispatches Developer worker → PR → Human review
 ```
 
 **When to use:**

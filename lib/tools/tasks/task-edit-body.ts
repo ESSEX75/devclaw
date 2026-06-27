@@ -12,8 +12,9 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
 import { loadConfig } from "../../config/index.js";
-import { getInitialStateLabel, getCurrentStateLabel } from "../../workflow/index.js";
+import { getInitialStateLabel } from "../../workflow/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
+import { resolveIssueRuntimeState } from "../../issues/index.js";
 
 export function createTaskEditBodyTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -90,7 +91,11 @@ Examples:
 
       // Fetch current issue
       const issue = await provider.getIssue(issueId);
-      const currentState = getCurrentStateLabel(issue.labels, resolvedConfig.workflow);
+      const runtimeState = await resolveIssueRuntimeState({ workspaceDir, project, issue, workflow: resolvedConfig.workflow });
+      if (runtimeState.kind !== "managed") {
+        throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_edit_body.`);
+      }
+      const currentState = runtimeState.workflowLabel;
 
       // Enforce editable-states constraint
       if (!currentState || !editableStates.includes(currentState)) {

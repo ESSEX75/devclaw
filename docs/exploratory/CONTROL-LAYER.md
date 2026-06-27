@@ -69,7 +69,7 @@ JSON Schema constraints on tool parameters. The LLM framework **rejects the call
 ### Soft instructions in schemas
 
 Tool descriptions include `IMPORTANT:` text. These are read by the LLM but not enforced:
-- `task_create`: "Always creates in Planning unless the user explicitly asks to start work immediately"
+- `task_create`: creates a managed issue in the first developer queue by default; explicit hold/refinement flows must be modeled separately
 - `research_task`: "Provide a detailed description with enough background context"
 
 ---

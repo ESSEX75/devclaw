@@ -397,9 +397,10 @@ Each slot has:
 
 - **Project-first state** — projects are keyed by slug and can be linked to multiple channels.
 - **Issue-local runtime authority** — initialized managed issues use `devclaw/projects/<project>/issues.json` for `workflowState`, `workflowLabel`, role/level assignment, review/test policy, and projection integrity.
-- **Provider labels are projection** — GitHub/GitLab labels remain required for visual parity, filtering, and old issue compatibility, but they are not runtime truth for initialized managed issues. Manual label edits do not mutate local state.
+- **Provider labels are projection** — GitHub/GitLab labels remain required for visual parity and filtering, but they are not runtime truth for initialized managed issues. Manual label edits do not mutate local state.
 - **Projection guard** — heartbeat compares provider labels and metadata with local state. Recoverable label drift is repaired. Missing or tampered managed metadata sets `integrity_error` until repaired from local state.
-- **Compatibility path** — old issues without a local `issues.json` entry are treated as `projection_uninitialized` and continue through the legacy label-first path until initialized/backfilled.
+- **Backfill boundary** — old issues without a local `issues.json` entry are treated as `projection_uninitialized` and must be explicitly initialized/backfilled before managed dispatch.
+- **Queue-first task creation** — ordinary `task_create` calls create a managed issue directly in the first developer queue state, normally `To Do`; `Planning` remains a hold state for explicit refinement/research flows.
 - **Inline issue archive** — `devclaw issues cleanup` archives old closed local issue records into `archive.issues` inside `issues.json`; `issues.archive.jsonl` is not part of the MVP.
 - **Per-level slots** — each level owns an array of slots. Capacity is configured through `workflow.maxWorkersPerLevel` and per-model `maxWorkers`.
 - **Session-per-slot** — each slot preserves its own session key, accumulating context independently. Level selection plus slot index maps directly to a session key.

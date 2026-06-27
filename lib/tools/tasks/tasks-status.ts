@@ -11,6 +11,7 @@ import { getStateLabelsByType } from "../../services/queue.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { loadConfig } from "../../config/index.js";
 import { loadProjectionViewContext, summarizeTaskIssue, type TaskIssueSummary } from "./projection-view.js";
+import { readIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
 
 type IssueSummary = TaskIssueSummary;
 
@@ -49,32 +50,35 @@ export function createTasksStatusTool(ctx: PluginContext) {
         workflow,
         roles: Object.keys(projectConfig.roles),
       });
+      const store = await readIssueStateStore(workspaceDir, project.slug);
+      const openLocalStates = Object.values(store.issues)
+        .filter((state) => state.managed && state.archivedAt == null && state.closedAt == null);
 
       // Fetch issues for each state type
       const hold: Record<string, { count: number; issues: IssueSummary[] }> = {};
       for (const { label } of statesByType.hold) {
-        const issues = await provider.listIssues({ label, state: "open" }).catch(() => []);
+        const issues = await summarizeLocalStates(openLocalStates.filter((state) => state.workflowLabel === label), provider, projectionCtx);
         hold[label] = {
           count: issues.length,
-          issues: issues.map((i) => summarizeTaskIssue(i, projectionCtx)),
+          issues,
         };
       }
 
       const active: Record<string, { count: number; issues: IssueSummary[] }> = {};
       for (const { label } of statesByType.active) {
-        const issues = await provider.listIssues({ label, state: "open" }).catch(() => []);
+        const issues = await summarizeLocalStates(openLocalStates.filter((state) => state.workflowLabel === label), provider, projectionCtx);
         active[label] = {
           count: issues.length,
-          issues: issues.map((i) => summarizeTaskIssue(i, projectionCtx)),
+          issues,
         };
       }
 
       const queue: Record<string, { count: number; issues: IssueSummary[] }> = {};
       for (const { label } of statesByType.queue) {
-        const issues = await provider.listIssues({ label, state: "open" }).catch(() => []);
+        const issues = await summarizeLocalStates(openLocalStates.filter((state) => state.workflowLabel === label), provider, projectionCtx);
         queue[label] = {
           count: issues.length,
-          issues: issues.map((i) => summarizeTaskIssue(i, projectionCtx)),
+          issues,
         };
       }
 
@@ -108,4 +112,24 @@ export function createTasksStatusTool(ctx: PluginContext) {
       });
     },
   });
+}
+
+async function summarizeLocalStates(
+  states: IssueRuntimeState[],
+  provider: Awaited<ReturnType<typeof resolveProvider>>["provider"],
+  projectionCtx: Awaited<ReturnType<typeof loadProjectionViewContext>>,
+): Promise<IssueSummary[]> {
+  const result: IssueSummary[] = [];
+  for (const state of states.sort((a, b) => a.issueId - b.issueId)) {
+    const issue = await provider.getIssue(state.issueId).catch(() => ({
+      iid: state.issueId,
+      title: `Issue #${state.issueId}`,
+      description: "",
+      labels: [],
+      state: "unknown",
+      web_url: "",
+    }));
+    result.push(summarizeTaskIssue(issue, projectionCtx));
+  }
+  return result;
 }
