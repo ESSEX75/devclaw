@@ -99,7 +99,7 @@ export async function performProjectionIntegrityPass(
     workflow: resolvedConfig.workflow,
     roles: Object.keys(resolvedConfig.roles),
   });
-  return result.repaired + result.errors;
+  return result.repaired + result.removed + result.errors;
 }
 
 /**

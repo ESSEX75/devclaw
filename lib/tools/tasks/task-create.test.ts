@@ -43,9 +43,13 @@ describe("task_create managed queue flow", () => {
       assert.strictEqual(state.assignedRole, "developer");
       assert.strictEqual(state.assignedLevel, null);
       assert.strictEqual(state.owner, "main");
+      assert.strictEqual(state.reviewPolicy, "human");
+      assert.strictEqual(state.testPolicy, "skip");
       assert.deepStrictEqual(state.notifyTarget, { channel: "telegram", name: "primary" });
       assert.ok(issue.labels.includes("To Do"));
       assert.ok(issue.labels.includes("owner:main"));
+      assert.ok(issue.labels.includes("review:human"));
+      assert.ok(issue.labels.includes("test:skip"));
       assert.ok(issue.labels.includes("notify:telegram:primary"));
       assert.deepStrictEqual(extractIssueMetadata(issue.description), {
         projectSlug: "devclaw",
@@ -57,4 +61,3 @@ describe("task_create managed queue flow", () => {
     }
   });
 });
-

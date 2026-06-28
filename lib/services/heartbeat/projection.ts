@@ -28,6 +28,7 @@ export type ProjectionIntegrityEvent = {
 
 export type ProjectionIntegrityResult = {
   checked: number;
+  removed: number;
   repaired: number;
   errors: number;
   skipped: number;
@@ -47,6 +48,7 @@ export async function projectionIntegrityPass(opts: {
     .filter((state) => state.managed && state.archivedAt == null);
   const result: ProjectionIntegrityResult = {
     checked: 0,
+    removed: 0,
     repaired: 0,
     errors: 0,
     skipped: 0,
@@ -59,6 +61,17 @@ export async function projectionIntegrityPass(opts: {
     try {
       issue = await provider.getIssue(state.issueId);
     } catch (err) {
+      if (isProviderIssueMissingError(err)) {
+        result.removed++;
+        result.events.push({ issueId: state.issueId, action: "provider_missing" });
+        await removeLocalIssueState(workspaceDir, project.slug, state.issueId);
+        await auditLog(workspaceDir, "issue_projection_provider_missing_removed", {
+          projectSlug: project.slug,
+          issueId: state.issueId,
+        });
+        continue;
+      }
+
       result.errors++;
       const errors = [`provider issue fetch failed: ${(err as Error).message}`];
       result.events.push({ issueId: state.issueId, action: "provider_fetch_error", errors });
@@ -136,6 +149,25 @@ export async function projectionIntegrityPass(opts: {
   }
 
   return result;
+}
+
+function isProviderIssueMissingError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  const normalized = message.toLowerCase();
+  return normalized.includes("not found")
+    || normalized.includes("could not resolve to an issue")
+    || normalized.includes("404")
+    || normalized.includes("does not exist");
+}
+
+async function removeLocalIssueState(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+): Promise<void> {
+  await updateIssueStateStore(workspaceDir, projectSlug, (data) => {
+    delete data.issues[String(issueId)];
+  });
 }
 
 async function markIntegrityError(

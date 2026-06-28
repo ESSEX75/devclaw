@@ -115,4 +115,22 @@ describe("projectionIntegrityPass", () => {
       assert.deepStrictEqual(loaded.issues["123"]!.integrityErrors, ["issue metadata does not match local issue state"]);
     });
   });
+
+  it("removes local issue state when provider issue is gone", async () => {
+    await withStore(state(), async (tmpDir, provider) => {
+      const result = await projectionIntegrityPass({
+        workspaceDir: tmpDir,
+        project: { slug: "devclaw" },
+        provider,
+        workflow: DEFAULT_WORKFLOW,
+        roles: ["developer"],
+      });
+      const loaded = await readIssueStateStore(tmpDir, "devclaw");
+
+      assert.strictEqual(result.removed, 1);
+      assert.strictEqual(result.errors, 0);
+      assert.strictEqual(loaded.issues["123"], undefined);
+      assert.deepStrictEqual(result.events, [{ issueId: 123, action: "provider_missing" }]);
+    });
+  });
 });

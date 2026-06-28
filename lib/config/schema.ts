@@ -95,7 +95,10 @@ export function validateConfig(raw: unknown): void {
  * - Terminal states have no outgoing transitions
  */
 export function validateWorkflowIntegrity(
-  workflow: { initial: string; states: Record<string, { type: string; role?: string; on?: Record<string, unknown> }> },
+  workflow: {
+    initial: string;
+    states: Record<string, { type: string; role?: string; on?: Record<string, unknown> }>;
+  },
 ): string[] {
   const errors: string[] = [];
   const stateKeys = new Set(Object.keys(workflow.states));

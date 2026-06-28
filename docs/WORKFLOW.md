@@ -138,15 +138,16 @@ For initialized DevClaw-managed issues, `devclaw/projects/<project>/issues.json`
 - Queue dispatch uses local `workflowState`/`workflowLabel` when a local issue record exists.
 - Provider labels remain visible in GitHub/GitLab and in `task_list`/`tasks_status`.
 - Manual provider label edits do not mutate local state.
+- If the provider issue no longer exists in GitHub/GitLab, heartbeat treats that as task deletion and removes the matching local `issues.json` record.
 - Heartbeat repairs recoverable managed-label drift and preserves unmanaged human labels.
 - Missing or tampered managed metadata sets `integrity_error`; repair with `devclaw repair issue --project <slug> --issue <id> --source local-state --dry-run` and then `--apply`.
 - Old issues without local state are shown as `projection_uninitialized` and must be explicitly backfilled before managed dispatch.
 
-### Sprint Child Creation Invariant
+### Child Issue Creation Invariant
 
 When `task_create` creates an ordinary implementation task, it queues the managed issue immediately in the first developer queue state, normally `To Do`, writes `issues.json`, renders managed metadata, applies provider projection labels, and adds the `eyes` compatibility marker. `Planning` remains available as an explicit hold state for refinement/research flows, but ordinary `task_create` issues do not wait there by default.
 
-When sprint/task-mode decomposition creates child issues, each child must be initialized as its own managed issue before it can be dispatched: create the provider issue, write its local `issues.json` record, render managed metadata, apply provider projection labels, and add the `eyes` compatibility marker. Root/container issues are not dispatchable unless they also have a normal managed runtime state.
+When issue decomposition creates child issues, each child must be initialized as its own managed issue before it can be dispatched: create the provider issue, write its local `issues.json` record, render managed metadata, apply provider projection labels, and add the `eyes` compatibility marker. Root/container issues are not dispatchable unless they also have a normal managed runtime state.
 
 ### State Types
 
