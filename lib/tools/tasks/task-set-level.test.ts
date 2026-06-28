@@ -7,7 +7,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { DEFAULT_WORKFLOW, getStateLabels, ReviewPolicy, resolveReviewRouting } from "../../workflow/index.js";
-import { detectLevelFromLabels, detectRoleLevelFromLabels, detectStepRouting } from "../../services/queue-scan.js";
+import { detectLevelFromLabels, detectRoleLevelFromLabels } from "../../services/queue-scan.js";
 
 describe("task_set_level tool", () => {
   it("has correct schema", () => {
@@ -81,32 +81,6 @@ describe("detectRoleLevelFromLabels", () => {
 
   it("should return null when no colon labels present", () => {
     assert.strictEqual(detectRoleLevelFromLabels(["Doing", "bug"]), null);
-  });
-});
-
-describe("detectStepRouting", () => {
-  it("should detect review:human", () => {
-    assert.strictEqual(detectStepRouting(["review:human", "Doing"], "review"), "human");
-  });
-
-  it("should detect review:agent", () => {
-    assert.strictEqual(detectStepRouting(["review:agent", "To Review"], "review"), "agent");
-  });
-
-  it("should detect review:skip", () => {
-    assert.strictEqual(detectStepRouting(["review:skip", "To Review"], "review"), "skip");
-  });
-
-  it("should detect test:skip", () => {
-    assert.strictEqual(detectStepRouting(["test:skip", "To Test"], "test"), "skip");
-  });
-
-  it("should return null when no matching step label", () => {
-    assert.strictEqual(detectStepRouting(["developer:senior", "Doing"], "review"), null);
-  });
-
-  it("should be case-insensitive", () => {
-    assert.strictEqual(detectStepRouting(["Review:Human", "Doing"], "review"), "human");
   });
 });
 

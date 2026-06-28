@@ -393,7 +393,7 @@ Create \`<dataDir>/prompts/tester.md\` with instructions for the QA role.
 For project-specific: \`<dataDir>/projects/<name>/prompts/tester.md\`.
 
 ## Per-issue skip
-Add the \`test:skip\` label to an issue to skip testing for that specific issue.`;
+Set \`testPolicy: "skip"\` in project-local \`issues.json\` to skip testing for a specific managed issue. Provider labels are projection only.`;
 }
 
 function buildTimeoutsSection(): string {

@@ -129,7 +129,7 @@ export async function tick(opts: {
 
       // Test skip pass: auto-transition test:skip issues through the test queue
       result.totalTestSkipTransitions += await performTestSkipPass(
-        workspaceDir, slug, provider, resolvedConfig,
+        workspaceDir, slug, project, provider, resolvedConfig,
       );
 
       // Budget check: stop if we've hit the limit

@@ -7,6 +7,7 @@
  */
 import type { IssueProvider } from "../../providers/provider.js";
 import { PrState } from "../../providers/provider.js";
+import type { Project } from "../../projects/index.js";
 import {
   Action,
   ReviewCheck,
@@ -14,9 +15,10 @@ import {
   type WorkflowConfig,
   type StateConfig,
 } from "../../workflow/index.js";
-import { detectStepRouting } from "../queue-scan.js";
 import type { RunCommand } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
+import { getHeartbeatCandidates } from "./local-candidates.js";
+import { writeHeartbeatTransitionState } from "./transition-state.js";
 
 /**
  * Scan review-type states and transition issues whose PR check condition is met.
@@ -25,6 +27,7 @@ import { log as auditLog } from "../../audit.js";
 export async function reviewPass(opts: {
   workspaceDir: string;
   projectName: string;
+  project: Pick<Project, "slug" | "channels" | "provider">;
   workflow: WorkflowConfig;
   provider: IssueProvider;
   repoPath: string;
@@ -40,7 +43,7 @@ export async function reviewPass(opts: {
   runCommand: RunCommand;
 }): Promise<number> {
   const rc = opts.runCommand;
-  const { workspaceDir, projectName, workflow, provider, repoPath, gitPullTimeoutMs = 30_000, baseBranch, onMerge, onFeedback, onPrClosed } = opts;
+  const { workspaceDir, projectName, project, workflow, provider, repoPath, gitPullTimeoutMs = 30_000, baseBranch, onMerge, onFeedback, onPrClosed } = opts;
   let transitions = 0;
 
   // Find all states with a review check (e.g. toReview with check: prApproved)
@@ -50,22 +53,31 @@ export async function reviewPass(opts: {
   for (const [stateKey, state] of reviewStates) {
     if (!state.on || !state.check) continue;
 
-    const issues = await provider.listIssuesByLabel(state.label);
-    for (const issue of issues) {
-      // Only process issues explicitly marked for human review.
-      // review:agent → agent reviewer pipeline handles merge.
-      // No routing label → treat as agent by default (safe: never auto-merge without explicit human approval).
-      // review:human → human approved on provider; heartbeat handles merge transition.
-      const routing = detectStepRouting(issue.labels, "review");
-      if (routing !== "human") continue;
-
-      // Only process issues managed by DevClaw (marked with 👀 on issue body).
-      // Old-style issues without the marker are skipped to prevent false triggers
-      // from historical comments.
-      const isManaged = await provider.issueHasReaction(issue.iid, "eyes");
-      if (!isManaged) continue;
+    const candidates = await getHeartbeatCandidates({
+      workspaceDir,
+      projectSlug: project.slug,
+      workflowLabel: state.label,
+      provider,
+      routing: { field: "reviewPolicy", value: "human" },
+    });
+    for (const { issue } of candidates) {
 
       const status = await provider.getPrStatus(issue.iid);
+      const syncTransitionState = async (
+        targetKey: string,
+        targetLabel: string,
+        closedAt?: string | null,
+      ): Promise<void> => {
+        await writeHeartbeatTransitionState({
+          workspaceDir,
+          project,
+          issue,
+          workflow,
+          workflowState: targetKey,
+          workflowLabel: targetLabel,
+          closedAt,
+        });
+      };
 
       // Fallback: no PR found, but work may have been committed directly to base branch.
       // Check git history for commits mentioning this issue number.
@@ -98,6 +110,7 @@ export async function reviewPass(opts: {
           const targetState = workflow.states[targetKey];
           if (targetState) {
             await provider.transitionLabel(issue.iid, state.label, targetState.label);
+            await syncTransitionState(targetKey, targetState.label);
             await auditLog(workspaceDir, "review_transition", {
               project: projectName, issueId: issue.iid,
               from: state.label, to: targetState.label,
@@ -121,6 +134,7 @@ export async function reviewPass(opts: {
           const targetState = workflow.states[targetKey];
           if (targetState) {
             await provider.transitionLabel(issue.iid, state.label, targetState.label);
+            await syncTransitionState(targetKey, targetState.label);
             await auditLog(workspaceDir, "review_transition", {
               project: projectName, issueId: issue.iid,
               from: state.label, to: targetState.label,
@@ -156,6 +170,11 @@ export async function reviewPass(opts: {
                 }
               }
             }
+            await syncTransitionState(
+              targetKey,
+              targetState.label,
+              closedActions?.includes(Action.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
+            );
             await auditLog(workspaceDir, "review_transition", {
               project: projectName, issueId: issue.iid,
               from: state.label, to: targetState.label,
@@ -212,6 +231,7 @@ export async function reviewPass(opts: {
                   const failedState = workflow.states[failedKey];
                   if (failedState) {
                     await provider.transitionLabel(issue.iid, state.label, failedState.label);
+                    await syncTransitionState(failedKey, failedState.label);
                     await auditLog(workspaceDir, "review_transition", {
                       project: projectName,
                       issueId: issue.iid,
@@ -243,6 +263,7 @@ export async function reviewPass(opts: {
 
       // Transition label
       await provider.transitionLabel(issue.iid, state.label, targetState.label);
+      await syncTransitionState(targetKey, targetState.label);
 
       await auditLog(workspaceDir, "review_transition", {
         project: projectName,

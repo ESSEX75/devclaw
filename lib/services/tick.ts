@@ -21,7 +21,7 @@ import {
   type WorkflowConfig,
   type Role,
 } from "../workflow/index.js";
-import { detectRoleLevelFromLabels, detectStepRouting, findNextIssueForRole } from "./queue-scan.js";
+import { detectRoleLevelFromLabels, findNextIssueForRole } from "./queue-scan.js";
 
 // ---------------------------------------------------------------------------
 // projectTick
@@ -142,18 +142,18 @@ export async function projectTick(opts: {
     const { issue, label: currentLabel } = next;
     const targetLabel = getActiveLabel(workflow, role);
 
-    // Step routing: check for review:human / review:skip / test:skip labels
+    // Step routing comes from project-local issue state; provider labels are only projection.
     if (role === "reviewer") {
-      const routing = next.localState?.reviewPolicy ?? detectStepRouting(issue.labels, "review");
+      const routing = next.localState?.reviewPolicy;
       if (routing === "human" || routing === "skip") {
-        skipped.push({ role, reason: `review:${routing} label` });
+        skipped.push({ role, reason: `review:${routing} policy` });
         continue;
       }
     }
     if (role === "tester") {
-      const routing = next.localState?.testPolicy ?? detectStepRouting(issue.labels, "test");
+      const routing = next.localState?.testPolicy;
       if (routing === "skip") {
-        skipped.push({ role, reason: "test:skip label" });
+        skipped.push({ role, reason: "test:skip policy" });
         continue;
       }
     }

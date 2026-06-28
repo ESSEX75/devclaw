@@ -10,7 +10,6 @@ import { readIssueStateStore, type IssueRuntimeState } from "../issues/index.js"
 import { getLevelsForRole, getAllLevels } from "../roles/index.js";
 import {
   getQueueLabels,
-  getAllQueueLabels,
   detectRoleFromLabel as workflowDetectRole,
   isOwnedByOrUnclaimed,
   type WorkflowConfig,
@@ -59,18 +58,6 @@ export function detectRoleLevelFromLabels(
 }
 
 /**
- * Detect step routing from labels (e.g. "review:human", "test:skip").
- * Returns the routing value for the given step, or null if no routing label exists.
- */
-export function detectStepRouting(
-  labels: string[], step: string,
-): string | null {
-  const prefix = `${step}:`;
-  const match = labels.find((l) => l.toLowerCase().startsWith(prefix));
-  return match ? match.slice(prefix.length).toLowerCase() : null;
-}
-
-/**
  * Detect role from a label using workflow config.
  */
 export function detectRoleFromLabel(
@@ -85,60 +72,21 @@ export function detectRoleFromLabel(
 // ---------------------------------------------------------------------------
 
 export async function findNextIssueForRole(
-  provider: Pick<IssueProvider, "listIssuesByLabel" | "getIssue">,
+  provider: Pick<IssueProvider, "getIssue">,
   role: Role,
   workflow: WorkflowConfig,
-  instanceName?: string,
-  localState?: { workspaceDir: string; projectSlug: string },
-): Promise<{ issue: Issue; label: StateLabel; localState?: IssueRuntimeState } | null> {
+  instanceName: string | undefined,
+  localState: { workspaceDir: string; projectSlug: string },
+): Promise<{ issue: Issue; label: StateLabel; localState: IssueRuntimeState } | null> {
   const labels = getQueueLabels(workflow, role);
 
-  if (localState) {
-    return findNextIssueForRoleFromLocalState(
-      provider,
-      labels,
-      instanceName,
-      localState.workspaceDir,
-      localState.projectSlug,
-    );
-  }
-
-  for (const label of labels) {
-    try {
-      const issues = await provider.listIssuesByLabel(label);
-      const eligible = instanceName
-        ? issues.filter((i) => isOwnedByOrUnclaimed(i.labels, instanceName))
-        : issues;
-      const compatible = await filterUninitializedIssues(eligible, localState);
-      if (compatible.length > 0) return { issue: compatible[compatible.length - 1]!, label };
-    } catch { /* continue */ }
-  }
-  return null;
-}
-
-/**
- * Find next issue for any role (optional filter).
- */
-export async function findNextIssue(
-  provider: Pick<IssueProvider, "listIssuesByLabel">,
-  role: Role | undefined,
-  workflow: WorkflowConfig,
-  instanceName?: string,
-): Promise<{ issue: Issue; label: StateLabel } | null> {
-  const labels = role
-    ? getQueueLabels(workflow, role)
-    : getAllQueueLabels(workflow);
-
-  for (const label of labels) {
-    try {
-      const issues = await provider.listIssuesByLabel(label);
-      const eligible = instanceName
-        ? issues.filter((i) => isOwnedByOrUnclaimed(i.labels, instanceName))
-        : issues;
-      if (eligible.length > 0) return { issue: eligible[eligible.length - 1]!, label };
-    } catch { /* continue */ }
-  }
-  return null;
+  return findNextIssueForRoleFromLocalState(
+    provider,
+    labels,
+    instanceName,
+    localState.workspaceDir,
+    localState.projectSlug,
+  );
 }
 
 async function findNextIssueForRoleFromLocalState(
@@ -170,16 +118,4 @@ async function findNextIssueForRoleFromLocalState(
   }
 
   return null;
-}
-
-async function filterUninitializedIssues(
-  issues: Issue[],
-  localState?: { workspaceDir: string; projectSlug: string },
-): Promise<Issue[]> {
-  if (!localState || issues.length === 0) return issues;
-  const store = await readIssueStateStore(localState.workspaceDir, localState.projectSlug);
-  return issues.filter((issue) => {
-    const state = store.issues[String(issue.iid)];
-    return !state || state.integrityStatus === "projection_uninitialized";
-  });
 }

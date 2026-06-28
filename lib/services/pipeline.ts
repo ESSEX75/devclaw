@@ -10,7 +10,6 @@ import type { RunCommand } from "../context.js";
 import { notify, getNotificationConfig } from "../dispatch/notify.js";
 import { log as auditLog } from "../audit.js";
 import { loadConfig } from "../config/index.js";
-import { detectStepRouting } from "./queue-scan.js";
 import { writeIssueRuntimeState } from "../issues/index.js";
 import {
   DEFAULT_WORKFLOW,
@@ -221,7 +220,7 @@ export async function executeCompletion(opts: {
     }
   }
 
-  await writeIssueRuntimeState({
+  const runtimeState = await writeIssueRuntimeState({
     workspaceDir,
     project: { slug: projectSlug, channels },
     issue: {
@@ -242,7 +241,9 @@ export async function executeCompletion(opts: {
   if (role === "developer" && result === "done") {
     // Re-fetch issue to get labels after transition
     const updated = await provider.getIssue(issueId);
-    const routing = detectStepRouting(updated.labels, "review") as "human" | "agent" | null;
+    const routing = runtimeState.reviewPolicy === "human" || runtimeState.reviewPolicy === "agent"
+      ? runtimeState.reviewPolicy
+      : null;
     if (routing === "human" || routing === "agent") {
       notify(
         {

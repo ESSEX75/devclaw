@@ -1,8 +1,8 @@
 /**
  * review-skip.ts — Auto-merge and transition review:skip issues through the review queue.
  *
- * When reviewPolicy is "skip", issues arrive in the review queue
- * with a review:skip label. This pass auto-merges their PR and
+ * When local reviewPolicy is "skip", issues arrive in the review queue
+ * through issues.json state. This pass auto-merges their PR and
  * transitions them to the next state (e.g. toTest), executing the
  * SKIP event's configured actions (mergePr, gitPull).
  *
@@ -10,6 +10,7 @@
  */
 import type { IssueProvider } from "../../providers/provider.js";
 import { PrState } from "../../providers/provider.js";
+import type { Project } from "../../projects/index.js";
 import {
   Action,
   StateType,
@@ -17,17 +18,19 @@ import {
   type WorkflowConfig,
   type StateConfig,
 } from "../../workflow/index.js";
-import { detectStepRouting } from "../queue-scan.js";
 import type { RunCommand } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
+import { getHeartbeatCandidates } from "./local-candidates.js";
+import { writeHeartbeatTransitionState } from "./transition-state.js";
 
 /**
- * Scan review queue states and auto-merge + transition issues with review:skip.
+ * Scan review queue states and auto-merge + transition issues with reviewPolicy=skip.
  * Returns the number of transitions made.
  */
 export async function reviewSkipPass(opts: {
   workspaceDir: string;
   projectName: string;
+  project: Pick<Project, "slug" | "channels" | "provider">;
   workflow: WorkflowConfig;
   provider: IssueProvider;
   repoPath: string;
@@ -37,7 +40,7 @@ export async function reviewSkipPass(opts: {
   runCommand: RunCommand;
 }): Promise<number> {
   const rc = opts.runCommand;
-  const { workspaceDir, projectName, workflow, provider, repoPath, gitPullTimeoutMs = 30_000, onMerge } = opts;
+  const { workspaceDir, projectName, project, workflow, provider, repoPath, gitPullTimeoutMs = 30_000, onMerge } = opts;
   let transitions = 0;
 
   // Find review queue states (role=reviewer, type=queue) that have a SKIP event
@@ -53,14 +56,14 @@ export async function reviewSkipPass(opts: {
     const targetState = workflow.states[targetKey];
     if (!targetState) continue;
 
-    const issues = await provider.listIssuesByLabel(state.label);
-    for (const issue of issues) {
-      const routing = detectStepRouting(issue.labels, "review");
-      if (routing !== "skip") continue;
-
-      // Only process issues managed by DevClaw (marked with 👀 on issue body).
-      const isManaged = await provider.issueHasReaction(issue.iid, "eyes");
-      if (!isManaged) continue;
+    const candidates = await getHeartbeatCandidates({
+      workspaceDir,
+      projectSlug: project.slug,
+      workflowLabel: state.label,
+      provider,
+      routing: { field: "reviewPolicy", value: "skip" },
+    });
+    for (const { issue } of candidates) {
 
       // Execute SKIP transition actions
       let aborted = false;
@@ -93,6 +96,14 @@ export async function reviewSkipPass(opts: {
                   const failedState = workflow.states[failedKey];
                   if (failedState) {
                     await provider.transitionLabel(issue.iid, state.label, failedState.label);
+                    await writeHeartbeatTransitionState({
+                      workspaceDir,
+                      project,
+                      issue,
+                      workflow,
+                      workflowState: failedKey,
+                      workflowLabel: failedState.label,
+                    });
                     transitions++;
                   }
                 }
@@ -118,6 +129,14 @@ export async function reviewSkipPass(opts: {
 
       // Transition label
       await provider.transitionLabel(issue.iid, state.label, targetState.label);
+      await writeHeartbeatTransitionState({
+        workspaceDir,
+        project,
+        issue,
+        workflow,
+        workflowState: targetKey,
+        workflowLabel: targetState.label,
+      });
 
       await auditLog(workspaceDir, "review_skip_transition", {
         project: projectName,

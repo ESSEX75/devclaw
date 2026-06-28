@@ -1,13 +1,14 @@
 /**
  * test-skip.ts — Auto-transition test:skip issues through the test queue.
  *
- * When testPolicy is "skip" (default), issues arrive in the test queue
- * with a test:skip label. This pass auto-transitions them to done,
+ * When local testPolicy is "skip" (default), issues arrive in the test queue
+ * through issues.json state. This pass auto-transitions them to done,
  * executing the SKIP event's configured actions (e.g. closeIssue).
  *
  * Mirrors reviewPass() in review.ts — called by the heartbeat service.
  */
 import type { IssueProvider } from "../../providers/provider.js";
+import type { Project } from "../../projects/index.js";
 import {
   Action,
   StateType,
@@ -15,20 +16,22 @@ import {
   type WorkflowConfig,
   type StateConfig,
 } from "../../workflow/index.js";
-import { detectStepRouting } from "../queue-scan.js";
 import { log as auditLog } from "../../audit.js";
+import { getHeartbeatCandidates } from "./local-candidates.js";
+import { writeHeartbeatTransitionState } from "./transition-state.js";
 
 /**
- * Scan test queue states and auto-transition issues with test:skip.
+ * Scan test queue states and auto-transition issues with testPolicy=skip.
  * Returns the number of transitions made.
  */
 export async function testSkipPass(opts: {
   workspaceDir: string;
   projectName: string;
+  project: Pick<Project, "slug" | "channels" | "provider">;
   workflow: WorkflowConfig;
   provider: IssueProvider;
 }): Promise<number> {
-  const { workspaceDir, projectName, workflow, provider } = opts;
+  const { workspaceDir, projectName, project, workflow, provider } = opts;
   let transitions = 0;
 
   // Find test queue states (role=tester, type=queue) that have a SKIP event
@@ -44,10 +47,14 @@ export async function testSkipPass(opts: {
     const targetState = workflow.states[targetKey];
     if (!targetState) continue;
 
-    const issues = await provider.listIssuesByLabel(state.label);
-    for (const issue of issues) {
-      const routing = detectStepRouting(issue.labels, "test");
-      if (routing !== "skip") continue;
+    const candidates = await getHeartbeatCandidates({
+      workspaceDir,
+      projectSlug: project.slug,
+      workflowLabel: state.label,
+      provider,
+      routing: { field: "testPolicy", value: "skip" },
+    });
+    for (const { issue } of candidates) {
 
       // Execute SKIP transition actions
       if (actions) {
@@ -65,6 +72,15 @@ export async function testSkipPass(opts: {
 
       // Transition label
       await provider.transitionLabel(issue.iid, state.label, targetState.label);
+      await writeHeartbeatTransitionState({
+        workspaceDir,
+        project,
+        issue,
+        workflow,
+        workflowState: targetKey,
+        workflowLabel: targetState.label,
+        closedAt: actions?.includes(Action.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
+      });
 
       await auditLog(workspaceDir, "test_skip_transition", {
         project: projectName,

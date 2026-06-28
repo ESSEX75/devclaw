@@ -17,6 +17,7 @@ import { projectTick } from "./tick.js";
 import { reviewPass } from "./heartbeat/review.js";
 import { DEFAULT_WORKFLOW, ReviewPolicy, type WorkflowConfig } from "../workflow/index.js";
 import { readProjects, getRoleWorker, getProject, countActiveSlots } from "../projects/index.js";
+import { writeIssueRuntimeState } from "../issues/index.js";
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -431,13 +432,41 @@ describe("E2E pipeline", () => {
       h = await createTestHarness();
     });
 
+    async function seedManagedReviewIssue(args: {
+      iid: number;
+      title: string;
+      labels: string[];
+    }) {
+      const issue = h.provider.seedIssue(args);
+      const reviewPolicy = args.labels.includes("review:human")
+        ? "human"
+        : args.labels.includes("review:agent")
+          ? "agent"
+          : args.labels.includes("review:skip")
+            ? "skip"
+            : null;
+      await writeIssueRuntimeState({
+        workspaceDir: h.workspaceDir,
+        project: h.project,
+        issue,
+        providerType: "github",
+        workflow: DEFAULT_WORKFLOW,
+        workflowState: "toReview",
+        workflowLabel: "To Review",
+        reviewPolicy,
+        testPolicy: args.labels.includes("test:skip") ? "skip" : null,
+      });
+      return issue;
+    }
+
     it("should auto-merge and transition To Review → To Test when PR is approved (review:human)", async () => {
-      h.provider.seedIssue({ iid: 60, title: "Feature Y", labels: ["To Review", "review:human"] });
+      await seedManagedReviewIssue({ iid: 60, title: "Feature Y", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(60, { state: "approved", url: "https://example.com/pr/10" });
 
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -459,12 +488,13 @@ describe("E2E pipeline", () => {
     });
 
     it("should NOT transition when PR is still open (review:human)", async () => {
-      h.provider.seedIssue({ iid: 61, title: "Feature Z", labels: ["To Review", "review:human"] });
+      await seedManagedReviewIssue({ iid: 61, title: "Feature Z", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(61, { state: "open", url: "https://example.com/pr/11" });
 
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -478,14 +508,15 @@ describe("E2E pipeline", () => {
     });
 
     it("should handle multiple review:human issues in one pass", async () => {
-      h.provider.seedIssue({ iid: 70, title: "PR A", labels: ["To Review", "review:human"] });
-      h.provider.seedIssue({ iid: 71, title: "PR B", labels: ["To Review", "review:human"] });
+      await seedManagedReviewIssue({ iid: 70, title: "PR A", labels: ["To Review", "review:human"] });
+      await seedManagedReviewIssue({ iid: 71, title: "PR B", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(70, { state: "approved", url: "https://example.com/pr/20" });
       h.provider.setPrStatus(71, { state: "approved", url: "https://example.com/pr/21" });
 
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -504,13 +535,14 @@ describe("E2E pipeline", () => {
     });
 
     it("should transition To Review → To Improve when merge fails (conflicts)", async () => {
-      h.provider.seedIssue({ iid: 65, title: "Conflicting PR", labels: ["To Review", "review:human"] });
+      await seedManagedReviewIssue({ iid: 65, title: "Conflicting PR", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(65, { state: "approved", url: "https://example.com/pr/15" });
       h.provider.mergePrFailures.add(65);
 
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -531,13 +563,14 @@ describe("E2E pipeline", () => {
       assert.strictEqual(gitCmds.length, 0, "Should NOT have run git pull after merge failure");
     });
 
-    it("should skip issues with review:agent label (agent pipeline handles those)", async () => {
-      h.provider.seedIssue({ iid: 62, title: "Agent-reviewed", labels: ["To Review", "review:agent"] });
+    it("should skip issues with reviewPolicy=agent (agent pipeline handles those)", async () => {
+      await seedManagedReviewIssue({ iid: 62, title: "Agent-reviewed", labels: ["To Review", "review:agent"] });
       h.provider.setPrStatus(62, { state: "approved", url: "https://example.com/pr/12" });
 
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -553,22 +586,22 @@ describe("E2E pipeline", () => {
       assert.strictEqual(mergeCalls.length, 0, "Should not have called mergePr");
     });
 
-    it("should skip issues with no routing label — safe default, never auto-merge without explicit review:human", async () => {
-      // This is the key regression guard: issues without any routing label must NOT be auto-merged.
-      // Previously, the check was `routing === "agent"` which would NOT skip no-label issues.
-      h.provider.seedIssue({ iid: 64, title: "No routing label", labels: ["To Review"] });
+    it("should skip issues with no local reviewPolicy — safe default, never auto-merge without explicit reviewPolicy=human", async () => {
+      // This is the key regression guard: issues without local reviewPolicy must NOT be auto-merged.
+      await seedManagedReviewIssue({ iid: 64, title: "No routing label", labels: ["To Review"] });
       h.provider.setPrStatus(64, { state: "approved", url: "https://example.com/pr/14" });
 
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
         runCommand: h.runCommand,
       });
 
-      assert.strictEqual(transitions, 0, "Should not auto-merge issues with no routing label");
+      assert.strictEqual(transitions, 0, "Should not auto-merge issues with no local reviewPolicy");
 
       const issue = await h.provider.getIssue(64);
       assert.ok(issue.labels.includes("To Review"), "Should remain in To Review");
@@ -577,13 +610,14 @@ describe("E2E pipeline", () => {
       assert.strictEqual(mergeCalls.length, 0, "Should not have called mergePr");
     });
 
-    it("should still auto-merge issues with review:human label when PR is approved", async () => {
-      h.provider.seedIssue({ iid: 63, title: "Human-reviewed", labels: ["To Review", "review:human"] });
+    it("should still auto-merge issues with reviewPolicy=human when PR is approved", async () => {
+      await seedManagedReviewIssue({ iid: 63, title: "Human-reviewed", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(63, { state: "approved", url: "https://example.com/pr/13" });
 
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -598,7 +632,7 @@ describe("E2E pipeline", () => {
 
     it("should transition To Review → To Improve when PR is closed without merging (url non-null)", async () => {
       // After #315: PrState.CLOSED + url non-null = PR was explicitly closed without merging
-      h.provider.seedIssue({ iid: 80, title: "Closed PR feature", labels: ["To Review", "review:human"] });
+      await seedManagedReviewIssue({ iid: 80, title: "Closed PR feature", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(80, { state: "closed", url: "https://example.com/pr/80" });
 
       let prClosedFiredIssueId: number | undefined;
@@ -607,6 +641,7 @@ describe("E2E pipeline", () => {
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -635,13 +670,14 @@ describe("E2E pipeline", () => {
 
     it("should NOT transition when PR state is CLOSED with url:null (no PR has ever been created)", async () => {
       // After #315: PrState.CLOSED + url:null = no PR exists — do nothing, preserve existing behavior
-      h.provider.seedIssue({ iid: 81, title: "No PR yet", labels: ["To Review", "review:human"] });
+      await seedManagedReviewIssue({ iid: 81, title: "No PR yet", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(81, { state: "closed", url: null });
 
       let prClosedCalled = false;
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -673,12 +709,13 @@ describe("E2E pipeline", () => {
         },
       } as unknown as typeof DEFAULT_WORKFLOW;
 
-      h.provider.seedIssue({ iid: 82, title: "No PR_CLOSED config", labels: ["To Review", "review:human"] });
+      await seedManagedReviewIssue({ iid: 82, title: "No PR_CLOSED config", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(82, { state: "closed", url: "https://example.com/pr/82" });
 
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: workflowWithoutPrClosed,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -834,6 +871,7 @@ describe("E2E pipeline", () => {
       const transitions = await reviewPass({
         workspaceDir: h.workspaceDir,
         projectName: h.project.name,
+        project: h.project,
         workflow: DEFAULT_WORKFLOW,
         provider: h.provider,
         repoPath: "/tmp/test-repo",
@@ -1186,10 +1224,19 @@ describe("E2E pipeline", () => {
       assert.ok(!issue.labels.some(l => l.startsWith("developer:junior")), "Should NOT have developer:junior");
     });
 
-    it("projectTick should skip reviewer when review:human label present", async () => {
+    it("projectTick should skip reviewer when local reviewPolicy=human", async () => {
       h = await createTestHarness();
-      // review:human applied by dispatch for senior developers
-      h.provider.seedIssue({ iid: 402, title: "Senior review", labels: ["To Review", "developer:senior", "review:human"] });
+      const issue = h.provider.seedIssue({ iid: 402, title: "Senior review", labels: ["To Review", "developer:senior", "review:human"] });
+      await writeIssueRuntimeState({
+        workspaceDir: h.workspaceDir,
+        project: h.project,
+        issue,
+        providerType: "github",
+        workflow: DEFAULT_WORKFLOW,
+        workflowState: "toReview",
+        workflowLabel: "To Review",
+        reviewPolicy: "human",
+      });
 
       const result = await projectTick({
         workspaceDir: h.workspaceDir,
@@ -1206,9 +1253,19 @@ describe("E2E pipeline", () => {
       assert.ok(reviewerSkip!.reason.includes("review:human"), `Skip reason: ${reviewerSkip!.reason}`);
     });
 
-    it("projectTick should dispatch reviewer when review:agent label present", async () => {
+    it("projectTick should dispatch reviewer when local reviewPolicy=agent", async () => {
       h = await createTestHarness();
-      h.provider.seedIssue({ iid: 403, title: "Junior fix", labels: ["To Review", "developer:junior", "review:agent"] });
+      const issue = h.provider.seedIssue({ iid: 403, title: "Junior fix", labels: ["To Review", "developer:junior", "review:agent"] });
+      await writeIssueRuntimeState({
+        workspaceDir: h.workspaceDir,
+        project: h.project,
+        issue,
+        providerType: "github",
+        workflow: DEFAULT_WORKFLOW,
+        workflowState: "toReview",
+        workflowLabel: "To Review",
+        reviewPolicy: "agent",
+      });
 
       const result = await projectTick({
         workspaceDir: h.workspaceDir,

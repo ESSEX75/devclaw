@@ -120,6 +120,7 @@ export async function performReviewPass(
   return reviewPass({
     workspaceDir,
     projectName: projectSlug,
+    project,
     workflow: resolvedConfig.workflow,
     provider,
     repoPath: project.repo,
@@ -233,6 +234,7 @@ export async function performReviewSkipPass(
   return reviewSkipPass({
     workspaceDir,
     projectName: projectSlug,
+    project,
     workflow: resolvedConfig.workflow,
     provider,
     repoPath: project.repo,
@@ -281,12 +283,14 @@ export async function performReviewSkipPass(
 export async function performTestSkipPass(
   workspaceDir: string,
   projectSlug: string,
+  project: Project,
   provider: import("../../providers/provider.js").IssueProvider,
   resolvedConfig: ResolvedConfig,
 ): Promise<number> {
   return testSkipPass({
     workspaceDir,
     projectName: projectSlug,
+    project,
     workflow: resolvedConfig.workflow,
     provider,
   });
