@@ -7,7 +7,7 @@ import { readIssueStateStore } from "../../issues/index.js";
 import { extractIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
-import { createManagedTaskIssue } from "./task-create.js";
+import { createManagedTaskIssue } from "../../application/tasks/index.js";
 
 describe("task_create managed queue flow", () => {
   it("creates ordinary tasks directly in the developer queue with local state projection", async () => {
