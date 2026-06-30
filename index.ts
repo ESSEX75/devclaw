@@ -1,40 +1,6 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { createPluginContext } from "./lib/context.js";
-
-// Worker lifecycle
-import { createTaskStartTool } from "./lib/tools/tasks/task-start.js";
-import { createWorkFinishTool } from "./lib/tools/worker/work-finish.js";
-
-// Task management
-import { createTaskCreateTool } from "./lib/tools/tasks/task-create.js";
-import { createTaskEditBodyTool } from "./lib/tools/tasks/task-edit-body.js";
-import { createTaskCommentTool } from "./lib/tools/tasks/task-comment.js";
-import { createTaskAttachTool } from "./lib/tools/tasks/task-attach.js";
-import { createTaskSetLevelTool } from "./lib/tools/tasks/task-set-level.js";
-import { createTaskOwnerTool } from "./lib/tools/tasks/task-owner.js";
-import { createResearchTaskTool } from "./lib/tools/tasks/research-task.js";
-import { createIssueRepairTool } from "./lib/tools/issues/issue-repair.js";
-import { createIssuesCleanupTool } from "./lib/tools/issues/issues-cleanup.js";
-
-// Task queries
-import { createTaskListTool } from "./lib/tools/tasks/task-list.js";
-import { createTasksStatusTool } from "./lib/tools/tasks/tasks-status.js";
-
-// Project admin
-import { createProjectStatusTool } from "./lib/tools/admin/project-status.js";
-import { createProjectRegisterTool } from "./lib/tools/admin/project-register.js";
-import { createHealthTool } from "./lib/tools/admin/health.js";
-import { createSyncLabelsTool } from "./lib/tools/admin/sync-labels.js";
-import { createChannelLinkTool } from "./lib/tools/admin/channel-link.js";
-import { createChannelUnlinkTool } from "./lib/tools/admin/channel-unlink.js";
-import { createChannelListTool } from "./lib/tools/admin/channel-list.js";
-
-// Setup & onboarding
-import { createSetupTool } from "./lib/tools/admin/setup.js";
-import { createOnboardTool } from "./lib/tools/admin/onboard.js";
-import { createAutoConfigureModelsTool } from "./lib/tools/admin/autoconfigure-models.js";
-import { createWorkflowGuideTool } from "./lib/tools/admin/workflow-guide.js";
-import { createConfigTool } from "./lib/tools/admin/config.js";
+import { toolRegistry } from "./lib/tools/registry.js";
 
 // Infrastructure
 import { registerCli } from "./lib/setup/cli.js";
@@ -94,40 +60,9 @@ const plugin = {
   register(api: OpenClawPluginApi) {
     const ctx = createPluginContext(api);
 
-    // Worker lifecycle
-    api.registerTool(createTaskStartTool(ctx), { names: ["task_start"] });
-    api.registerTool(createWorkFinishTool(ctx), { names: ["work_finish"] });
-
-    // Task management
-    api.registerTool(createTaskCreateTool(ctx), { names: ["task_create"] });
-    api.registerTool(createTaskEditBodyTool(ctx), { names: ["task_edit_body"] });
-    api.registerTool(createTaskCommentTool(ctx), { names: ["task_comment"] });
-    api.registerTool(createTaskAttachTool(ctx), { names: ["task_attach"] });
-    api.registerTool(createTaskSetLevelTool(ctx), { names: ["task_set_level"] });
-    api.registerTool(createTaskOwnerTool(ctx), { names: ["task_owner"] });
-    api.registerTool(createResearchTaskTool(ctx), { names: ["research_task"] });
-    api.registerTool(createIssueRepairTool(ctx), { names: ["issue_repair"] });
-    api.registerTool(createIssuesCleanupTool(ctx), { names: ["issues_cleanup"] });
-
-    // Task queries
-    api.registerTool(createTaskListTool(ctx), { names: ["task_list"] });
-    api.registerTool(createTasksStatusTool(ctx), { names: ["tasks_status"] });
-
-    // Project admin
-    api.registerTool(createProjectStatusTool(ctx), { names: ["project_status"] });
-    api.registerTool(createProjectRegisterTool(ctx), { names: ["project_register"] });
-    api.registerTool(createHealthTool(ctx), { names: ["health"] });
-    api.registerTool(createSyncLabelsTool(ctx), { names: ["sync_labels"] });
-    api.registerTool(createChannelLinkTool(ctx), { names: ["channel_link"] });
-    api.registerTool(createChannelUnlinkTool(ctx), { names: ["channel_unlink"] });
-    api.registerTool(createChannelListTool(ctx), { names: ["channel_list"] });
-
-    // Setup & onboarding
-    api.registerTool(createSetupTool(ctx), { names: ["setup"] });
-    api.registerTool(createOnboardTool(ctx), { names: ["onboard"] });
-    api.registerTool(createAutoConfigureModelsTool(ctx), { names: ["autoconfigure_models"] });
-    api.registerTool(createWorkflowGuideTool(ctx), { names: ["workflow_guide"] });
-    api.registerTool(createConfigTool(ctx), { names: ["config"] });
+    for (const entry of toolRegistry) {
+      api.registerTool(entry.factory(ctx), { names: [...entry.names] });
+    }
 
     // CLI, services & hooks
     api.registerCli(({ program }: { program: any }) => registerCli(program, ctx), {
@@ -145,7 +80,7 @@ const plugin = {
     registerAttachmentHook(api, ctx);
 
     api.logger.info(
-      "DevClaw plugin registered (23 tools, 1 CLI command group, 1 service, 3 hooks)",
+      `DevClaw plugin registered (${toolRegistry.length} tools, 1 CLI command group, 1 service, 3 hooks)`,
     );
   },
 };

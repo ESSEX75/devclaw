@@ -7,24 +7,17 @@ import process from "node:process";
 
 const root = process.cwd();
 const warnOnly = process.argv.includes("--warn-only");
-const allowedInternalToolFactories = new Set([
-  "createConfigDiffTool",
-  "createConfigResetTool",
-]);
 
 const productionFiles = await collectProductionFiles(root);
 const graph = await buildImportGraph(productionFiles);
 const cycles = findCycles(graph);
 const toolFactories = await findToolFactories(productionFiles);
-const registration = await findRegisteredToolFactories(path.join(root, "index.ts"));
+const registration = await findRegisteredToolFactories(productionFiles);
 const unregistered = [...toolFactories].filter(
-  (factory) => !registration.registered.has(factory) && !allowedInternalToolFactories.has(factory),
-);
-const internalOnly = [...toolFactories].filter(
-  (factory) => !registration.registered.has(factory) && allowedInternalToolFactories.has(factory),
+  (factory) => !registration.registered.has(factory),
 );
 
-printReport({ cycles, toolFactories, registered: registration.registered, unregistered, internalOnly });
+printReport({ cycles, toolFactories, registered: registration.registered, unregistered });
 
 const hasBlockingFailures = cycles.length > 0 || unregistered.length > 0;
 if (hasBlockingFailures && !warnOnly) {
@@ -153,19 +146,25 @@ async function findToolFactories(files) {
   return factories;
 }
 
-async function findRegisteredToolFactories(indexPath) {
-  const content = await readFile(indexPath, "utf8");
+async function findRegisteredToolFactories(files) {
   const registered = new Set();
   const registerPattern = /registerTool\(\s*(create[A-Z][A-Za-z0-9]*Tool)\s*\(/g;
+  const registryPattern = /factory:\s*(create[A-Z][A-Za-z0-9]*Tool)\b/g;
 
-  for (const match of content.matchAll(registerPattern)) {
-    registered.add(match[1]);
+  for (const file of files) {
+    const content = stripComments(await readFile(file, "utf8"));
+    for (const match of content.matchAll(registerPattern)) {
+      registered.add(match[1]);
+    }
+    for (const match of content.matchAll(registryPattern)) {
+      registered.add(match[1]);
+    }
   }
 
   return { registered };
 }
 
-function printReport({ cycles, toolFactories, registered, unregistered, internalOnly }) {
+function printReport({ cycles, toolFactories, registered, unregistered }) {
   console.log("Architecture check");
   console.log("==================");
   console.log(`Mode: ${warnOnly ? "warn-only" : "strict"}`);
@@ -189,14 +188,6 @@ function printReport({ cycles, toolFactories, registered, unregistered, internal
   } else {
     console.log(`Unregistered public tool factories: ${unregistered.length}`);
     for (const factory of unregistered.sort()) {
-      console.log(`- ${factory}`);
-    }
-  }
-
-  if (internalOnly.length > 0) {
-    console.log("");
-    console.log("Internal-only tool factories, intentionally not registered:");
-    for (const factory of internalOnly.sort()) {
       console.log(`- ${factory}`);
     }
   }
