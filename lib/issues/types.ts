@@ -2,50 +2,17 @@
  * issues/types.ts — Runtime state for DevClaw-managed provider issues.
  */
 
-export type IssueProvider = "github" | "gitlab";
+export type {
+  ActiveIssueWorker,
+  BranchContract,
+  IssueIntegrityStatus,
+  IssueProjectionState,
+  IssueProvider,
+  IssueRuntimeState,
+  NotifyTarget,
+} from "../domain/issue.js";
 
-export type IssueIntegrityStatus =
-  | "ok"
-  | "projection_uninitialized"
-  | "projection_drift"
-  | "integrity_error";
-
-export type NotifyTarget = {
-  channel: string;
-  name: string;
-};
-
-export type ActiveIssueWorker = {
-  role: string;
-  level: string;
-  slotIndex: number;
-  sessionKey: string | null;
-  startedAt: string;
-};
-
-export type IssueRuntimeState = {
-  projectSlug: string;
-  issueId: number;
-  provider: IssueProvider;
-  managed: boolean;
-  workflowState: string;
-  workflowLabel: string;
-  assignedRole?: string | null;
-  assignedLevel?: string | null;
-  owner?: string | null;
-  reviewPolicy?: string | null;
-  testPolicy?: string | null;
-  notifyTarget?: NotifyTarget | null;
-  branchContract?: unknown | null;
-  activeWorker?: ActiveIssueWorker | null;
-  integrityStatus: IssueIntegrityStatus;
-  integrityErrors: string[];
-  projectionVersion: number;
-  createdAt: string;
-  updatedAt: string;
-  closedAt?: string | null;
-  archivedAt?: string | null;
-};
+import type { IssueIntegrityStatus, IssueRuntimeState } from "../domain/issue.js";
 
 export type IssueRuntimeStateInput = Omit<IssueRuntimeState,
   "integrityStatus" | "integrityErrors" | "projectionVersion" | "createdAt" | "updatedAt"
@@ -54,8 +21,8 @@ export type IssueRuntimeStateInput = Omit<IssueRuntimeState,
 >>;
 
 export type ArchivedIssueSummary = {
-  issueId: number;
-  finalWorkflowState: string;
+  issueId: IssueRuntimeState["issueId"];
+  finalWorkflowState: IssueRuntimeState["workflowState"];
   closedAt: string;
   archivedAt: string;
   lastIntegrityStatus: IssueIntegrityStatus;
@@ -67,7 +34,7 @@ export type IssueArchive = {
 
 export type IssueStateStore = {
   version: 1;
-  projectSlug: string;
+  projectSlug: IssueRuntimeState["projectSlug"];
   issues: Record<string, IssueRuntimeState>;
   archive: IssueArchive;
 };

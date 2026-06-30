@@ -11,22 +11,23 @@ import {
   type StateConfig,
 } from "../workflow/index.js";
 import { readIssueStateStore } from "./state.js";
+import type { WorkflowLabel, WorkflowStateKey } from "../domain/ids.js";
 import type { IssueRuntimeState } from "./types.js";
 
 export type IssueRuntimeResolution =
   | {
       kind: "managed";
       state: IssueRuntimeState;
-      workflowLabel: string;
-      workflowState: string;
+      workflowLabel: WorkflowLabel;
+      workflowState: WorkflowStateKey;
       stateConfig: StateConfig | null;
       providerIssue: Issue;
     }
   | {
       kind: "uninitialized";
       state: null;
-      workflowLabel: string | null;
-      workflowState: string | null;
+      workflowLabel: WorkflowLabel | null;
+      workflowState: WorkflowStateKey | null;
       stateConfig: StateConfig | null;
       providerIssue: Issue;
     };
@@ -61,4 +62,3 @@ export async function resolveIssueRuntimeState(opts: {
     providerIssue: opts.issue,
   };
 }
-

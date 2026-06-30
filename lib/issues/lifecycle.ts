@@ -3,7 +3,7 @@
  */
 import type { Project } from "../projects/index.js";
 import type { Issue, IssueProvider as ProviderIssueProvider } from "../providers/provider.js";
-import type { WorkflowConfig } from "../workflow/index.js";
+import { ReviewPolicy, TestPolicy, type WorkflowConfig } from "../workflow/index.js";
 import {
   detectOwner,
   findStateKeyByLabel,
@@ -31,8 +31,8 @@ export type IssueStateWriteInput = {
   assignedLevel?: string | null;
   owner?: string | null;
   notifyTarget?: NotifyTarget | null;
-  reviewPolicy?: string | null;
-  testPolicy?: string | null;
+  reviewPolicy?: ReviewPolicy | null;
+  testPolicy?: TestPolicy | null;
   activeWorker?: ActiveIssueWorker | null;
   integrityStatus?: IssueIntegrityStatus;
   closedAt?: string | null;
@@ -74,9 +74,15 @@ export function detectRoleLevel(labels: string[]): RoleLevel | null {
   return null;
 }
 
-function detectRouting(labels: string[], prefix: "review" | "test"): string | null {
+function detectRouting(labels: string[], prefix: "review"): ReviewPolicy | null;
+function detectRouting(labels: string[], prefix: "test"): TestPolicy | null;
+function detectRouting(labels: string[], prefix: "review" | "test"): ReviewPolicy | TestPolicy | null {
   const label = labels.find((candidate) => candidate.startsWith(`${prefix}:`));
-  return label ? label.slice(prefix.length + 1) : null;
+  const value = label ? label.slice(prefix.length + 1) : null;
+  if (prefix === "review") {
+    return value === ReviewPolicy.HUMAN || value === ReviewPolicy.AGENT || value === ReviewPolicy.SKIP ? value : null;
+  }
+  return value === TestPolicy.AGENT || value === TestPolicy.SKIP ? value : null;
 }
 
 export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promise<IssueRuntimeState> {

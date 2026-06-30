@@ -202,8 +202,8 @@ export async function dispatchTask(
   // handled exclusively by transitionLabel(). Accidentally removing a state label
   // makes the issue invisible to the queue scanner. See #473 for context.
   let issue: { labels: string[] } | undefined;
-  let reviewPolicyForState: string | null = null;
-  let testPolicyForState: string | null = null;
+  let reviewPolicyForState: ReviewPolicy | null = null;
+  let testPolicyForState: TestPolicy | null = null;
   let ownerForState: string | null = null;
   try {
     issue = await provider.getIssue(issueId);
@@ -220,10 +220,9 @@ export async function dispatchTask(
 
     // Apply review routing label when role produces reviewable work (best-effort)
     if (producesReviewableWork(workflow, role)) {
-      const reviewLabel = resolveReviewRouting(
-        workflow.reviewPolicy ?? ReviewPolicy.HUMAN, level,
-      );
-      reviewPolicyForState = reviewLabel.slice("review:".length);
+      const reviewPolicy = workflow.reviewPolicy ?? ReviewPolicy.HUMAN;
+      const reviewLabel = resolveReviewRouting(reviewPolicy, level);
+      reviewPolicyForState = reviewPolicy;
       const oldRouting = issue.labels.filter((l) => l.startsWith("review:"));
       const safeRouting = filterNonStateLabels(oldRouting, stateLabels);
       if (safeRouting.length > 0) await provider.removeLabels(issueId, safeRouting);
@@ -233,10 +232,9 @@ export async function dispatchTask(
 
     // Apply test routing label when workflow has a test phase (best-effort)
     if (hasTestPhase(workflow)) {
-      const testLabel = resolveTestRouting(
-        workflow.testPolicy ?? TestPolicy.SKIP, level,
-      );
-      testPolicyForState = testLabel.slice("test:".length);
+      const testPolicy = workflow.testPolicy ?? TestPolicy.SKIP;
+      const testLabel = resolveTestRouting(testPolicy, level);
+      testPolicyForState = testPolicy;
       const oldTestRouting = issue.labels.filter((l) => l.startsWith("test:"));
       const safeTestRouting = filterNonStateLabels(oldTestRouting, stateLabels);
       if (safeTestRouting.length > 0) await provider.removeLabels(issueId, safeTestRouting);

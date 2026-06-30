@@ -23,8 +23,6 @@ import {
   NOTIFY_LABEL_COLOR,
   ReviewPolicy,
   TestPolicy,
-  resolveReviewRouting,
-  resolveTestRouting,
   type WorkflowConfig,
   type StateConfig,
 } from "../../workflow/index.js";
@@ -169,8 +167,8 @@ export async function createManagedTaskIssue(opts: {
     assignedLevel: null,
     owner,
     notifyTarget: opts.notifyTarget ?? null,
-    reviewPolicy: resolveReviewRouting(opts.workflow.reviewPolicy ?? ReviewPolicy.HUMAN, "").slice("review:".length),
-    testPolicy: resolveTestRouting(opts.workflow.testPolicy ?? TestPolicy.SKIP, "").slice("test:".length),
+    reviewPolicy: opts.workflow.reviewPolicy ?? ReviewPolicy.HUMAN,
+    testPolicy: opts.workflow.testPolicy ?? TestPolicy.SKIP,
   });
 
   for (const label of expectedManagedLabels(state)) {
