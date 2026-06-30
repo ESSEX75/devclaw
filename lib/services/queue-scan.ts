@@ -6,6 +6,7 @@
  */
 import type { Issue, StateLabel } from "../providers/provider.js";
 import type { IssueProvider } from "../providers/provider.js";
+import type { IssueReader } from "../providers/capabilities.js";
 import { readIssueStateStore, type IssueRuntimeState } from "../issues/index.js";
 import { getLevelsForRole, getAllLevels } from "../roles/index.js";
 import {
@@ -72,7 +73,7 @@ export function detectRoleFromLabel(
 // ---------------------------------------------------------------------------
 
 export async function findNextIssueForRole(
-  provider: Pick<IssueProvider, "getIssue">,
+  provider: Pick<IssueReader, "getIssue">,
   role: Role,
   workflow: WorkflowConfig,
   instanceName: string | undefined,
@@ -90,7 +91,7 @@ export async function findNextIssueForRole(
 }
 
 async function findNextIssueForRoleFromLocalState(
-  provider: Pick<IssueProvider, "getIssue">,
+  provider: Pick<IssueReader, "getIssue">,
   queueLabels: StateLabel[],
   instanceName: string | undefined,
   workspaceDir: string,

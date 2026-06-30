@@ -2,13 +2,14 @@
  * local-candidates.ts — Local issue-state candidate selection for heartbeat passes.
  */
 import { readIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
-import type { Issue, IssueProvider } from "../../providers/provider.js";
+import type { Issue } from "../../providers/provider.js";
+import type { IssueReader } from "../../providers/capabilities.js";
 
 export async function getHeartbeatCandidates(opts: {
   workspaceDir: string;
   projectSlug: string;
   workflowLabel: string;
-  provider: Pick<IssueProvider, "getIssue">;
+  provider: Pick<IssueReader, "getIssue">;
   routing?: {
     field: "reviewPolicy" | "testPolicy";
     value: string;

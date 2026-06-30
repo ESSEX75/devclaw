@@ -11,7 +11,8 @@ import {
 } from "../../workflow/index.js";
 import { writeIssueRuntimeState, type NotifyTarget } from "../../issues/index.js";
 import { expectedManagedLabels, replaceIssueMetadata } from "../../projection/index.js";
-import type { Issue, IssueProvider } from "../../providers/provider.js";
+import type { Issue } from "../../providers/provider.js";
+import type { IssueWriter, LabelProjector } from "../../providers/capabilities.js";
 import type { Project } from "../../projects/index.js";
 
 export type CreatedManagedTask = {
@@ -26,7 +27,7 @@ export async function createManagedTaskIssue(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug" | "channels">;
   providerType: "github" | "gitlab";
-  provider: Pick<IssueProvider, "createIssue" | "addLabel" | "ensureLabel" | "editIssue">;
+  provider: Pick<IssueWriter, "createIssue" | "editIssue"> & Pick<LabelProjector, "addLabel" | "ensureLabel">;
   workflow: WorkflowConfig;
   title: string;
   description: string;

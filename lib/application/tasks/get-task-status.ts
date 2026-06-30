@@ -1,5 +1,5 @@
 import { readIssueStateStore } from "../../issues/index.js";
-import type { Issue } from "../../providers/provider.js";
+import type { IssueReader } from "../../providers/capabilities.js";
 import { StateType, type WorkflowConfig } from "../../workflow/index.js";
 import {
   loadProjectionViewContext,
@@ -28,7 +28,7 @@ export async function getManagedTaskStatus(opts: {
   projectSlug: string;
   workflow: WorkflowConfig;
   roles: string[];
-  provider: Pick<{ getIssue(issueId: number): Promise<Issue> }, "getIssue">;
+  provider: Pick<IssueReader, "getIssue">;
 }): Promise<TaskStatusResult> {
   const statesByType = getWorkflowStateLabelsByType(opts.workflow);
   const projectionCtx = await loadProjectionViewContext({
@@ -73,7 +73,7 @@ function getWorkflowStateLabelsByType(workflow: WorkflowConfig) {
 async function summarizeStateBucket(
   statesByType: Array<{ label: string }>,
   openLocalStates: Awaited<ReturnType<typeof readIssueStateStore>>["issues"][string][],
-  provider: Pick<{ getIssue(issueId: number): Promise<Issue> }, "getIssue">,
+  provider: Pick<IssueReader, "getIssue">,
   projectionCtx: Awaited<ReturnType<typeof loadProjectionViewContext>>,
 ): Promise<StateBucket> {
   const bucket: StateBucket = {};

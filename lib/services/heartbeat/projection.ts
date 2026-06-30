@@ -5,6 +5,7 @@ import { log as auditLog } from "../../audit.js";
 import { readIssueStateStore, updateIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
 import type { Project } from "../../projects/index.js";
 import type { IssueProvider } from "../../providers/provider.js";
+import type { IssueReader, LabelProjector } from "../../providers/capabilities.js";
 import {
   diffIssueProjection,
   extractIssueMetadata,
@@ -38,7 +39,7 @@ export type ProjectionIntegrityResult = {
 export async function projectionIntegrityPass(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug">;
-  provider: Pick<IssueProvider, "getIssue" | "addLabel" | "removeLabels">;
+  provider: Pick<IssueReader, "getIssue"> & Pick<LabelProjector, "addLabel" | "removeLabels">;
   workflow: WorkflowConfig;
   roles: string[];
 }): Promise<ProjectionIntegrityResult> {

@@ -2,6 +2,8 @@
  * Provider factory — auto-detects GitHub vs GitLab from git remote.
  */
 import type { IssueProvider } from "./provider.js";
+export type * from "./capabilities.js";
+export type * from "./provider.js";
 import type { RunCommand } from "../context.js";
 import { GitLabProvider } from "./gitlab.js";
 import { GitHubProvider } from "./github.js";

@@ -3,6 +3,7 @@
  */
 import { readIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
 import type { Issue } from "../../providers/provider.js";
+import type { IssueReader } from "../../providers/capabilities.js";
 import { diffIssueProjection } from "../../projection/index.js";
 import { getStateLabels, type WorkflowConfig } from "../../workflow/index.js";
 
@@ -62,7 +63,7 @@ export function summarizeTaskIssue(issue: Issue, ctx: ProjectionViewContext): Ta
 
 export async function summarizeLocalIssueStates(
   states: IssueRuntimeState[],
-  provider: Pick<{ getIssue(issueId: number): Promise<Issue> }, "getIssue">,
+  provider: Pick<IssueReader, "getIssue">,
   projectionCtx: ProjectionViewContext,
 ): Promise<TaskIssueSummary[]> {
   const result: TaskIssueSummary[] = [];

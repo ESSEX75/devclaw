@@ -1,5 +1,5 @@
 import { readIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
-import type { Issue } from "../../providers/provider.js";
+import type { IssueReader } from "../../providers/capabilities.js";
 import { StateType, findStateByLabel, type WorkflowConfig } from "../../workflow/index.js";
 import {
   loadProjectionViewContext,
@@ -28,7 +28,7 @@ export async function listManagedTasks(opts: {
   projectSlug: string;
   workflow: WorkflowConfig;
   roles: string[];
-  provider: Pick<{ getIssue(issueId: number): Promise<Issue> }, "getIssue">;
+  provider: Pick<IssueReader, "getIssue">;
   stateType?: string;
   label?: string;
   search?: string;
