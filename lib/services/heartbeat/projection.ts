@@ -2,7 +2,8 @@
  * projection.ts — Heartbeat projection integrity pass.
  */
 import { log as auditLog } from "../../audit.js";
-import { readIssueStateStore, updateIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
+import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
+import type { IssueRuntimeState } from "../../issues/types.js";
 import type { Project } from "../../projects/index.js";
 import type { IssueProvider } from "../../providers/provider.js";
 import type { IssueReader, LabelProjector } from "../../providers/capabilities.js";

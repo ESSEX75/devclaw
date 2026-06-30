@@ -1,10 +1,10 @@
 import type { IssueProvider } from "../../../providers/provider.js";
 import {
   getRoleWorker,
-  readProjects,
   getProject,
 } from "../../../projects/index.js";
 import type { Project } from "../../../projects/index.js";
+import { readProjects } from "../../../state/projects/index.js";
 import {
   DEFAULT_WORKFLOW,
 } from "../../../workflow/defaults.js";

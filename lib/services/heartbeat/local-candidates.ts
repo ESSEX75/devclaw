@@ -1,7 +1,8 @@
 /**
  * local-candidates.ts — Local issue-state candidate selection for heartbeat passes.
  */
-import { readIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
+import { readIssueStateStore } from "../../state/issues/index.js";
+import type { IssueRuntimeState } from "../../issues/types.js";
 import type { Issue } from "../../providers/provider.js";
 import type { IssueReader } from "../../providers/capabilities.js";
 
