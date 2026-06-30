@@ -6,10 +6,16 @@ DevClaw uses Node.js built-in test runner (`node:test`) with `node:assert/strict
 
 ```bash
 # Run all tests
-npx tsx --test lib/**/*.test.ts
+npm test
 
 # Run a specific test file
 npx tsx --test lib/roles/registry.test.ts
+
+# Run focused issue state/projection tests
+npm run test:issue-state
+
+# Run lightweight architecture diagnostics
+npm run arch:check
 
 # Run E2E tests only
 npx tsx --test lib/services/*.e2e.test.ts
@@ -17,6 +23,29 @@ npx tsx --test lib/services/*.e2e.test.ts
 # Build (also type-checks all test files)
 npm run build
 ```
+
+`node:test` via `tsx --test` is the canonical test runner for this repository.
+`npm test` discovers TypeScript test files that import `node:test` and runs
+them with `tsx --test`. Vitest is not the project runner for current canonical
+tests.
+
+`npm run arch:check` runs in warn-only mode so known refactor targets such as
+existing import cycles are visible without blocking this first safety-rail step.
+Use `npm run arch:check:strict` when a refactor step is ready to enforce a clean
+architecture report.
+
+### Current Known Failures
+
+`npm test` currently exposes pre-existing source-test failures that are outside
+the first architecture guard step:
+
+- Tests importing `lib/setup/templates.ts` directly fail because source execution
+  resolves package defaults under `lib/defaults/`, while the built plugin resolves
+  them from `dist/../defaults/`.
+- `lib/tools/worker/work-finish.test.ts` writes `devclaw/log/audit.log` without
+  first creating the `devclaw/log/` directory in several cases.
+- A few legacy tests still use Vitest-style imports and are intentionally not
+  selected by the canonical `node:test` runner.
 
 ## Test Files
 
