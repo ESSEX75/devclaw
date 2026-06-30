@@ -4,7 +4,8 @@
 import { writeIssueRuntimeState, type IssueProvider as IssueProviderKind } from "../../issues/index.js";
 import type { Project } from "../../projects/index.js";
 import type { Issue } from "../../providers/provider.js";
-import { getStateLabels, type WorkflowConfig } from "../../workflow/index.js";
+import type { WorkflowConfig } from "../../workflow/types.js";
+import { getStateLabels } from "../../workflow/queries.js";
 
 export async function writeHeartbeatTransitionState(opts: {
   workspaceDir: string;

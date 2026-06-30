@@ -3,11 +3,17 @@ import type { Project } from "../../../projects/index.js";
 import { log as auditLog } from "../../../audit.js";
 import {
   DEFAULT_WORKFLOW,
+} from "../../../workflow/defaults.js";
+import {
   getStateLabels,
+} from "../../../workflow/queries.js";
+import {
   isOwnedByOrUnclaimed,
-  type WorkflowConfig,
-  type Role,
-} from "../../../workflow/index.js";
+} from "../../../workflow/labels.js";
+import type {
+  WorkflowConfig,
+  Role,
+} from "../../../workflow/types.js";
 import type { HealthFix } from "./types.js";
 
 /**

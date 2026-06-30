@@ -4,7 +4,7 @@
  * A single workflow.yaml combines roles, models, and workflow.
  * Three-layer resolution: built-in → workspace → per-project.
  */
-import type { WorkflowConfig } from "../workflow/index.js";
+import type { WorkflowConfig } from "../workflow/types.js";
 
 /**
  * Role override in workflow.yaml. All fields optional — only override what you need.
@@ -49,12 +49,15 @@ export type InstanceConfig = {
  * The full workflow.yaml shape.
  * All fields optional — missing fields inherit from the layer below.
  */
-export type DevClawConfig = {
+export type RawConfig = {
   roles?: Record<string, RoleOverride | false>;
   workflow?: Partial<WorkflowConfig>;
   timeouts?: TimeoutConfig;
   instance?: InstanceConfig;
 };
+
+export type ValidatedConfig = RawConfig;
+export type DevClawConfig = ValidatedConfig;
 
 /**
  * Fully resolved timeout config — all fields present with defaults.

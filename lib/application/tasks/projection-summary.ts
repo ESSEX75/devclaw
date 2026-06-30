@@ -5,7 +5,8 @@ import { readIssueStateStore, type IssueRuntimeState } from "../../issues/index.
 import type { Issue } from "../../providers/provider.js";
 import type { IssueReader } from "../../providers/capabilities.js";
 import { diffIssueProjection } from "../../projection/index.js";
-import { getStateLabels, type WorkflowConfig } from "../../workflow/index.js";
+import type { WorkflowConfig } from "../../workflow/types.js";
+import { getStateLabels } from "../../workflow/queries.js";
 
 export type TaskIssueProjectionView = {
   providerLabels: string[];

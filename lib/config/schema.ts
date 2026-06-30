@@ -6,7 +6,7 @@
  * terminal states have no outgoing transitions.
  */
 import { z } from "zod";
-import { StateType } from "../workflow/index.js";
+import { StateType } from "../workflow/types.js";
 
 const STATE_TYPES = Object.values(StateType) as [string, ...string[]];
 

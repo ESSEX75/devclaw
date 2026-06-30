@@ -7,9 +7,8 @@ import {
   findStateByLabel,
   findStateKeyByLabel,
   getCurrentStateLabel,
-  type WorkflowConfig,
-  type StateConfig,
-} from "../workflow/index.js";
+} from "../workflow/queries.js";
+import type { WorkflowConfig, StateConfig } from "../workflow/types.js";
 import { readIssueStateStore } from "./state.js";
 import type { WorkflowLabel, WorkflowStateKey } from "../domain/ids.js";
 import type { IssueRuntimeState } from "./types.js";

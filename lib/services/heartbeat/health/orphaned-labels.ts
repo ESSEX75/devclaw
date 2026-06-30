@@ -3,17 +3,23 @@ import {
   getRoleWorker,
   readProjects,
   getProject,
-  type Project,
 } from "../../../projects/index.js";
+import type { Project } from "../../../projects/index.js";
 import {
   DEFAULT_WORKFLOW,
+} from "../../../workflow/defaults.js";
+import {
   getActiveLabel,
   getRevertLabel,
   hasWorkflowStates,
+} from "../../../workflow/queries.js";
+import {
   isOwnedByOrUnclaimed,
-  type WorkflowConfig,
-  type Role,
-} from "../../../workflow/index.js";
+} from "../../../workflow/labels.js";
+import type {
+  WorkflowConfig,
+  Role,
+} from "../../../workflow/types.js";
 import type { HealthFix } from "./types.js";
 import { resolveOrphanRevertLabel } from "./issue-utils.js";
 

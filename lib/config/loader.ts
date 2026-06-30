@@ -11,9 +11,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
 import { ROLE_REGISTRY } from "../roles/registry.js";
-import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../workflow/index.js";
+import { DEFAULT_WORKFLOW } from "../workflow/defaults.js";
+import type { WorkflowConfig } from "../workflow/types.js";
 import { mergeConfig } from "./merge.js";
-import type { DevClawConfig, ResolvedConfig, ResolvedRoleConfig, ResolvedTimeouts, RoleOverride, ModelEntry } from "./types.js";
+import type { DevClawConfig, RawConfig, ResolvedConfig, ResolvedRoleConfig, ResolvedTimeouts, RoleOverride, ModelEntry } from "./types.js";
 import { validateConfig, validateWorkflowIntegrity } from "./schema.js";
 import { DATA_DIR } from "../setup/migrate-layout.js";
 
@@ -192,9 +193,9 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 async function readWorkflowFile(dir: string): Promise<DevClawConfig | null> {
   try {
     const content = await fs.readFile(path.join(dir, "workflow.yaml"), "utf-8");
-    const parsed = YAML.parse(content);
+    const parsed = YAML.parse(content) as RawConfig | null;
     if (parsed) validateConfig(parsed);
-    return parsed as DevClawConfig;
+    return parsed;
   } catch (err) {
     const error = err as NodeJS.ErrnoException | { name?: string; message?: string };
     if ('code' in error && error.code === "ENOENT") return null;

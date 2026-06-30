@@ -12,10 +12,9 @@ import { getLevelsForRole, getAllLevels } from "../roles/index.js";
 import {
   getQueueLabels,
   detectRoleFromLabel as workflowDetectRole,
-  isOwnedByOrUnclaimed,
-  type WorkflowConfig,
-  type Role,
-} from "../workflow/index.js";
+} from "../workflow/queries.js";
+import { isOwnedByOrUnclaimed } from "../workflow/labels.js";
+import type { WorkflowConfig, Role } from "../workflow/types.js";
 
 // ---------------------------------------------------------------------------
 // Label detection

@@ -1,11 +1,10 @@
 import type { StateLabel, IssueProvider, Issue } from "../../../providers/provider.js";
 import { PrState } from "../../../providers/provider.js";
-import {
-  getQueueLabels,
-  isFeedbackState,
-  type WorkflowConfig,
-  type Role,
-} from "../../../workflow/index.js";
+import { getQueueLabels, isFeedbackState } from "../../../workflow/queries.js";
+import type {
+  WorkflowConfig,
+  Role,
+} from "../../../workflow/types.js";
 
 /**
  * Fetch current issue state from the provider.

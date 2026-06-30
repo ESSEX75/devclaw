@@ -29,18 +29,22 @@ import {
   getRoleWorker,
   updateSlot,
   deactivateWorker,
-  type Project,
 } from "../../../projects/index.js";
+import type { Project } from "../../../projects/index.js";
 import { log as auditLog } from "../../../audit.js";
 import {
   DEFAULT_WORKFLOW,
+} from "../../../workflow/defaults.js";
+import {
   getActiveLabel,
   getRevertLabel,
   hasWorkflowStates,
   getCurrentStateLabel,
-  type WorkflowConfig,
-  type Role,
-} from "../../../workflow/index.js";
+} from "../../../workflow/queries.js";
+import type {
+  WorkflowConfig,
+  Role,
+} from "../../../workflow/types.js";
 import { isSessionAlive, type SessionLookup } from "./gateway-sessions.js";
 import { sendToAgent } from "../../../dispatch/session.js";
 import type { RunCommand } from "../../../context.js";
@@ -48,8 +52,8 @@ import {
   GRACE_PERIOD_MS,
   NUDGE_MESSAGE,
   STALL_CONTEXT_THRESHOLD,
-  type HealthFix,
 } from "./types.js";
+import type { HealthFix } from "./types.js";
 import { fetchIssue, isIssueClosed } from "./issue-utils.js";
 
 // ---------------------------------------------------------------------------
