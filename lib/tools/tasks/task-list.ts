@@ -9,9 +9,7 @@ import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { loadConfig } from "../../config/index.js";
-import { StateType, findStateByLabel } from "../../workflow/index.js";
-import { loadProjectionViewContext, summarizeTaskIssue, type TaskIssueSummary } from "./projection-view.js";
-import { readIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
+import { listManagedTasks } from "../../application/tasks/index.js";
 
 export function createTaskListTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -57,119 +55,33 @@ export function createTaskListTool(ctx: PluginContext) {
       const { project } = await resolveProject(workspaceDir, channelId);
       const { provider } = await resolveProvider(project, ctx.runCommand);
       const projectConfig = await loadConfig(workspaceDir, project.name);
-      const workflow = projectConfig.workflow;
-      const projectionCtx = await loadProjectionViewContext({
+      const result = await listManagedTasks({
         workspaceDir,
         projectSlug: project.slug,
-        workflow,
+        workflow: projectConfig.workflow,
         roles: Object.keys(projectConfig.roles),
+        provider,
+        stateType,
+        label,
+        search,
+        limit,
       });
-      const store = await readIssueStateStore(workspaceDir, project.slug);
-      const localStates = Object.values(store.issues)
-        .filter((state) => state.managed && state.archivedAt == null);
-
-      // Determine which labels to fetch
-      type FetchEntry = { label: string; type: string; role?: string; issueState: "open" | "closed" | "all" };
-      const labelsToFetch: FetchEntry[] = [];
-
-      if (label) {
-        const stateConfig = findStateByLabel(workflow, label);
-        if (!stateConfig) throw new Error(`Unknown state label "${label}". Check workflow_guide for valid states.`);
-        labelsToFetch.push({
-          label: stateConfig.label,
-          type: stateConfig.type,
-          role: stateConfig.role,
-          issueState: stateConfig.type === StateType.TERMINAL ? "closed" : "open",
-        });
-      } else {
-        const includeTerminal = stateType === "terminal" || stateType === "all";
-        for (const state of Object.values(workflow.states)) {
-          if (state.type === StateType.TERMINAL && !includeTerminal) continue;
-          if (stateType && stateType !== "all" && state.type !== stateType) continue;
-          labelsToFetch.push({
-            label: state.label,
-            type: state.type,
-            role: state.role,
-            issueState: state.type === StateType.TERMINAL ? "closed" : "open",
-          });
-        }
-      }
-
-      // Fetch and filter
-      const searchLower = search?.toLowerCase();
-      const results: Array<{
-        label: string;
-        type: string;
-        role?: string;
-        issues: TaskIssueSummary[];
-        total: number;
-      }> = [];
-
-      for (const entry of labelsToFetch) {
-        let states = localStates.filter((state) => state.workflowLabel === entry.label);
-
-        if (searchLower) {
-          const filtered: IssueRuntimeState[] = [];
-          for (const state of states) {
-            const issue = await provider.getIssue(state.issueId).catch(() => null);
-            if ((issue?.title ?? `Issue #${state.issueId}`).toLowerCase().includes(searchLower)) {
-              filtered.push(state);
-            }
-          }
-          states = filtered;
-        }
-
-        const total = states.length;
-        const limited = states.slice(0, limit);
-
-        results.push({
-          label: entry.label,
-          type: entry.type,
-          role: entry.role,
-          issues: await summarizeLocalStates(limited, provider, projectionCtx),
-          total,
-        });
-      }
-
-      // Only include states that have issues (unless a specific label was requested)
-      const nonEmpty = label ? results : results.filter((r) => r.total > 0);
-      const totalIssues = results.reduce((sum, r) => sum + r.total, 0);
 
       await auditLog(workspaceDir, "task_list", {
         project: project.name,
         stateType: stateType ?? (label ? undefined : "non-terminal"),
         label,
         search,
-        totalIssues,
+        totalIssues: result.totalIssues,
       });
 
       return jsonResult({
         success: true,
         project: project.name,
-        filter: { stateType: stateType ?? null, label: label ?? null, search: search ?? null },
-        states: nonEmpty,
-        totalIssues,
+        filter: result.filter,
+        states: result.states,
+        totalIssues: result.totalIssues,
       });
     },
   });
-}
-
-async function summarizeLocalStates(
-  states: IssueRuntimeState[],
-  provider: Awaited<ReturnType<typeof resolveProvider>>["provider"],
-  projectionCtx: Awaited<ReturnType<typeof loadProjectionViewContext>>,
-): Promise<TaskIssueSummary[]> {
-  const result: TaskIssueSummary[] = [];
-  for (const state of states.sort((a, b) => a.issueId - b.issueId)) {
-    const issue = await provider.getIssue(state.issueId).catch(() => ({
-      iid: state.issueId,
-      title: `Issue #${state.issueId}`,
-      description: "",
-      labels: [],
-      state: "unknown",
-      web_url: "",
-    }));
-    result.push(summarizeTaskIssue(issue, projectionCtx));
-  }
-  return result;
 }

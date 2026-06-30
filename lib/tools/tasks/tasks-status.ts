@@ -7,13 +7,9 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
-import { getStateLabelsByType } from "../../services/queue.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 import { loadConfig } from "../../config/index.js";
-import { loadProjectionViewContext, summarizeTaskIssue, type TaskIssueSummary } from "./projection-view.js";
-import { readIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
-
-type IssueSummary = TaskIssueSummary;
+import { getManagedTaskStatus } from "../../application/tasks/index.js";
 
 export function createTasksStatusTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -42,94 +38,30 @@ export function createTasksStatusTool(ctx: PluginContext) {
       const { provider } = await resolveProvider(project, ctx.runCommand);
 
       const projectConfig = await loadConfig(workspaceDir, project.name);
-      const workflow = projectConfig.workflow;
-      const statesByType = getStateLabelsByType(workflow);
-      const projectionCtx = await loadProjectionViewContext({
+      const status = await getManagedTaskStatus({
         workspaceDir,
         projectSlug: project.slug,
-        workflow,
+        workflow: projectConfig.workflow,
         roles: Object.keys(projectConfig.roles),
+        provider,
       });
-      const store = await readIssueStateStore(workspaceDir, project.slug);
-      const openLocalStates = Object.values(store.issues)
-        .filter((state) => state.managed && state.archivedAt == null && state.closedAt == null);
-
-      // Fetch issues for each state type
-      const hold: Record<string, { count: number; issues: IssueSummary[] }> = {};
-      for (const { label } of statesByType.hold) {
-        const issues = await summarizeLocalStates(openLocalStates.filter((state) => state.workflowLabel === label), provider, projectionCtx);
-        hold[label] = {
-          count: issues.length,
-          issues,
-        };
-      }
-
-      const active: Record<string, { count: number; issues: IssueSummary[] }> = {};
-      for (const { label } of statesByType.active) {
-        const issues = await summarizeLocalStates(openLocalStates.filter((state) => state.workflowLabel === label), provider, projectionCtx);
-        active[label] = {
-          count: issues.length,
-          issues,
-        };
-      }
-
-      const queue: Record<string, { count: number; issues: IssueSummary[] }> = {};
-      for (const { label } of statesByType.queue) {
-        const issues = await summarizeLocalStates(openLocalStates.filter((state) => state.workflowLabel === label), provider, projectionCtx);
-        queue[label] = {
-          count: issues.length,
-          issues,
-        };
-      }
-
-      // Totals
-      const totalHold = Object.values(hold).reduce((s, c) => s + c.count, 0);
-      const totalActive = Object.values(active).reduce((s, c) => s + c.count, 0);
-      const totalQueued = Object.values(queue).reduce((s, c) => s + c.count, 0);
 
       await auditLog(workspaceDir, "tasks_status", {
         project: project.name,
-        totalHold,
-        totalActive,
-        totalQueued,
+        totalHold: status.summary.totalHold,
+        totalActive: status.summary.totalActive,
+        totalQueued: status.summary.totalQueued,
       });
-
-      // State labels for context
-      const stateLabels = {
-        hold: statesByType.hold.map((s) => ({ label: s.label, hint: "waiting for input" })),
-        active: statesByType.active.map((s) => ({ label: s.label, role: s.role })),
-        queue: statesByType.queue.map((s) => ({ label: s.label, role: s.role, priority: s.priority })),
-      };
 
       return jsonResult({
         success: true,
         project: project.name,
-        stateLabels,
-        summary: { totalHold, totalActive, totalQueued },
-        hold,
-        active,
-        queue,
+        stateLabels: status.stateLabels,
+        summary: status.summary,
+        hold: status.hold,
+        active: status.active,
+        queue: status.queue,
       });
     },
   });
-}
-
-async function summarizeLocalStates(
-  states: IssueRuntimeState[],
-  provider: Awaited<ReturnType<typeof resolveProvider>>["provider"],
-  projectionCtx: Awaited<ReturnType<typeof loadProjectionViewContext>>,
-): Promise<IssueSummary[]> {
-  const result: IssueSummary[] = [];
-  for (const state of states.sort((a, b) => a.issueId - b.issueId)) {
-    const issue = await provider.getIssue(state.issueId).catch(() => ({
-      iid: state.issueId,
-      title: `Issue #${state.issueId}`,
-      description: "",
-      labels: [],
-      state: "unknown",
-      web_url: "",
-    }));
-    result.push(summarizeTaskIssue(issue, projectionCtx));
-  }
-  return result;
 }

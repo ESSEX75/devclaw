@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import type { IssueRuntimeState } from "../../issues/index.js";
 import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
-import { summarizeTaskIssue, type ProjectionViewContext } from "./projection-view.js";
+import { summarizeTaskIssue, type ProjectionViewContext } from "../../application/tasks/index.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
