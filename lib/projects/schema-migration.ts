@@ -5,7 +5,7 @@
  * Separated from projects.ts to keep core logic clean.
  */
 import type { ProjectsData, Channel, LegacyProject, Project } from "./types.js";
-import { resolveRepoPath } from "./io.js";
+import { resolveRepoPath } from "./paths.js";
 import type { RunCommand } from "../context.js";
 
 /** Get first start time from a worker state (handles both old slots and new levels format). */

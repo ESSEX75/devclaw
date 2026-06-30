@@ -39,11 +39,12 @@ architecture report.
 `npm test` currently exposes pre-existing source-test failures that are outside
 the first architecture guard step:
 
-- Tests importing `lib/setup/templates.ts` directly fail because source execution
-  resolves package defaults under `lib/defaults/`, while the built plugin resolves
-  them from `dist/../defaults/`.
 - `lib/tools/worker/work-finish.test.ts` writes `devclaw/log/audit.log` without
   first creating the `devclaw/log/` directory in several cases.
+- Bootstrap tests still expect empty instructions when workspace prompt files are
+  missing, while current runtime falls back to packaged role defaults.
+- Several pipeline E2E assertions are out of sync with current session reuse and
+  review-policy behavior.
 - A few legacy tests still use Vitest-style imports and are intentionally not
   selected by the canonical `node:test` runner.
 

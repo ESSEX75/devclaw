@@ -2,13 +2,11 @@
  * projects/io.ts — File I/O and locking for projects.json.
  */
 import fs from "node:fs/promises";
-import path from "node:path";
-import { homedir } from "node:os";
 import { migrateProject } from "./migrations.js";
-import { ensureWorkspaceMigrated, DATA_DIR } from "../setup/migrate-layout.js";
+import { ensureWorkspaceMigrated } from "../setup/migrate-layout.js";
 import { isLegacySchema, migrateLegacySchema } from "./schema-migration.js";
 import type { ProjectsData, Project } from "./types.js";
-import { emptySlot } from "./slots.js";
+import { projectsPath, resolveRepoPath } from "./paths.js";
 
 
 // ---------------------------------------------------------------------------
@@ -61,10 +59,6 @@ export async function releaseLock(workspaceDir: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // Read / Write
 // ---------------------------------------------------------------------------
-
-function projectsPath(workspaceDir: string): string {
-  return path.join(workspaceDir, DATA_DIR, "projects.json");
-}
 
 export async function readProjects(workspaceDir: string): Promise<ProjectsData> {
   await ensureWorkspaceMigrated(workspaceDir);
@@ -148,12 +142,4 @@ export async function loadProjectBySlug(
   return getProject(data, slug);
 }
 
-/**
- * Resolve repo path from projects.json repo field (handles ~/ expansion).
- */
-export function resolveRepoPath(repoField: string): string {
-  if (repoField.startsWith("~/")) {
-    return repoField.replace("~", homedir());
-  }
-  return repoField;
-}
+export { resolveRepoPath };
