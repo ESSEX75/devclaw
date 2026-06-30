@@ -6,7 +6,6 @@
  *   2. Workspace: <workspace>/devclaw/workflow.yaml
  *   3. Project:   <workspace>/devclaw/projects/<project>/workflow.yaml
  *
- * Also supports legacy config.yaml and workflow.json for backward compat.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -35,36 +34,17 @@ export async function loadConfig(
 
   // Layer 2: workspace workflow.yaml (in devclaw/ data dir)
   let merged = builtIn;
-  const workspaceConfig =
-    await readWorkflowFile(dataDir) ??
-    await readLegacyConfigFile(path.join(workspaceDir, "projects"));
+  const workspaceConfig = await readWorkflowFile(dataDir);
   if (workspaceConfig) {
     merged = mergeConfig(merged, workspaceConfig);
-  }
-
-  // Legacy: standalone workflow.json (only if no workflow section found)
-  if (!workspaceConfig?.workflow) {
-    const legacyWorkflow = await readLegacyWorkflowJson(projectsDir);
-    if (legacyWorkflow) {
-      merged = mergeConfig(merged, { workflow: legacyWorkflow });
-    }
   }
 
   // Layer 3: project workflow.yaml
   if (projectName) {
     const projectDir = path.join(projectsDir, projectName);
-    const projectConfig =
-      await readWorkflowFile(projectDir) ??
-      await readLegacyConfigFile(projectDir);
+    const projectConfig = await readWorkflowFile(projectDir);
     if (projectConfig) {
       merged = mergeConfig(merged, projectConfig);
-    }
-
-    if (!projectConfig?.workflow) {
-      const legacyWorkflow = await readLegacyWorkflowJson(projectDir);
-      if (legacyWorkflow) {
-        merged = mergeConfig(merged, { workflow: legacyWorkflow });
-      }
     }
   }
 
@@ -224,25 +204,4 @@ async function readWorkflowFile(dir: string): Promise<DevClawConfig | null> {
     }
     return null;
   }
-}
-
-/** Read config.yaml (old name, fallback for unmigrated workspaces). */
-async function readLegacyConfigFile(dir: string): Promise<DevClawConfig | null> {
-  try {
-    const content = await fs.readFile(path.join(dir, "config.yaml"), "utf-8");
-    return YAML.parse(content) as DevClawConfig;
-  } catch { /* not found */ }
-  return null;
-}
-
-/** Read legacy workflow.json (standalone workflow section only). */
-async function readLegacyWorkflowJson(dir: string): Promise<Partial<WorkflowConfig> | null> {
-  try {
-    const content = await fs.readFile(path.join(dir, "workflow.json"), "utf-8");
-    const parsed = JSON.parse(content) as
-      | Partial<WorkflowConfig>
-      | { workflow?: Partial<WorkflowConfig> };
-    return 'workflow' in parsed && parsed.workflow ? parsed.workflow : (parsed as Partial<WorkflowConfig>);
-  } catch { /* not found */ }
-  return null;
 }

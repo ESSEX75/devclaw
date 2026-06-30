@@ -58,7 +58,7 @@ roles:
 | `emoji` | Record<string, string> | Emoji per level for announcements |
 | `completionResults` | string[] | Valid completion results |
 
-Per-level worker capacity is resolved from `roles.<role>.models.<level>.maxWorkers`, then `workflow.maxWorkersPerLevel`, then the built-in default. The legacy role-level `maxWorkers` field is kept only for backward compatibility and is ignored by the resolver.
+Per-level worker capacity is resolved from `roles.<role>.models.<level>.maxWorkers`, then `workflow.maxWorkersPerLevel`, then the built-in default.
 
 **Default models:**
 

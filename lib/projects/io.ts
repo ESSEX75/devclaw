@@ -2,9 +2,7 @@
  * projects/io.ts — File I/O and locking for projects.json.
  */
 import fs from "node:fs/promises";
-import { migrateProject } from "./migrations.js";
 import { ensureWorkspaceMigrated } from "../setup/migrate-layout.js";
-import { isLegacySchema, migrateLegacySchema } from "./schema-migration.js";
 import type { ProjectsData, Project } from "./types.js";
 import { projectsPath, resolveRepoPath } from "./paths.js";
 
@@ -63,27 +61,7 @@ export async function releaseLock(workspaceDir: string): Promise<void> {
 export async function readProjects(workspaceDir: string): Promise<ProjectsData> {
   await ensureWorkspaceMigrated(workspaceDir);
   const raw = await fs.readFile(projectsPath(workspaceDir), "utf-8");
-  let data = JSON.parse(raw) as unknown;
-
-  // Auto-migrate legacy schema to new schema
-  if (isLegacySchema(data)) {
-    data = await migrateLegacySchema(data);
-    // Write migrated schema back to disk
-    await writeProjects(workspaceDir, data as ProjectsData);
-  }
-
-  const typedData = data as ProjectsData;
-
-  // Apply per-project migrations and persist if any changed
-  let migrated = false;
-  for (const project of Object.values(typedData.projects)) {
-    if (migrateProject(project)) migrated = true;
-  }
-  if (migrated) {
-    await writeProjects(workspaceDir, typedData);
-  }
-
-  return typedData;
+  return JSON.parse(raw) as ProjectsData;
 }
 
 export async function writeProjects(
@@ -96,10 +74,7 @@ export async function writeProjects(
   await fs.rename(tmpPath, filePath);
 }
 
-/**
- * Resolve a project by slug or channelId (for backward compatibility).
- * Returns the slug of the found project.
- */
+/** Resolve a project by slug or channelId. Returns the slug of the found project. */
 export function resolveProjectSlug(
   data: ProjectsData,
   slugOrChannelId: string,
@@ -109,7 +84,7 @@ export function resolveProjectSlug(
     return slugOrChannelId;
   }
 
-  // Reverse lookup by channelId in channels
+  // Reverse lookup by channelId in current project-first schema.
   for (const [slug, project] of Object.entries(data.projects)) {
     if (project.channels.some(ch => ch.channelId === slugOrChannelId)) {
       return slug;
@@ -120,7 +95,7 @@ export function resolveProjectSlug(
 }
 
 /**
- * Get a project by slug or channelId (dual-mode resolution).
+ * Get a project by slug or channelId.
  */
 export function getProject(
   data: ProjectsData,

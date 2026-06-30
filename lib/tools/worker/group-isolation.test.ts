@@ -3,7 +3,7 @@
  *
  * Covers:
  * - getNotifyLabel / NOTIFY_LABEL_PREFIX / NOTIFY_LABEL_COLOR
- * - resolveNotifyChannel (new format + legacy backward compat)
+ * - resolveNotifyChannel
  *
  * Run with: npx tsx --test lib/tools/worker/group-isolation.test.ts
  */
@@ -84,35 +84,5 @@ describe("resolveNotifyChannel (new format)", () => {
   it("should return undefined when channels is empty", () => {
     const result = resolveNotifyChannel(["To Do", "notify:telegram:primary"], []);
     assert.strictEqual(result, undefined);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// resolveNotifyChannel — legacy format (notify:{channelId})
-// ---------------------------------------------------------------------------
-
-describe("resolveNotifyChannel (legacy format)", () => {
-  const channels: Array<Omit<Channel, "events">> = [
-    { channelId: "-111", channel: "telegram", name: "primary" },
-    { channelId: "-222", channel: "whatsapp", name: "dev-chat" },
-  ];
-
-  it("should resolve channel matching legacy notify label", () => {
-    const result = resolveNotifyChannel(["To Do", "notify:-222"], channels);
-    assert.ok(result);
-    assert.strictEqual(result!.channelId, "-222");
-    assert.strictEqual(result!.channel, "whatsapp");
-  });
-
-  it("should fall back to first channel when legacy label matches unknown channelId", () => {
-    const result = resolveNotifyChannel(["To Do", "notify:-999"], channels);
-    assert.ok(result);
-    assert.strictEqual(result!.channelId, "-111");
-  });
-
-  it("should return first channel when no notify label and multiple channels", () => {
-    const result = resolveNotifyChannel(["To Do"], channels);
-    assert.ok(result);
-    assert.strictEqual(result!.channelId, "-111");
   });
 });

@@ -35,7 +35,7 @@ export function resolveChannelId(_ctx: OpenClawPluginToolContext, explicitChanne
 }
 
 /**
- * Resolve project by channelId (or slug for backward compat).
+ * Resolve project by channelId or project slug.
  * Throws with actionable guidance if not found.
  */
 export async function resolveProject(

@@ -18,7 +18,6 @@ import {
   getDefaultModel,
   getAllDefaultModels,
   resolveModel,
-  canonicalLevel,
   getEmoji,
   getFallbackEmoji,
   getCompletionResults,
@@ -97,36 +96,6 @@ describe("levels", () => {
   });
 });
 
-describe("level aliases", () => {
-  it("should map old developer level names", () => {
-    assert.strictEqual(canonicalLevel("developer", "mid"), "medior");
-    assert.strictEqual(canonicalLevel("developer", "junior"), "junior");
-    assert.strictEqual(canonicalLevel("developer", "senior"), "senior");
-  });
-
-  it("should map old dev role level names", () => {
-    assert.strictEqual(canonicalLevel("dev", "mid"), "medior");
-    assert.strictEqual(canonicalLevel("dev", "medior"), "medior");
-  });
-
-  it("should map old qa/tester level names", () => {
-    assert.strictEqual(canonicalLevel("tester", "mid"), "medior");
-    assert.strictEqual(canonicalLevel("tester", "reviewer"), "medior");
-    assert.strictEqual(canonicalLevel("qa", "reviewer"), "medior");
-    assert.strictEqual(canonicalLevel("qa", "tester"), "junior");
-  });
-
-  it("should map old architect level names", () => {
-    assert.strictEqual(canonicalLevel("architect", "opus"), "senior");
-    assert.strictEqual(canonicalLevel("architect", "sonnet"), "junior");
-  });
-
-  it("should pass through unknown levels", () => {
-    assert.strictEqual(canonicalLevel("developer", "custom"), "custom");
-    assert.strictEqual(canonicalLevel("unknown", "whatever"), "whatever");
-  });
-});
-
 describe("models", () => {
   it("should return default models", () => {
     assert.strictEqual(getDefaultModel("developer", "junior"), "anthropic/claude-haiku-4-5");
@@ -154,14 +123,6 @@ describe("models", () => {
 
   it("should pass through unknown level as model ID", () => {
     assert.strictEqual(resolveModel("developer", "anthropic/claude-opus-4-6"), "anthropic/claude-opus-4-6");
-  });
-
-  it("should resolve via level aliases", () => {
-    // "mid" alias maps to "medior" — should resolve to default medior model
-    assert.strictEqual(resolveModel("developer", "mid"), "anthropic/claude-sonnet-4-5");
-    // With explicit override in resolved config
-    const resolvedRole = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { medior: "custom/old-config-model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completionResults: [] as string[], enabled: true };
-    assert.strictEqual(resolveModel("developer", "mid", resolvedRole), "custom/old-config-model");
   });
 
   it("should resolve with resolved role overriding defaults selectively", () => {

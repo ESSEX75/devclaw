@@ -14,7 +14,6 @@ import type { WorkflowConfig } from "../workflow/index.js";
 export type ModelEntry = string | { model: string; maxWorkers?: number };
 
 export type RoleOverride = {
-  maxWorkers?: number; // @deprecated — kept for backward compat, ignored by resolver
   levels?: string[];
   defaultLevel?: string;
   models?: Record<string, ModelEntry>;

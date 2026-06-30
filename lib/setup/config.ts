@@ -61,7 +61,7 @@ export async function writePluginConfig(
     config.plugins.entries.devclaw.config.projectExecution = projectExecution;
   }
 
-  // Clean up legacy models from openclaw.json (moved to workflow.yaml)
+  // Remove plugin-local model config; models are owned by workflow.yaml.
   if (config.plugins?.entries?.devclaw?.config) {
     delete config.plugins.entries.devclaw.config.models;
   }

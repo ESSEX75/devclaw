@@ -22,11 +22,9 @@ import { DEFAULT_ROLE_INSTRUCTIONS } from "../setup/templates.js";
  *
  * Session key format (named): `agent:{agentId}:subagent:{projectName}-{role}-{level}-{name}` (name is lowercase)
  * Session key format (numeric): `agent:{agentId}:subagent:{projectName}-{role}-{level}-{slotIndex}`
- * Session key format (legacy): `agent:{agentId}:subagent:{projectName}-{role}-{level}`
  * Examples:
  *   - `agent:devclaw:subagent:my-project-developer-medior-ada`  → { projectName: "my-project", role: "developer" }
  *   - `agent:devclaw:subagent:my-project-developer-medior-0`    → { projectName: "my-project", role: "developer" }
- *   - `agent:devclaw:subagent:webapp-tester-medior`              → { projectName: "webapp", role: "tester" } (legacy)
  *
  * Note: projectName may contain hyphens, so we match role from the end.
  */
@@ -39,11 +37,6 @@ export function parseDevClawSessionKey(
     new RegExp(`:subagent:(.+)-(${rolePattern})-[^-]+-[^-]+$`),
   );
   if (newMatch) return { projectName: newMatch[1], role: newMatch[2] };
-  // Legacy format fallback: ...-{role}-{level} (for in-flight sessions during migration)
-  const legacyMatch = sessionKey.match(
-    new RegExp(`:subagent:(.+)-(${rolePattern})-[^-]+$`),
-  );
-  if (legacyMatch) return { projectName: legacyMatch[1], role: legacyMatch[2] };
   return null;
 }
 
@@ -63,10 +56,8 @@ export type RoleInstructionsResult = {
  *
  * Resolution order:
  *   1. devclaw/projects/<project>/prompts/<role>.md  (project-specific override)
- *   2. projects/roles/<project>/<role>.md             (old project-specific)
- *   3. devclaw/prompts/<role>.md                      (workspace default)
- *   4. projects/roles/default/<role>.md               (old default)
- *   5. Package default from templates.ts              (in-memory fallback)
+ *   2. devclaw/prompts/<role>.md                      (workspace default)
+ *   3. Package default from templates.ts              (in-memory fallback)
  */
 export async function loadRoleInstructions(
   workspaceDir: string,
@@ -89,9 +80,7 @@ export async function loadRoleInstructions(
 
   const candidates = [
     path.join(dataDir, "projects", projectName, "prompts", `${role}.md`),
-    path.join(workspaceDir, "projects", "roles", projectName, `${role}.md`),
     path.join(dataDir, "prompts", `${role}.md`),
-    path.join(workspaceDir, "projects", "roles", "default", `${role}.md`),
   ];
 
   for (const filePath of candidates) {

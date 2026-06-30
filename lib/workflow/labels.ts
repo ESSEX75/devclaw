@@ -58,7 +58,7 @@ export function resolveNotifyChannel(
         (ch) => ch.channel === channelType && (ch.name === channelName || String(channels.indexOf(ch)) === channelName),
       ) ?? channels[0];
     }
-    return channels.find((ch) => ch.channelId === value) ?? channels[0];
+    return channels[0];
   }
   return channels[0];
 }

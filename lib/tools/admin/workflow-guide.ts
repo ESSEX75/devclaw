@@ -466,7 +466,10 @@ roles:
 \`\`\`yaml
 roles:
   developer:
-    maxWorkers: 3  # Allow up to 3 developers working in parallel
+    models:
+      medior:
+        model: anthropic/claude-sonnet-4-5
+        maxWorkers: 3  # Allow up to 3 medior developers in parallel
 \`\`\`
 
 ### Override timeouts for a slow repo

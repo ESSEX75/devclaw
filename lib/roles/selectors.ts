@@ -7,7 +7,6 @@
 import { ROLE_REGISTRY } from "./registry.js";
 import type { RoleConfig } from "./types.js";
 import type { ResolvedRoleConfig } from "../config/types.js";
-import { ROLE_ALIASES as _ROLE_ALIASES, canonicalLevel as _canonicalLevel } from "../projects/migrations.js";
 
 // ---------------------------------------------------------------------------
 // Role IDs
@@ -39,12 +38,6 @@ export function requireRole(role: string): RoleConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Migration aliases — re-exported from lib/migrations.ts for backward compat
-// ---------------------------------------------------------------------------
-
-export { ROLE_ALIASES, canonicalRole, LEVEL_ALIASES, canonicalLevel } from "../projects/migrations.js";
-
-// ---------------------------------------------------------------------------
 // Levels
 // ---------------------------------------------------------------------------
 
@@ -69,6 +62,14 @@ export function roleForLevel(level: string): string | undefined {
     if (config.levels.includes(level)) return roleId;
   }
   return undefined;
+}
+
+export function canonicalRole(role: string): string {
+  return role;
+}
+
+export function canonicalLevel(_role: string, level: string): string {
+  return level;
 }
 
 /** Get the default level for a role. */
@@ -107,7 +108,7 @@ export function resolveModel(
   level: string,
   resolvedRole?: ResolvedRoleConfig,
 ): string {
-  const canonical = _canonicalLevel(role, level);
+  const canonical = canonicalLevel(role, level);
 
   // 1. Resolved config (workflow.yaml — includes workspace + project overrides)
   if (resolvedRole?.models[canonical]) return resolvedRole.models[canonical];

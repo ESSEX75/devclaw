@@ -50,7 +50,6 @@ const ModelEntrySchema = z.union([
 const RoleOverrideSchema = z.union([
   z.literal(false),
   z.object({
-    maxWorkers: z.number().int().positive().optional(), // deprecated, kept for backward compat
     levels: z.array(z.string()).optional(),
     defaultLevel: z.string().optional(),
     models: z.record(z.string(), ModelEntrySchema).optional(),

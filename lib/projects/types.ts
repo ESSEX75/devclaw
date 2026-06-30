@@ -56,21 +56,6 @@ export type Project = {
   workers: Record<string, RoleWorkerState>;
 };
 
-/**
- * Legacy Project format (channelId-keyed). Used only during migration.
- */
-export type LegacyProject = {
-  name: string;
-  repo: string;
-  groupName: string;
-  deployUrl: string;
-  baseBranch: string;
-  deployBranch: string;
-  channel?: string;
-  provider?: "github" | "gitlab";
-  workers: Record<string, RoleWorkerState>;
-};
-
 export type ProjectsData = {
-  projects: Record<string, Project>; // Keyed by slug (new schema)
+  projects: Record<string, Project>; // Keyed by slug
 };

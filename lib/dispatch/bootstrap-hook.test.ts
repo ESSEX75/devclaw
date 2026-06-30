@@ -11,22 +11,22 @@ import os from "node:os";
 
 describe("parseDevClawSessionKey", () => {
   it("should parse a standard developer session key", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:my-project-developer-medior");
+    const result = parseDevClawSessionKey("agent:devclaw:subagent:my-project-developer-medior-ada");
     assert.deepStrictEqual(result, { projectName: "my-project", role: "developer" });
   });
 
   it("should parse a tester session key", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:webapp-tester-medior");
+    const result = parseDevClawSessionKey("agent:devclaw:subagent:webapp-tester-medior-0");
     assert.deepStrictEqual(result, { projectName: "webapp", role: "tester" });
   });
 
   it("should handle project names with hyphens", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:my-cool-project-developer-junior");
+    const result = parseDevClawSessionKey("agent:devclaw:subagent:my-cool-project-developer-junior-1");
     assert.deepStrictEqual(result, { projectName: "my-cool-project", role: "developer" });
   });
 
   it("should handle project names with multiple hyphens and tester role", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:a-b-c-d-tester-junior");
+    const result = parseDevClawSessionKey("agent:devclaw:subagent:a-b-c-d-tester-junior-grace");
     assert.deepStrictEqual(result, { projectName: "a-b-c-d", role: "tester" });
   });
 
@@ -45,13 +45,13 @@ describe("parseDevClawSessionKey", () => {
     assert.strictEqual(result, null);
   });
 
-  it("should parse senior developer level", () => {
+  it("should require slot suffix for senior developer level", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:devclaw-developer-senior");
-    assert.deepStrictEqual(result, { projectName: "devclaw", role: "developer" });
+    assert.strictEqual(result, null);
   });
 
   it("should parse simple project name", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:api-developer-junior");
+    const result = parseDevClawSessionKey("agent:devclaw:subagent:api-developer-junior-0");
     assert.deepStrictEqual(result, { projectName: "api", role: "developer" });
   });
 });
@@ -81,11 +81,11 @@ describe("loadRoleInstructions", () => {
     await fs.rm(tmpDir, { recursive: true });
   });
 
-  it("should return empty string when no instructions exist", async () => {
+  it("should fall back to package defaults when workspace instructions do not exist", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-test-"));
 
     const result = await loadRoleInstructions(tmpDir, "missing", "developer");
-    assert.strictEqual(result, "");
+    assert.ok(result.includes("# DEVELOPER Worker Instructions"));
 
     await fs.rm(tmpDir, { recursive: true });
   });
@@ -105,15 +105,4 @@ describe("loadRoleInstructions", () => {
     await fs.rm(tmpDir, { recursive: true });
   });
 
-  it("should fall back to old path for unmigrated workspaces", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-test-"));
-    const oldDir = path.join(tmpDir, "projects", "roles", "old-project");
-    await fs.mkdir(oldDir, { recursive: true });
-    await fs.writeFile(path.join(oldDir, "developer.md"), "Old layout instructions");
-
-    const result = await loadRoleInstructions(tmpDir, "old-project", "developer");
-    assert.strictEqual(result, "Old layout instructions");
-
-    await fs.rm(tmpDir, { recursive: true });
-  });
 });

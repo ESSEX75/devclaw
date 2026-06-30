@@ -41,11 +41,6 @@ async function resolveProjectFromChannel(
           return project as Project;
         }
       }
-      // Legacy: check top-level channelId
-      const legacy = project as Project & { channelId?: string };
-      if (legacy.channelId && String(legacy.channelId) === String(conversationId)) {
-        return project as Project;
-      }
     }
   } catch { /* no projects yet */ }
   return null;
