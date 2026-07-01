@@ -24,7 +24,7 @@
  *     considered session-dead (they may not appear in sessions yet).
  *   - abortedLastRun: indicates session hit context limit (#287, #290) — triggers immediate healing.
  */
-import type { StateLabel, IssueProvider, Issue } from "../../../providers/provider.js";
+import type { StateLabel, IssueProvider, Issue } from "../../../integrations/providers/provider.js";
 import {
   getRoleWorker,
   updateSlot,

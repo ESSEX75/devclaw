@@ -6,8 +6,8 @@
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../context.js";
-import type { Issue, IssueProvider } from "../providers/provider.js";
-import { createProvider } from "../providers/index.js";
+import type { Issue, IssueProvider } from "../integrations/providers/provider.js";
+import { createProvider } from "../integrations/providers/index.js";
 import { selectLevel } from "../roles/model-selector.js";
 import { getRoleWorker, getProject, readProjects, findFreeSlot, countActiveSlots, reconcileSlots } from "../projects/index.js";
 import { dispatchTask } from "../application/workers/dispatch-task.js";

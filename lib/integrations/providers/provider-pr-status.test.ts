@@ -4,14 +4,14 @@
  * Issue #315: getPrStatus must return a non-null url for explicitly closed PRs
  * so callers can distinguish "PR was closed without merging" vs "no PR exists".
  *
- * Run with: npx tsx --test lib/providers/provider-pr-status.test.ts
+ * Run with: npx tsx --test lib/integrations/providers/provider-pr-status.test.ts
  */
 import { describe, it, mock } from "node:test";
 import assert from "node:assert";
-import type { RunCommand } from "../context.js";
+import type { RunCommand } from "../../context.js";
 import { GitHubProvider } from "./github.js";
 import { GitLabProvider } from "./gitlab.js";
-import { PrState } from "./provider.js";
+import { PrState } from "./types.js";
 
 /** Noop runCommand for tests that mock all provider methods anyway. */
 const mockRunCommand: RunCommand = async () => ({

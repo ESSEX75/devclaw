@@ -2,7 +2,7 @@
  * issues/lifecycle.ts — Additive writes from existing issue lifecycle paths.
  */
 import type { Project } from "../projects/index.js";
-import type { Issue, IssueProvider as ProviderIssueProvider } from "../providers/provider.js";
+import type { Issue, IssueProvider as ProviderIssueProvider } from "../integrations/providers/provider.js";
 import { ReviewPolicy, TestPolicy, type WorkflowConfig } from "../domain/workflow/types.js";
 import {
   findStateKeyByLabel,

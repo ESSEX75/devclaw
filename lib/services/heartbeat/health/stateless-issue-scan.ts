@@ -1,4 +1,4 @@
-import type { IssueProvider } from "../../../providers/provider.js";
+import type { IssueProvider } from "../../../integrations/providers/provider.js";
 import type { Project } from "../../../projects/index.js";
 import { log as auditLog } from "../../../audit.js";
 import {

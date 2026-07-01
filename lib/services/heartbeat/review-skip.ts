@@ -8,8 +8,8 @@
  *
  * Mirrors testSkipPass() in test-skip.ts — called by the heartbeat service.
  */
-import type { IssueProvider } from "../../providers/provider.js";
-import { PrState } from "../../providers/provider.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
+import { PrState } from "../../integrations/providers/provider.js";
 import type { Project } from "../../projects/index.js";
 import {
   Action,

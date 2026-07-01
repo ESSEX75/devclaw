@@ -5,8 +5,8 @@ import { log as auditLog } from "../../audit.js";
 import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
 import type { IssueRuntimeState } from "../../issues/types.js";
 import type { Project } from "../../projects/index.js";
-import type { IssueProvider } from "../../providers/provider.js";
-import type { IssueReader, LabelProjector } from "../../providers/capabilities.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
+import type { IssueReader, LabelProjector } from "../../integrations/providers/capabilities.js";
 import {
   diffIssueProjection,
   extractIssueMetadata,

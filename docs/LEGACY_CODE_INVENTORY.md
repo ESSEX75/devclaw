@@ -15,7 +15,7 @@ Strategy: `remove_by_default`. DevClaw is still in development and has no extern
 | Attachment hook top-level project `channelId` | `lib/dispatch/attachment-hook.ts` | `remove_now` | Removed top-level `project.channelId` lookup. Current channel data is `project.channels[]`. |
 | Config diff/reset tools | `lib/tools/admin/config-diff.ts`, `lib/tools/admin/config-reset.ts` | `remove_now` | Already deleted in step 02; not public DevClaw tools. |
 | Shared `lib/types.ts` aliases | `lib/types.ts` | `remove_now` | Already deleted in step 02; no usage remains. |
-| Provider PR/MR fallback paths | `lib/providers/github.ts`, `lib/providers/gitlab.ts`, `lib/providers/provider.ts` | `keep_provider_limitation` | Kept. GitHub/GitLab APIs can report incomplete PR/MR state; fallback paths are provider behavior, not old user data migration. |
+| Provider PR/MR fallback paths | `lib/integrations/providers/github.ts`, `lib/integrations/providers/gitlab.ts`, `lib/integrations/providers/provider.ts` | `keep_provider_limitation` | Kept. GitHub/GitLab APIs can report incomplete PR/MR state; fallback paths are provider behavior, not old user data migration. |
 | Queue label fallback | `lib/services/queue-scan.ts` | `keep_current_runtime` | Kept. Provider labels remain a visual projection and recovery signal when local issue state is incomplete. |
 | Setup layout migration | `lib/setup/migrate-layout.ts` | `keep_current_runtime` | Kept for now because setup/bootstrap still call `ensureWorkspaceMigrated` before default-file creation. It should be reassessed when setup ownership moves into `state/config`. |
 

@@ -3,8 +3,8 @@
  */
 import { readIssueStateStore } from "../../state/issues/index.js";
 import type { IssueRuntimeState } from "../../issues/types.js";
-import type { Issue } from "../../providers/provider.js";
-import type { IssueReader } from "../../providers/capabilities.js";
+import type { Issue } from "../../integrations/providers/provider.js";
+import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import { diffIssueProjection } from "../../projection/index.js";
 import type { WorkflowConfig } from "../../domain/workflow/types.js";
 import { getStateLabels } from "../../domain/workflow/queries.js";

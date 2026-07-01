@@ -1,4 +1,4 @@
-import type { IssueProvider } from "../../../providers/provider.js";
+import type { IssueProvider } from "../../../integrations/providers/provider.js";
 import {
   getRoleWorker,
   getProject,

@@ -490,7 +490,7 @@ cat audit.log | jq 'select(.event=="model_selection")'
 
 ## Issue Provider
 
-DevClaw uses an `IssueProvider` interface (`lib/providers/provider.ts`) to abstract issue tracker operations. The provider is auto-detected from the git remote URL.
+DevClaw uses an `IssueProvider` interface (`lib/integrations/providers/provider.ts`) to abstract issue tracker operations. The provider is auto-detected from the git remote URL.
 
 **Supported providers:**
 
@@ -499,8 +499,8 @@ DevClaw uses an `IssueProvider` interface (`lib/providers/provider.ts`) to abstr
 | GitHub | `gh` | Remote contains `github.com` |
 | GitLab | `glab` | Remote contains `gitlab` |
 
-**Provider resilience:** All calls are wrapped with cockatiel retry (3 attempts, exponential backoff) + circuit breaker (opens after 5 consecutive failures, half-opens after 30s). See [`lib/providers/resilience.ts`](../lib/providers/resilience.ts).
+**Provider resilience:** All calls are wrapped with cockatiel retry (3 attempts, exponential backoff) + circuit breaker (opens after 5 consecutive failures, half-opens after 30s). See [`lib/integrations/providers/resilience.ts`](../lib/integrations/providers/resilience.ts).
 
 **Planned:** Jira (via REST API)
 
-**Source:** [`lib/providers/index.ts`](../lib/providers/index.ts)
+**Source:** [`lib/integrations/providers/index.ts`](../lib/integrations/providers/index.ts)

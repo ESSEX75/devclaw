@@ -694,7 +694,7 @@ graph LR
 
 ## IssueProvider abstraction
 
-All issue tracker operations go through the `IssueProvider` interface, defined in `lib/providers/provider.ts`. This abstraction allows DevClaw to support multiple issue trackers without changing tool logic.
+All issue tracker operations go through the `IssueProvider` interface, defined in `lib/integrations/providers/provider.ts`. This abstraction allows DevClaw to support multiple issue trackers without changing tool logic.
 
 **Interface methods:**
 - `ensureLabel` / `ensureAllStateLabels` — idempotent label creation
@@ -707,16 +707,16 @@ All issue tracker operations go through the `IssueProvider` interface, defined i
 - `addComment` — add comment to issue
 - `healthCheck` — verify provider connectivity
 
-**Provider resilience:** All provider calls are wrapped with cockatiel retry (3 attempts, exponential backoff) + circuit breaker (opens after 5 consecutive failures, half-opens after 30s). See `lib/providers/resilience.ts`.
+**Provider resilience:** All provider calls are wrapped with cockatiel retry (3 attempts, exponential backoff) + circuit breaker (opens after 5 consecutive failures, half-opens after 30s). See `lib/integrations/providers/resilience.ts`.
 
 **Current providers:**
-- **GitHub** (`lib/providers/github.ts`) — wraps `gh` CLI
-- **GitLab** (`lib/providers/gitlab.ts`) — wraps `glab` CLI
+- **GitHub** (`lib/integrations/providers/github.ts`) — wraps `gh` CLI
+- **GitLab** (`lib/integrations/providers/gitlab.ts`) — wraps `glab` CLI
 
 **Planned providers:**
 - **Jira** — via REST API
 
-Provider selection is handled by `createProvider()` in `lib/providers/index.ts`. Auto-detects GitHub vs GitLab from the git remote URL.
+Provider selection is handled by `createProvider()` in `lib/integrations/providers/index.ts`. Auto-detects GitHub vs GitLab from the git remote URL.
 
 ## Configuration system
 

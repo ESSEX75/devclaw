@@ -6,7 +6,7 @@
  */
 import type { RunCommand } from "../context.js";
 import { readProjects, getProject, type Project, type ProjectsData } from "../projects/index.js";
-import { createProvider, type ProviderWithType } from "../providers/index.js";
+import { createProvider, type ProviderWithType } from "../integrations/providers/index.js";
 import { loadConfig } from "../config/index.js";
 import { loadInstanceName } from "../instance.js";
 import { getOwnerLabel, OWNER_LABEL_COLOR, getNotifyLabel, NOTIFY_LABEL_PREFIX, NOTIFY_LABEL_COLOR } from "../domain/workflow/index.js";

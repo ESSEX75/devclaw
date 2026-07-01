@@ -2,22 +2,22 @@
  * GitLabProvider — IssueProvider implementation using glab CLI.
  */
 import {
-  type IssueProvider,
   type Issue,
   type StateLabel,
   type IssueComment,
   type PrStatus,
   type PrReviewComment,
   PrState,
-} from "./provider.js";
-import type { RunCommand } from "../context.js";
+} from "./types.js";
+import type { IssueProvider } from "./provider.js";
+import type { RunCommand } from "../../context.js";
 import { withResilience } from "./resilience.js";
 import {
   DEFAULT_WORKFLOW,
   getStateLabels,
   getLabelColors,
   type WorkflowConfig,
-} from "../domain/workflow/index.js";
+} from "../../domain/workflow/index.js";
 
 type GitLabMR = {
   iid: number;

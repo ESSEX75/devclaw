@@ -6,8 +6,8 @@
  *   1. PR feedback for re-dispatch (issue returning from review with changes requested)
  *   2. PR context for reviewer role (URL + diff for code review)
  */
-import type { IssueProvider } from "../providers/provider.js";
-import { PrState } from "../providers/provider.js";
+import type { IssueProvider } from "../integrations/providers/provider.js";
+import { PrState } from "../integrations/providers/provider.js";
 
 // ---------------------------------------------------------------------------
 // Types

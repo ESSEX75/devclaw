@@ -7,8 +7,8 @@ import { log as auditLog } from "../../audit.js";
 import { loadConfig } from "../../config/index.js";
 import { readIssueStateStore, updateIssueStateStore } from "../../issues/index.js";
 import { readProjects } from "../../projects/index.js";
-import { createProvider } from "../../providers/index.js";
-import type { IssueProvider } from "../../providers/provider.js";
+import { createProvider } from "../../integrations/providers/index.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
 import {
   diffIssueProjection,
   extractIssueMetadata,

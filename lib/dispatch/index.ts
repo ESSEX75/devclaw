@@ -44,7 +44,7 @@ export type DispatchOpts = {
   /** Label to transition TO (e.g. "Doing", "Testing") */
   toLabel: string;
   /** Issue provider for issue operations and label transitions */
-  provider: import("../providers/provider.js").IssueProvider;
+  provider: import("../integrations/providers/provider.js").IssueProvider;
   /** Plugin config for model resolution and notification config */
   pluginConfig?: Record<string, unknown>;
   /** Orchestrator's session key (used as spawnedBy for subagent tracking) */

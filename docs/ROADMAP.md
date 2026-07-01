@@ -33,7 +33,7 @@ Validated at load time with Zod schemas (`lib/config/schema.ts`). Integrity chec
 
 ### Provider Resilience
 
-All issue tracker calls (GitHub via `gh`, GitLab via `glab`) are wrapped with cockatiel retry (3 attempts, exponential backoff) and circuit breaker (opens after 5 consecutive failures, half-opens after 30s). See `lib/providers/resilience.ts`.
+All issue tracker calls (GitHub via `gh`, GitLab via `glab`) are wrapped with cockatiel retry (3 attempts, exponential backoff) and circuit breaker (opens after 5 consecutive failures, half-opens after 30s). See `lib/integrations/providers/resilience.ts`.
 
 ### Bootstrap Hook for Role Instructions
 

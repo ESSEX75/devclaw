@@ -13,8 +13,8 @@ import {
 } from "../../domain/workflow/labels.js";
 import { writeIssueRuntimeState, type NotifyTarget } from "../../issues/index.js";
 import { expectedManagedLabels, replaceIssueMetadata } from "../../projection/index.js";
-import type { Issue } from "../../providers/provider.js";
-import type { IssueWriter, LabelProjector } from "../../providers/capabilities.js";
+import type { Issue } from "../../integrations/providers/provider.js";
+import type { IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
 import type { Project } from "../../projects/index.js";
 
 export type CreatedManagedTask = {

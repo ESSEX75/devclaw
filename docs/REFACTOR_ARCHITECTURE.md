@@ -31,7 +31,7 @@ lib/
 
 `state` contains filesystem stores, migrations, locks, serialization, and config/project/issue persistence. It may use domain types, but it must not import OpenClaw tools or CLI adapters.
 
-`integrations` contains concrete adapters for external systems: GitHub, GitLab, OpenClaw runtime, gateway/session calls, and provider-specific API behavior. Target provider implementations belong under `integrations/providers`; existing `lib/providers` may stay temporarily as a migration facade.
+`integrations` contains concrete adapters for external systems: GitHub, GitLab, OpenClaw runtime, gateway/session calls, and provider-specific API behavior. Target provider implementations belong under `integrations/providers`; legacy `lib/providers` must be removed after migration.
 
 `tools` contains OpenClaw tool adapters only. Tools validate tool input, resolve runtime context, call application use cases, and format tool results.
 

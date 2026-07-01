@@ -10,7 +10,7 @@ import type {
   StateLabel,
   IssueComment,
   PrStatus,
-} from "../providers/provider.js";
+} from "../integrations/providers/provider.js";
 import { getStateLabels } from "../domain/workflow/index.js";
 import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
 
@@ -265,7 +265,7 @@ export class TestProvider implements IssueProvider {
     return this.prDiffs.get(issueId) ?? null;
   }
 
-  async getPrReviewComments(_issueId: number): Promise<import("../providers/provider.js").PrReviewComment[]> {
+  async getPrReviewComments(_issueId: number): Promise<import("../integrations/providers/provider.js").PrReviewComment[]> {
     return [];
   }
 

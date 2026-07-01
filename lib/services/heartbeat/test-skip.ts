@@ -7,7 +7,7 @@
  *
  * Mirrors reviewPass() in review.ts — called by the heartbeat service.
  */
-import type { IssueProvider } from "../../providers/provider.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
 import type { Project } from "../../projects/index.js";
 import {
   Action,

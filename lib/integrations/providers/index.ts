@@ -3,11 +3,12 @@
  */
 import type { IssueProvider } from "./provider.js";
 export type * from "./capabilities.js";
-export type * from "./provider.js";
-import type { RunCommand } from "../context.js";
+export * from "./provider.js";
+export * from "./types.js";
+import type { RunCommand } from "../../context.js";
 import { GitLabProvider } from "./gitlab.js";
 import { GitHubProvider } from "./github.js";
-import { resolveRepoPath } from "../projects/index.js";
+import { resolveRepoPath } from "../../projects/index.js";
 
 export type ProviderOptions = {
   provider?: "gitlab" | "github";

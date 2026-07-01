@@ -5,8 +5,8 @@
  * whose PR check condition (merged/approved) is met.
  * Called by the heartbeat service during its periodic sweep.
  */
-import type { IssueProvider } from "../../providers/provider.js";
-import { PrState } from "../../providers/provider.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
+import { PrState } from "../../integrations/providers/provider.js";
 import type { Project } from "../../projects/index.js";
 import {
   Action,

@@ -3,7 +3,7 @@
  */
 import { writeIssueRuntimeState, type IssueProvider as IssueProviderKind } from "../../issues/index.js";
 import type { Project } from "../../projects/index.js";
-import type { Issue } from "../../providers/provider.js";
+import type { Issue } from "../../integrations/providers/provider.js";
 import type { WorkflowConfig } from "../../domain/workflow/types.js";
 import { getStateLabels } from "../../domain/workflow/queries.js";
 

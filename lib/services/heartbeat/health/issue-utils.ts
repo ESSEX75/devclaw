@@ -1,5 +1,5 @@
-import type { StateLabel, IssueProvider, Issue } from "../../../providers/provider.js";
-import { PrState } from "../../../providers/provider.js";
+import type { StateLabel, IssueProvider, Issue } from "../../../integrations/providers/provider.js";
+import { PrState } from "../../../integrations/providers/provider.js";
 import { getQueueLabels, isFeedbackState } from "../../../domain/workflow/queries.js";
 import type {
   WorkflowConfig,

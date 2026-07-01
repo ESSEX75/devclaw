@@ -30,7 +30,7 @@ export async function performHealthPass(
   projectSlug: string,
   project: Project,
   sessions: SessionLookup | null,
-  provider: import("../../providers/provider.js").IssueProvider,
+  provider: import("../../integrations/providers/provider.js").IssueProvider,
   staleWorkerHours?: number,
   instanceName?: string,
   runCommand?: RunCommand,
@@ -89,7 +89,7 @@ export async function performHealthPass(
 export async function performProjectionIntegrityPass(
   workspaceDir: string,
   project: Project,
-  provider: import("../../providers/provider.js").IssueProvider,
+  provider: import("../../integrations/providers/provider.js").IssueProvider,
   resolvedConfig: ResolvedConfig,
 ): Promise<number> {
   const result = await projectionIntegrityPass({
@@ -109,7 +109,7 @@ export async function performReviewPass(
   workspaceDir: string,
   projectSlug: string,
   project: Project,
-  provider: import("../../providers/provider.js").IssueProvider,
+  provider: import("../../integrations/providers/provider.js").IssueProvider,
   resolvedConfig: ResolvedConfig,
   pluginConfig: Record<string, unknown> | undefined,
   runtime?: PluginRuntime,
@@ -223,7 +223,7 @@ export async function performReviewSkipPass(
   workspaceDir: string,
   projectSlug: string,
   project: Project,
-  provider: import("../../providers/provider.js").IssueProvider,
+  provider: import("../../integrations/providers/provider.js").IssueProvider,
   resolvedConfig: ResolvedConfig,
   pluginConfig: Record<string, unknown> | undefined,
   runtime?: PluginRuntime,
@@ -284,7 +284,7 @@ export async function performTestSkipPass(
   workspaceDir: string,
   projectSlug: string,
   project: Project,
-  provider: import("../../providers/provider.js").IssueProvider,
+  provider: import("../../integrations/providers/provider.js").IssueProvider,
   resolvedConfig: ResolvedConfig,
 ): Promise<number> {
   return testSkipPass({

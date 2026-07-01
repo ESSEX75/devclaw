@@ -1,7 +1,7 @@
 /**
  * issues/runtime.ts — Local-state-first runtime helpers for managed issues.
  */
-import type { Issue } from "../providers/provider.js";
+import type { Issue } from "../integrations/providers/provider.js";
 import type { Project } from "../projects/index.js";
 import {
   findStateByLabel,

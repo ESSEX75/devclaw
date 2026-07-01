@@ -64,7 +64,7 @@ the first architecture guard step:
 | [lib/tools/admin/queue-status.test.ts](../lib/tools/admin/queue-status.test.ts) | Queue status formatting |
 | [lib/tools/worker/group-isolation.test.ts](../lib/tools/worker/group-isolation.test.ts) | Worker group isolation |
 | [lib/services/heartbeat/health.test.ts](../lib/services/heartbeat/health.test.ts) | Heartbeat health pass: zombie detection, stale workers |
-| [lib/providers/provider-pr-status.test.ts](../lib/providers/provider-pr-status.test.ts) | PR status polling and detection |
+| [lib/integrations/providers/provider-pr-status.test.ts](../lib/integrations/providers/provider-pr-status.test.ts) | PR status polling and detection |
 | [lib/setup/version.test.ts](../lib/setup/version.test.ts) | Version tracking and comparison |
 | [lib/setup/workspace.test.ts](../lib/setup/workspace.test.ts) | Workspace initialization and write-once defaults |
 | [lib/setup/migrate-layout.test.ts](../lib/setup/migrate-layout.test.ts) | Workspace layout migration: `projects/` → `devclaw/` |

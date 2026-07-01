@@ -16,7 +16,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { DATA_DIR } from "../setup/migrate-layout.js";
-import type { IssueProvider } from "../providers/provider.js";
+import type { IssueProvider } from "../integrations/providers/provider.js";
 import { log as auditLog } from "../audit.js";
 
 // ---------------------------------------------------------------------------

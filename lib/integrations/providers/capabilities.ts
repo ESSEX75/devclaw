@@ -1,4 +1,4 @@
-import type { Issue, IssueComment, PrReviewComment, PrStatus, StateLabel } from "./provider.js";
+import type { Issue, IssueComment, PrReviewComment, PrStatus, StateLabel } from "./types.js";
 
 export type IssueListFilter = {
   label?: string;

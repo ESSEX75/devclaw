@@ -18,7 +18,7 @@ import {
   processAttachmentMessage,
 } from "./attachments.js";
 import { readProjects, type Project } from "../projects/index.js";
-import { createProvider } from "../providers/index.js";
+import { createProvider } from "../integrations/providers/index.js";
 import { log as auditLog } from "../audit.js";
 
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
