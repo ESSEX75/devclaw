@@ -1,6 +1,6 @@
 # DevClaw Refactor Architecture Contract
 
-This document defines the target source layout for the global refactor. The current runtime modules can remain in their existing locations while the migration happens incrementally.
+This document defines the enforced source layout for the global refactor. The migration no longer keeps legacy root package facades; old package directories must be removed once their target layer exists.
 
 ## Target Layout
 
@@ -15,6 +15,7 @@ lib/
     projects/
     issues/
     config/
+    setup/
   integrations/
     providers/
     openclaw/
@@ -43,17 +44,49 @@ lib/
 
 - `domain` must not import from `application`, `state`, `integrations`, `tools`, or `cli`.
 - `application` may import `domain`, state interfaces/stores, and integration capability interfaces.
-- `application` must not import OpenClaw tool context or CLI command adapters.
+- `application` must not import `OpenClawPluginToolContext` or CLI command adapters.
 - `state` may import `domain`, but not `tools` or `cli`.
 - `integrations` may import `domain` and integration-local types; provider implementations should not own use-case behavior.
 - `tools` and `cli` are outer adapters and may call application use cases.
 - `testing` may import production modules and test harnesses, but production modules must not import `testing`.
 
-## Migration Rules
+## No-Legacy Policy
 
-- Move behavior one use case at a time.
-- Keep public tool names stable.
-- Keep state file formats stable unless a task explicitly owns a migration.
-- Add facades only when they protect existing imports during incremental moves.
-- Remove facades once no production imports need them.
+The following root packages are legacy and must not exist in the final tree:
 
+- `lib/workflow`
+- `lib/providers`
+- `lib/projects`
+- `lib/issues`
+- `lib/config`
+- `lib/dispatch`
+- `lib/services`
+- `lib/setup`
+
+Do not add compatibility facades under these paths. Imports must target the real owner package directly:
+
+- workflow semantics: `lib/domain/workflow`
+- project domain types: `lib/domain/projects`
+- issue domain types: `lib/domain/issues`
+- project state: `lib/state/projects`
+- issue state: `lib/state/issues`
+- config state: `lib/state/config`
+- setup state files and migrations: `lib/state/setup`
+- provider adapters: `lib/integrations/providers`
+- OpenClaw runtime adapters: `lib/integrations/openclaw`
+- use cases: `lib/application/*`
+
+## Enforced Checks
+
+`npm run arch:check:strict` enforces:
+
+- no import cycles across production files;
+- no unregistered public OpenClaw tool factories;
+- no production imports from `lib/testing`;
+- no `domain` imports from outer layers;
+- no `state` imports from `tools` or `cli`;
+- no `application` imports of `OpenClawPluginToolContext` or `lib/cli/commands/*`;
+- no legacy root package directories;
+- no relative imports resolving into legacy root packages.
+
+`npm run arch:check` runs the same checks in warn-only mode.
