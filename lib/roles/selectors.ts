@@ -6,7 +6,7 @@
  */
 import { ROLE_REGISTRY } from "./registry.js";
 import type { RoleConfig } from "./types.js";
-import type { ResolvedRoleConfig } from "../config/types.js";
+import type { ResolvedRoleConfig } from "../state/config/types.js";
 
 // ---------------------------------------------------------------------------
 // Role IDs

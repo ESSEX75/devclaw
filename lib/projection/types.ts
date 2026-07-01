@@ -1,4 +1,4 @@
-import type { IssueRuntimeState } from "../issues/index.js";
+import type { IssueRuntimeState } from "../state/issues/index.js";
 
 export type ProjectionMetadata = {
   projectSlug: string;

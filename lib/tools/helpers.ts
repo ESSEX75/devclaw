@@ -5,9 +5,9 @@
  * project resolution, provider creation.
  */
 import type { RunCommand } from "../context.js";
-import { readProjects, getProject, type Project, type ProjectsData } from "../projects/index.js";
+import { readProjects, getProject, type Project, type ProjectsData } from "../state/projects/index.js";
 import { createProvider, type ProviderWithType } from "../integrations/providers/index.js";
-import { loadConfig } from "../config/index.js";
+import { loadConfig } from "../state/config/index.js";
 import { loadInstanceName } from "../instance.js";
 import { getOwnerLabel, OWNER_LABEL_COLOR, getNotifyLabel, NOTIFY_LABEL_PREFIX, NOTIFY_LABEL_COLOR } from "../domain/workflow/index.js";
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";

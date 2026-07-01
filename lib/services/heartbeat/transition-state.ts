@@ -1,8 +1,8 @@
 /**
  * transition-state.ts — Keep project-local issue runtime state in sync after heartbeat transitions.
  */
-import { writeIssueRuntimeState, type IssueProvider as IssueProviderKind } from "../../issues/index.js";
-import type { Project } from "../../projects/index.js";
+import { writeIssueRuntimeState, type IssueProvider as IssueProviderKind } from "../../state/issues/index.js";
+import type { Project } from "../../state/projects/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import type { WorkflowConfig } from "../../domain/workflow/types.js";
 import { getStateLabels } from "../../domain/workflow/queries.js";

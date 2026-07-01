@@ -3,7 +3,7 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
+import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../state/issues/index.js";
 import { cleanupIssueState } from "./issues-cleanup.js";
 
 function issue(overrides: Partial<IssueRuntimeState>): IssueRuntimeState {

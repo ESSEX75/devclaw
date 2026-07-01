@@ -14,7 +14,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import { readProjects, getProject } from "../../projects/index.js";
+import { readProjects, getProject } from "../../state/projects/index.js";
 import { log as auditLog } from "../../audit.js";
 import { checkWorkerHealth, scanOrphanedLabels, fetchGatewaySessions, type HealthFix } from "../../services/heartbeat/health.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";

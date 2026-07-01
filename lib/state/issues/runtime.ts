@@ -1,17 +1,17 @@
 /**
  * issues/runtime.ts — Local-state-first runtime helpers for managed issues.
  */
-import type { Issue } from "../integrations/providers/provider.js";
-import type { Project } from "../projects/index.js";
+import type { Issue } from "../../integrations/providers/provider.js";
+import type { Project } from "../../domain/projects/index.js";
 import {
   findStateByLabel,
   findStateKeyByLabel,
   getCurrentStateLabel,
-} from "../domain/workflow/queries.js";
-import type { WorkflowConfig, StateConfig } from "../domain/workflow/types.js";
-import { readIssueStateStore } from "./state.js";
-import type { WorkflowLabel, WorkflowStateKey } from "../domain/ids.js";
-import type { IssueRuntimeState } from "./types.js";
+} from "../../domain/workflow/queries.js";
+import type { WorkflowConfig, StateConfig } from "../../domain/workflow/types.js";
+import { readIssueStateStore } from "./store.js";
+import type { WorkflowLabel, WorkflowStateKey } from "../../domain/ids.js";
+import type { IssueRuntimeState } from "../../domain/issues/types.js";
 
 export type IssueRuntimeResolution =
   | {

@@ -29,7 +29,7 @@ Config resolution follows three layers, each partially overriding the one below:
 2. **Workspace** — `<workspace>/devclaw/workflow.yaml`
 3. **Project** — `<workspace>/devclaw/projects/<project>/workflow.yaml`
 
-Validated at load time with Zod schemas (`lib/config/schema.ts`). Integrity checks verify transition targets exist, queue states have roles, and terminal states have no outgoing transitions.
+Validated at load time with Zod schemas (`lib/state/config/schema.ts`). Integrity checks verify transition targets exist, queue states have roles, and terminal states have no outgoing transitions.
 
 ### Provider Resilience
 
@@ -85,7 +85,7 @@ Major module reorganization for better separation of concerns:
 - `lib/dispatch/` — dispatch, bootstrap hook, attachment hook, notifications
 - `lib/tools/tasks/`, `lib/tools/admin/`, `lib/tools/worker/` — tool grouping by domain
 - `lib/services/heartbeat/` — heartbeat passes split into separate modules
-- `lib/projects/` — project state I/O, mutations, slots, types
+- `lib/state/projects/` — project state I/O, mutations, slots, types
 - `lib/workflow/` — state machine types, defaults, labels, queries
 - `lib/context.ts` — `PluginContext` DI container replacing global singletons
 

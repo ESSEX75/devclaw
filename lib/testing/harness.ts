@@ -9,7 +9,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { writeProjects, type ProjectsData, type Project, type RoleWorkerState } from "../projects/index.js";
+import { writeProjects, type ProjectsData, type Project, type RoleWorkerState } from "../state/projects/index.js";
 import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
 import { registerBootstrapHook } from "../dispatch/bootstrap-hook.js";
 import { TestProvider } from "./test-provider.js";
@@ -274,7 +274,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
       await writeProjects(workspaceDir, data);
     },
     async readProjects() {
-      const { readProjects } = await import("../projects/index.js");
+      const { readProjects } = await import("../state/projects/index.js");
       return readProjects(workspaceDir);
     },
     async writePrompt(role: string, content: string, forProject?: string) {

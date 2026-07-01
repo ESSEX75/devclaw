@@ -9,9 +9,9 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
 import { StateType, findStateByLabel, getRoleLabelColor } from "../../domain/workflow/index.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
-import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../issues/index.js";
+import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
 
 export function createTaskSetLevelTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({

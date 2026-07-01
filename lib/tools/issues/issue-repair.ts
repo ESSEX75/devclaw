@@ -4,9 +4,9 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
-import { loadConfig } from "../../config/index.js";
-import { readIssueStateStore, updateIssueStateStore } from "../../issues/index.js";
-import { readProjects } from "../../projects/index.js";
+import { loadConfig } from "../../state/config/index.js";
+import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
+import { readProjects } from "../../state/projects/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import {
@@ -18,7 +18,7 @@ import {
 } from "../../projection/index.js";
 import { getStateLabels } from "../../domain/workflow/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
-import type { Project } from "../../projects/index.js";
+import type { Project } from "../../state/projects/index.js";
 import type { WorkflowConfig } from "../../domain/workflow/index.js";
 
 export type IssueRepairResult = {

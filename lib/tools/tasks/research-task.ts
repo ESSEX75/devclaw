@@ -15,11 +15,11 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import type { StateLabel } from "../../integrations/providers/provider.js";
-import { getRoleWorker, countActiveSlots } from "../../projects/index.js";
+import { getRoleWorker, countActiveSlots } from "../../state/projects/index.js";
 import { dispatchTask } from "../../application/workers/dispatch-task.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { getActiveLabel } from "../../domain/workflow/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import { resolveModel } from "../../roles/index.js";

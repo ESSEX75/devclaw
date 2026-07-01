@@ -5,12 +5,12 @@
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { StateLabel, IssueProvider } from "../integrations/providers/provider.js";
-import { deactivateWorker, loadProjectBySlug, getRoleWorker } from "../projects/index.js";
+import { deactivateWorker, loadProjectBySlug, getRoleWorker } from "../state/projects/index.js";
 import type { RunCommand } from "../context.js";
 import { notify, getNotificationConfig } from "../dispatch/notify.js";
 import { log as auditLog } from "../audit.js";
-import { loadConfig } from "../config/index.js";
-import { writeIssueRuntimeState } from "../issues/index.js";
+import { loadConfig } from "../state/config/index.js";
+import { writeIssueRuntimeState } from "../state/issues/index.js";
 import {
   DEFAULT_WORKFLOW,
   Action,
@@ -21,7 +21,7 @@ import {
   type CompletionRule,
   type WorkflowConfig,
 } from "../domain/workflow/index.js";
-import type { Channel } from "../projects/index.js";
+import type { Channel } from "../state/projects/index.js";
 
 export type { CompletionRule };
 

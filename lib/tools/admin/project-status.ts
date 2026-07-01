@@ -9,7 +9,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject } from "../helpers.js";
 import { ExecutionMode, StateType } from "../../domain/workflow/index.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { loadInstanceName } from "../../instance.js";
 
 export function createProjectStatusTool(ctx: PluginContext) {

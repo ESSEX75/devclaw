@@ -12,10 +12,10 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { loadInstanceName } from "../../instance.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import type { NotifyTarget } from "../../issues/index.js";
+import type { NotifyTarget } from "../../state/issues/index.js";
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 
 export function createTaskCreateTool(ctx: PluginContext) {

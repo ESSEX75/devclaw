@@ -11,9 +11,9 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir } from "../helpers.js";
-import { readProjects, getProject } from "../../projects/index.js";
+import { readProjects, getProject } from "../../state/projects/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import {
   getStateLabels,
   getLabelColors,

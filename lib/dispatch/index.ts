@@ -13,16 +13,16 @@ import {
   updateSlot,
   getRoleWorker,
   emptySlot,
-} from "../projects/index.js";
+} from "../state/projects/index.js";
 import { resolveModel } from "../roles/index.js";
 import { notify, getNotificationConfig } from "./notify.js";
-import { loadConfig, type ResolvedRoleConfig } from "../config/index.js";
+import { loadConfig, type ResolvedRoleConfig } from "../state/config/index.js";
 import { ReviewPolicy, TestPolicy, resolveReviewRouting, resolveTestRouting, resolveNotifyChannel, isFeedbackState, hasReviewCheck, producesReviewableWork, hasTestPhase, detectOwner, getOwnerLabel, OWNER_LABEL_COLOR, getRoleLabelColor, STEP_ROUTING_COLOR, getStateLabels } from "../domain/workflow/index.js";
 import { fetchPrFeedback, fetchPrContext, type PrFeedback, type PrContext } from "./pr-context.js";
 import { formatAttachmentsForTask } from "./attachments.js";
 import { loadRoleInstructions } from "./bootstrap-hook.js";
 import { slotName } from "../names.js";
-import { writeIssueRuntimeState } from "../issues/index.js";
+import { writeIssueRuntimeState } from "../state/issues/index.js";
 
 import { buildTaskMessage, buildConflictFixMessage, buildAnnouncement, formatSessionLabel } from "./message-builder.js";
 import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "./session.js";

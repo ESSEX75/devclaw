@@ -2,7 +2,7 @@
  * projection-summary.ts — Shared task output enrichment for local state and provider projection.
  */
 import { readIssueStateStore } from "../../state/issues/index.js";
-import type { IssueRuntimeState } from "../../issues/types.js";
+import type { IssueRuntimeState } from "../../domain/issues/types.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import { diffIssueProjection } from "../../projection/index.js";

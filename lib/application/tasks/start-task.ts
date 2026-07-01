@@ -11,9 +11,9 @@ import {
   getRoleLabelColor,
 } from "../../domain/workflow/index.js";
 import { getLevelsForRole } from "../../roles/index.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../../tools/helpers.js";
-import { detectNotifyTarget, resolveIssueRuntimeState, writeIssueRuntimeState } from "../../issues/index.js";
+import { detectNotifyTarget, resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
 
 export type StartTaskInput = {
   workspaceDir: string;

@@ -10,13 +10,13 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import type { PluginContext } from "../../context.js";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { readProjects, writeProjects, emptyRoleWorkerState } from "../../projects/index.js";
-import { resolveRepoPath } from "../../projects/index.js";
+import { readProjects, writeProjects, emptyRoleWorkerState } from "../../state/projects/index.js";
+import { resolveRepoPath } from "../../state/projects/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { log as auditLog } from "../../audit.js";
 import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { getRoleLabels } from "../../domain/workflow/index.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { DATA_DIR } from "../../setup/migrate-layout.js";
 
 /**
@@ -210,7 +210,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       // 6. Add or update project in projects.json
       if (existing) {
         // Add channel to existing project
-        const newChannel: import("../../projects/index.js").Channel = {
+        const newChannel: import("../../state/projects/index.js").Channel = {
           channelId,
           channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
           name: `channel-${existing.channels.length + 1}`,
@@ -223,13 +223,13 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         }
       } else {
         // Create new project - get levelMaxWorkers from resolved config (already loaded above)
-        const workers: Record<string, import("../../projects/index.js").RoleWorkerState> = {};
+        const workers: Record<string, import("../../state/projects/index.js").RoleWorkerState> = {};
         for (const role of getAllRoleIds()) {
           const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
           workers[role] = emptyRoleWorkerState(levelMaxWorkers);
         }
 
-        const newChannel: import("../../projects/index.js").Channel = {
+        const newChannel: import("../../state/projects/index.js").Channel = {
           channelId,
           channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
           name: "primary",

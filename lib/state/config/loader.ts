@@ -10,13 +10,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
-import { ROLE_REGISTRY } from "../roles/registry.js";
-import { DEFAULT_WORKFLOW } from "../domain/workflow/defaults.js";
-import type { WorkflowConfig } from "../domain/workflow/types.js";
+import { ROLE_REGISTRY } from "../../roles/registry.js";
+import { DEFAULT_WORKFLOW } from "../../domain/workflow/defaults.js";
+import type { WorkflowConfig } from "../../domain/workflow/types.js";
 import { mergeConfig } from "./merge.js";
 import type { DevClawConfig, RawConfig, ResolvedConfig, ResolvedRoleConfig, ResolvedTimeouts, RoleOverride, ModelEntry } from "./types.js";
 import { validateConfig, validateWorkflowIntegrity } from "./schema.js";
-import { DATA_DIR } from "../setup/migrate-layout.js";
+import { DATA_DIR } from "../../setup/migrate-layout.js";
 
 /**
  * Load and resolve the full DevClaw config for a project.

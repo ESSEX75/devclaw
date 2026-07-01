@@ -10,9 +10,9 @@ export type {
   IssueProvider,
   IssueRuntimeState,
   NotifyTarget,
-} from "../domain/issue.js";
+} from "../issue.js";
 
-import type { IssueIntegrityStatus, IssueRuntimeState } from "../domain/issue.js";
+import type { IssueIntegrityStatus, IssueRuntimeState } from "../issue.js";
 
 export type IssueRuntimeStateInput = Omit<IssueRuntimeState,
   "integrityStatus" | "integrityErrors" | "projectionVersion" | "createdAt" | "updatedAt"

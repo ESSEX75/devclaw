@@ -11,11 +11,11 @@ import {
   NOTIFY_LABEL_PREFIX,
   NOTIFY_LABEL_COLOR,
 } from "../../domain/workflow/labels.js";
-import { writeIssueRuntimeState, type NotifyTarget } from "../../issues/index.js";
+import { writeIssueRuntimeState, type NotifyTarget } from "../../state/issues/index.js";
 import { expectedManagedLabels, replaceIssueMetadata } from "../../projection/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import type { IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
-import type { Project } from "../../projects/index.js";
+import type { Project } from "../../state/projects/index.js";
 
 export type CreatedManagedTask = {
   issue: Issue;

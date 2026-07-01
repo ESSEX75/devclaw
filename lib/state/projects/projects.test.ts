@@ -1,6 +1,6 @@
 /**
  * Tests for projects.ts — per-level worker state and accessors.
- * Run with: npx tsx --test lib/projects/projects.test.ts
+ * Run with: npx tsx --test lib/state/projects/projects.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";

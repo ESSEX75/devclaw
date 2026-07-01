@@ -8,7 +8,7 @@ export * from "./types.js";
 import type { RunCommand } from "../../context.js";
 import { GitLabProvider } from "./gitlab.js";
 import { GitHubProvider } from "./github.js";
-import { resolveRepoPath } from "../../projects/index.js";
+import { resolveRepoPath } from "../../state/projects/index.js";
 
 export type ProviderOptions = {
   provider?: "gitlab" | "github";

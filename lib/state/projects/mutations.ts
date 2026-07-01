@@ -1,9 +1,9 @@
 /**
  * projects/mutations.ts — State mutations for project worker slots.
  */
-import type { SlotState, RoleWorkerState, Project, ProjectsData } from "./types.js";
-import { acquireLock, releaseLock, readProjects, writeProjects, resolveProjectSlug } from "./io.js";
-import { emptySlot, findFreeSlot, findSlotByIssue } from "./slots.js";
+import type { SlotState, RoleWorkerState, Project, ProjectsData } from "../../domain/projects/types.js";
+import { acquireLock, releaseLock, readProjects, writeProjects, resolveProjectSlug } from "./store.js";
+import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/projects/slots.js";
 
 /**
  * Get the RoleWorkerState for a given role.

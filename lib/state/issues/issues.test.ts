@@ -1,6 +1,6 @@
 /**
  * Tests for project-local issue runtime state.
- * Run with: npx tsx --test lib/issues/issues.test.ts
+ * Run with: npx tsx --test lib/state/issues/issues.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";

@@ -8,7 +8,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import { readProjects, writeProjects, type Channel } from "../../projects/index.js";
+import { readProjects, writeProjects, type Channel } from "../../state/projects/index.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir } from "../helpers.js";
 

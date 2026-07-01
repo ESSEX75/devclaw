@@ -1,9 +1,9 @@
 import type { RunCommand } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { getInitialStateLabel } from "../../domain/workflow/index.js";
 import { resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../../tools/helpers.js";
-import { resolveIssueRuntimeState } from "../../issues/index.js";
+import { resolveIssueRuntimeState } from "../../state/issues/index.js";
 
 export type EditTaskBodyInput = {
   workspaceDir: string;

@@ -12,9 +12,9 @@ Layer 3: Project:    <workspace>/devclaw/projects/<project>/workflow.yaml
 
 Each layer can partially override the one below it. Only the fields you specify are merged — everything else inherits from the layer below.
 
-**Source:** [`lib/config/loader.ts`](../lib/config/loader.ts)
+**Source:** [`lib/state/config/loader.ts`](../lib/state/config/loader.ts)
 
-**Validation:** Config is validated at load time with Zod schemas ([`lib/config/schema.ts`](../lib/config/schema.ts)). Integrity checks verify transition targets exist, queue states have roles, and terminal states have no outgoing transitions.
+**Validation:** Config is validated at load time with Zod schemas ([`lib/state/config/schema.ts`](../lib/state/config/schema.ts)). Integrity checks verify transition targets exist, queue states have roles, and terminal states have no outgoing transitions.
 
 ---
 
@@ -279,7 +279,7 @@ Restrict DevClaw tools to your orchestrator agent. Setup writes these tools to `
 
 Project registration and worker-slot state live in `<workspace>/devclaw/projects.json`, keyed by project slug. Initialized DevClaw-managed issue runtime state lives per project in `<workspace>/devclaw/projects/<project>/issues.json`.
 
-**Source:** [`lib/projects/types.ts`](../lib/projects/types.ts), [`lib/projects/slots.ts`](../lib/projects/slots.ts), [`lib/issues/types.ts`](../lib/issues/types.ts), [`lib/issues/state.ts`](../lib/issues/state.ts)
+**Source:** [`lib/domain/projects/types.ts`](../lib/domain/projects/types.ts), [`lib/domain/projects/slots.ts`](../lib/domain/projects/slots.ts), [`lib/domain/issues/types.ts`](../lib/domain/issues/types.ts), [`lib/state/issues/store.ts`](../lib/state/issues/store.ts)
 
 ### Schema
 

@@ -412,7 +412,7 @@ Config is validated at load time with Zod schemas. Integrity checks verify:
 - Terminal states have no outgoing transitions
 - Review checks reference valid check types
 
-**Source:** [`lib/config/schema.ts`](../lib/config/schema.ts)
+**Source:** [`lib/state/config/schema.ts`](../lib/state/config/schema.ts)
 
 ### The `workflow_guide` Tool
 

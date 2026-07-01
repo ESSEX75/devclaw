@@ -4,7 +4,7 @@
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../../context.js";
 import path from "node:path";
-import { readProjects, getProject, type Project } from "../../projects/index.js";
+import { readProjects, getProject, type Project } from "../../state/projects/index.js";
 import { log as auditLog } from "../../audit.js";
 import { DATA_DIR } from "../../setup/migrate-layout.js";
 import { loadInstanceName } from "../../instance.js";
@@ -13,7 +13,7 @@ import {
 } from "./health.js";
 import { projectTick } from "../tick.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { ExecutionMode } from "../../domain/workflow/index.js";
 import type { HeartbeatConfig } from "./config.js";
 import {

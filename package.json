@@ -54,7 +54,7 @@
     "build": "node build.mjs",
     "check": "tsc --noEmit",
     "test": "node scripts/run-node-tests.mjs",
-    "test:issue-state": "tsx --test lib/issues/issues.test.ts lib/projection/projection.test.ts lib/services/queue-scan.local-state.test.ts lib/tools/tasks/task-create.test.ts lib/tools/tasks/projection-view.test.ts lib/tools/issues/issue-repair.test.ts lib/tools/issues/issues-cleanup.test.ts",
+    "test:issue-state": "tsx --test lib/state/issues/issues.test.ts lib/projection/projection.test.ts lib/services/queue-scan.local-state.test.ts lib/tools/tasks/task-create.test.ts lib/tools/tasks/projection-view.test.ts lib/tools/issues/issue-repair.test.ts lib/tools/issues/issues-cleanup.test.ts",
     "arch:check": "node scripts/architecture-check.mjs --warn-only",
     "arch:check:strict": "node scripts/architecture-check.mjs",
     "watch": "tsc --noEmit --watch",

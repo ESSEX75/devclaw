@@ -3,8 +3,8 @@
  */
 import fs from "node:fs/promises";
 import { ensureWorkspaceMigrated } from "../../setup/migrate-layout.js";
-import type { ProjectsData, Project } from "../../projects/types.js";
-import { projectsPath, resolveRepoPath } from "../../projects/paths.js";
+import type { ProjectsData, Project } from "../../domain/projects/types.js";
+import { projectsPath, resolveRepoPath } from "./paths.js";
 
 
 // ---------------------------------------------------------------------------

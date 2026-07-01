@@ -2,8 +2,8 @@ import type { IssueProvider } from "../../../integrations/providers/provider.js"
 import {
   getRoleWorker,
   getProject,
-} from "../../../projects/index.js";
-import type { Project } from "../../../projects/index.js";
+} from "../../../state/projects/index.js";
+import type { Project } from "../../../state/projects/index.js";
 import { readProjects } from "../../../state/projects/index.js";
 import {
   DEFAULT_WORKFLOW,

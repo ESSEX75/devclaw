@@ -6,7 +6,7 @@
  * write-once: created if missing, never overwritten. System instruction files
  * (AGENTS.md, HEARTBEAT.md, TOOLS.md) are always refreshed.
  *
- * The runtime config loader (lib/config/loader.ts) uses a three-layer merge with
+ * The runtime config loader (lib/state/config/loader.ts) uses a three-layer merge with
  * built-in fallbacks, so missing keys in workflow.yaml are handled automatically.
  *
  * To explicitly write/reset defaults, use setup --eject-defaults or --reset-defaults.

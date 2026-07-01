@@ -1,25 +1,25 @@
 /**
  * issues/lifecycle.ts — Additive writes from existing issue lifecycle paths.
  */
-import type { Project } from "../projects/index.js";
-import type { Issue, IssueProvider as ProviderIssueProvider } from "../integrations/providers/provider.js";
-import { ReviewPolicy, TestPolicy, type WorkflowConfig } from "../domain/workflow/types.js";
+import type { Project } from "../../domain/projects/index.js";
+import type { Issue, IssueProvider as ProviderIssueProvider } from "../../integrations/providers/provider.js";
+import { ReviewPolicy, TestPolicy, type WorkflowConfig } from "../../domain/workflow/types.js";
 import {
   findStateKeyByLabel,
   getCurrentStateLabel,
-} from "../domain/workflow/queries.js";
+} from "../../domain/workflow/queries.js";
 import {
   detectOwner,
   NOTIFY_LABEL_PREFIX,
-} from "../domain/workflow/labels.js";
-import { updateIssueStateStore } from "./state.js";
+} from "../../domain/workflow/labels.js";
+import { updateIssueStateStore } from "./store.js";
 import type {
   ActiveIssueWorker,
   IssueIntegrityStatus,
   IssueProvider as IssueProviderKind,
   IssueRuntimeState,
   NotifyTarget,
-} from "./types.js";
+} from "../../domain/issues/types.js";
 
 export type IssueStateWriteInput = {
   workspaceDir: string;

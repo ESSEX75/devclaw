@@ -20,7 +20,7 @@ export async function shouldClearSession(
   sessionKey: string,
   slotIssueId: string | null,
   newIssueId: number,
-  timeouts: import("../config/types.js").ResolvedTimeouts,
+  timeouts: import("../state/config/types.js").ResolvedTimeouts,
   workspaceDir: string,
   projectName: string,
   runCommand: RunCommand,

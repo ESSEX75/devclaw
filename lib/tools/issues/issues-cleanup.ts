@@ -4,7 +4,7 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
-import { updateIssueStateStore } from "../../issues/index.js";
+import { updateIssueStateStore } from "../../state/issues/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export type IssuesCleanupResult = {

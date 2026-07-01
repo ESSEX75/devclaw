@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import type { IssueRuntimeState } from "../issues/index.js";
+import type { IssueRuntimeState } from "../state/issues/index.js";
 import {
   diffIssueProjection,
   expectedManagedLabels,

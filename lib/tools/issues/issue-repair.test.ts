@@ -3,7 +3,7 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
+import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../state/issues/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
 import { extractIssueMetadata } from "../../projection/index.js";

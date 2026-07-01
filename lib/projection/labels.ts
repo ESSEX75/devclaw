@@ -1,7 +1,7 @@
 /**
  * projection/labels.ts — Managed provider label detection and rendering.
  */
-import type { IssueRuntimeState } from "../issues/index.js";
+import type { IssueRuntimeState } from "../state/issues/index.js";
 import { NOTIFY_LABEL_PREFIX, OWNER_LABEL_PREFIX } from "../domain/workflow/index.js";
 import type { ManagedLabelOptions } from "./types.js";
 

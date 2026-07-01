@@ -7,7 +7,7 @@
  */
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
-import type { Project } from "../../projects/index.js";
+import type { Project } from "../../state/projects/index.js";
 import {
   Action,
   ReviewCheck,

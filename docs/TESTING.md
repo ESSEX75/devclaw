@@ -55,7 +55,7 @@ the first architecture guard step:
 | File | What it tests |
 |---|---|
 | [lib/roles/registry.test.ts](../lib/roles/registry.test.ts) | Role registry: role lookup, level resolution, model defaults |
-| [lib/projects/projects.test.ts](../lib/projects/projects.test.ts) | Project state: read/write, worker state, atomic file operations |
+| [lib/state/projects/projects.test.ts](../lib/state/projects/projects.test.ts) | Project state: read/write, worker state, atomic file operations |
 | [lib/dispatch/bootstrap-hook.test.ts](../lib/dispatch/bootstrap-hook.test.ts) | Bootstrap hook: role instruction loading, source tracking, overloads |
 | [lib/dispatch/attachments.test.ts](../lib/dispatch/attachments.test.ts) | File attachment handling |
 | [lib/tools/tasks/task-set-level.test.ts](../lib/tools/tasks/task-set-level.test.ts) | Task set level tool: level hints, label detection |

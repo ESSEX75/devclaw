@@ -12,7 +12,7 @@ import assert from "node:assert";
 import { createTestHarness, type TestHarness } from "../../testing/index.js";
 import { scanOrphanedLabels } from "./health.js";
 import { PrState } from "../../integrations/providers/provider.js";
-import { writeProjects, type ProjectsData } from "../../projects/index.js";
+import { writeProjects, type ProjectsData } from "../../state/projects/index.js";
 
 // ---------------------------------------------------------------------------
 // Test suite

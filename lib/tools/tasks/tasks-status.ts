@@ -8,7 +8,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import { loadConfig } from "../../config/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { getManagedTaskStatus } from "../../application/tasks/index.js";
 
 export function createTasksStatusTool(ctx: PluginContext) {

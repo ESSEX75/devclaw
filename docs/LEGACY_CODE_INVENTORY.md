@@ -4,11 +4,11 @@ Strategy: `remove_by_default`. DevClaw is still in development and has no extern
 
 | Area | Path | Status | Decision |
 | --- | --- | --- | --- |
-| ChannelId-keyed project schema migration | `lib/projects/schema-migration.ts` | `remove_now` | Deleted. Current `projects.json` is project-first and keyed by slug. |
-| Project worker/role/level migration aliases | `lib/projects/migrations.ts` | `remove_now` | Deleted. Current worker state uses per-level `workers.<role>.levels`. |
-| Legacy project fields | `lib/projects/types.ts`, `lib/projects/io.ts` | `remove_now` | Removed `LegacyProject`, legacy schema detection, and per-project migration on read. |
-| Old config names | `lib/config/loader.ts` | `remove_now` | Removed `config.yaml` and `workflow.json` config fallback reads. Current config is `devclaw/workflow.yaml`. |
-| Deprecated role-level `maxWorkers` | `lib/config/types.ts`, `lib/config/schema.ts` | `remove_now` | Removed deprecated role-level field. Per-level concurrency remains `models.<level>.maxWorkers` or `workflow.maxWorkersPerLevel`. |
+| ChannelId-keyed project schema migration | `lib/state/projects/schema-migration.ts` | `remove_now` | Deleted. Current `projects.json` is project-first and keyed by slug. |
+| Project worker/role/level migration aliases | `lib/state/projects/migrations.ts` | `remove_now` | Deleted. Current worker state uses per-level `workers.<role>.levels`. |
+| Legacy project fields | `lib/domain/projects/types.ts`, `lib/state/projects/store.ts` | `remove_now` | Removed `LegacyProject`, legacy schema detection, and per-project migration on read. |
+| Old config names | `lib/state/config/loader.ts` | `remove_now` | Removed `config.yaml` and `workflow.json` config fallback reads. Current config is `devclaw/workflow.yaml`. |
+| Deprecated role-level `maxWorkers` | `lib/state/config/types.ts`, `lib/state/config/schema.ts` | `remove_now` | Removed deprecated role-level field. Per-level concurrency remains `models.<level>.maxWorkers` or `workflow.maxWorkersPerLevel`. |
 | Legacy session keys without slot suffix | `lib/dispatch/bootstrap-hook.ts` | `remove_now` | Removed parsing fallback for `project-role-level`; current sessions require `project-role-level-nameOrIndex`. |
 | Old prompt paths | `lib/dispatch/bootstrap-hook.ts` | `remove_now` | Removed `projects/roles/*` prompt lookup. Current prompts live under `devclaw/prompts` or `devclaw/projects/<project>/prompts`. |
 | Legacy notify labels by channel ID | `lib/workflow/labels.ts` | `remove_now` | Removed `notify:<channelId>` resolution. Current labels use `notify:<channelType>:<nameOrIndex>`. |

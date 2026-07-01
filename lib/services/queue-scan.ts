@@ -8,7 +8,7 @@ import type { Issue, StateLabel } from "../integrations/providers/provider.js";
 import type { IssueProvider } from "../integrations/providers/provider.js";
 import type { IssueReader } from "../integrations/providers/capabilities.js";
 import { readIssueStateStore } from "../state/issues/index.js";
-import type { IssueRuntimeState } from "../issues/types.js";
+import type { IssueRuntimeState } from "../domain/issues/types.js";
 import { getLevelsForRole, getAllLevels } from "../roles/index.js";
 import {
   getQueueLabels,
