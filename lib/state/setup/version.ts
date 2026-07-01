@@ -1,5 +1,5 @@
 /**
- * setup/version.ts — Version tracking for DevClaw workspaces.
+ * state/setup/version.ts — Version tracking for DevClaw workspaces.
  *
  * Reads/writes `devclaw/.version` to track which version scaffolded the workspace.
  * Used for upgrade detection and audit logging.
@@ -26,7 +26,7 @@ export function getCurrentVersion(): string {
   }
   // Dev/test fallback: read from package.json
   try {
-    const pkgPath = path.join(THIS_DIR, "..", "..", "package.json");
+    const pkgPath = path.join(THIS_DIR, "..", "..", "..", "package.json");
     const pkg = JSON.parse(fsSync.readFileSync(pkgPath, "utf-8"));
     return pkg.version ?? "0.0.0";
   } catch {

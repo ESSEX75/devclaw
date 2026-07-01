@@ -3,7 +3,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { DATA_DIR } from "../../setup/migrate-layout.js";
+import { DATA_DIR } from "../setup/migrate-layout.js";
 import type { IssueStateStore } from "../../domain/issues/types.js";
 
 const LOCK_STALE_MS = 30_000;

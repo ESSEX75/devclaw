@@ -5,7 +5,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { getAllDefaultModels } from "../roles/index.js";
+import { getAllDefaultModels } from "../../roles/index.js";
 
 // ---------------------------------------------------------------------------
 // Detection

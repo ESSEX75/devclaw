@@ -12,7 +12,7 @@
  */
 import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import { ensureDefaultFiles } from "../../setup/workspace.js";
+import { ensureDefaultFiles } from "../../state/setup/workspace-files.js";
 import {
   fetchGatewaySessions,
 } from "./health.js";

@@ -3,7 +3,7 @@ import { createPluginContext } from "./lib/context.js";
 import { toolRegistry } from "./lib/tools/registry.js";
 
 // Infrastructure
-import { registerCli } from "./lib/setup/cli.js";
+import { registerCli } from "./lib/cli/register.js";
 import { registerHeartbeatService } from "./lib/application/heartbeat/index.js";
 import { registerBootstrapHook } from "./lib/integrations/openclaw/bootstrap-hook.js";
 import { registerAttachmentHook } from "./lib/application/tasks/attachment-hook.js";

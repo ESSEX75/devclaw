@@ -11,7 +11,7 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir } from "../helpers.js";
-import { DATA_DIR } from "../../setup/migrate-layout.js";
+import { DATA_DIR } from "../../state/setup/migrate-layout.js";
 
 export function createWorkflowGuideTool(_ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({

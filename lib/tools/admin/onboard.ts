@@ -5,7 +5,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import { isPluginConfigured, hasWorkspaceFiles, buildOnboardToolContext, buildReconfigContext } from "../../setup/onboarding.js";
+import { isPluginConfigured, hasWorkspaceFiles, buildOnboardToolContext, buildReconfigContext } from "../../application/setup/onboarding.js";
 
 export function createOnboardTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({

@@ -17,7 +17,7 @@ import { log as auditLog } from "../../audit.js";
 import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { getRoleLabels } from "../../domain/workflow/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { DATA_DIR } from "../../setup/migrate-layout.js";
+import { DATA_DIR } from "../../state/setup/migrate-layout.js";
 
 /**
  * Scaffold project directory with prompts/ folder and a README explaining overrides.

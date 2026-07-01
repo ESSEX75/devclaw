@@ -14,11 +14,12 @@ import path from "node:path";
 
 // esbuild bundles everything into dist/index.js, so import.meta.url points to
 // dist/index.js -> one level up reaches the repo root where defaults/ lives.
-// Source tests execute from lib/setup/*.ts, where defaults/ is two levels up.
+// Source tests execute from lib/state/setup/*.ts, where defaults/ is three levels up.
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULTS_DIR = [
   path.join(MODULE_DIR, "..", "defaults"),
   path.join(MODULE_DIR, "..", "..", "defaults"),
+  path.join(MODULE_DIR, "..", "..", "..", "defaults"),
 ].find((candidate) => fs.existsSync(candidate)) ?? path.join(MODULE_DIR, "..", "defaults");
 
 function loadDefault(filename: string): string {

@@ -17,5 +17,5 @@ Strategy: `remove_by_default`. DevClaw is still in development and has no extern
 | Shared `lib/types.ts` aliases | `lib/types.ts` | `remove_now` | Already deleted in step 02; no usage remains. |
 | Provider PR/MR fallback paths | `lib/integrations/providers/github.ts`, `lib/integrations/providers/gitlab.ts`, `lib/integrations/providers/provider.ts` | `keep_provider_limitation` | Kept. GitHub/GitLab APIs can report incomplete PR/MR state; fallback paths are provider behavior, not old user data migration. |
 | Queue label fallback | `lib/application/queue/scan.ts` | `keep_current_runtime` | Kept. Provider labels remain a visual projection and recovery signal when local issue state is incomplete. |
-| Setup layout migration | `lib/setup/migrate-layout.ts` | `keep_current_runtime` | Kept for now because setup/bootstrap still call `ensureWorkspaceMigrated` before default-file creation. It should be reassessed when setup ownership moves into `state/config`. |
+| Setup layout migration | `lib/state/setup/migrate-layout.ts` | `keep_current_runtime` | Kept for now because setup/bootstrap still call `ensureWorkspaceMigrated` before default-file creation. It should be reassessed when setup ownership moves into `state/config`. |
 

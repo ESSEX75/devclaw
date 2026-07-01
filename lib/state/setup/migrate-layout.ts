@@ -1,5 +1,5 @@
 /**
- * setup/migrate-layout.ts — One-time workspace layout migration.
+ * state/setup/migrate-layout.ts — One-time workspace layout migration.
  *
  * Migrates from old layouts to the current devclaw/ data directory:
  *
@@ -47,7 +47,7 @@ export async function ensureWorkspaceMigrated(workspaceDir: string): Promise<voi
   migrated.add(workspaceDir);
   await migrateWorkspaceLayout(workspaceDir);
   // Lazy import to avoid circular dependency (workspace.ts imports from this file)
-  const { ensureDefaultFiles } = await import("./workspace.js");
+  const { ensureDefaultFiles } = await import("./workspace-files.js");
   await ensureDefaultFiles(workspaceDir);
 }
 

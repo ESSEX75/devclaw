@@ -1,6 +1,6 @@
 /**
  * Tests for agent config creation.
- * Run with: npx tsx --test lib/setup/agent.test.ts
+ * Run with: npx tsx --test lib/application/setup/agent-config.test.ts
  */
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert";
@@ -9,7 +9,7 @@ import path from "node:path";
 import os from "node:os";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import { createAgent } from "./agent.js";
+import { createAgent } from "./agent-config.js";
 
 let tmpDir: string | undefined;
 

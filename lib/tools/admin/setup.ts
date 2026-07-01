@@ -2,17 +2,17 @@
  * setup — Agent-driven DevClaw setup.
  *
  * Creates agent, configures model levels, writes workspace files.
- * Thin wrapper around lib/setup/.
+ * Thin wrapper around application setup orchestration.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import { runSetup, type SetupOpts } from "../../setup/index.js";
+import { runSetup, type SetupOpts } from "../../application/setup/index.js";
 import {
   ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
-} from "../../setup/scopes.js";
-import { writeAllDefaults } from "../../setup/workspace.js";
+} from "../../application/setup/scopes.js";
+import { writeAllDefaults } from "../../state/setup/workspace-files.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { ExecutionMode } from "../../domain/workflow/index.js";
 

@@ -1,5 +1,5 @@
 /**
- * setup/index.ts — DevClaw setup orchestrator.
+ * application/setup/run-setup.ts — DevClaw setup orchestrator.
  *
  * Coordinates: agent creation → plugin config → workspace scaffolding → model config.
  * Used by both the `setup` tool and the `openclaw devclaw setup` CLI command.
@@ -8,13 +8,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import { getAllDefaultModels } from "../roles/index.js";
+import { getAllDefaultModels } from "../../roles/index.js";
 import { ensureChannelBinding, migrateChannelBinding } from "./binding-manager.js";
-import { createAgent, resolveWorkspacePath } from "./agent.js";
-import { writePluginConfig } from "./config.js";
-import { scaffoldWorkspace, writeAllDefaults } from "./workspace.js";
-import { DATA_DIR } from "./migrate-layout.js";
-import type { ExecutionMode } from "../domain/workflow/index.js";
+import { createAgent, resolveWorkspacePath } from "./agent-config.js";
+import { writePluginConfig } from "./plugin-config.js";
+import { scaffoldWorkspace, writeAllDefaults } from "../../state/setup/workspace-files.js";
+import { DATA_DIR } from "../../state/setup/migrate-layout.js";
+import type { ExecutionMode } from "../../domain/workflow/index.js";
 
 export type ModelConfig = Record<string, Record<string, string>>;
 

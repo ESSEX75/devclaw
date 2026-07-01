@@ -507,7 +507,7 @@ Sync GitHub/GitLab labels with the current workflow config. Creates any missing 
 
 Repair one provider projection from local issue state. The implementation is named `issue_repair`; the packaged CLI entrypoint is `devclaw repair issue`.
 
-**Source:** [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts), [`lib/setup/cli.ts`](../lib/setup/cli.ts)
+**Source:** [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
 
 ```bash
 devclaw repair issue --project my-webapp --issue 42 --source local-state --dry-run
@@ -527,7 +527,7 @@ devclaw repair issue --project my-webapp --issue 42 --source local-state --apply
 
 Archive old closed local issue records into inline `archive.issues`.
 
-**Source:** [`lib/tools/issues/issues-cleanup.ts`](../lib/tools/issues/issues-cleanup.ts), [`lib/setup/cli.ts`](../lib/setup/cli.ts)
+**Source:** [`lib/tools/issues/issues-cleanup.ts`](../lib/tools/issues/issues-cleanup.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
 
 ```bash
 devclaw issues cleanup --project my-webapp --older-than 30d

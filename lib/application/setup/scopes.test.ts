@@ -1,10 +1,10 @@
 /**
  * Tests for OpenClaw scope preflight.
- * Run with: npx tsx --test lib/setup/scopes.test.ts
+ * Run with: npx tsx --test lib/application/setup/scopes.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import type { RunCommand } from "../context.js";
+import type { RunCommand } from "../../context.js";
 import {
   ensureRequiredOpenClawScopes,
   ScopeApprovalRequiredError,

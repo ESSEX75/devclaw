@@ -61,7 +61,7 @@ Closing a PR without merging now transitions the associated issue to `Rejected` 
 
 ### Workspace Layout Migration
 
-Data directory moved from `<workspace>/projects/` to `<workspace>/devclaw/`. Automatic migration on first load — see `lib/setup/migrate-layout.ts`.
+Data directory moved from `<workspace>/projects/` to `<workspace>/devclaw/`. Automatic migration on first load — see `lib/state/setup/migrate-layout.ts`.
 
 ### E2E Test Infrastructure
 

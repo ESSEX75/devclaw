@@ -65,9 +65,9 @@ the first architecture guard step:
 | [lib/tools/worker/group-isolation.test.ts](../lib/tools/worker/group-isolation.test.ts) | Worker group isolation |
 | [lib/application/heartbeat/health.test.ts](../lib/application/heartbeat/health.test.ts) | Heartbeat health pass: zombie detection, stale workers |
 | [lib/integrations/providers/provider-pr-status.test.ts](../lib/integrations/providers/provider-pr-status.test.ts) | PR status polling and detection |
-| [lib/setup/version.test.ts](../lib/setup/version.test.ts) | Version tracking and comparison |
-| [lib/setup/workspace.test.ts](../lib/setup/workspace.test.ts) | Workspace initialization and write-once defaults |
-| [lib/setup/migrate-layout.test.ts](../lib/setup/migrate-layout.test.ts) | Workspace layout migration: `projects/` → `devclaw/` |
+| [lib/state/setup/version.test.ts](../lib/state/setup/version.test.ts) | Version tracking and comparison |
+| [lib/state/setup/workspace-files.test.ts](../lib/state/setup/workspace-files.test.ts) | Workspace initialization and write-once defaults |
+| [lib/state/setup/migrate-layout.test.ts](../lib/state/setup/migrate-layout.test.ts) | Workspace layout migration: `projects/` → `devclaw/` |
 | [lib/names.test.ts](../lib/names.test.ts) | Deterministic name generation |
 | [lib/instance.test.ts](../lib/instance.test.ts) | Instance name management |
 

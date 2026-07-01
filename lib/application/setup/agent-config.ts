@@ -1,5 +1,5 @@
 /**
- * setup/agent.ts — Agent creation and workspace resolution.
+ * application/setup/agent-config.ts — Agent creation and workspace resolution.
  */
 import fs from "node:fs/promises";
 import path from "node:path";

@@ -1,12 +1,12 @@
 import type { Command } from "commander";
 import type { PluginContext } from "../../context.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
-import { runSetup } from "../../setup/index.js";
+import { runSetup } from "../../application/setup/index.js";
 import {
   ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
-} from "../../setup/scopes.js";
+} from "../../application/setup/scopes.js";
 import {
   normalizeChannelBinding,
   normalizeProjectExecution,

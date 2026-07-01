@@ -1,7 +1,7 @@
 /**
  * version.test.ts — Tests for version tracking.
  *
- * Run: npx tsx --test lib/setup/version.test.ts
+ * Run: npx tsx --test lib/state/setup/version.test.ts
  */
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert";

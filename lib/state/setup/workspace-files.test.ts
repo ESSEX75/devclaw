@@ -4,14 +4,14 @@
  * Verifies that ensureDefaultFiles() creates missing files but never
  * overwrites user-owned config (workflow.yaml, prompts, IDENTITY.md).
  *
- * Run: npx tsx --test lib/setup/workspace.test.ts
+ * Run: npx tsx --test lib/state/setup/workspace-files.test.ts
  */
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { ensureDefaultFiles, fileExists } from "./workspace.js";
+import { ensureDefaultFiles, fileExists } from "./workspace-files.js";
 import { DATA_DIR } from "./migrate-layout.js";
 
 let tmpDir: string;

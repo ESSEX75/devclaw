@@ -1,12 +1,12 @@
 /**
- * setup/config.ts — Plugin config writer (openclaw.json).
+ * application/setup/plugin-config.ts — Plugin config writer (openclaw.json).
  *
  * Handles: tool restrictions, subagent cleanup, heartbeat defaults.
  * Models are stored in workflow.yaml (not openclaw.json).
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import { HEARTBEAT_DEFAULTS } from "../application/heartbeat/config.js";
-import type { ExecutionMode } from "../domain/workflow/index.js";
+import { HEARTBEAT_DEFAULTS } from "../heartbeat/config.js";
+import type { ExecutionMode } from "../../domain/workflow/index.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 
 export const DEVCLAW_AGENT_TOOLS = [

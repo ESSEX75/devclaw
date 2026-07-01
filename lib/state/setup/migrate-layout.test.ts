@@ -1,6 +1,6 @@
 /**
  * Tests for workspace layout migration.
- * Run with: npx tsx --test lib/setup/migrate-layout.test.ts
+ * Run with: npx tsx --test lib/state/setup/migrate-layout.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";

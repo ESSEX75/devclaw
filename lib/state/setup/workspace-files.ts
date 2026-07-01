@@ -1,5 +1,5 @@
 /**
- * setup/workspace.ts — Workspace file scaffolding.
+ * state/setup/workspace-files.ts — Workspace file scaffolding.
  *
  * On startup, ensureDefaultFiles() creates missing workspace files with curated
  * defaults. User-owned config files (workflow.yaml, prompts, IDENTITY.md) are
@@ -22,10 +22,10 @@ import {
   WORKFLOW_YAML_TEMPLATE,
   DEFAULT_ROLE_INSTRUCTIONS,
 } from "./templates.js";
-import { getAllRoleIds } from "../roles/index.js";
+import { getAllRoleIds } from "../../roles/index.js";
 import { migrateWorkspaceLayout, DATA_DIR } from "./migrate-layout.js";
 import { writeVersionFile, detectUpgrade } from "./version.js";
-import { log as auditLog } from "../audit.js";
+import { log as auditLog } from "../../audit.js";
 
 /** Sentinel file indicating the workspace has been initialized. */
 const INITIALIZED_SENTINEL = ".initialized";

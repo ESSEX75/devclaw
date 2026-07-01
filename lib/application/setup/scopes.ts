@@ -6,7 +6,7 @@
  * OpenClaw permissions can surface as a pending approval request without
  * mixing approval transport into config/workspace orchestration.
  */
-import type { RunCommand } from "../context.js";
+import type { RunCommand } from "../../context.js";
 
 export const REQUIRED_OPENCLAW_SCOPES = [
   "operator.read",

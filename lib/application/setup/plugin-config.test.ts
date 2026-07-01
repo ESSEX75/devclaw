@@ -1,12 +1,12 @@
 /**
  * Tests for OpenClaw config writes performed by DevClaw setup.
- * Run with: npx tsx --test lib/setup/config.test.ts
+ * Run with: npx tsx --test lib/application/setup/plugin-config.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import { DEVCLAW_AGENT_TOOLS, writePluginConfig } from "./config.js";
+import { DEVCLAW_AGENT_TOOLS, writePluginConfig } from "./plugin-config.js";
 
 function createRuntime(initialConfig: OpenClawConfig): {
   runtime: PluginRuntime;

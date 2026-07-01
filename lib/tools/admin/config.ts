@@ -10,10 +10,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
-import { writeAllDefaults, backupAndWrite, fileExists } from "../../setup/workspace.js";
-import { WORKFLOW_YAML_TEMPLATE, DEFAULT_ROLE_INSTRUCTIONS } from "../../setup/templates.js";
-import { DATA_DIR } from "../../setup/migrate-layout.js";
-import { getCurrentVersion, readVersionFile } from "../../setup/version.js";
+import { writeAllDefaults, backupAndWrite, fileExists } from "../../state/setup/workspace-files.js";
+import { WORKFLOW_YAML_TEMPLATE, DEFAULT_ROLE_INSTRUCTIONS } from "../../state/setup/templates.js";
+import { DATA_DIR } from "../../state/setup/migrate-layout.js";
+import { getCurrentVersion, readVersionFile } from "../../state/setup/version.js";
 
 export function createConfigTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({

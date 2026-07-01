@@ -1,6 +1,6 @@
 /**
  * Tests for OpenClaw channel binding helpers.
- * Run with: npx tsx --test lib/setup/binding-manager.test.ts
+ * Run with: npx tsx --test lib/application/setup/binding-manager.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
