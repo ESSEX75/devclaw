@@ -16,7 +16,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import type { PluginContext } from "../../context.js";
 import type { StateLabel } from "../../providers/provider.js";
 import { getRoleWorker, countActiveSlots } from "../../projects/index.js";
-import { dispatchTask } from "../../dispatch/index.js";
+import { dispatchTask } from "../../application/workers/dispatch-task.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
 import { loadConfig } from "../../config/index.js";

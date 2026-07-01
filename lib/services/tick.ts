@@ -10,7 +10,7 @@ import type { Issue, IssueProvider } from "../providers/provider.js";
 import { createProvider } from "../providers/index.js";
 import { selectLevel } from "../roles/model-selector.js";
 import { getRoleWorker, getProject, readProjects, findFreeSlot, countActiveSlots, reconcileSlots } from "../projects/index.js";
-import { dispatchTask } from "../dispatch/index.js";
+import { dispatchTask } from "../application/workers/dispatch-task.js";
 import { getLevelsForRole } from "../roles/index.js";
 import { loadConfig } from "../config/index.js";
 import {
