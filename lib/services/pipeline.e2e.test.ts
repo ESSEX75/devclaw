@@ -15,7 +15,7 @@ import { dispatchTask } from "../dispatch/index.js";
 import { executeCompletion } from "./pipeline.js";
 import { projectTick } from "./tick.js";
 import { reviewPass } from "./heartbeat/review.js";
-import { DEFAULT_WORKFLOW, ReviewPolicy, type WorkflowConfig } from "../workflow/index.js";
+import { DEFAULT_WORKFLOW, ReviewPolicy, type WorkflowConfig } from "../domain/workflow/index.js";
 import { readProjects, getRoleWorker, getProject, countActiveSlots } from "../projects/index.js";
 import { writeIssueRuntimeState } from "../issues/index.js";
 

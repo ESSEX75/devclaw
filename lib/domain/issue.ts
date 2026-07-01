@@ -1,5 +1,5 @@
 import type { IssueId, LevelId, ProjectSlug, ProviderKind, RoleId, SessionKey, WorkflowLabel, WorkflowStateKey } from "./ids.js";
-import type { ReviewPolicy, TestPolicy } from "../workflow/types.js";
+import type { ReviewPolicy, TestPolicy } from "./workflow/types.js";
 
 export type IssueProvider = ProviderKind;
 

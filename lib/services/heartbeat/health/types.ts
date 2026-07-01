@@ -1,4 +1,4 @@
-import type { Role } from "../../../workflow/types.js";
+import type { Role } from "../../../domain/workflow/types.js";
 
 /** Grace period: skip session-dead checks for workers started within this window. */
 export const GRACE_PERIOD_MS = 5 * 60 * 1_000; // 5 minutes

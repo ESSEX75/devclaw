@@ -5,11 +5,11 @@ import {
   WorkflowEvent,
   type StateConfig,
   type WorkflowConfig,
-} from "../../workflow/types.js";
+} from "../../domain/workflow/types.js";
 import {
   findStateByLabel,
   getRoleLabelColor,
-} from "../../workflow/index.js";
+} from "../../domain/workflow/index.js";
 import { getLevelsForRole } from "../../roles/index.js";
 import { loadConfig } from "../../config/index.js";
 import { resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../../tools/helpers.js";

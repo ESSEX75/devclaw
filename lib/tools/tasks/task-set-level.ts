@@ -8,7 +8,7 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
-import { StateType, findStateByLabel, getRoleLabelColor } from "../../workflow/index.js";
+import { StateType, findStateByLabel, getRoleLabelColor } from "../../domain/workflow/index.js";
 import { loadConfig } from "../../config/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
 import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../issues/index.js";

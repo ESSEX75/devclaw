@@ -194,16 +194,3 @@ export function hasTestPhase(workflow: WorkflowConfig): boolean {
     (s) => s.role === "tester" && s.type === StateType.QUEUE,
   );
 }
-
-/**
- * Load workflow config for a project.
- * Delegates to loadConfig() which handles the three-layer merge.
- */
-export async function loadWorkflow(
-  workspaceDir: string,
-  projectName?: string,
-): Promise<WorkflowConfig> {
-  const { loadConfig } = await import("../config/loader.js");
-  const config = await loadConfig(workspaceDir, projectName);
-  return config.workflow;
-}

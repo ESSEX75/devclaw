@@ -34,17 +34,17 @@ import type { Project } from "../../../projects/index.js";
 import { log as auditLog } from "../../../audit.js";
 import {
   DEFAULT_WORKFLOW,
-} from "../../../workflow/defaults.js";
+} from "../../../domain/workflow/defaults.js";
 import {
   getActiveLabel,
   getRevertLabel,
   hasWorkflowStates,
   getCurrentStateLabel,
-} from "../../../workflow/queries.js";
+} from "../../../domain/workflow/queries.js";
 import type {
   WorkflowConfig,
   Role,
-} from "../../../workflow/types.js";
+} from "../../../domain/workflow/types.js";
 import { isSessionAlive, type SessionLookup } from "./gateway-sessions.js";
 import { sendToAgent } from "../../../dispatch/session.js";
 import type { RunCommand } from "../../../context.js";

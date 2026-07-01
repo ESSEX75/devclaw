@@ -20,7 +20,7 @@ import {
   getActiveLabel,
   type WorkflowConfig,
   type Role,
-} from "../workflow/index.js";
+} from "../domain/workflow/index.js";
 import { detectRoleLevelFromLabels, findNextIssueForRole } from "./queue-scan.js";
 
 // ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ import {
   getStateLabels,
   getLabelColors,
   getRoleLabels,
-} from "../../workflow/index.js";
+} from "../../domain/workflow/index.js";
 import { log as auditLog } from "../../audit.js";
 
 export function createSyncLabelsTool(ctx: PluginContext) {

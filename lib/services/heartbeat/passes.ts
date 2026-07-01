@@ -15,7 +15,7 @@ import { reviewSkipPass } from "./review-skip.js";
 import { testSkipPass } from "./test-skip.js";
 import { projectionIntegrityPass } from "./projection.js";
 import type { ResolvedConfig } from "../../config/types.js";
-import { resolveNotifyChannel } from "../../workflow/index.js";
+import { resolveNotifyChannel } from "../../domain/workflow/index.js";
 import { notify, getNotificationConfig } from "../../dispatch/notify.js";
 
 // ---------------------------------------------------------------------------

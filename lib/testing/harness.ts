@@ -10,7 +10,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { writeProjects, type ProjectsData, type Project, type RoleWorkerState } from "../projects/index.js";
-import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../workflow/index.js";
+import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
 import { registerBootstrapHook } from "../dispatch/bootstrap-hook.js";
 import { TestProvider } from "./test-provider.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";

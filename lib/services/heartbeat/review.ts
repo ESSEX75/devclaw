@@ -14,7 +14,7 @@ import {
   WorkflowEvent,
   type WorkflowConfig,
   type StateConfig,
-} from "../../workflow/index.js";
+} from "../../domain/workflow/index.js";
 import type { RunCommand } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";

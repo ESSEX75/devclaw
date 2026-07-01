@@ -3,15 +3,15 @@
  */
 import type { Project } from "../projects/index.js";
 import type { Issue, IssueProvider as ProviderIssueProvider } from "../providers/provider.js";
-import { ReviewPolicy, TestPolicy, type WorkflowConfig } from "../workflow/types.js";
+import { ReviewPolicy, TestPolicy, type WorkflowConfig } from "../domain/workflow/types.js";
 import {
   findStateKeyByLabel,
   getCurrentStateLabel,
-} from "../workflow/queries.js";
+} from "../domain/workflow/queries.js";
 import {
   detectOwner,
   NOTIFY_LABEL_PREFIX,
-} from "../workflow/labels.js";
+} from "../domain/workflow/labels.js";
 import { updateIssueStateStore } from "./state.js";
 import type {
   ActiveIssueWorker,

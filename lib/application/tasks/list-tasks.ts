@@ -1,8 +1,8 @@
 import { readIssueStateStore } from "../../state/issues/index.js";
 import type { IssueRuntimeState } from "../../issues/types.js";
 import type { IssueReader } from "../../providers/capabilities.js";
-import { StateType, type WorkflowConfig } from "../../workflow/types.js";
-import { findStateByLabel } from "../../workflow/queries.js";
+import { StateType, type WorkflowConfig } from "../../domain/workflow/types.js";
+import { findStateByLabel } from "../../domain/workflow/queries.js";
 import {
   loadProjectionViewContext,
   summarizeLocalIssueStates,

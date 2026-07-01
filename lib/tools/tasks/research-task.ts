@@ -20,7 +20,7 @@ import { dispatchTask } from "../../application/workers/dispatch-task.js";
 import { log as auditLog } from "../../audit.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
 import { loadConfig } from "../../config/index.js";
-import { getActiveLabel } from "../../workflow/index.js";
+import { getActiveLabel } from "../../domain/workflow/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import { resolveModel } from "../../roles/index.js";
 

@@ -11,7 +11,7 @@ import {
   DEFAULT_WORKFLOW, getQueueLabels, getCompletionRule,
   getCompletionEmoji, getStateLabels, hasWorkflowStates,
   getActiveLabel,
-} from "../../workflow/index.js";
+} from "../../domain/workflow/index.js";
 
 describe("architect tiers", () => {
   it("should recognize architect levels", () => {

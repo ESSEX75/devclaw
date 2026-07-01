@@ -7,19 +7,19 @@ import type { Project } from "../../../projects/index.js";
 import { readProjects } from "../../../state/projects/index.js";
 import {
   DEFAULT_WORKFLOW,
-} from "../../../workflow/defaults.js";
+} from "../../../domain/workflow/defaults.js";
 import {
   getActiveLabel,
   getRevertLabel,
   hasWorkflowStates,
-} from "../../../workflow/queries.js";
+} from "../../../domain/workflow/queries.js";
 import {
   isOwnedByOrUnclaimed,
-} from "../../../workflow/labels.js";
+} from "../../../domain/workflow/labels.js";
 import type {
   WorkflowConfig,
   Role,
-} from "../../../workflow/types.js";
+} from "../../../domain/workflow/types.js";
 import type { HealthFix } from "./types.js";
 import { resolveOrphanRevertLabel } from "./issue-utils.js";
 

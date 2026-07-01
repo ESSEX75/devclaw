@@ -6,7 +6,7 @@ import os from "node:os";
 import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../issues/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
 import { projectionIntegrityPass } from "./projection.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {

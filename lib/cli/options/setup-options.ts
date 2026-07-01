@@ -1,6 +1,6 @@
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
-import { ExecutionMode, type ExecutionMode as ExecutionModeType } from "../../workflow/index.js";
+import { ExecutionMode, type ExecutionMode as ExecutionModeType } from "../../domain/workflow/index.js";
 
 export type SetupCliOptions = {
   newAgent?: string;

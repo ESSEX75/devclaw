@@ -8,7 +8,7 @@ import { readIssueStateStore, writeIssueRuntimeState } from "../../issues/index.
 import type { Project } from "../../projects/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
 import { projectionIntegrityPass } from "./projection.js";
 import { reviewPass } from "./review.js";
 import { testSkipPass } from "./test-skip.js";

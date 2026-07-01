@@ -9,7 +9,7 @@ import { readProjects, getProject, type Project, type ProjectsData } from "../pr
 import { createProvider, type ProviderWithType } from "../providers/index.js";
 import { loadConfig } from "../config/index.js";
 import { loadInstanceName } from "../instance.js";
-import { getOwnerLabel, OWNER_LABEL_COLOR, getNotifyLabel, NOTIFY_LABEL_PREFIX, NOTIFY_LABEL_COLOR } from "../workflow/index.js";
+import { getOwnerLabel, OWNER_LABEL_COLOR, getNotifyLabel, NOTIFY_LABEL_PREFIX, NOTIFY_LABEL_COLOR } from "../domain/workflow/index.js";
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 /**

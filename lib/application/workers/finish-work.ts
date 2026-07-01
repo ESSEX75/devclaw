@@ -8,7 +8,7 @@ import { log as auditLog } from "../../audit.js";
 import { DATA_DIR } from "../../setup/migrate-layout.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { getCompletionResults, isValidResult } from "../../roles/index.js";
-import { loadWorkflow } from "../../workflow/index.js";
+import { loadConfig } from "../../config/index.js";
 
 export type FinishWorkInput = {
   workspaceDir: string;
@@ -187,7 +187,7 @@ export async function finishWork(input: FinishWorkInput) {
   }
 
   const { provider } = await resolveProvider(project, runCommand);
-  const workflow = await loadWorkflow(workspaceDir, project.name);
+  const workflow = (await loadConfig(workspaceDir, project.name)).workflow;
 
   if (!getRule(role, result, workflow)) {
     throw new Error(`Invalid completion: ${role}:${result}`);

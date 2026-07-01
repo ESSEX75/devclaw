@@ -14,7 +14,7 @@ import {
 import { projectTick } from "../tick.js";
 import { createProvider } from "../../providers/index.js";
 import { loadConfig } from "../../config/index.js";
-import { ExecutionMode } from "../../workflow/index.js";
+import { ExecutionMode } from "../../domain/workflow/index.js";
 import type { HeartbeatConfig } from "./config.js";
 import {
   performHealthPass,

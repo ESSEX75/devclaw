@@ -6,7 +6,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { DEFAULT_WORKFLOW, getInitialStateLabel } from "../../workflow/index.js";
+import { DEFAULT_WORKFLOW, getInitialStateLabel } from "../../domain/workflow/index.js";
 
 // ---------------------------------------------------------------------------
 // getInitialStateLabel

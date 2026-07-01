@@ -16,7 +16,7 @@ import {
   OWNER_LABEL_COLOR,
   OWNER_LABEL_PREFIX,
   getAllQueueLabels,
-} from "../../workflow/index.js";
+} from "../../domain/workflow/index.js";
 
 export function createTaskOwnerTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({

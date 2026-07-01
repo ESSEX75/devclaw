@@ -5,12 +5,12 @@ import {
   TestPolicy,
   type WorkflowConfig,
   type StateConfig,
-} from "../../workflow/types.js";
+} from "../../domain/workflow/types.js";
 import {
   OWNER_LABEL_COLOR,
   NOTIFY_LABEL_PREFIX,
   NOTIFY_LABEL_COLOR,
-} from "../../workflow/labels.js";
+} from "../../domain/workflow/labels.js";
 import { writeIssueRuntimeState, type NotifyTarget } from "../../issues/index.js";
 import { expectedManagedLabels, replaceIssueMetadata } from "../../projection/index.js";
 import type { Issue } from "../../providers/provider.js";

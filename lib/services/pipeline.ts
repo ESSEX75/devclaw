@@ -20,7 +20,7 @@ import {
   resolveNotifyChannel,
   type CompletionRule,
   type WorkflowConfig,
-} from "../workflow/index.js";
+} from "../domain/workflow/index.js";
 import type { Channel } from "../projects/index.js";
 
 export type { CompletionRule };

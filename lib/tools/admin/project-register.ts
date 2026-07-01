@@ -15,7 +15,7 @@ import { resolveRepoPath } from "../../projects/index.js";
 import { createProvider } from "../../providers/index.js";
 import { log as auditLog } from "../../audit.js";
 import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
-import { getRoleLabels } from "../../workflow/index.js";
+import { getRoleLabels } from "../../domain/workflow/index.js";
 import { loadConfig } from "../../config/index.js";
 import { DATA_DIR } from "../../setup/migrate-layout.js";
 

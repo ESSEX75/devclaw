@@ -6,7 +6,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { DEFAULT_WORKFLOW, getStateLabels, ReviewPolicy, resolveReviewRouting } from "../../workflow/index.js";
+import { DEFAULT_WORKFLOW, getStateLabels, ReviewPolicy, resolveReviewRouting } from "../../domain/workflow/index.js";
 import { detectLevelFromLabels, detectRoleLevelFromLabels } from "../../services/queue-scan.js";
 
 describe("task_set_level tool", () => {

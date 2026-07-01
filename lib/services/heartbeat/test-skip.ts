@@ -15,7 +15,7 @@ import {
   WorkflowEvent,
   type WorkflowConfig,
   type StateConfig,
-} from "../../workflow/index.js";
+} from "../../domain/workflow/index.js";
 import { log as auditLog } from "../../audit.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
 import { writeHeartbeatTransitionState } from "./transition-state.js";

@@ -5,7 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { createManagedTaskIssue, getManagedTaskStatus, listManagedTasks } from "./index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../workflow/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
 
 describe("task query use cases", () => {
   it("lists initialized managed issues from local state", async () => {

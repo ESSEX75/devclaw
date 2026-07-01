@@ -13,8 +13,8 @@ import {
   metadataMatches,
   type ProjectionDiff,
 } from "../../projection/index.js";
-import type { WorkflowConfig } from "../../workflow/types.js";
-import { getStateLabels } from "../../workflow/queries.js";
+import type { WorkflowConfig } from "../../domain/workflow/types.js";
+import { getStateLabels } from "../../domain/workflow/queries.js";
 
 export type ProjectionIntegrityAction =
   | "label_repair"

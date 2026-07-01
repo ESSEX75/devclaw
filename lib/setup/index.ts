@@ -14,7 +14,7 @@ import { createAgent, resolveWorkspacePath } from "./agent.js";
 import { writePluginConfig } from "./config.js";
 import { scaffoldWorkspace, writeAllDefaults } from "./workspace.js";
 import { DATA_DIR } from "./migrate-layout.js";
-import type { ExecutionMode } from "../workflow/index.js";
+import type { ExecutionMode } from "../domain/workflow/index.js";
 
 export type ModelConfig = Record<string, Record<string, string>>;
 

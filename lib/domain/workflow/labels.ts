@@ -4,7 +4,15 @@
 import type { WorkflowConfig, ReviewPolicy, TestPolicy } from "./types.js";
 import { ReviewPolicy as RP, TestPolicy as TP } from "./types.js";
 import { getLabelColors } from "./queries.js";
-import type { Channel } from "../projects/types.js";
+
+type WorkflowChannel = {
+  channelId: string;
+  channel: "telegram" | "whatsapp" | "discord" | "slack";
+  name: string;
+  events: string[];
+  accountId?: string;
+  threadId?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Step routing labels
@@ -45,8 +53,8 @@ export function getNotifyLabel(channel: string, nameOrIndex: string): string {
  */
 export function resolveNotifyChannel(
   issueLabels: string[],
-  channels: Array<Omit<Channel, 'events'>>,
-): Omit<Channel, 'events' | 'name'> | undefined {
+  channels: Array<Omit<WorkflowChannel, "events">>,
+): Omit<WorkflowChannel, "events" | "name"> | undefined {
   const notifyLabel = issueLabels.find((l) => l.startsWith(NOTIFY_LABEL_PREFIX));
   if (notifyLabel) {
     const value = notifyLabel.slice(NOTIFY_LABEL_PREFIX.length);

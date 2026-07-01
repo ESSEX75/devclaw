@@ -16,10 +16,10 @@ import {
   metadataMatches,
   type ProjectionDiff,
 } from "../../projection/index.js";
-import { getStateLabels } from "../../workflow/index.js";
+import { getStateLabels } from "../../domain/workflow/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 import type { Project } from "../../projects/index.js";
-import type { WorkflowConfig } from "../../workflow/index.js";
+import type { WorkflowConfig } from "../../domain/workflow/index.js";
 
 export type IssueRepairResult = {
   issueId: number;

@@ -17,7 +17,7 @@ import {
   getStateLabels,
   getLabelColors,
   type WorkflowConfig,
-} from "../workflow/index.js";
+} from "../domain/workflow/index.js";
 
 type GitLabMR = {
   iid: number;

@@ -14,7 +14,7 @@ import {
 } from "../../setup/scopes.js";
 import { writeAllDefaults } from "../../setup/workspace.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
-import { ExecutionMode } from "../../workflow/index.js";
+import { ExecutionMode } from "../../domain/workflow/index.js";
 
 export function createSetupTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
