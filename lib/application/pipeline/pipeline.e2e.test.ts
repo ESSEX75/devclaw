@@ -18,6 +18,7 @@ import { reviewPass } from "../heartbeat/review.js";
 import { DEFAULT_WORKFLOW, ReviewPolicy, type WorkflowConfig } from "../../domain/workflow/index.js";
 import { readProjects, getRoleWorker, getProject, countActiveSlots } from "../../state/projects/index.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
+import { slotName } from "../../names.js";
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -29,6 +30,35 @@ describe("E2E pipeline", () => {
   afterEach(async () => {
     if (h) await h.cleanup();
   });
+
+  async function seedManagedQueueIssue(args: {
+    iid: number;
+    title: string;
+    labels: string[];
+    workflowState: string;
+    workflowLabel: string;
+    assignedRole: string;
+    assignedLevel: string;
+    reviewPolicy?: "human" | "agent" | "skip" | null;
+    testPolicy?: "agent" | "skip" | null;
+    workflow?: WorkflowConfig;
+  }) {
+    const issue = h.provider.seedIssue(args);
+    await writeIssueRuntimeState({
+      workspaceDir: h.workspaceDir,
+      project: h.project,
+      issue,
+      providerType: "github",
+      workflow: args.workflow ?? DEFAULT_WORKFLOW,
+      workflowState: args.workflowState,
+      workflowLabel: args.workflowLabel,
+      assignedRole: args.assignedRole,
+      assignedLevel: args.assignedLevel,
+      reviewPolicy: args.reviewPolicy ?? null,
+      testPolicy: args.testPolicy ?? null,
+    });
+    return issue;
+  }
 
   // =========================================================================
   // Dispatch
@@ -148,12 +178,14 @@ describe("E2E pipeline", () => {
     });
 
     it("should reuse existing session when available", async () => {
+      const existingSessionKey = `agent:test-agent:subagent:test-project-developer-medior-${slotName("test-project", "developer", "medior", 0).toLowerCase()}`;
       // Set up worker with existing session in per-level format
       h = await createTestHarness({
         workers: {
           developer: {
             level: "medior",
-            sessionKey: "agent:test-agent:subagent:test-project-developer-medior-0",
+            issueId: "42",
+            sessionKey: existingSessionKey,
           },
         },
       });
@@ -630,7 +662,7 @@ describe("E2E pipeline", () => {
       assert.ok(issue.labels.includes("To Test"), `Labels: ${issue.labels}`);
     });
 
-    it("should transition To Review → To Improve when PR is closed without merging (url non-null)", async () => {
+    it("should transition To Review → Rejected when PR is closed without merging (url non-null)", async () => {
       // After #315: PrState.CLOSED + url non-null = PR was explicitly closed without merging
       await seedManagedReviewIssue({ iid: 80, title: "Closed PR feature", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(80, { state: "closed", url: "https://example.com/pr/80" });
@@ -655,7 +687,7 @@ describe("E2E pipeline", () => {
       assert.strictEqual(transitions, 1, "Should have made 1 transition");
 
       const issue = await h.provider.getIssue(80);
-      assert.ok(issue.labels.includes("To Improve"), `Labels: ${issue.labels}`);
+      assert.ok(issue.labels.includes("Rejected"), `Labels: ${issue.labels}`);
       assert.ok(!issue.labels.includes("To Review"), "Should not have To Review");
       assert.ok(!issue.labels.includes("To Test"), "Should NOT have To Test");
 
@@ -1084,14 +1116,25 @@ describe("E2E pipeline", () => {
 
     it("reviewPolicy: agent should dispatch reviewer", async () => {
       h = await createTestHarness();
-      h.provider.seedIssue({ iid: 81, title: "Needs review", labels: ["To Review"] });
+      const workflow = workflowWithPolicy(ReviewPolicy.AGENT);
+      await seedManagedQueueIssue({
+        iid: 81,
+        title: "Needs review",
+        labels: ["To Review", "review:agent"],
+        workflowState: "toReview",
+        workflowLabel: "To Review",
+        assignedRole: "reviewer",
+        assignedLevel: "junior",
+        reviewPolicy: "agent",
+        workflow,
+      });
 
       const result = await projectTick({
         workspaceDir: h.workspaceDir,
         projectSlug: h.project.slug,
         agentId: "test-agent",
         targetRole: "reviewer",
-        workflow: workflowWithPolicy(ReviewPolicy.AGENT),
+        workflow,
         provider: h.provider,
         runCommand: h.runCommand,
       });
@@ -1122,14 +1165,37 @@ describe("E2E pipeline", () => {
 
     it("reviewPolicy: human should still allow developer and tester dispatch", async () => {
       h = await createTestHarness();
-      h.provider.seedIssue({ iid: 84, title: "Dev task", labels: ["To Do"] });
-      h.provider.seedIssue({ iid: 85, title: "Test task", labels: ["To Test"] });
+      const workflow = { ...workflowWithPolicy(ReviewPolicy.HUMAN), testPolicy: "agent" as const };
+      await seedManagedQueueIssue({
+        iid: 84,
+        title: "Dev task",
+        labels: ["To Do"],
+        workflowState: "todo",
+        workflowLabel: "To Do",
+        assignedRole: "developer",
+        assignedLevel: "medior",
+        reviewPolicy: "human",
+        testPolicy: "agent",
+        workflow,
+      });
+      await seedManagedQueueIssue({
+        iid: 85,
+        title: "Test task",
+        labels: ["To Test"],
+        workflowState: "toTest",
+        workflowLabel: "To Test",
+        assignedRole: "tester",
+        assignedLevel: "medior",
+        reviewPolicy: "human",
+        testPolicy: "agent",
+        workflow,
+      });
 
       const result = await projectTick({
         workspaceDir: h.workspaceDir,
         projectSlug: h.project.slug,
         agentId: "test-agent",
-        workflow: workflowWithPolicy(ReviewPolicy.HUMAN),
+        workflow,
         provider: h.provider,
         runCommand: h.runCommand,
       });
@@ -1173,7 +1239,7 @@ describe("E2E pipeline", () => {
       assert.ok(issue.labels.includes("review:human"), `Should have review:human for senior, got: ${issue.labels}`);
     });
 
-    it("dispatch should apply review:agent label for non-senior developer", async () => {
+    it("dispatch should apply default human review label for non-senior developer", async () => {
       h = await createTestHarness();
       h.provider.seedIssue({ iid: 404, title: "Junior task", labels: ["To Do"] });
 
@@ -1195,7 +1261,7 @@ describe("E2E pipeline", () => {
 
       const issue = await h.provider.getIssue(404);
       assert.ok(issue.labels.some(l => l.startsWith("developer:junior")), `Should have developer:junior[:name], got: ${issue.labels}`);
-      assert.ok(issue.labels.includes("review:agent"), `Should have review:agent for junior, got: ${issue.labels}`);
+      assert.ok(issue.labels.includes("review:human"), `Should have review:human for junior, got: ${issue.labels}`);
     });
 
     it("dispatch should replace old role:level label", async () => {

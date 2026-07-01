@@ -37,6 +37,12 @@ export function parseDevClawSessionKey(
     new RegExp(`:subagent:(.+)-(${rolePattern})-[^-]+-[^-]+$`),
   );
   if (newMatch) return { projectName: newMatch[1], role: newMatch[2] };
+
+  // Architect research sessions are role-level scoped and do not occupy a
+  // named worker slot, so their keys end at `{project}-architect-{level}`.
+  const architectMatch = sessionKey.match(/:subagent:(.+)-(architect)-[^-]+$/);
+  if (architectMatch) return { projectName: architectMatch[1], role: architectMatch[2] };
+
   return null;
 }
 

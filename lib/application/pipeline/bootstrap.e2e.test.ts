@@ -102,8 +102,8 @@ describe("E2E bootstrap — extraSystemPrompt injection", () => {
     });
 
     const prompts = h.commands.extraSystemPrompts();
-    // No prompt files exist in this temp workspace — extraSystemPrompt should be absent
-    assert.strictEqual(prompts.length, 0, "No extraSystemPrompt when no prompt files exist");
+    assert.strictEqual(prompts.length, 1, "Package default prompt should be injected when workspace prompts are absent");
+    assert.ok(prompts[0]?.includes("work_finish"), "Package default developer prompt should include worker completion instructions");
   });
 
   it("should resolve tester instructions independently from developer", async () => {
