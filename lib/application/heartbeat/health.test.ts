@@ -5,7 +5,7 @@
  * - Fresh project read (avoids stale snapshot false positives)
  * - Smart revert target based on PR status (feedback → "To Improve")
  *
- * Run: npx tsx --test lib/services/heartbeat/health.test.ts
+ * Run: npx tsx --test lib/application/heartbeat/health.test.ts
  */
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";

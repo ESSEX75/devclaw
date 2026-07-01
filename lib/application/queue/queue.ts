@@ -6,7 +6,7 @@ import {
   StateType,
   type WorkflowConfig,
   type Role,
-} from "../domain/workflow/index.js";
+} from "../../domain/workflow/index.js";
 
 /**
  * Get state labels grouped by type from workflow config.

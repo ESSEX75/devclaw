@@ -4,9 +4,9 @@ import { toolRegistry } from "./lib/tools/registry.js";
 
 // Infrastructure
 import { registerCli } from "./lib/setup/cli.js";
-import { registerHeartbeatService } from "./lib/services/heartbeat/index.js";
-import { registerBootstrapHook } from "./lib/dispatch/bootstrap-hook.js";
-import { registerAttachmentHook } from "./lib/dispatch/attachment-hook.js";
+import { registerHeartbeatService } from "./lib/application/heartbeat/index.js";
+import { registerBootstrapHook } from "./lib/integrations/openclaw/bootstrap-hook.js";
+import { registerAttachmentHook } from "./lib/application/tasks/attachment-hook.js";
 
 const plugin = {
   id: "devclaw",

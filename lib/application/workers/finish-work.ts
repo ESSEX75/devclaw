@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../../context.js";
 import { getRoleWorker, resolveRepoPath } from "../../state/projects/index.js";
-import { executeCompletion, getRule } from "../../services/pipeline.js";
+import { executeCompletion, getRule } from "../pipeline/completion.js";
 import { log as auditLog } from "../../audit.js";
 import { DATA_DIR } from "../../setup/migrate-layout.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";

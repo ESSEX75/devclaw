@@ -178,7 +178,7 @@ Token-free interval-based health checks + queue dispatch:
 | `intervalSeconds` | number | `60` | Seconds between ticks |
 | `maxPickupsPerTick` | number | `4` | Maximum worker dispatches per tick (budget control) |
 
-**Source:** [`lib/services/heartbeat/index.ts`](../lib/services/heartbeat/index.ts)
+**Source:** [`lib/application/heartbeat/index.ts`](../lib/application/heartbeat/index.ts)
 
 The heartbeat service runs as a plugin service tied to the gateway lifecycle. Every tick: health pass (auto-fix zombies, stale workers) → review pass (poll PR status for "To Review" issues) → tick pass (fill free slots by priority). Zero LLM tokens consumed.
 
@@ -446,7 +446,7 @@ Role instructions are injected into worker sessions via the `agent:bootstrap` ho
 
 Edit to customize: deployment steps, test commands, acceptance criteria, coding standards.
 
-**Source:** [`lib/dispatch/bootstrap-hook.ts`](../lib/dispatch/bootstrap-hook.ts)
+**Source:** [`lib/integrations/openclaw/bootstrap-hook.ts`](../lib/integrations/openclaw/bootstrap-hook.ts)
 
 ---
 

@@ -435,7 +435,7 @@ Spawn an architect for a design investigation. Creates a `To Research` issue wit
 
 ## Completion Rules Reference
 
-The pipeline service (`lib/services/pipeline.ts`) derives completion rules from the workflow config.
+The pipeline service (`lib/application/pipeline/completion.ts`) derives completion rules from the workflow config.
 
 **Default flow (human review, no test phase):**
 

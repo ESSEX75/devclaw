@@ -5,7 +5,7 @@
  * Models are stored in workflow.yaml (not openclaw.json).
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import { HEARTBEAT_DEFAULTS } from "../services/heartbeat/config.js";
+import { HEARTBEAT_DEFAULTS } from "../application/heartbeat/config.js";
 import type { ExecutionMode } from "../domain/workflow/index.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 

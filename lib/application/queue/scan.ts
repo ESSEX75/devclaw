@@ -4,18 +4,18 @@
  * Shared by: tick (projectTick), work-start (auto-pickup), and other consumers
  * that need to find queued issues or detect roles/levels from labels.
  */
-import type { Issue, StateLabel } from "../integrations/providers/provider.js";
-import type { IssueProvider } from "../integrations/providers/provider.js";
-import type { IssueReader } from "../integrations/providers/capabilities.js";
-import { readIssueStateStore } from "../state/issues/index.js";
-import type { IssueRuntimeState } from "../domain/issues/types.js";
-import { getLevelsForRole, getAllLevels } from "../roles/index.js";
+import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
+import type { IssueReader } from "../../integrations/providers/capabilities.js";
+import { readIssueStateStore } from "../../state/issues/index.js";
+import type { IssueRuntimeState } from "../../domain/issues/types.js";
+import { getLevelsForRole, getAllLevels } from "../../roles/index.js";
 import {
   getQueueLabels,
   detectRoleFromLabel as workflowDetectRole,
-} from "../domain/workflow/queries.js";
-import { isOwnedByOrUnclaimed } from "../domain/workflow/labels.js";
-import type { WorkflowConfig, Role } from "../domain/workflow/types.js";
+} from "../../domain/workflow/queries.js";
+import { isOwnedByOrUnclaimed } from "../../domain/workflow/labels.js";
+import type { WorkflowConfig, Role } from "../../domain/workflow/types.js";
 
 // ---------------------------------------------------------------------------
 // Label detection

@@ -11,7 +11,7 @@ import path from "node:path";
 import os from "node:os";
 import { writeProjects, type ProjectsData, type Project, type RoleWorkerState } from "../state/projects/index.js";
 import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
-import { registerBootstrapHook } from "../dispatch/bootstrap-hook.js";
+import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
 import { TestProvider } from "./test-provider.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../context.js";

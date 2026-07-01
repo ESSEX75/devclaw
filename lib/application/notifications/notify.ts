@@ -9,9 +9,9 @@
  * - reviewNeeded: Issue needs review — human or agent (→ project group)
  * - prMerged: PR/MR was merged into the base branch (→ project group)
  */
-import { log as auditLog } from "../audit.js";
+import { log as auditLog } from "../../audit.js";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { RunCommand } from "../context.js";
+import type { RunCommand } from "../../context.js";
 
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;

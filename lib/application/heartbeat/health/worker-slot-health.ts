@@ -46,7 +46,7 @@ import type {
   Role,
 } from "../../../domain/workflow/types.js";
 import { isSessionAlive, type SessionLookup } from "./gateway-sessions.js";
-import { sendToAgent } from "../../../dispatch/session.js";
+import { sendToAgent } from "../../../integrations/openclaw/session.js";
 import type { RunCommand } from "../../../context.js";
 import {
   GRACE_PERIOD_MS,

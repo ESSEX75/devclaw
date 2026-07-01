@@ -11,15 +11,15 @@
 import { homedir } from "node:os";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../context.js";
+import type { PluginContext } from "../../context.js";
 import {
   extractMediaAttachments,
   extractIssueReferences,
   processAttachmentMessage,
 } from "./attachments.js";
-import { readProjects, type Project } from "../state/projects/index.js";
-import { createProvider } from "../integrations/providers/index.js";
-import { log as auditLog } from "../audit.js";
+import { readProjects, type Project } from "../../state/projects/index.js";
+import { createProvider } from "../../integrations/providers/index.js";
+import { log as auditLog } from "../../audit.js";
 
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 

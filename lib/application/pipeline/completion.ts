@@ -4,13 +4,13 @@
  * Uses workflow config to determine transitions and side effects.
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { StateLabel, IssueProvider } from "../integrations/providers/provider.js";
-import { deactivateWorker, loadProjectBySlug, getRoleWorker } from "../state/projects/index.js";
-import type { RunCommand } from "../context.js";
-import { notify, getNotificationConfig } from "../dispatch/notify.js";
-import { log as auditLog } from "../audit.js";
-import { loadConfig } from "../state/config/index.js";
-import { writeIssueRuntimeState } from "../state/issues/index.js";
+import type { StateLabel, IssueProvider } from "../../integrations/providers/provider.js";
+import { deactivateWorker, loadProjectBySlug, getRoleWorker } from "../../state/projects/index.js";
+import type { RunCommand } from "../../context.js";
+import { notify, getNotificationConfig } from "../notifications/notify.js";
+import { log as auditLog } from "../../audit.js";
+import { loadConfig } from "../../state/config/index.js";
+import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import {
   DEFAULT_WORKFLOW,
   Action,
@@ -20,8 +20,8 @@ import {
   resolveNotifyChannel,
   type CompletionRule,
   type WorkflowConfig,
-} from "../domain/workflow/index.js";
-import type { Channel } from "../state/projects/index.js";
+} from "../../domain/workflow/index.js";
+import type { Channel } from "../../state/projects/index.js";
 
 export type { CompletionRule };
 

@@ -18,7 +18,7 @@ npm run test:issue-state
 npm run arch:check
 
 # Run E2E tests only
-npx tsx --test lib/services/*.e2e.test.ts
+npx tsx --test lib/application/pipeline/*.e2e.test.ts
 
 # Build (also type-checks all test files)
 npm run build
@@ -56,14 +56,14 @@ the first architecture guard step:
 |---|---|
 | [lib/roles/registry.test.ts](../lib/roles/registry.test.ts) | Role registry: role lookup, level resolution, model defaults |
 | [lib/state/projects/projects.test.ts](../lib/state/projects/projects.test.ts) | Project state: read/write, worker state, atomic file operations |
-| [lib/dispatch/bootstrap-hook.test.ts](../lib/dispatch/bootstrap-hook.test.ts) | Bootstrap hook: role instruction loading, source tracking, overloads |
-| [lib/dispatch/attachments.test.ts](../lib/dispatch/attachments.test.ts) | File attachment handling |
+| [lib/integrations/openclaw/bootstrap-hook.test.ts](../lib/integrations/openclaw/bootstrap-hook.test.ts) | Bootstrap hook: role instruction loading, source tracking, overloads |
+| [lib/application/tasks/attachments.test.ts](../lib/application/tasks/attachments.test.ts) | File attachment handling |
 | [lib/tools/tasks/task-set-level.test.ts](../lib/tools/tasks/task-set-level.test.ts) | Task set level tool: level hints, label detection |
 | [lib/tools/tasks/task-edit-body.test.ts](../lib/tools/tasks/task-edit-body.test.ts) | Task edit body tool: title/body editing, state guards |
 | [lib/tools/tasks/research-task.test.ts](../lib/tools/tasks/research-task.test.ts) | Research task tool: architect dispatch |
 | [lib/tools/admin/queue-status.test.ts](../lib/tools/admin/queue-status.test.ts) | Queue status formatting |
 | [lib/tools/worker/group-isolation.test.ts](../lib/tools/worker/group-isolation.test.ts) | Worker group isolation |
-| [lib/services/heartbeat/health.test.ts](../lib/services/heartbeat/health.test.ts) | Heartbeat health pass: zombie detection, stale workers |
+| [lib/application/heartbeat/health.test.ts](../lib/application/heartbeat/health.test.ts) | Heartbeat health pass: zombie detection, stale workers |
 | [lib/integrations/providers/provider-pr-status.test.ts](../lib/integrations/providers/provider-pr-status.test.ts) | PR status polling and detection |
 | [lib/setup/version.test.ts](../lib/setup/version.test.ts) | Version tracking and comparison |
 | [lib/setup/workspace.test.ts](../lib/setup/workspace.test.ts) | Workspace initialization and write-once defaults |
@@ -75,8 +75,8 @@ the first architecture guard step:
 
 | File | What it tests |
 |---|---|
-| [lib/services/pipeline.e2e.test.ts](../lib/services/pipeline.e2e.test.ts) | Full pipeline: completion rules, label transitions, actions |
-| [lib/services/bootstrap.e2e.test.ts](../lib/services/bootstrap.e2e.test.ts) | Bootstrap hook chain: session key → parse → load instructions → inject |
+| [lib/application/pipeline/pipeline.e2e.test.ts](../lib/application/pipeline/pipeline.e2e.test.ts) | Full pipeline: completion rules, label transitions, actions |
+| [lib/application/pipeline/bootstrap.e2e.test.ts](../lib/application/pipeline/bootstrap.e2e.test.ts) | Bootstrap hook chain: session key → parse → load instructions → inject |
 
 ## Test Infrastructure
 

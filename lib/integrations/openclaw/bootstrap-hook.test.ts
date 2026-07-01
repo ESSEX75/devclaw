@@ -1,6 +1,6 @@
 /**
  * Tests for bootstrap hook session key parsing and instruction loading.
- * Run with: npx tsx --test lib/dispatch/bootstrap-hook.test.ts
+ * Run with: npx tsx --test lib/integrations/openclaw/bootstrap-hook.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";

@@ -15,7 +15,7 @@ import {
   saveAttachment,
   getAttachmentPath,
   formatAttachmentComment,
-} from "../../dispatch/attachments.js";
+} from "../../application/tasks/attachments.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 

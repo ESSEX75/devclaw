@@ -4,12 +4,12 @@
  *
  * Also tests that the agent:bootstrap hook strips AGENTS.md from worker sessions.
  *
- * Run: npx tsx --test lib/services/bootstrap.e2e.test.ts
+ * Run: npx tsx --test lib/application/pipeline/bootstrap.e2e.test.ts
  */
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert";
-import { createTestHarness, type TestHarness } from "../testing/index.js";
-import { dispatchTask } from "../dispatch/index.js";
+import { createTestHarness, type TestHarness } from "../../testing/index.js";
+import { dispatchTask } from "../workers/dispatch-task.js";
 
 describe("E2E bootstrap — extraSystemPrompt injection", () => {
   let h: TestHarness;

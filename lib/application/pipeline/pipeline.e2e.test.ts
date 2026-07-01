@@ -6,18 +6,18 @@
  * - Mock runCommand (captures gateway calls, task messages)
  * - Real projects.json on disk (temp workspace)
  *
- * Run: npx tsx --test lib/services/pipeline.e2e.test.ts
+ * Run: npx tsx --test lib/application/pipeline/pipeline.e2e.test.ts
  */
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
-import { createTestHarness, type TestHarness } from "../testing/index.js";
-import { dispatchTask } from "../dispatch/index.js";
-import { executeCompletion } from "./pipeline.js";
-import { projectTick } from "./tick.js";
-import { reviewPass } from "./heartbeat/review.js";
-import { DEFAULT_WORKFLOW, ReviewPolicy, type WorkflowConfig } from "../domain/workflow/index.js";
-import { readProjects, getRoleWorker, getProject, countActiveSlots } from "../state/projects/index.js";
-import { writeIssueRuntimeState } from "../state/issues/index.js";
+import { createTestHarness, type TestHarness } from "../../testing/index.js";
+import { dispatchTask } from "../workers/dispatch-task.js";
+import { executeCompletion } from "./completion.js";
+import { projectTick } from "../queue/tick.js";
+import { reviewPass } from "../heartbeat/review.js";
+import { DEFAULT_WORKFLOW, ReviewPolicy, type WorkflowConfig } from "../../domain/workflow/index.js";
+import { readProjects, getRoleWorker, getProject, countActiveSlots } from "../../state/projects/index.js";
+import { writeIssueRuntimeState } from "../../state/issues/index.js";
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -776,7 +776,7 @@ describe("E2E pipeline", () => {
       assert.ok(issue.labels.includes("To Review"), `After dev done: ${issue.labels}`);
 
       // 4. Reviewer dispatched → Reviewing → approve → To Test
-      const { activateWorker } = await import("../state/projects/index.js");
+      const { activateWorker } = await import("../../state/projects/index.js");
       await activateWorker(h.workspaceDir, h.channelId, "reviewer", {
         issueId: "100", level: "junior",
       });
@@ -883,7 +883,7 @@ describe("E2E pipeline", () => {
       assert.ok(issue.labels.includes("To Test"), `After review pass: ${issue.labels}`);
 
       // 4. Tester passes → Done
-      const { activateWorker } = await import("../state/projects/index.js");
+      const { activateWorker } = await import("../../state/projects/index.js");
       await activateWorker(h.workspaceDir, h.channelId, "tester", {
         issueId: "200", level: "medior",
       });
@@ -948,7 +948,7 @@ describe("E2E pipeline", () => {
       assert.ok(issue.labels.includes("To Review"), `After dev done: ${issue.labels}`);
 
       // 3. Reviewer REJECTS → To Improve
-      const { activateWorker } = await import("../state/projects/index.js");
+      const { activateWorker } = await import("../../state/projects/index.js");
       await activateWorker(h.workspaceDir, h.channelId, "reviewer", {
         issueId: "300", level: "junior",
       });

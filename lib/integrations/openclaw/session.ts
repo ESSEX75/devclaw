@@ -1,9 +1,9 @@
 /**
  * session.ts — Session management helpers for dispatch.
  */
-import type { RunCommand } from "../context.js";
-import { log as auditLog } from "../audit.js";
-import { fetchGatewaySessions } from "../services/gateway-sessions.js";
+import type { RunCommand } from "../../context.js";
+import { log as auditLog } from "../../audit.js";
+import { fetchGatewaySessions } from "./gateway-sessions.js";
 
 // ---------------------------------------------------------------------------
 // Context budget management
@@ -20,7 +20,7 @@ export async function shouldClearSession(
   sessionKey: string,
   slotIssueId: string | null,
   newIssueId: number,
-  timeouts: import("../state/config/types.js").ResolvedTimeouts,
+  timeouts: import("../../state/config/types.js").ResolvedTimeouts,
   workspaceDir: string,
   projectName: string,
   runCommand: RunCommand,

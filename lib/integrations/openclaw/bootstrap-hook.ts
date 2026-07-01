@@ -12,10 +12,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../context.js";
-import { getSessionKeyRolePattern } from "../roles/index.js";
-import { DATA_DIR } from "../setup/migrate-layout.js";
-import { DEFAULT_ROLE_INSTRUCTIONS } from "../setup/templates.js";
+import type { PluginContext } from "../../context.js";
+import { getSessionKeyRolePattern } from "../../roles/index.js";
+import { DATA_DIR } from "../../setup/migrate-layout.js";
+import { DEFAULT_ROLE_INSTRUCTIONS } from "../../setup/templates.js";
 
 /**
  * Parse a DevClaw subagent session key to extract project name and role.

@@ -8,7 +8,7 @@
  * which triggers false-positive "data exfiltration" warnings in plugin scanners.
  */
 import fs from "node:fs/promises";
-import type { RunCommand } from "../context.js";
+import type { RunCommand } from "../../context.js";
 
 export type GatewaySession = {
   key: string;

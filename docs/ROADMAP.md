@@ -82,9 +82,9 @@ Write-once defaults with version tracking — the plugin only writes workspace f
 ### Structural Refactoring
 
 Major module reorganization for better separation of concerns:
-- `lib/dispatch/` — dispatch, bootstrap hook, attachment hook, notifications
+- `lib/application/workers/` — dispatch, bootstrap hook, attachment hook, notifications
 - `lib/tools/tasks/`, `lib/tools/admin/`, `lib/tools/worker/` — tool grouping by domain
-- `lib/services/heartbeat/` — heartbeat passes split into separate modules
+- `lib/application/heartbeat/` — heartbeat passes split into separate modules
 - `lib/state/projects/` — project state I/O, mutations, slots, types
 - `lib/workflow/` — state machine types, defaults, labels, queries
 - `lib/context.ts` — `PluginContext` DI container replacing global singletons

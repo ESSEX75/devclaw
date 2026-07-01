@@ -1,9 +1,9 @@
 /**
  * message-builder.ts — Task message construction for worker sessions.
  */
-import type { ResolvedRoleConfig } from "../state/config/index.js";
-import { formatPrContext, formatPrFeedback, type PrContext, type PrFeedback } from "./pr-context.js";
-import { getFallbackEmoji } from "../roles/index.js";
+import type { ResolvedRoleConfig } from "../../state/config/index.js";
+import { formatPrContext, formatPrFeedback, type PrContext, type PrFeedback } from "../review/pr-context.js";
+import { getFallbackEmoji } from "../../roles/index.js";
 
 /**
  * Build the task message sent to a worker session.

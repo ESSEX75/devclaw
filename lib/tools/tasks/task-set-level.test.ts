@@ -7,7 +7,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { DEFAULT_WORKFLOW, getStateLabels, ReviewPolicy, resolveReviewRouting } from "../../domain/workflow/index.js";
-import { detectLevelFromLabels, detectRoleLevelFromLabels } from "../../services/queue-scan.js";
+import { detectLevelFromLabels, detectRoleLevelFromLabels } from "../../application/queue/scan.js";
 
 describe("task_set_level tool", () => {
   it("has correct schema", () => {

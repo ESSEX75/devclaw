@@ -1,6 +1,6 @@
 /**
  * Tests for attachments.ts — media extraction, storage, and formatting.
- * Run with: npx tsx --test lib/dispatch/attachments.test.ts
+ * Run with: npx tsx --test lib/application/tasks/attachments.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";

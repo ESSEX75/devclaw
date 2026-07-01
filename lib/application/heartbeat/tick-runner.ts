@@ -11,7 +11,7 @@ import { loadInstanceName } from "../../instance.js";
 import {
   type SessionLookup,
 } from "./health.js";
-import { projectTick } from "../tick.js";
+import { projectTick } from "../queue/tick.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { ExecutionMode } from "../../domain/workflow/index.js";

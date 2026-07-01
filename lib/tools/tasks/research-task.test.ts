@@ -4,7 +4,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { parseDevClawSessionKey } from "../../dispatch/bootstrap-hook.js";
+import { parseDevClawSessionKey } from "../../integrations/openclaw/bootstrap-hook.js";
 import { isLevelForRole, roleForLevel, resolveModel, getDefaultModel, getEmoji } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import {
