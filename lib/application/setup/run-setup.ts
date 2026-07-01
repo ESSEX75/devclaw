@@ -13,7 +13,7 @@ import { ensureChannelBinding, migrateChannelBinding } from "./binding-manager.j
 import { createAgent, resolveWorkspacePath } from "./agent-config.js";
 import { writePluginConfig } from "./plugin-config.js";
 import { scaffoldWorkspace, writeAllDefaults } from "../../state/setup/workspace-files.js";
-import { DATA_DIR } from "../../state/setup/migrate-layout.js";
+import { DATA_DIR } from "../../state/setup/paths.js";
 import type { ExecutionMode } from "../../domain/workflow/index.js";
 
 export type ModelConfig = Record<string, Record<string, string>>;

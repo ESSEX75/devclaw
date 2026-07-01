@@ -12,7 +12,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import type { PluginContext } from "../../context.js";
 import { writeAllDefaults, backupAndWrite, fileExists } from "../../state/setup/workspace-files.js";
 import { WORKFLOW_YAML_TEMPLATE, DEFAULT_ROLE_INSTRUCTIONS } from "../../state/setup/templates.js";
-import { DATA_DIR } from "../../state/setup/migrate-layout.js";
+import { DATA_DIR } from "../../state/setup/paths.js";
 import { getCurrentVersion, readVersionFile } from "../../state/setup/version.js";
 
 export function createConfigTool(ctx: PluginContext) {

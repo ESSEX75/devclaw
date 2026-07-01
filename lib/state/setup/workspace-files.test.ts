@@ -12,7 +12,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { ensureDefaultFiles, fileExists } from "./workspace-files.js";
-import { DATA_DIR } from "./migrate-layout.js";
+import { DATA_DIR } from "./paths.js";
 
 let tmpDir: string;
 

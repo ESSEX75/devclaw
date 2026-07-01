@@ -214,7 +214,7 @@ Override the project-level policy for a single issue through DevClaw-managed sta
 
 For initialized DevClaw-managed issues, these labels are projection from `devclaw/projects/<project>/issues.json`. Editing `review:*`, `test:*`, state, owner, or role labels directly in GitHub/GitLab does not change runtime state. The heartbeat projection pass restores recoverable drift and marks metadata tamper as `integrity_error`.
 
-**Source:** [`lib/workflow/queries.ts`](../lib/workflow/queries.ts) — `resolveReviewRouting()`
+**Source:** [`lib/domain/workflow/queries.ts`](../lib/domain/workflow/queries.ts) — `resolveReviewRouting()`
 
 ---
 

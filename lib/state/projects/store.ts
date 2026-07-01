@@ -2,7 +2,6 @@
  * projects/io.ts — File I/O and locking for projects.json.
  */
 import fs from "node:fs/promises";
-import { ensureWorkspaceMigrated } from "../setup/migrate-layout.js";
 import type { ProjectsData, Project } from "../../domain/projects/types.js";
 import { projectsPath, resolveRepoPath } from "./paths.js";
 
@@ -59,7 +58,6 @@ export async function releaseLock(workspaceDir: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function readProjects(workspaceDir: string): Promise<ProjectsData> {
-  await ensureWorkspaceMigrated(workspaceDir);
   const raw = await fs.readFile(projectsPath(workspaceDir), "utf-8");
   return JSON.parse(raw) as ProjectsData;
 }

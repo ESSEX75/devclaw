@@ -23,7 +23,7 @@ import {
   DEFAULT_ROLE_INSTRUCTIONS,
 } from "./templates.js";
 import { getAllRoleIds } from "../../roles/index.js";
-import { migrateWorkspaceLayout, DATA_DIR } from "./migrate-layout.js";
+import { DATA_DIR } from "./paths.js";
 import { writeVersionFile, detectUpgrade } from "./version.js";
 import { log as auditLog } from "../../audit.js";
 
@@ -156,9 +156,6 @@ export async function writeAllDefaults(workspacePath: string, force = false): Pr
  * @param defaultWorkspacePath — If provided, USER.md is copied from here (only if not already present).
  */
 export async function scaffoldWorkspace(workspacePath: string, defaultWorkspacePath?: string): Promise<string[]> {
-  // Migrate old layout if detected
-  await migrateWorkspaceLayout(workspacePath);
-
   // SOUL.md (create-only — never overwrite user customizations)
   const soulPath = path.join(workspacePath, "SOUL.md");
   if (!await fileExists(soulPath)) {

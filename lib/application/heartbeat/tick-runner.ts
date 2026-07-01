@@ -6,7 +6,7 @@ import type { RunCommand } from "../../context.js";
 import path from "node:path";
 import { readProjects, getProject, type Project } from "../../state/projects/index.js";
 import { log as auditLog } from "../../audit.js";
-import { DATA_DIR } from "../../state/setup/migrate-layout.js";
+import { DATA_DIR } from "../../state/setup/paths.js";
 import { loadInstanceName } from "../../instance.js";
 import {
   type SessionLookup,

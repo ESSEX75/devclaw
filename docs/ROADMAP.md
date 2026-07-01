@@ -61,7 +61,7 @@ Closing a PR without merging now transitions the associated issue to `Rejected` 
 
 ### Workspace Layout Migration
 
-Data directory moved from `<workspace>/projects/` to `<workspace>/devclaw/`. Automatic migration on first load — see `lib/state/setup/migrate-layout.ts`.
+Data directory is `<workspace>/devclaw/`. Legacy workspace layout migration has been removed; new installs must use the current layout.
 
 ### E2E Test Infrastructure
 
@@ -86,7 +86,7 @@ Major module reorganization for better separation of concerns:
 - `lib/tools/tasks/`, `lib/tools/admin/`, `lib/tools/worker/` — tool grouping by domain
 - `lib/application/heartbeat/` — heartbeat passes split into separate modules
 - `lib/state/projects/` — project state I/O, mutations, slots, types
-- `lib/workflow/` — state machine types, defaults, labels, queries
+- `lib/domain/workflow/` — state machine types, defaults, labels, queries
 - `lib/context.ts` — `PluginContext` DI container replacing global singletons
 
 ### Additional Tools

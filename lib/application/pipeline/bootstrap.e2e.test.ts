@@ -83,7 +83,7 @@ describe("E2E bootstrap — extraSystemPrompt injection", () => {
     h = await createTestHarness({ projectName: "bare-app" });
     h.provider.seedIssue({ iid: 3, title: "Chore", labels: ["To Do"] });
 
-    // Don't write any custom prompts — ensureWorkspaceMigrated scaffolds defaults
+    // Don't write any custom prompts — scaffolds defaults
 
     await dispatchTask({
       workspaceDir: h.workspaceDir,

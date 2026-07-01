@@ -14,7 +14,7 @@ import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { getSessionKeyRolePattern } from "../../roles/index.js";
-import { DATA_DIR } from "../../state/setup/migrate-layout.js";
+import { DATA_DIR } from "../../state/setup/paths.js";
 import { DEFAULT_ROLE_INSTRUCTIONS } from "../../state/setup/templates.js";
 
 /**

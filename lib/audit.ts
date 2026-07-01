@@ -5,7 +5,7 @@
  */
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import { DATA_DIR } from "./state/setup/migrate-layout.js";
+import { DATA_DIR } from "./state/setup/paths.js";
 
 const MAX_LOG_LINES = 50;
 

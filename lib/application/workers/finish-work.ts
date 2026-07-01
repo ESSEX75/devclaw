@@ -5,7 +5,7 @@ import type { RunCommand } from "../../context.js";
 import { getRoleWorker, resolveRepoPath } from "../../state/projects/index.js";
 import { executeCompletion, getRule } from "../pipeline/completion.js";
 import { log as auditLog } from "../../audit.js";
-import { DATA_DIR } from "../../state/setup/migrate-layout.js";
+import { DATA_DIR } from "../../state/setup/paths.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { getCompletionResults, isValidResult } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";

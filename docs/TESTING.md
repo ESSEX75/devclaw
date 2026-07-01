@@ -67,7 +67,6 @@ the first architecture guard step:
 | [lib/integrations/providers/provider-pr-status.test.ts](../lib/integrations/providers/provider-pr-status.test.ts) | PR status polling and detection |
 | [lib/state/setup/version.test.ts](../lib/state/setup/version.test.ts) | Version tracking and comparison |
 | [lib/state/setup/workspace-files.test.ts](../lib/state/setup/workspace-files.test.ts) | Workspace initialization and write-once defaults |
-| [lib/state/setup/migrate-layout.test.ts](../lib/state/setup/migrate-layout.test.ts) | Workspace layout migration: `projects/` → `devclaw/` |
 | [lib/names.test.ts](../lib/names.test.ts) | Deterministic name generation |
 | [lib/instance.test.ts](../lib/instance.test.ts) | Instance name management |
 

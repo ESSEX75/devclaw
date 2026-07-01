@@ -3,7 +3,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR } from "../../state/setup/migrate-layout.js";
+import { DATA_DIR } from "../../state/setup/paths.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,11 +60,7 @@ export function discoverAgents(config: {
   return agents;
 }
 
-/** Check if a workspace has a projects.json (new or old locations). */
+/** Check if a workspace has the current DevClaw projects.json. */
 export function hasProjects(workspace: string): boolean {
-  return (
-    fs.existsSync(path.join(workspace, DATA_DIR, "projects.json")) ||
-    fs.existsSync(path.join(workspace, "projects.json")) ||
-    fs.existsSync(path.join(workspace, "projects", "projects.json"))
-  );
+  return fs.existsSync(path.join(workspace, DATA_DIR, "projects.json"));
 }

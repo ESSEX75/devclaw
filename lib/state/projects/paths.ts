@@ -1,6 +1,6 @@
 import path from "node:path";
 import { homedir } from "node:os";
-import { DATA_DIR } from "../setup/migrate-layout.js";
+import { DATA_DIR } from "../setup/paths.js";
 
 export function projectsPath(workspaceDir: string): string {
   return path.join(workspaceDir, DATA_DIR, "projects.json");
