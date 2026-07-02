@@ -69,6 +69,7 @@ async function validatePrExistsForDeveloper(
   runCommand: RunCommand,
   workspaceDir: string,
   projectSlug: string,
+  baseBranch: string,
 ): Promise<void> {
   try {
     const prStatus = await provider.getPrStatus(issueId);
@@ -85,7 +86,8 @@ async function validatePrExistsForDeveloper(
         `Cannot mark work_finish(done) without an open PR.\n\n` +
         `✗ No PR found for branch: ${branchName}\n\n` +
         `Please create a PR first:\n` +
-        `  gh pr create --base main --head ${branchName} --title "..." --body "..."\n\n` +
+        `  gh pr create --base ${baseBranch} --head ${branchName} --title "..." --body "Addresses issue #${issueId}."\n\n` +
+        `Do not use closing keywords like "Closes #${issueId}", "Fixes #${issueId}", or "Resolves #${issueId}". DevClaw closes issues after workflow completion.\n\n` +
         `Then call work_finish again.`,
       );
     }
@@ -216,7 +218,7 @@ export async function finishWork(input: FinishWorkInput) {
   const repoPath = resolveRepoPath(project.repo);
 
   if (role === "developer" && result === "done") {
-    await validatePrExistsForDeveloper(issueId, repoPath, provider, runCommand, workspaceDir, project.slug);
+    await validatePrExistsForDeveloper(issueId, repoPath, provider, runCommand, workspaceDir, project.slug, project.baseBranch);
   }
 
   const completion = await executeCompletion({

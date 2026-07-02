@@ -4,6 +4,18 @@ The issue lifecycle in DevClaw is a configurable state machine defined in `workf
 
 For config file format and location, see [Configuration](CONFIGURATION.md).
 
+## PR Linkage Contract
+
+DevClaw owns issue closure. Developer-created PR descriptions must not use provider auto-close keywords such as `Closes #N`, `Fixes #N`, or `Resolves #N`, because those can close the issue before DevClaw finishes review and test transitions.
+
+Use safe linkage text instead:
+
+```text
+Addresses issue #N.
+```
+
+GitHub `closingIssuesReferences` being empty is expected under this contract. Provider labels and PR links are visual projection; `issues.json` and the workflow state machine remain runtime authority.
+
 ---
 
 ## Default Pipeline

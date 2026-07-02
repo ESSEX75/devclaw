@@ -47,7 +47,13 @@ Conventional commits: `feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`
 
 ### 4. Create a Pull Request
 
-Use `gh pr create` to open a PR against the base branch. **Do NOT use closing keywords** in the description (no "Closes #X", "Fixes #X"). Use "Addresses issue #X" instead — DevClaw manages issue lifecycle.
+Use `gh pr create` to open a PR against the base branch.
+
+**Safe PR linkage contract:**
+
+- Do NOT use GitHub/GitLab auto-close keywords in the title or description: no `Closes #X`, `Fixes #X`, `Resolves #X`, or variants.
+- Use `Addresses issue #X.` in the PR description instead.
+- DevClaw is the only authority that closes issues after review/test workflow completion.
 
 ### Handling PR Feedback (changes requested / To Improve)
 

@@ -204,6 +204,23 @@ describe("work_finish: PR validation and conflict resolution", () => {
       );
     });
 
+    it("should recommend safe non-closing PR linkage when no PR exists", () => {
+      const issueId = 42;
+      const baseBranch = "development";
+      const branchName = "feature/test";
+      const errorMessage =
+        `Cannot mark work_finish(done) without an open PR.\n\n` +
+        `✗ No PR found for branch: ${branchName}\n\n` +
+        `Please create a PR first:\n` +
+        `  gh pr create --base ${baseBranch} --head ${branchName} --title "..." --body "Addresses issue #${issueId}."\n\n` +
+        `Do not use closing keywords like "Closes #${issueId}", "Fixes #${issueId}", or "Resolves #${issueId}". DevClaw closes issues after workflow completion.\n\n` +
+        `Then call work_finish again.`;
+
+      assert.ok(errorMessage.includes("--base development"));
+      assert.ok(errorMessage.includes(`--body "Addresses issue #${issueId}."`));
+      assert.ok(errorMessage.includes(`Do not use closing keywords like "Closes #${issueId}"`));
+    });
+
     it("should include branch name in error message", async () => {
       const branchName = "feature/my-fix";
       const errorMessage = 

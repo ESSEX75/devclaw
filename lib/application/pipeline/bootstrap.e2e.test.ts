@@ -104,6 +104,8 @@ describe("E2E bootstrap — extraSystemPrompt injection", () => {
     const prompts = h.commands.extraSystemPrompts();
     assert.strictEqual(prompts.length, 1, "Package default prompt should be injected when workspace prompts are absent");
     assert.ok(prompts[0]?.includes("work_finish"), "Package default developer prompt should include worker completion instructions");
+    assert.ok(prompts[0]?.includes("Addresses issue #X"), "Package default developer prompt should require safe PR linkage text");
+    assert.ok(prompts[0]?.includes("Do NOT use GitHub/GitLab auto-close keywords"), "Package default developer prompt should forbid auto-close keywords");
   });
 
   it("should resolve tester instructions independently from developer", async () => {
