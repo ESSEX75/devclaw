@@ -14,6 +14,7 @@ import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import {
   DEFAULT_WORKFLOW,
   Action,
+  WorkflowEvent,
   getCompletionRule,
   getNextStateDescription,
   getCompletionEmoji,
@@ -92,6 +93,7 @@ export async function executeCompletion(opts: {
   let mergedPr = false;
   let prTitle: string | undefined;
   let sourceBranch: string | undefined;
+  let mergeFailure: { error: string } | null = null;
 
   // Execute pre-notification actions
   for (const action of rule.actions) {
@@ -126,15 +128,70 @@ export async function executeCompletion(opts: {
           await provider.mergePr(issueId);
           mergedPr = true;
         } catch (err) {
-          auditLog(workspaceDir, "pipeline_warning", { step: "mergePr", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => {});
+          const error = (err as Error).message ?? String(err);
+          await auditLog(workspaceDir, "pipeline_action_failed", {
+            step: "mergePr",
+            issue: issueId,
+            role,
+            error,
+            from: rule.from,
+            attemptedTo: rule.to,
+          });
+          mergeFailure = { error };
         }
         break;
     }
+    if (mergeFailure) break;
   }
 
   // Get issue early (for URL in notification + channel routing)
   const issue = await provider.getIssue(issueId);
   const notifyTarget = resolveNotifyChannel(issue.labels, channels);
+
+  if (mergeFailure) {
+    const failedTransition = getMergeFailedTransition(workflow, rule.from);
+    if (!failedTransition) {
+      throw new Error(`mergePr failed for #${issueId}, and workflow has no MERGE_FAILED recovery transition: ${mergeFailure.error}`);
+    }
+
+    await provider.transitionLabel(issueId, rule.from as StateLabel, failedTransition.label as StateLabel);
+
+    await writeIssueRuntimeState({
+      workspaceDir,
+      project: { slug: projectSlug, channels },
+      issue: {
+        ...issue,
+        labels: issue.labels.filter((label) => label !== rule.from).concat(failedTransition.label),
+      },
+      providerType: provider.constructor.name.toLowerCase().includes("github") ? "github" : "gitlab",
+      workflow,
+      workflowState: failedTransition.key,
+      workflowLabel: failedTransition.label,
+      activeWorker: null,
+    });
+
+    await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });
+
+    await auditLog(workspaceDir, "pipeline_transition", {
+      project: projectName,
+      issue: issueId,
+      role,
+      from: rule.from,
+      to: failedTransition.label,
+      reason: "merge_failed",
+      error: mergeFailure.error,
+    });
+
+    return {
+      labelTransition: `${rule.from} → ${failedTransition.label}`,
+      announcement: `⚠️ MERGE FAILED #${issueId} — ${mergeFailure.error}\n📋 [Issue #${issueId}](${issue.web_url})\n→ ${failedTransition.label}.`,
+      nextState: failedTransition.label,
+      prUrl,
+      issueUrl: issue.web_url,
+      issueClosed: false,
+      issueReopened: false,
+    };
+  }
 
   // Get next state description from workflow
   const nextState = getNextStateDescription(workflow, role, result);
@@ -294,4 +351,20 @@ export async function executeCompletion(opts: {
     issueClosed: rule.actions.includes(Action.CLOSE_ISSUE),
     issueReopened: rule.actions.includes(Action.REOPEN_ISSUE),
   };
+}
+
+function getMergeFailedTransition(
+  workflow: WorkflowConfig,
+  fromLabel: string,
+): { key: string; label: string } | null {
+  const fromEntry = Object.entries(workflow.states).find(([, state]) => state.label === fromLabel);
+  const mergeFailed = fromEntry?.[1].on?.[WorkflowEvent.MERGE_FAILED];
+  if (mergeFailed) {
+    const key = typeof mergeFailed === "string" ? mergeFailed : mergeFailed.target;
+    const state = workflow.states[key];
+    return state ? { key, label: state.label } : null;
+  }
+
+  const toImprove = Object.entries(workflow.states).find(([, state]) => state.label === "To Improve");
+  return toImprove ? { key: toImprove[0], label: toImprove[1].label } : null;
 }

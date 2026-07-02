@@ -292,6 +292,38 @@ describe("E2E pipeline", () => {
       assert.strictEqual(mergeCalls.length, 1);
     });
 
+    it("reviewer:approve should route to To Improve when mergePr fails", async () => {
+      h.provider.setPrStatus(25, { state: "open", url: "https://example.com/pr/7" });
+      h.provider.mergePrFailures.add(25);
+
+      const output = await executeCompletion({
+        workspaceDir: h.workspaceDir,
+        projectSlug: h.project.slug,
+        channels: h.project.channels,
+        role: "reviewer",
+        result: "approve",
+        issueId: 25,
+        summary: "Code looks good",
+        provider: h.provider,
+        repoPath: "/tmp/test-repo",
+        projectName: "test-project",
+        runCommand: h.runCommand,
+      });
+
+      assert.strictEqual(output.labelTransition, "Reviewing → To Improve");
+      assert.strictEqual(output.issueClosed, false);
+
+      const issue = await h.provider.getIssue(25);
+      assert.ok(issue.labels.includes("To Improve"), `Labels: ${issue.labels}`);
+      assert.ok(!issue.labels.includes("To Test"), "Should not move to tester queue after failed merge");
+
+      const mergeCalls = h.provider.callsTo("mergePr");
+      assert.strictEqual(mergeCalls.length, 1);
+
+      const gitCmds = h.commands.commands.filter((c) => c.argv[0] === "git");
+      assert.strictEqual(gitCmds.length, 0, "Should not git pull after failed merge");
+    });
+
     it("reviewer:reject should transition Reviewing → To Improve", async () => {
       const output = await executeCompletion({
         workspaceDir: h.workspaceDir,
