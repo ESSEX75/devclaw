@@ -270,6 +270,7 @@ async function sendMessage(
   runCommand?: RunCommand,
 ): Promise<boolean> {
   let runtimeError: unknown;
+  let fallbackAttempted = false;
   try {
     // Use runtime API when available (avoids CLI subprocess timeouts)
     const sendText = runtime
@@ -307,12 +308,15 @@ async function sendMessage(
     // Note: openclaw message send CLI doesn't expose disable_web_page_preview flag.
     // The runtime API path (above) handles it; CLI fallback won't suppress previews.
     if (!runCommand) {
-      throw new Error("No command runner available for notification CLI fallback");
+      throw new Error(sendText
+        ? "Runtime notification failed and no command runner is available for fallback"
+        : "No notification delivery path available");
     }
 
     if (accountId) args.push("--account", accountId);
     if (threadId) args.push("--thread-id", threadId);
 
+    fallbackAttempted = true;
     await runCommand(["openclaw", ...args], { timeoutMs: 30_000 });
     return true;
   } catch (err) {
@@ -320,6 +324,7 @@ async function sendMessage(
     await auditLog(workspaceDir, "notify_error", {
       target,
       channel,
+      fallbackAttempted,
       error: (err as Error).message,
       runtimeError: runtimeError instanceof Error ? runtimeError.message : String(runtimeError ?? ""),
     });
