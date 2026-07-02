@@ -60,6 +60,7 @@ export type NotifyEvent =
       prUrl?: string;
       prTitle?: string;
       sourceBranch?: string;
+      targetBranch?: string;
       mergedBy: "heartbeat" | "agent" | "pipeline";
     }
   | {
@@ -215,7 +216,11 @@ function buildMessage(event: NotifyEvent): string {
       };
       let msg = `🔀 PR merged for #${event.issueId}: ${event.issueTitle}`;
       if (event.prTitle) msg += `\n📝 ${event.prTitle}`;
-      if (event.sourceBranch) msg += `\n🌿 ${event.sourceBranch} → main`;
+      if (event.sourceBranch && event.targetBranch) {
+        msg += `\n🌿 ${event.sourceBranch} → ${event.targetBranch}`;
+      } else if (event.sourceBranch) {
+        msg += `\n🌿 ${event.sourceBranch}`;
+      }
       msg += `\n⚡ ${via[event.mergedBy] ?? event.mergedBy}`;
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
       msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;

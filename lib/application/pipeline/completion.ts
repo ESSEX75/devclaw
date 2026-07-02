@@ -198,8 +198,10 @@ export async function executeCompletion(opts: {
 
   // Retrieve worker name from project state (best-effort)
   let workerName: string | undefined;
+  let targetBranch: string | undefined;
   try {
     const project = await loadProjectBySlug(workspaceDir, projectSlug);
+    targetBranch = project?.baseBranch;
     if (project && opts.level !== undefined && opts.slotIndex !== undefined) {
       const roleWorker = getRoleWorker(project, role);
       const slot = roleWorker.levels[opts.level]?.[opts.slotIndex];
@@ -251,6 +253,7 @@ export async function executeCompletion(opts: {
         prUrl,
         prTitle,
         sourceBranch,
+        targetBranch,
         mergedBy: "pipeline",
       },
       { workspaceDir, config: notifyConfig, channelId: notifyTarget?.channelId, channel: notifyTarget?.channel ?? "telegram", threadId: notifyTarget?.threadId, runtime, accountId: notifyTarget?.accountId },

@@ -145,6 +145,7 @@ export async function performReviewPass(
               prUrl: prUrl ?? undefined,
               prTitle,
               sourceBranch,
+              targetBranch: project.baseBranch,
               mergedBy: "heartbeat",
             },
             {
@@ -258,6 +259,7 @@ export async function performReviewSkipPass(
               prUrl: prUrl ?? undefined,
               prTitle,
               sourceBranch,
+              targetBranch: project.baseBranch,
               mergedBy: "heartbeat",
             },
             {
