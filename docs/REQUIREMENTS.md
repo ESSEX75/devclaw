@@ -160,7 +160,7 @@ steps:
 ## Steps
 
 - [x] Set up OAuth middleware — Done
-- [ ] Add login/callback endpoints — Doing (developer:senior:Ada)
+- [ ] Add login/callback endpoints — Doing (developer:senior)
 - [ ] Write integration tests — Pending
 - [ ] Update API docs — Pending
 ```

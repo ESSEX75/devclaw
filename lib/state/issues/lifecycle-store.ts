@@ -67,7 +67,7 @@ export function detectNotifyTarget(
 export function detectRoleLevel(labels: string[]): RoleLevel | null {
   for (const label of labels) {
     const parts = label.split(":");
-    if (parts.length < 2) continue;
+    if (parts.length !== 2) continue;
     const [role, level] = parts;
     if (!role || !level) continue;
     if (role === "review" || role === "test" || role === "notify" || role === "owner" || role === "devclaw") continue;

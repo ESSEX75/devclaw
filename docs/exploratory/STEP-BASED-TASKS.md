@@ -81,7 +81,7 @@ This means we don't need our own step storage — GitHub IS the database. The su
 | `step:{N}` | Step issue | Position in sequence (e.g. `step:1`, `step:2`) — set automatically |
 | `blocked:step` | Step issue | Step is waiting for a predecessor to complete |
 
-Existing labels (`To Do`, `Doing`, `developer:senior:Ada`, etc.) continue to work on step issues exactly as they do on standalone issues.
+Existing labels (`To Do`, `Doing`, `developer:senior`, etc.) continue to work on step issues exactly as they do on standalone issues.
 
 ### Provider Interface Extensions
 
@@ -208,7 +208,7 @@ The pipeline updates the root issue body with a progress section:
 ## Steps
 
 - [x] #101 Set up auth middleware — Done
-- [ ] #102 Add login/register endpoints — Doing (developer:senior:Ada)
+- [ ] #102 Add login/register endpoints — Doing (developer:senior)
 - [ ] #103 Add JWT token refresh — Blocked (waiting for #102)
 - [ ] #104 Add password reset flow — Planning
 ```

@@ -1265,7 +1265,8 @@ describe("E2E pipeline", () => {
       });
 
       const issue = await h.provider.getIssue(400);
-      assert.ok(issue.labels.some(l => l.startsWith("developer:senior")), `Should have developer:senior[:name], got: ${issue.labels}`);
+      assert.ok(issue.labels.includes("developer:senior"), `Should have developer:senior, got: ${issue.labels}`);
+      assert.ok(!issue.labels.some(l => l.startsWith("developer:senior:")), `Should not have worker-specific developer label, got: ${issue.labels}`);
       assert.ok(issue.labels.includes("Doing"), "Should have Doing label");
       // Senior developer dispatch should also apply review:human routing label
       assert.ok(issue.labels.includes("review:human"), `Should have review:human for senior, got: ${issue.labels}`);
@@ -1292,7 +1293,8 @@ describe("E2E pipeline", () => {
       });
 
       const issue = await h.provider.getIssue(404);
-      assert.ok(issue.labels.some(l => l.startsWith("developer:junior")), `Should have developer:junior[:name], got: ${issue.labels}`);
+      assert.ok(issue.labels.includes("developer:junior"), `Should have developer:junior, got: ${issue.labels}`);
+      assert.ok(!issue.labels.some(l => l.startsWith("developer:junior:")), `Should not have worker-specific developer label, got: ${issue.labels}`);
       assert.ok(issue.labels.includes("review:human"), `Should have review:human for junior, got: ${issue.labels}`);
     });
 
@@ -1318,8 +1320,59 @@ describe("E2E pipeline", () => {
       });
 
       const issue = await h.provider.getIssue(401);
-      assert.ok(issue.labels.some(l => l.startsWith("developer:medior")), `Should have developer:medior[:name], got: ${issue.labels}`);
+      assert.ok(issue.labels.includes("developer:medior"), `Should have developer:medior, got: ${issue.labels}`);
+      assert.ok(!issue.labels.some(l => l.startsWith("developer:medior:")), `Should not have worker-specific developer label, got: ${issue.labels}`);
       assert.ok(!issue.labels.some(l => l.startsWith("developer:junior")), "Should NOT have developer:junior");
+    });
+
+    it("dispatch should apply normalized reviewer label without worker name", async () => {
+      h = await createTestHarness();
+      h.provider.seedIssue({ iid: 405, title: "Review task", labels: ["To Review"] });
+
+      await dispatchTask({
+        workspaceDir: h.workspaceDir,
+        agentId: "test-agent",
+        project: h.project,
+        issueId: 405,
+        issueTitle: "Review task",
+        issueDescription: "",
+        issueUrl: "https://example.com/issues/405",
+        role: "reviewer",
+        level: "senior",
+        fromLabel: "To Review",
+        toLabel: "Reviewing",
+        provider: h.provider,
+        runCommand: h.runCommand,
+      });
+
+      const issue = await h.provider.getIssue(405);
+      assert.ok(issue.labels.includes("reviewer:senior"), `Should have reviewer:senior, got: ${issue.labels}`);
+      assert.ok(!issue.labels.some(l => l.startsWith("reviewer:senior:")), `Should not have worker-specific reviewer label, got: ${issue.labels}`);
+    });
+
+    it("dispatch should apply normalized tester label without worker name", async () => {
+      h = await createTestHarness();
+      h.provider.seedIssue({ iid: 406, title: "Test task", labels: ["To Test"] });
+
+      await dispatchTask({
+        workspaceDir: h.workspaceDir,
+        agentId: "test-agent",
+        project: h.project,
+        issueId: 406,
+        issueTitle: "Test task",
+        issueDescription: "",
+        issueUrl: "https://example.com/issues/406",
+        role: "tester",
+        level: "medior",
+        fromLabel: "To Test",
+        toLabel: "Testing",
+        provider: h.provider,
+        runCommand: h.runCommand,
+      });
+
+      const issue = await h.provider.getIssue(406);
+      assert.ok(issue.labels.includes("tester:medior"), `Should have tester:medior, got: ${issue.labels}`);
+      assert.ok(!issue.labels.some(l => l.startsWith("tester:medior:")), `Should not have worker-specific tester label, got: ${issue.labels}`);
     });
 
     it("projectTick should skip reviewer when local reviewPolicy=human", async () => {

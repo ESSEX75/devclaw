@@ -214,7 +214,7 @@ export async function dispatchTask(
     if (safeRoleLabels.length > 0) {
       await provider.removeLabels(issueId, safeRoleLabels);
     }
-    const roleLabel = `${role}:${level}:${botName}`;
+    const roleLabel = `${role}:${level}`;
     await provider.ensureLabel(roleLabel, getRoleLabelColor(role));
     await provider.addLabel(issueId, roleLabel);
 
@@ -316,7 +316,7 @@ export async function dispatchTask(
         iid: issueId,
         labels: (issue?.labels ?? [])
           .filter((label) => label !== fromLabel && !label.startsWith(`${role}:`))
-          .concat(toLabel, `${role}:${level}:${botName}`),
+          .concat(toLabel, `${role}:${level}`),
         state: "open",
       },
       providerType: project.provider === "github" ? "github" : "gitlab",

@@ -65,12 +65,17 @@ describe("detectLevelFromLabels — colon format", () => {
 describe("detectRoleLevelFromLabels", () => {
   it("should detect role and level from colon-format labels", () => {
     const result = detectRoleLevelFromLabels(["developer:senior", "Doing"]);
-    assert.deepStrictEqual(result, { role: "developer", level: "senior", name: undefined });
+    assert.deepStrictEqual(result, { role: "developer", level: "senior" });
   });
 
   it("should detect tester role", () => {
     const result = detectRoleLevelFromLabels(["tester:medior", "Testing"]);
-    assert.deepStrictEqual(result, { role: "tester", level: "medior", name: undefined });
+    assert.deepStrictEqual(result, { role: "tester", level: "medior" });
+  });
+
+  it("should ignore worker-specific role labels", () => {
+    const result = detectRoleLevelFromLabels(["developer:senior:Sher", "Doing"]);
+    assert.strictEqual(result, null);
   });
 
   it("should return null for step routing labels", () => {

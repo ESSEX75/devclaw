@@ -24,11 +24,11 @@ import type { WorkflowConfig, Role } from "../../domain/workflow/types.js";
 export function detectLevelFromLabels(labels: string[]): string | null {
   const lower = labels.map((l) => l.toLowerCase());
 
-  // Match projected role:level labels (e.g., "developer:senior", "developer:senior:Ada").
+  // Match projected role:level labels (e.g., "developer:senior").
   // Managed dispatch uses issues.json first; labels are only a compatibility fallback.
   for (const l of lower) {
     const parts = l.split(":");
-    if (parts.length < 2) continue;
+    if (parts.length !== 2) continue;
     const level = parts[1]!;
     const all = getAllLevels();
     if (all.includes(level)) return level;
@@ -38,21 +38,22 @@ export function detectLevelFromLabels(labels: string[]): string | null {
 }
 
 /**
- * Detect role, level, and optional slot name from colon-format labels.
- * Supports both 2-segment ("developer:senior") and 3-segment ("developer:senior:Ada") formats.
+ * Detect role and level from normalized colon-format labels.
+ * Supports only 2-segment labels ("developer:senior"). Worker identity lives in
+ * local runtime state, not in provider labels.
  * Returns the first match found, or null if no role:level label exists.
  */
 export function detectRoleLevelFromLabels(
   labels: string[],
-): { role: string; level: string; name?: string } | null {
+): { role: string; level: string } | null {
   for (const label of labels) {
     const parts = label.split(":");
-    if (parts.length < 2) continue;
+    if (parts.length !== 2) continue;
     const role = parts[0]!.toLowerCase();
     const level = parts[1]!.toLowerCase();
     const roleLevels = getLevelsForRole(role);
     if (roleLevels.includes(level)) {
-      return { role, level, name: parts[2] };
+      return { role, level };
     }
   }
   return null;

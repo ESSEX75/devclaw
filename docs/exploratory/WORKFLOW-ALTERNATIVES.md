@@ -78,7 +78,7 @@ Each step is a real child issue. GitHub sub-issues or GitLab work items.
 | Progress tracking | GitHub sub-issue UI shows checklist natively |
 | GitHub/GitLab | GitHub: sub-issues API (GA). GitLab: WorkItem API (maturing) |
 | Step-level discussion | Each step has its own comment thread |
-| Step-level labels | Each step has its own labels (Doing, developer:senior:Ada) |
+| Step-level labels | Each step has its own labels (Doing, developer:senior) |
 | Overhead | High — 1 root + N step issues per feature |
 | Fragility | Low for GitHub; medium for GitLab (API gaps) |
 
