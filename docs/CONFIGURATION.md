@@ -401,7 +401,7 @@ Each slot has:
 - **Projection guard** — heartbeat compares provider labels and metadata with local state. Recoverable label drift is repaired. Missing or tampered managed metadata sets `integrity_error` until repaired from local state.
 - **Backfill boundary** — old issues without a local `issues.json` entry are treated as `projection_uninitialized` and must be explicitly initialized/backfilled before managed dispatch.
 - **Queue-first task creation** — ordinary `task_create` calls create a managed issue directly in the first developer queue state, normally `To Do`; `Planning` remains a hold state for explicit refinement/research flows.
-- **Inline issue archive** — `devclaw issues cleanup` archives old closed local issue records into `archive.issues` inside `issues.json`; `issues.archive.jsonl` is not part of the MVP.
+- **Inline issue archive** — `devclaw issues cleanup` archives old terminal closed local issue records into `archive.issues` inside `issues.json`; `issues.archive.jsonl` is not part of the MVP.
 - **Per-level slots** — each level owns an array of slots. Capacity is configured through `workflow.maxWorkersPerLevel` and per-model `maxWorkers`.
 - **Session-per-slot** — each slot preserves its own session key, accumulating context independently. Level selection plus slot index maps directly to a session key.
 - **Sessions preserved on completion** — when a worker completes a task, `sessionKey` is preserved while `active`, `issueId`, `startTime`, and `previousLabel` are cleared. This enables session reuse.

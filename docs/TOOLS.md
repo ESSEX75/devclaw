@@ -525,7 +525,7 @@ devclaw repair issue --project my-webapp --issue 42 --source local-state --apply
 
 ### `devclaw issues cleanup`
 
-Archive old closed local issue records into inline `archive.issues`.
+Archive old terminal closed local issue records into inline `archive.issues`.
 
 **Source:** [`lib/tools/issues/issues-cleanup.ts`](../lib/tools/issues/issues-cleanup.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
 
@@ -535,7 +535,8 @@ devclaw issues cleanup --project my-webapp --older-than 30d
 
 **Behavior:**
 
-- Moves closed issue records older than the retention window from `issues` to `archive.issues` inside the same `issues.json`.
+- Moves terminal closed issue records older than the retention window from `issues` to `archive.issues` inside the same `issues.json`.
+- Archives only completed terminal states such as `done` and `rejected`; closed records in non-terminal states remain active for inspection or repair.
 - Skips `integrity_error` records so they can be inspected or repaired first.
 - Does not write `issues.archive.jsonl`; that file is outside the MVP.
 

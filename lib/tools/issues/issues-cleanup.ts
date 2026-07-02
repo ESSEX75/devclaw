@@ -13,6 +13,8 @@ export type IssuesCleanupResult = {
   skipped: Array<{ issueId: number; reason: string }>;
 };
 
+const ARCHIVABLE_TERMINAL_STATES = new Set(["done", "rejected"]);
+
 function parseRetention(value: string): number {
   const match = /^(\d+)([dh])$/.exec(value);
   if (!match) throw new Error(`Invalid retention "${value}". Use formats like 30d or 12h.`);
@@ -35,6 +37,10 @@ export async function cleanupIssueState(opts: {
     for (const [key, issue] of Object.entries(store.issues)) {
       if (!issue.closedAt) {
         skipped.push({ issueId: issue.issueId, reason: "not closed" });
+        continue;
+      }
+      if (!ARCHIVABLE_TERMINAL_STATES.has(issue.workflowState)) {
+        skipped.push({ issueId: issue.issueId, reason: "non-terminal state" });
         continue;
       }
       if (Date.parse(issue.closedAt) > cutoff) {
@@ -81,7 +87,7 @@ export function createIssuesCleanupTool(_ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "issues_cleanup",
     label: "Issues Cleanup",
-    description: "Archive old closed project-local issue states into inline archive.issues.",
+    description: "Archive old terminal closed project-local issue states into inline archive.issues.",
     parameters: {
       type: "object",
       required: ["project", "olderThan"],
@@ -100,4 +106,3 @@ export function createIssuesCleanupTool(_ctx: PluginContext) {
     },
   });
 }
-

@@ -46,20 +46,46 @@ describe("issues cleanup", () => {
         activeWorker: { role: "developer", level: "medior", slotIndex: 0, sessionKey: "s", startedAt: "2026-05-01T00:00:00.000Z" },
       });
       store.issues["5"] = issue({ issueId: 5, workflowState: "blocked" });
+      store.issues["6"] = issue({ issueId: 6, workflowState: "toReview", workflowLabel: "To Review" });
+      store.issues["7"] = issue({ issueId: 7, workflowState: "rejected", workflowLabel: "Rejected" });
       await writeIssueStateStore(tmpDir, "devclaw", store);
 
       const result = await cleanupIssueState({ workspaceDir: tmpDir, projectSlug: "devclaw", olderThan: "30d" });
       const loaded = await readIssueStateStore(tmpDir, "devclaw");
 
-      assert.deepStrictEqual(result.archived, [1]);
+      assert.deepStrictEqual(result.archived, [1, 7]);
       assert.ok(loaded.archive.issues["1"]);
       assert.strictEqual(loaded.archive.issues["1"]!.finalWorkflowState, "done");
+      assert.ok(loaded.archive.issues["7"]);
+      assert.strictEqual(loaded.archive.issues["7"]!.finalWorkflowState, "rejected");
       assert.strictEqual(loaded.issues["1"], undefined);
+      assert.strictEqual(loaded.issues["7"], undefined);
       assert.ok(loaded.issues["2"]);
       assert.ok(loaded.issues["3"]);
       assert.ok(loaded.issues["4"]);
       assert.ok(loaded.issues["5"]);
+      assert.ok(loaded.issues["6"]);
       await assert.rejects(fs.stat(path.join(tmpDir, "devclaw", "projects", "devclaw", "issues.archive.jsonl")));
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("is idempotent when cleanup runs more than once", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-cleanup-"));
+    try {
+      const store = emptyIssueStateStore("devclaw");
+      store.issues["1"] = issue({ issueId: 1 });
+      await writeIssueStateStore(tmpDir, "devclaw", store);
+
+      const first = await cleanupIssueState({ workspaceDir: tmpDir, projectSlug: "devclaw", olderThan: "30d" });
+      const second = await cleanupIssueState({ workspaceDir: tmpDir, projectSlug: "devclaw", olderThan: "30d" });
+      const loaded = await readIssueStateStore(tmpDir, "devclaw");
+
+      assert.deepStrictEqual(first.archived, [1]);
+      assert.deepStrictEqual(second.archived, []);
+      assert.deepStrictEqual(second.skipped, []);
+      assert.deepStrictEqual(Object.keys(loaded.archive.issues), ["1"]);
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
