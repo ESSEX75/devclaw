@@ -13,7 +13,7 @@ import { createTaskAttachTool } from "./tasks/task-attach.js";
 import { createTaskSetLevelTool } from "./tasks/task-set-level.js";
 import { createTaskOwnerTool } from "./tasks/task-owner.js";
 import { createResearchTaskTool } from "./tasks/research-task.js";
-import { createIssueRepairTool } from "./issues/issue-repair.js";
+import { createIssuePolicyMigrationTool, createIssueRepairTool } from "./issues/issue-repair.js";
 import { createIssuesCleanupTool } from "./issues/issues-cleanup.js";
 
 // Task queries
@@ -57,6 +57,7 @@ export const toolRegistry = [
   { names: ["task_owner"], factory: createTaskOwnerTool },
   { names: ["research_task"], factory: createResearchTaskTool },
   { names: ["issue_repair"], factory: createIssueRepairTool },
+  { names: ["issue_policy_migrate"], factory: createIssuePolicyMigrationTool },
   { names: ["issues_cleanup"], factory: createIssuesCleanupTool },
 
   // Task queries
@@ -79,4 +80,3 @@ export const toolRegistry = [
   { names: ["workflow_guide"], factory: createWorkflowGuideTool },
   { names: ["config"], factory: createConfigTool },
 ] as const satisfies readonly ToolRegistryEntry[];
-

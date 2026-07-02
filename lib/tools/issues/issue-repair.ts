@@ -19,7 +19,7 @@ import {
 import { getStateLabels } from "../../domain/workflow/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 import type { Project } from "../../state/projects/index.js";
-import type { WorkflowConfig } from "../../domain/workflow/index.js";
+import type { ReviewPolicy, TestPolicy, WorkflowConfig } from "../../domain/workflow/index.js";
 
 export type IssueRepairResult = {
   issueId: number;
@@ -29,6 +29,26 @@ export type IssueRepairResult = {
   integrityStatus: string;
   warnings: string[];
   repaired: string[];
+};
+
+export type IssuePolicyMigrationChange = {
+  issueId: number;
+  before: {
+    reviewPolicy: ReviewPolicy | null;
+    testPolicy: TestPolicy | null;
+  };
+  after: {
+    reviewPolicy: ReviewPolicy | null;
+    testPolicy: TestPolicy | null;
+  };
+  projection?: IssueRepairResult;
+};
+
+export type IssuePolicyMigrationResult = {
+  projectSlug: string;
+  dryRun: boolean;
+  changed: IssuePolicyMigrationChange[];
+  skipped: Array<{ issueId: number; reason: string }>;
 };
 
 export async function repairIssueProjection(opts: {
@@ -133,6 +153,101 @@ export async function repairIssueFromLocalState(opts: {
   });
 }
 
+export async function migrateIssuePolicies(opts: {
+  workspaceDir: string;
+  projectSlug: string;
+  reviewPolicy?: ReviewPolicy;
+  testPolicy?: TestPolicy;
+  issueIds?: number[];
+  workflowStates?: string[];
+  includeClosed?: boolean;
+  dryRun?: boolean;
+  provider?: IssueProvider;
+  runCommand: PluginContext["runCommand"];
+}): Promise<IssuePolicyMigrationResult> {
+  if (!opts.reviewPolicy && !opts.testPolicy) {
+    throw new Error("Policy migration requires reviewPolicy and/or testPolicy.");
+  }
+
+  const projects = await readProjects(opts.workspaceDir);
+  const project = projects.projects[opts.projectSlug];
+  if (!project) throw new Error(`Project "${opts.projectSlug}" not found.`);
+
+  const config = await loadConfig(opts.workspaceDir, project.name);
+  const selectedIds = opts.issueIds ? new Set(opts.issueIds.map(String)) : null;
+  const selectedStates = opts.workflowStates ? new Set(opts.workflowStates) : null;
+  const changed: IssuePolicyMigrationChange[] = [];
+  const skipped: Array<{ issueId: number; reason: string }> = [];
+
+  await updateIssueStateStore(opts.workspaceDir, opts.projectSlug, (store) => {
+    for (const [key, state] of Object.entries(store.issues)) {
+      if (selectedIds && !selectedIds.has(key)) continue;
+      if (selectedStates && !selectedStates.has(state.workflowState)) continue;
+
+      if ((state.closedAt || state.workflowState === "done" || state.workflowState === "rejected") && !opts.includeClosed) {
+        skipped.push({ issueId: state.issueId, reason: "closed" });
+        continue;
+      }
+
+      const currentReviewPolicy = state.reviewPolicy ?? null;
+      const currentTestPolicy = state.testPolicy ?? null;
+      const nextReviewPolicy = opts.reviewPolicy ?? currentReviewPolicy;
+      const nextTestPolicy = opts.testPolicy ?? currentTestPolicy;
+      if (currentReviewPolicy === nextReviewPolicy && currentTestPolicy === nextTestPolicy) {
+        skipped.push({ issueId: state.issueId, reason: "no_change" });
+        continue;
+      }
+
+      changed.push({
+        issueId: state.issueId,
+        before: {
+          reviewPolicy: currentReviewPolicy,
+          testPolicy: currentTestPolicy,
+        },
+        after: {
+          reviewPolicy: nextReviewPolicy,
+          testPolicy: nextTestPolicy,
+        },
+      });
+
+      if (!opts.dryRun) {
+        state.reviewPolicy = nextReviewPolicy;
+        state.testPolicy = nextTestPolicy;
+        state.updatedAt = new Date().toISOString();
+      }
+    }
+  });
+
+  if (!opts.dryRun && changed.length > 0) {
+    const provider = opts.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: opts.runCommand })).provider;
+    for (const change of changed) {
+      change.projection = await repairIssueProjection({
+        workspaceDir: opts.workspaceDir,
+        project,
+        issueId: change.issueId,
+        provider,
+        workflow: config.workflow,
+        roles: Object.keys(config.roles),
+      });
+    }
+    await auditLog(opts.workspaceDir, "issue_policy_migration", {
+      project: opts.projectSlug,
+      changed: changed.map((change) => ({
+        issueId: change.issueId,
+        before: change.before,
+        after: change.after,
+      })),
+    });
+  }
+
+  return {
+    projectSlug: opts.projectSlug,
+    dryRun: opts.dryRun === true,
+    changed,
+    skipped,
+  };
+}
+
 export function createIssueRepairTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "issue_repair",
@@ -155,6 +270,42 @@ export function createIssueRepairTool(ctx: PluginContext) {
         projectSlug: params.project as string,
         issueId: params.issueId as number,
         source: params.source as string,
+        dryRun: params.dryRun as boolean | undefined,
+        runCommand: ctx.runCommand,
+      });
+      return jsonResult({ success: true, ...result });
+    },
+  });
+}
+
+export function createIssuePolicyMigrationTool(ctx: PluginContext) {
+  return (toolCtx: OpenClawPluginToolContext) => ({
+    name: "issue_policy_migrate",
+    label: "Issue Policy Migration",
+    description: "Migrate review/test policy snapshots for existing managed issues from local state first, then provider projection.",
+    parameters: {
+      type: "object",
+      required: ["project", "dryRun"],
+      properties: {
+        project: { type: "string", description: "Project slug." },
+        reviewPolicy: { type: "string", enum: ["human", "agent", "skip"], description: "Optional review policy to set." },
+        testPolicy: { type: "string", enum: ["agent", "skip"], description: "Optional test policy to set." },
+        issueIds: { type: "array", items: { type: "number" }, description: "Optional issue IDs to migrate." },
+        workflowStates: { type: "array", items: { type: "string" }, description: "Optional workflow state keys to filter." },
+        includeClosed: { type: "boolean", description: "Include closed/done/rejected issues. Default false." },
+        dryRun: { type: "boolean", description: "Show planned changes without writing." },
+      },
+    },
+    async execute(_id: string, params: Record<string, unknown>) {
+      const workspaceDir = requireWorkspaceDir(toolCtx);
+      const result = await migrateIssuePolicies({
+        workspaceDir,
+        projectSlug: params.project as string,
+        reviewPolicy: params.reviewPolicy as ReviewPolicy | undefined,
+        testPolicy: params.testPolicy as TestPolicy | undefined,
+        issueIds: params.issueIds as number[] | undefined,
+        workflowStates: params.workflowStates as string[] | undefined,
+        includeClosed: params.includeClosed as boolean | undefined,
         dryRun: params.dryRun as boolean | undefined,
         runCommand: ctx.runCommand,
       });

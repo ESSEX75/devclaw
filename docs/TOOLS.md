@@ -523,6 +523,26 @@ devclaw repair issue --project my-webapp --issue 42 --source local-state --apply
 
 ---
 
+### `issue_policy_migrate` / `devclaw repair policies`
+
+Migrate review/test policy snapshots for existing managed issues. This is for cases where project workflow config changed after issues were already created. New issues use the new project config automatically; existing issues keep their local snapshot until explicitly migrated.
+
+**Source:** [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
+
+```bash
+devclaw repair policies --project my-webapp --review agent --test agent --state toReview --dry-run
+devclaw repair policies --project my-webapp --review agent --test agent --issue 75,77 --apply
+```
+
+**Behavior:**
+
+- `--dry-run` reports which local issue records would change and performs no provider writes.
+- `--apply` updates `devclaw/projects/<project>/issues.json` first, then repairs provider projection labels from local state.
+- Closed/done/rejected issues are skipped by default; pass `--include-closed` only for explicit historical migrations.
+- Provider label edits alone are not authoritative. Projection repair converges labels back to local `issues.json`.
+
+---
+
 ### `devclaw issues cleanup`
 
 Archive old terminal closed local issue records into inline `archive.issues`.

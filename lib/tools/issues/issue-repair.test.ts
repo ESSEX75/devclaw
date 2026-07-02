@@ -7,7 +7,8 @@ import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type I
 import { TestProvider } from "../../testing/test-provider.js";
 import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
 import { extractIssueMetadata } from "../../projection/index.js";
-import { repairIssueProjection, repairIssueFromLocalState } from "./issue-repair.js";
+import { migrateIssuePolicies, repairIssueProjection, repairIssueFromLocalState } from "./issue-repair.js";
+import { createTestHarness } from "../../testing/index.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
@@ -37,9 +38,9 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
 }
 
 async function seedStore(tmpDir: string, issueState = state()): Promise<void> {
-  const store = emptyIssueStateStore("devclaw");
+  const store = emptyIssueStateStore(issueState.projectSlug);
   store.issues[String(issueState.issueId)] = issueState;
-  await writeIssueStateStore(tmpDir, "devclaw", store);
+  await writeIssueStateStore(tmpDir, issueState.projectSlug, store);
 }
 
 describe("issue repair", () => {
@@ -121,5 +122,148 @@ describe("issue repair", () => {
       }),
       /Repair from provider is not supported because provider projection is not authoritative/,
     );
+  });
+
+  it("dry-runs policy migration without local or provider writes", async () => {
+    const h = await createTestHarness();
+    try {
+      await seedStore(h.workspaceDir, state({
+        projectSlug: h.project.slug,
+        issueId: 75,
+        workflowState: "toReview",
+        workflowLabel: "To Review",
+        reviewPolicy: "human",
+        testPolicy: "skip",
+      }));
+      h.provider.seedIssue({ iid: 75, labels: ["To Review", "review:human", "test:skip"], description: "Body" });
+
+      const result = await migrateIssuePolicies({
+        workspaceDir: h.workspaceDir,
+        projectSlug: h.project.slug,
+        reviewPolicy: "agent",
+        testPolicy: "agent",
+        issueIds: [75],
+        dryRun: true,
+        provider: h.provider,
+        runCommand: h.runCommand,
+      });
+      const loaded = await readIssueStateStore(h.workspaceDir, h.project.slug);
+
+      assert.strictEqual(result.dryRun, true);
+      assert.deepStrictEqual(result.changed.map((change) => change.issueId), [75]);
+      assert.strictEqual(result.changed[0]!.before.reviewPolicy, "human");
+      assert.strictEqual(result.changed[0]!.after.reviewPolicy, "agent");
+      assert.strictEqual(loaded.issues["75"]!.reviewPolicy, "human");
+      assert.strictEqual(loaded.issues["75"]!.testPolicy, "skip");
+      assert.strictEqual(h.provider.callsTo("addLabel").length, 0);
+      assert.strictEqual(h.provider.callsTo("removeLabels").length, 0);
+    } finally {
+      await h.cleanup();
+    }
+  });
+
+  it("applies policy migration through local state first and provider projection second", async () => {
+    const h = await createTestHarness();
+    try {
+      await seedStore(h.workspaceDir, state({
+        projectSlug: h.project.slug,
+        issueId: 75,
+        workflowState: "toReview",
+        workflowLabel: "To Review",
+        reviewPolicy: "human",
+        testPolicy: "skip",
+        integrityStatus: "ok",
+        integrityErrors: [],
+      }));
+      h.provider.seedIssue({ iid: 75, labels: ["To Review", "review:human", "test:skip"], description: "Body" });
+
+      const result = await migrateIssuePolicies({
+        workspaceDir: h.workspaceDir,
+        projectSlug: h.project.slug,
+        reviewPolicy: "agent",
+        testPolicy: "agent",
+        issueIds: [75],
+        provider: h.provider,
+        runCommand: h.runCommand,
+      });
+      const loaded = await readIssueStateStore(h.workspaceDir, h.project.slug);
+      const issue = await h.provider.getIssue(75);
+
+      assert.strictEqual(result.dryRun, false);
+      assert.deepStrictEqual(result.changed.map((change) => change.issueId), [75]);
+      assert.strictEqual(loaded.issues["75"]!.reviewPolicy, "agent");
+      assert.strictEqual(loaded.issues["75"]!.testPolicy, "agent");
+      assert.ok(issue.labels.includes("review:agent"), `Labels: ${issue.labels}`);
+      assert.ok(issue.labels.includes("test:agent"), `Labels: ${issue.labels}`);
+      assert.ok(!issue.labels.includes("review:human"), `Labels: ${issue.labels}`);
+      assert.ok(!issue.labels.includes("test:skip"), `Labels: ${issue.labels}`);
+    } finally {
+      await h.cleanup();
+    }
+  });
+
+  it("skips closed policy migrations by default", async () => {
+    const h = await createTestHarness();
+    try {
+      await seedStore(h.workspaceDir, state({
+        projectSlug: h.project.slug,
+        issueId: 73,
+        workflowState: "done",
+        workflowLabel: "Done",
+        closedAt: "2026-07-02T00:00:00.000Z",
+        reviewPolicy: "human",
+        testPolicy: "skip",
+      }));
+
+      const result = await migrateIssuePolicies({
+        workspaceDir: h.workspaceDir,
+        projectSlug: h.project.slug,
+        reviewPolicy: "agent",
+        testPolicy: "agent",
+        runCommand: h.runCommand,
+      });
+      const loaded = await readIssueStateStore(h.workspaceDir, h.project.slug);
+
+      assert.deepStrictEqual(result.changed, []);
+      assert.deepStrictEqual(result.skipped, [{ issueId: 73, reason: "closed" }]);
+      assert.strictEqual(loaded.issues["73"]!.reviewPolicy, "human");
+      assert.strictEqual(loaded.issues["73"]!.testPolicy, "skip");
+    } finally {
+      await h.cleanup();
+    }
+  });
+
+  it("repairs provider-only policy label drift back to local policy truth", async () => {
+    const h = await createTestHarness();
+    try {
+      await seedStore(h.workspaceDir, state({
+        projectSlug: h.project.slug,
+        issueId: 80,
+        workflowState: "toReview",
+        workflowLabel: "To Review",
+        reviewPolicy: "human",
+        testPolicy: "skip",
+        integrityStatus: "ok",
+        integrityErrors: [],
+      }));
+      h.provider.seedIssue({ iid: 80, labels: ["To Review", "review:agent", "test:agent"], description: "Body" });
+
+      await repairIssueProjection({
+        workspaceDir: h.workspaceDir,
+        project: { slug: h.project.slug },
+        issueId: 80,
+        provider: h.provider,
+        workflow: DEFAULT_WORKFLOW,
+        roles: ["developer", "reviewer", "tester"],
+      });
+      const issue = await h.provider.getIssue(80);
+
+      assert.ok(issue.labels.includes("review:human"), `Labels: ${issue.labels}`);
+      assert.ok(issue.labels.includes("test:skip"), `Labels: ${issue.labels}`);
+      assert.ok(!issue.labels.includes("review:agent"), `Labels: ${issue.labels}`);
+      assert.ok(!issue.labels.includes("test:agent"), `Labels: ${issue.labels}`);
+    } finally {
+      await h.cleanup();
+    }
   });
 });
