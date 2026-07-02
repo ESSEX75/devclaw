@@ -9,6 +9,8 @@ import { DATA_DIR } from "../../state/setup/paths.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { getCompletionResults, isValidResult } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
+import { readIssueStateStore } from "../../state/issues/index.js";
+import { getActiveLabel } from "../../domain/workflow/index.js";
 
 export type FinishWorkInput = {
   workspaceDir: string;
@@ -163,6 +165,7 @@ export async function finishWork(input: FinishWorkInput) {
 
   const { project } = await resolveProject(workspaceDir, channelId);
   const roleWorker = getRoleWorker(project, role);
+  const workflow = (await loadConfig(workspaceDir, project.name)).workflow;
 
   let slotIndex: number | null = null;
   let slotLevel: string | null = null;
@@ -183,13 +186,30 @@ export async function finishWork(input: FinishWorkInput) {
   }
 
   if (slotIndex === null || slotLevel === null || issueId === null) {
+    await auditWorkFinishRejectedMissingActiveWorker({
+      workspaceDir,
+      projectName: project.name,
+      projectSlug: project.slug,
+      role,
+      result,
+      sessionKey: input.sessionKey,
+      roleWorker,
+      workflow,
+    });
     throw new Error(`${role.toUpperCase()} worker not active on ${project.name}`);
   }
 
   const { provider } = await resolveProvider(project, runCommand);
-  const workflow = (await loadConfig(workspaceDir, project.name)).workflow;
 
   if (!getRule(role, result, workflow)) {
+    await auditLog(workspaceDir, "work_finish_rejected", {
+      project: project.name,
+      projectSlug: project.slug,
+      issue: issueId,
+      role,
+      result,
+      reason: "invalid_completion",
+    });
     throw new Error(`Invalid completion: ${role}:${result}`);
   }
 
@@ -221,4 +241,55 @@ export async function finishWork(input: FinishWorkInput) {
     success: true, project: project.name, projectSlug: project.slug, issueId, role, result,
     ...completion,
   };
+}
+
+async function auditWorkFinishRejectedMissingActiveWorker(opts: {
+  workspaceDir: string;
+  projectName: string;
+  projectSlug: string;
+  role: string;
+  result: string;
+  sessionKey?: string;
+  roleWorker: ReturnType<typeof getRoleWorker>;
+  workflow: Awaited<ReturnType<typeof loadConfig>>["workflow"];
+}): Promise<void> {
+  let activeWorkflowLabel: string | null = null;
+  let candidateIssues: Array<{
+    issueId: number;
+    workflowState: string;
+    workflowLabel: string;
+    activeWorker: unknown;
+  }> = [];
+
+  try {
+    activeWorkflowLabel = getActiveLabel(opts.workflow, opts.role);
+    const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
+    candidateIssues = Object.values(store.issues)
+      .filter((state) =>
+        state.assignedRole === opts.role ||
+        state.activeWorker?.role === opts.role ||
+        state.workflowLabel === activeWorkflowLabel,
+      )
+      .map((state) => ({
+        issueId: state.issueId,
+        workflowState: state.workflowState,
+        workflowLabel: state.workflowLabel,
+        activeWorker: state.activeWorker,
+      }));
+  } catch {
+    // Rejection audit is best-effort; never mask the original validation error.
+  }
+
+  await auditLog(opts.workspaceDir, "work_finish_rejected", {
+    project: opts.projectName,
+    projectSlug: opts.projectSlug,
+    issue: null,
+    role: opts.role,
+    result: opts.result,
+    reason: "missing_active_worker",
+    requestedSessionKey: opts.sessionKey ?? null,
+    activeWorkflowLabel,
+    candidateIssues,
+    roleWorker: opts.roleWorker,
+  });
 }

@@ -15,6 +15,10 @@ import { mkdir, mkdtemp, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { rm } from "node:fs/promises";
+import { createTestHarness } from "../../testing/index.js";
+import { finishWork } from "../../application/workers/finish-work.js";
+import { writeIssueRuntimeState } from "../../state/issues/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
 
 // Helper to create a mock audit log with a merge_conflict transition
 async function createMockAuditLog(workspaceDir: string, issueId: number, hasMergeConflict: boolean): Promise<void> {
@@ -276,6 +280,68 @@ describe("work_finish: PR validation and conflict resolution", () => {
       
       assert.ok(successLog.event === "conflict_resolution_verified");
       assert.ok(successLog.mergeable === true);
+    });
+  });
+
+  describe("missing active worker rejection", () => {
+    it("should audit work_finish rejection when no active worker is found", async () => {
+      const h = await createTestHarness();
+      try {
+        const issue = h.provider.seedIssue({
+          iid: 77,
+          title: "Stale testing issue",
+          labels: ["Testing", "tester:senior"],
+        });
+        await writeIssueRuntimeState({
+          workspaceDir: h.workspaceDir,
+          project: h.project,
+          issue,
+          providerType: "github",
+          workflow: DEFAULT_WORKFLOW,
+          workflowState: "testing",
+          workflowLabel: "Testing",
+          assignedRole: "tester",
+          assignedLevel: "senior",
+          activeWorker: null,
+        });
+
+        await assert.rejects(
+          finishWork({
+            workspaceDir: h.workspaceDir,
+            channelId: h.channelId,
+            role: "tester",
+            result: "pass",
+            runCommand: h.runCommand,
+          }),
+          /TESTER worker not active/,
+        );
+
+        const auditPath = join(h.workspaceDir, "devclaw", "log", "audit.log");
+        const content = await readFile(auditPath, "utf-8");
+        const entries = content.split("\n").filter(Boolean).map((line) => JSON.parse(line));
+        const rejection = entries.find((entry) =>
+          entry.event === "work_finish_rejected" &&
+          entry.reason === "missing_active_worker"
+        );
+
+        assert.ok(rejection, "Expected work_finish_rejected audit event");
+        assert.strictEqual(rejection.project, h.project.name);
+        assert.strictEqual(rejection.projectSlug, h.project.slug);
+        assert.strictEqual(rejection.issue, null);
+        assert.strictEqual(rejection.role, "tester");
+        assert.strictEqual(rejection.result, "pass");
+        assert.strictEqual(rejection.activeWorkflowLabel, "Testing");
+        assert.deepStrictEqual(rejection.candidateIssues, [
+          {
+            issueId: 77,
+            workflowState: "testing",
+            workflowLabel: "Testing",
+            activeWorker: null,
+          },
+        ]);
+      } finally {
+        await h.cleanup();
+      }
     });
   });
 });
