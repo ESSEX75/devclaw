@@ -35,7 +35,7 @@ This file is a source navigation map for agents and developers. It is not part o
 - `lib/tools/README.md`
 - `lib/cli/README.md`
 
-Detailed architecture contract: `docs/REFACTOR_ARCHITECTURE.md`.
+Layer-specific contracts live in the `README.md` files under each `lib/*` package.
 
 ## Validation Routes
 

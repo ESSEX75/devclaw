@@ -15,7 +15,7 @@ DevClaw is an OpenClaw plugin for multi-project dev/qa pipeline orchestration wi
 - `lib/testing` — test harnesses, fakes, and test-only helpers.
 - `lib/roles` — role registry, model selection, level resolution, and model fetchers.
 
-Detailed architecture contract: `docs/REFACTOR_ARCHITECTURE.md`.
+Layer-specific contracts live in the `README.md` files under each `lib/*` package.
 
 ## Runtime State Contract
 

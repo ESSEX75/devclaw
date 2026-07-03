@@ -29,24 +29,9 @@ npm run build
 them with `tsx --test`. Vitest is not the project runner for current canonical
 tests.
 
-`npm run arch:check` runs in warn-only mode so known refactor targets such as
-existing import cycles are visible without blocking this first safety-rail step.
-Use `npm run arch:check:strict` when a refactor step is ready to enforce a clean
-architecture report.
-
-### Current Known Failures
-
-`npm test` currently exposes pre-existing source-test failures that are outside
-the first architecture guard step:
-
-- `lib/tools/worker/work-finish.test.ts` writes `devclaw/log/audit.log` without
-  first creating the `devclaw/log/` directory in several cases.
-- Bootstrap tests still expect empty instructions when workspace prompt files are
-  missing, while current runtime falls back to packaged role defaults.
-- Several pipeline E2E assertions are out of sync with current session reuse and
-  review-policy behavior.
-- A few legacy tests still use Vitest-style imports and are intentionally not
-  selected by the canonical `node:test` runner.
+`npm run arch:check` runs in warn-only mode. `npm run arch:check:strict`
+enforces the architecture boundaries and should pass before merging structural
+changes.
 
 ## Test Files
 

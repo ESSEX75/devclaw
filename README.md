@@ -526,7 +526,7 @@ Full parameters and usage in the [Tools Reference](docs/TOOLS.md).
 | **[Architecture](docs/ARCHITECTURE.md)**    | System design, session model, data flow, end-to-end diagrams |
 | **[Workflow](docs/WORKFLOW.md)**            | State machine, review policies, optional test phase          |
 | **[Tools Reference](docs/TOOLS.md)**        | Complete reference for all tools                             |
-| **[Configuration](docs/CONFIGURATION.md)**  | `openclaw.json`, `projects.json`, roles, timeouts            |
+| **[Configuration](docs/CONFIGURATION.md)**  | `workflow.yaml`, `projects.json`, plugin scheduling          |
 | **[Onboarding Guide](docs/ONBOARDING.md)**  | Full step-by-step setup                                      |
 | **[Testing](docs/TESTING.md)**              | Test suite, fixtures, CI/CD                                  |
 | **[Management Theory](docs/MANAGEMENT.md)** | The delegation model behind the design                       |
