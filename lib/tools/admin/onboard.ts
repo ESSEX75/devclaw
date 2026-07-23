@@ -4,8 +4,9 @@
  * Returns step-by-step guidance. Call this before setup.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
+import { buildOnboardToolContext, buildReconfigContext,hasWorkspaceFiles, isPluginConfigured } from "../../application/setup/onboarding.js";
 import type { PluginContext } from "../../context.js";
-import { isPluginConfigured, hasWorkspaceFiles, buildOnboardToolContext, buildReconfigContext } from "../../application/setup/onboarding.js";
 
 export function createOnboardTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({

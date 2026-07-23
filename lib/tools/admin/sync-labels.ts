@@ -9,17 +9,18 @@
  * so that custom workflow states from workspace/project overrides are included.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
+import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { requireWorkspaceDir } from "../helpers.js";
-import { readProjects, getProject } from "../../state/projects/index.js";
-import { createProvider } from "../../integrations/providers/index.js";
-import { loadConfig } from "../../state/config/index.js";
 import {
-  getStateLabels,
   getLabelColors,
   getRoleLabels,
+  getStateLabels,
 } from "../../domain/workflow/index.js";
-import { log as auditLog } from "../../audit.js";
+import { createProvider } from "../../integrations/providers/index.js";
+import { loadConfig } from "../../state/config/index.js";
+import { getProject,readProjects } from "../../state/projects/index.js";
+import { requireWorkspaceDir } from "../helpers.js";
 
 export function createSyncLabelsTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -49,11 +50,13 @@ export function createSyncLabelsTool(ctx: PluginContext) {
 
       if (targetChannelId) {
         const project = getProject(data, targetChannelId);
+
         if (!project) {
           throw new Error(
             `No project found for "${targetChannelId}". Register a new project with project_register first.`,
           );
         }
+
         slugs = [project.slug];
       } else {
         slugs = Object.keys(data.projects);
@@ -72,6 +75,7 @@ export function createSyncLabelsTool(ctx: PluginContext) {
 
       for (const slug of slugs) {
         const project = data.projects[slug];
+
         if (!project) continue;
 
         try {
@@ -86,12 +90,14 @@ export function createSyncLabelsTool(ctx: PluginContext) {
           // State labels from the resolved workflow (not DEFAULT_WORKFLOW)
           const stateLabels = getStateLabels(resolvedConfig.workflow);
           const labelColors = getLabelColors(resolvedConfig.workflow);
+
           for (const label of stateLabels) {
             await provider.ensureLabel(label, labelColors[label]);
           }
 
           // Role:level + step routing labels
           const roleLabels = getRoleLabels(resolvedConfig.roles);
+
           for (const { name, color } of roleLabels) {
             await provider.ensureLabel(name, color);
           }

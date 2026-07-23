@@ -1,10 +1,10 @@
-import type { StateLabel, IssueProvider, Issue } from "../../../integrations/providers/provider.js";
-import { PrState } from "../../../integrations/providers/provider.js";
 import { getQueueLabels, isFeedbackState } from "../../../domain/workflow/queries.js";
 import type {
-  WorkflowConfig,
   Role,
+  WorkflowConfig,
 } from "../../../domain/workflow/types.js";
+import type { Issue,IssueProvider, StateLabel } from "../../../integrations/providers/provider.js";
+import { PrState } from "../../../integrations/providers/provider.js";
 
 /**
  * Fetch current issue state from the provider.
@@ -41,6 +41,7 @@ export async function resolveOrphanRevertLabel(
 ): Promise<StateLabel> {
   try {
     const prStatus = await provider.getPrStatus(issueId);
+
     if (prStatus.url && (
       prStatus.state === PrState.OPEN ||
       prStatus.state === PrState.APPROVED ||
@@ -49,10 +50,12 @@ export async function resolveOrphanRevertLabel(
     )) {
       const queueLabels = getQueueLabels(workflow, role);
       const feedbackLabel = queueLabels.find((l) => isFeedbackState(workflow, l));
+
       if (feedbackLabel) return feedbackLabel;
     }
   } catch {
     // Best-effort — fall back to default queue on API failure.
   }
+
   return defaultQueueLabel;
 }

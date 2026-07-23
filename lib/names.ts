@@ -6,7 +6,7 @@
  * Names are deterministic: same seed always produces the same name.
  */
 
-import { uniqueNamesGenerator, names as namesDictionary } from "unique-names-generator";
+import { names as namesDictionary,uniqueNamesGenerator } from "unique-names-generator";
 
 /** Re-export the names dictionary for testing / introspection. */
 export const NAMES = namesDictionary;

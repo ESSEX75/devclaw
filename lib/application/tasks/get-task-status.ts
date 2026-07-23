@@ -1,6 +1,6 @@
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { STATE_TYPE, type WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
-import { StateType, type WorkflowConfig } from "../../domain/workflow/types.js";
+import { readIssueStateStore } from "../../state/issues/index.js";
 import {
   loadProjectionViewContext,
   summarizeLocalIssueStates,
@@ -64,9 +64,9 @@ export async function getManagedTaskStatus(opts: {
 
 function getWorkflowStateLabelsByType(workflow: WorkflowConfig) {
   return {
-    hold: Object.values(workflow.states).filter((state) => state.type === StateType.HOLD),
-    active: Object.values(workflow.states).filter((state) => state.type === StateType.ACTIVE),
-    queue: Object.values(workflow.states).filter((state) => state.type === StateType.QUEUE),
+    hold: Object.values(workflow.states).filter((state) => state.type === STATE_TYPE.HOLD),
+    active: Object.values(workflow.states).filter((state) => state.type === STATE_TYPE.ACTIVE),
+    queue: Object.values(workflow.states).filter((state) => state.type === STATE_TYPE.QUEUE),
   };
 }
 
@@ -77,16 +77,19 @@ async function summarizeStateBucket(
   projectionCtx: Awaited<ReturnType<typeof loadProjectionViewContext>>,
 ): Promise<StateBucket> {
   const bucket: StateBucket = {};
+
   for (const { label } of statesByType) {
     const issues = await summarizeLocalIssueStates(
       openLocalStates.filter((state) => state.workflowLabel === label),
       provider,
       projectionCtx,
     );
+
     bucket[label] = {
       count: issues.length,
       issues,
     };
   }
+
   return bucket;
 }

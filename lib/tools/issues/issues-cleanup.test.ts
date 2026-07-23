@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../state/issues/index.js";
+import { DEFAULT_WORKFLOW, WORKFLOW_STATE_KEYS } from "../../domain/index.js";
 import { cleanupIssueState } from "./issues-cleanup.js";
 
 function issue(overrides: Partial<IssueRuntimeState>): IssueRuntimeState {
@@ -45,7 +46,7 @@ describe("issues cleanup", () => {
         issueId: 4,
         activeWorker: { role: "developer", level: "medior", slotIndex: 0, sessionKey: "s", startedAt: "2026-05-01T00:00:00.000Z" },
       });
-      store.issues["5"] = issue({ issueId: 5, workflowState: "blocked" });
+      store.issues["5"] = issue({ issueId: 5, workflowState: WORKFLOW_STATE_KEYS.DOING });
       store.issues["6"] = issue({ issueId: 6, workflowState: "toReview", workflowLabel: "To Review" });
       store.issues["7"] = issue({ issueId: 7, workflowState: "rejected", workflowLabel: "Rejected" });
       await writeIssueStateStore(tmpDir, "devclaw", store);

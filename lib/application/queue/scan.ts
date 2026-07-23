@@ -4,18 +4,18 @@
  * Shared by: tick (projectTick), work-start (auto-pickup), and other consumers
  * that need to find queued issues or detect roles/levels from labels.
  */
+import type { IssueRuntimeState } from "../../domain/issues/types.js";
+import { isOwnedByOrUnclaimed } from "../../domain/workflow/labels.js";
+import {
+  detectRoleFromLabel as workflowDetectRole,
+  getQueueLabels,
+} from "../../domain/workflow/queries.js";
+import type { Role,WorkflowConfig } from "../../domain/workflow/types.js";
+import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
-import type { IssueReader } from "../../integrations/providers/capabilities.js";
+import { getAllLevels,getLevelsForRole } from "../../roles/index.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
-import type { IssueRuntimeState } from "../../domain/issues/types.js";
-import { getLevelsForRole, getAllLevels } from "../../roles/index.js";
-import {
-  getQueueLabels,
-  detectRoleFromLabel as workflowDetectRole,
-} from "../../domain/workflow/queries.js";
-import { isOwnedByOrUnclaimed } from "../../domain/workflow/labels.js";
-import type { WorkflowConfig, Role } from "../../domain/workflow/types.js";
 
 // ---------------------------------------------------------------------------
 // Label detection
@@ -28,9 +28,11 @@ export function detectLevelFromLabels(labels: string[]): string | null {
   // Managed dispatch uses issues.json first; labels are only a compatibility fallback.
   for (const l of lower) {
     const parts = l.split(":");
+
     if (parts.length !== 2) continue;
     const level = parts[1]!;
     const all = getAllLevels();
+
     if (all.includes(level)) return level;
   }
 
@@ -48,14 +50,17 @@ export function detectRoleLevelFromLabels(
 ): { role: string; level: string } | null {
   for (const label of labels) {
     const parts = label.split(":");
+
     if (parts.length !== 2) continue;
     const role = parts[0]!.toLowerCase();
     const level = parts[1]!.toLowerCase();
     const roleLevels = getLevelsForRole(role);
+
     if (roleLevels.includes(level)) {
       return { role, level };
     }
   }
+
   return null;
 }
 
@@ -111,8 +116,10 @@ async function findNextIssueForRoleFromLocalState(
   for (const state of localCandidates) {
     try {
       const issue = await provider.getIssue(state.issueId);
+
       if (issue.state === "closed" || issue.state === "CLOSED") continue;
       if (instanceName && !isOwnedByOrUnclaimed(issue.labels, instanceName)) continue;
+
       return { issue, label: state.workflowLabel, localState: state };
     } catch {
       continue;

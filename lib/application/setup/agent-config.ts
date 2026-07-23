@@ -2,10 +2,11 @@
  * application/setup/agent-config.ts — Agent creation and workspace resolution.
  */
 import fs from "node:fs/promises";
-import path from "node:path";
 import { homedir } from "node:os";
-import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
+import path from "node:path";
+
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 
 type AgentConfig = NonNullable<NonNullable<OpenClawConfig["agents"]>["list"]>[number];
 
@@ -29,6 +30,7 @@ export async function createAgent(
   if (!agentId) {
     throw new Error(`Invalid agent name: "${name}"`);
   }
+
   if (agentId === "main") {
     throw new Error('"main" is reserved. Choose another agent name.');
   }
@@ -40,6 +42,7 @@ export async function createAgent(
 
   const cfg = structuredClone(runtime.config.current()) as unknown as OpenClawConfig;
   const existingAgent = cfg.agents?.list?.find((agent) => agent.id === agentId);
+
   if (existingAgent) {
     throw new Error(`Agent "${agentId}" already exists in openclaw.json.`);
   }
@@ -83,6 +86,7 @@ export function resolveWorkspacePath(api: OpenClawPluginApi | PluginRuntime, age
   const runtime = "runtime" in api ? api.runtime : api;
   const cfg = runtime.config.current();
   const agent = cfg.agents?.list?.find((a) => a.id === agentId);
+
   if (!agent?.workspace) {
     throw new Error(`Agent "${agentId}" not found in openclaw.json or has no workspace configured.`);
   }
@@ -97,5 +101,6 @@ export function resolveWorkspacePath(api: OpenClawPluginApi | PluginRuntime, age
 async function cleanupWorkspace(workspacePath: string): Promise<void> {
   // New agent workspaces should start clean even if a template copied these.
   try { await fs.rm(path.join(workspacePath, ".git"), { recursive: true }); } catch { /* may not exist */ }
+
   try { await fs.unlink(path.join(workspacePath, "BOOTSTRAP.md")); } catch { /* may not exist */ }
 }

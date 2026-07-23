@@ -13,16 +13,17 @@
  *   → heartbeat dispatches queued implementation tasks
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import type { StateLabel } from "../../integrations/providers/provider.js";
-import { getRoleWorker, countActiveSlots } from "../../state/projects/index.js";
+
 import { dispatchTask } from "../../application/workers/dispatch-task.js";
 import { log as auditLog } from "../../audit.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
-import { loadConfig } from "../../state/config/index.js";
+import type { PluginContext } from "../../context.js";
 import { getActiveLabel } from "../../domain/workflow/index.js";
-import { selectLevel } from "../../roles/model-selector.js";
+import type { StateLabel } from "../../integrations/providers/provider.js";
 import { resolveModel } from "../../roles/index.js";
+import { selectLevel } from "../../roles/model-selector.js";
+import { loadConfig } from "../../state/config/index.js";
+import { countActiveSlots,getRoleWorker } from "../../state/projects/index.js";
+import { applyNotifyLabel,autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 /** Queue label for research tasks. */
 const TO_RESEARCH_LABEL = "To Research";
@@ -103,9 +104,11 @@ Example:
 
       // Build issue body with rich context for the architect to start from
       const bodyParts = ["## Background", "", description];
+
       if (focusAreas.length > 0) {
         bodyParts.push("", "## Focus Areas", ...focusAreas.map((a) => `- ${a}`));
       }
+
       const issueBody = bodyParts.join("\n");
 
       await auditLog(workspaceDir, "research_task", {
@@ -144,12 +147,14 @@ Example:
 
       // Check worker availability across all levels
       const roleWorker = getRoleWorker(project, role);
+
       if (countActiveSlots(roleWorker) > 0) {
         // Architect is busy — issue created in queue, heartbeat will pick it up when free
         // Find any active slot's issueId for the message
         const activeIssueId = Object.values(roleWorker.levels)
           .flat()
           .find((s) => s.active)?.issueId;
+
         return jsonResult({
           success: true,
           issue: { id: issue.iid, title: issue.title, url: issue.web_url, label: TO_RESEARCH_LABEL },

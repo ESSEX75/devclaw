@@ -5,6 +5,7 @@
  * Can list channels for a specific project or all projects.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
 import type { PluginContext } from "../../context.js";
 import { readProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
@@ -45,6 +46,7 @@ export function createChannelListTool(_ctx: PluginContext) {
           const available = Object.values(data.projects)
             .map((p) => p.name)
             .join(", ");
+
           throw new Error(
             `Project "${projectRef}" not found. Available projects: ${available || "none"}.`,
           );
@@ -119,6 +121,7 @@ export function createChannelListTool(_ctx: PluginContext) {
                           `  • **${ch.name}** (${ch.type}) — \`${ch.channelId}\`${ch.threadId ? ` / thread ${ch.threadId}` : ""}`,
                       )
                       .join("\n");
+
               return `**${p.project}** (${p.projectSlug}):\n${channelList}`;
             })
             .join("\n\n");

@@ -1,17 +1,18 @@
 /**
  * issues/runtime.ts — Local-state-first runtime helpers for managed issues.
  */
-import type { Issue } from "../../integrations/providers/provider.js";
-import type { Project } from "../../domain/projects/index.js";
 import {
   findStateByLabel,
   findStateKeyByLabel,
   getCurrentStateLabel,
-} from "../../domain/workflow/queries.js";
-import type { WorkflowConfig, StateConfig } from "../../domain/workflow/types.js";
-import { readIssueStateStore } from "./store.js";
-import type { WorkflowLabel, WorkflowStateKey } from "../../domain/ids.js";
-import type { IssueRuntimeState } from "../../domain/issues/types.js";
+  type IssueRuntimeState,
+  type Project,
+  type StateConfig,
+  type WorkflowConfig,
+  type WorkflowLabel,
+  type WorkflowStateKey,
+} from "../../domain/index.js";
+import type { Issue } from "../../integrations/providers/provider.js";
 
 export type IssueRuntimeResolution =
   | {
@@ -39,8 +40,10 @@ export async function resolveIssueRuntimeState(opts: {
 }): Promise<IssueRuntimeResolution> {
   const store = await readIssueStateStore(opts.workspaceDir, opts.project.slug);
   const state = store.issues[String(opts.issue.iid)];
+
   if (state?.managed) {
     const stateConfig = findStateByLabel(opts.workflow, state.workflowLabel) ?? null;
+
     return {
       kind: "managed",
       state,
@@ -52,6 +55,7 @@ export async function resolveIssueRuntimeState(opts: {
   }
 
   const workflowLabel = getCurrentStateLabel(opts.issue.labels, opts.workflow);
+
   return {
     kind: "uninitialized",
     state: null,

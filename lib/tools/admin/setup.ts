@@ -5,16 +5,17 @@
  * Thin wrapper around application setup orchestration.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
+
 import { runSetup, type SetupOpts } from "../../application/setup/index.js";
 import {
   ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
 } from "../../application/setup/scopes.js";
-import { writeAllDefaults } from "../../state/setup/workspace-files.js";
+import type { PluginContext } from "../../context.js";
+import { EXECUTION_MODE } from "../../domain/index.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
-import { ExecutionMode } from "../../domain/workflow/index.js";
+import { writeAllDefaults } from "../../state/setup/workspace-files.js";
 
 export function createSetupTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -65,7 +66,7 @@ export function createSetupTool(ctx: PluginContext) {
         },
         projectExecution: {
           type: "string",
-          enum: Object.values(ExecutionMode),
+          enum: Object.values(EXECUTION_MODE),
           description: "Project execution mode. Default: parallel.",
         },
         ejectDefaults: {
@@ -83,10 +84,12 @@ export function createSetupTool(ctx: PluginContext) {
       // Handle --eject-defaults and --reset-defaults (standalone operations)
       if (params.ejectDefaults || params.resetDefaults) {
         const workspacePath = toolCtx.workspaceDir;
+
         if (!workspacePath) throw new Error("No workspace directory available");
         const force = !!params.resetDefaults;
         const written = await writeAllDefaults(workspacePath, force);
         const action = force ? "Reset (force-wrote)" : "Ejected (wrote missing)";
+
         return jsonResult({
           success: true,
           action: force ? "reset-defaults" : "eject-defaults",
@@ -99,6 +102,7 @@ export function createSetupTool(ctx: PluginContext) {
 
       let scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>>;
       let result: Awaited<ReturnType<typeof runSetup>>;
+
       try {
         scopePreflight = await ensureRequiredOpenClawScopes(ctx.runCommand);
         result = await runSetup({
@@ -150,18 +154,21 @@ export function createSetupTool(ctx: PluginContext) {
           : `Configured "${result.agentId}"`,
         "",
       ];
+
       if (result.bindingMigrated) {
         lines.push(
           `✅ Binding migrated: ${result.bindingMigrated.channel} (${result.bindingMigrated.from} → ${result.agentId})`,
           "",
         );
       }
+
       lines.push("Models:");
       for (const [role, levels] of Object.entries(result.models)) {
         for (const [level, model] of Object.entries(levels)) {
           lines.push(`  ${role}.${level}: ${model}`);
         }
       }
+
       lines.push("");
 
       lines.push("Files:", ...result.filesWritten.map((f) => `  ${f}`));
@@ -169,9 +176,11 @@ export function createSetupTool(ctx: PluginContext) {
       if (scopePreflight.status === "approved") {
         lines.push("", "OpenClaw scopes: approved");
       }
+
       if (scopePreflight.warning) {
         lines.push("", "OpenClaw scopes warning:", `  ${scopePreflight.warning}`);
       }
+
       if (result.warnings.length > 0)
         lines.push("", "Warnings:", ...result.warnings.map((w) => `  ${w}`));
       lines.push(

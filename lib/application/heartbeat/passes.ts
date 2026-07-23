@@ -2,21 +2,22 @@
  * Heartbeat passes — health, review, review-skip, and test-skip passes.
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+
 import type { RunCommand } from "../../context.js";
+import { resolveNotifyChannel } from "../../domain/workflow/index.js";
+import type { ResolvedConfig } from "../../state/config/types.js";
 import { type Project } from "../../state/projects/index.js";
+import { getNotificationConfig,notify } from "../notifications/notify.js";
 import {
   checkWorkerHealth,
   scanOrphanedLabels,
   scanStatelessIssues,
   type SessionLookup,
 } from "./health.js";
+import { projectionIntegrityPass } from "./projection.js";
 import { reviewPass } from "./review.js";
 import { reviewSkipPass } from "./review-skip.js";
 import { testSkipPass } from "./test-skip.js";
-import { projectionIntegrityPass } from "./projection.js";
-import type { ResolvedConfig } from "../../state/config/types.js";
-import { resolveNotifyChannel } from "../../domain/workflow/index.js";
-import { notify, getNotificationConfig } from "../notifications/notify.js";
 
 // ---------------------------------------------------------------------------
 // Passes
@@ -54,6 +55,7 @@ export async function performHealthPass(
       runCommand: runCommand!,
       agentId,
     });
+
     fixedCount += healthFixes.filter((f) => f.fixed).length;
 
     // Scan for orphaned labels (active labels with no tracking worker)
@@ -66,6 +68,7 @@ export async function performHealthPass(
       provider,
       instanceName,
     });
+
     fixedCount += orphanFixes.filter((f) => f.fixed).length;
   }
 
@@ -78,6 +81,7 @@ export async function performHealthPass(
     autoFix: true,
     instanceName,
   });
+
   fixedCount += statelessFixes.filter((f) => f.fixed).length;
 
   return fixedCount;
@@ -99,6 +103,7 @@ export async function performProjectionIntegrityPass(
     workflow: resolvedConfig.workflow,
     roles: Object.keys(resolvedConfig.roles),
   });
+
   return result.repaired + result.removed + result.errors;
 }
 
@@ -135,6 +140,7 @@ export async function performReviewPass(
             issue.labels,
             project.channels,
           );
+
           notify(
             {
               type: "prMerged",
@@ -169,6 +175,7 @@ export async function performReviewPass(
           : ("mergeConflict" as const);
       // No issue labels available in this callback — fall back to primary channel
       const target = project.channels[0];
+
       notify(
         {
           type,
@@ -193,6 +200,7 @@ export async function performReviewPass(
     onPrClosed: (issueId, prUrl, issueTitle, issueUrl) => {
       // No issue labels available in this callback — fall back to primary channel
       const target = project.channels[0];
+
       notify(
         {
           type: "prClosed",
@@ -249,6 +257,7 @@ export async function performReviewSkipPass(
             issue.labels,
             project.channels,
           );
+
           notify(
             {
               type: "prMerged",

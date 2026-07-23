@@ -10,18 +10,19 @@
  */
 import { homedir } from "node:os";
 import path from "node:path";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import {
-  extractMediaAttachments,
-  extractIssueReferences,
-  processAttachmentMessage,
-} from "./attachments.js";
-import { readProjects, type Project } from "../../state/projects/index.js";
-import { createProvider } from "../../integrations/providers/index.js";
-import { log as auditLog } from "../../audit.js";
 
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+
+import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
+import { createProvider } from "../../integrations/providers/index.js";
+import { type Project,readProjects } from "../../state/projects/index.js";
+import {
+  extractIssueReferences,
+  extractMediaAttachments,
+  processAttachmentMessage,
+} from "./attachments.js";
 
 /**
  * Resolve which project a conversation maps to.
@@ -34,8 +35,10 @@ async function resolveProjectFromChannel(
   try {
     const data = await readProjects(workspaceDir);
     const projects = data.projects ?? {};
+
     for (const project of Object.values(projects)) {
       const channels = (project as Project).channels ?? [];
+
       for (const ch of channels) {
         if (String(ch.channelId) === String(conversationId)) {
           return project as Project;
@@ -43,6 +46,7 @@ async function resolveProjectFromChannel(
       }
     }
   } catch { /* no projects yet */ }
+
   return null;
 }
 
@@ -64,6 +68,7 @@ function workspaceCandidates(config: OpenClawConfig): string[] {
   for (const agent of config.agents?.list ?? []) {
     add(agent.workspace);
   }
+
   add(config.agents?.defaults?.workspace);
   add(path.join(homedir(), ".openclaw", "workspace-devclaw"));
 
@@ -80,8 +85,10 @@ async function resolveProjectContextFromChannel(
 ): Promise<{ workspaceDir: string; project: Project } | null> {
   for (const workspaceDir of workspaceCandidates(config)) {
     const project = await resolveProjectFromChannel(workspaceDir, conversationId);
+
     if (project) return { workspaceDir, project };
   }
+
   return null;
 }
 
@@ -94,23 +101,28 @@ async function resolveProjectContextFromChannel(
 export function registerAttachmentHook(api: OpenClawPluginApi, ctx: PluginContext): void {
   api.on("message_received", async (event, eventCtx) => {
     const metadata = event.metadata;
+
     if (!metadata || typeof metadata !== "object") return;
 
     // Check for media in the message (channel-agnostic)
     const attachments = extractMediaAttachments(metadata as Record<string, unknown>);
+
     if (attachments.length === 0) return;
 
     // Check for issue references in the message text
     const issueIds = extractIssueReferences(event.content ?? "");
+
     if (issueIds.length === 0) return;
 
     const conversationId = eventCtx.conversationId;
+
     if (!conversationId) return;
 
     const projectContext = await resolveProjectContextFromChannel(
       ctx.config as unknown as OpenClawConfig,
       conversationId,
     );
+
     if (!projectContext) return;
     const { workspaceDir, project } = projectContext;
 

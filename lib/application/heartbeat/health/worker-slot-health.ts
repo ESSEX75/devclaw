@@ -24,37 +24,37 @@
  *     considered session-dead (they may not appear in sessions yet).
  *   - abortedLastRun: indicates session hit context limit (#287, #290) — triggers immediate healing.
  */
-import type { StateLabel, IssueProvider, Issue } from "../../../integrations/providers/provider.js";
-import {
-  getRoleWorker,
-  updateSlot,
-  deactivateWorker,
-} from "../../../state/projects/index.js";
-import type { Project } from "../../../state/projects/index.js";
 import { log as auditLog } from "../../../audit.js";
+import type { RunCommand } from "../../../context.js";
 import {
   DEFAULT_WORKFLOW,
 } from "../../../domain/workflow/defaults.js";
 import {
   getActiveLabel,
+  getCurrentStateLabel,
   getRevertLabel,
   hasWorkflowStates,
-  getCurrentStateLabel,
 } from "../../../domain/workflow/queries.js";
 import type {
-  WorkflowConfig,
   Role,
+  WorkflowConfig,
 } from "../../../domain/workflow/types.js";
-import { isSessionAlive, type SessionLookup } from "./gateway-sessions.js";
 import { sendToAgent } from "../../../integrations/openclaw/session.js";
-import type { RunCommand } from "../../../context.js";
+import type { Issue,IssueProvider, StateLabel } from "../../../integrations/providers/provider.js";
+import type { Project } from "../../../state/projects/index.js";
+import {
+  deactivateWorker,
+  getRoleWorker,
+  updateSlot,
+} from "../../../state/projects/index.js";
+import { isSessionAlive, type SessionLookup } from "./gateway-sessions.js";
+import { fetchIssue, isIssueClosed } from "./issue-utils.js";
+import type { HealthFix } from "./types.js";
 import {
   GRACE_PERIOD_MS,
   NUDGE_MESSAGE,
   STALL_CONTEXT_THRESHOLD,
 } from "./types.js";
-import type { HealthFix } from "./types.js";
-import { fetchIssue, isIssueClosed } from "./issue-utils.js";
 
 // ---------------------------------------------------------------------------
 // Health check logic
@@ -116,6 +116,7 @@ export async function checkWorkerHealth(opts: {
       // Fetch issue state if we have an issueId
       let issue: Issue | null = null;
       let currentLabel: StateLabel | null = null;
+
       if (issueIdNum) {
         issue = await fetchIssue(provider, issueIdNum);
         currentLabel = issue ? getCurrentStateLabel(issue.labels, workflow) : null;
@@ -158,10 +159,12 @@ export async function checkWorkerHealth(opts: {
           },
           fixed: false,
         };
+
         if (autoFix) {
           await deactivateSlot();
           fix.fixed = true;
         }
+
         fixes.push(fix);
         continue;
       }
@@ -184,10 +187,12 @@ export async function checkWorkerHealth(opts: {
           },
           fixed: false,
         };
+
         if (autoFix) {
           await deactivateSlot();
           fix.fixed = true;
         }
+
         fixes.push(fix);
         continue;
       }
@@ -211,10 +216,12 @@ export async function checkWorkerHealth(opts: {
           },
           fixed: false,
         };
+
         if (autoFix) {
           await deactivateSlot();
           fix.fixed = true;
         }
+
         fixes.push(fix);
         continue;
       }
@@ -236,11 +243,13 @@ export async function checkWorkerHealth(opts: {
           },
           fixed: false,
         };
+
         if (autoFix) {
           await revertLabel(fix, expectedLabel, slotQueueLabel);
           await deactivateSlot();
           fix.fixed = true;
         }
+
         fixes.push(fix);
         continue;
       }
@@ -261,13 +270,16 @@ export async function checkWorkerHealth(opts: {
           },
           fixed: false,
         };
+
         if (autoFix) {
           if (issue && currentLabel === expectedLabel) {
             await revertLabel(fix, expectedLabel, slotQueueLabel);
           }
+
           await deactivateSlot();
           fix.fixed = true;
         }
+
         fixes.push(fix);
         continue;
       }
@@ -275,6 +287,7 @@ export async function checkWorkerHealth(opts: {
       // Case 1c: Active with correct label but session hit context limit (abortedLastRun)
       if (slot.active && sessionKey && sessions && isSessionAlive(sessionKey, sessions)) {
         const session = sessions.get(sessionKey);
+
         if (session?.abortedLastRun) {
           const fix: HealthFix = {
             issue: {
@@ -293,13 +306,16 @@ export async function checkWorkerHealth(opts: {
             },
             fixed: false,
           };
+
           if (autoFix) {
             if (issue && currentLabel === expectedLabel) {
               await revertLabel(fix, expectedLabel, slotQueueLabel);
             }
+
             await deactivateSlot();
             fix.fixed = true;
           }
+
           fixes.push(fix);
           await auditLog(workspaceDir, "context_overflow_healed", {
             project: project.name,
@@ -348,6 +364,7 @@ export async function checkWorkerHealth(opts: {
               if (issue && currentLabel === expectedLabel) {
                 await revertLabel(fix, expectedLabel, slotQueueLabel);
               }
+
               await deactivateSlot();
             } else {
               // Task arrived but worker stalled → nudge the session
@@ -363,6 +380,7 @@ export async function checkWorkerHealth(opts: {
               });
               fix.nudgeSent = true;
             }
+
             fix.fixed = true;
           }
 
@@ -386,6 +404,7 @@ export async function checkWorkerHealth(opts: {
       // Case 3: Active with correct label and alive session — check for staleness
       if (slot.active && slot.startTime && sessionKey && sessions && isSessionAlive(sessionKey, sessions)) {
         const hours = (Date.now() - new Date(slot.startTime).getTime()) / 3_600_000;
+
         if (hours > staleWorkerHours) {
           const fix: HealthFix = {
             issue: {
@@ -402,11 +421,13 @@ export async function checkWorkerHealth(opts: {
             },
             fixed: false,
           };
+
           if (autoFix) {
             await revertLabel(fix, expectedLabel, slotQueueLabel);
             await deactivateSlot();
             fix.fixed = true;
           }
+
           fixes.push(fix);
         }
       }
@@ -428,14 +449,17 @@ export async function checkWorkerHealth(opts: {
           },
           fixed: false,
         };
+
         if (autoFix) {
           await revertLabel(fix, expectedLabel, slotQueueLabel);
           // Clear the slot's issueId
           if (slot.issueId) {
             await updateSlot(workspaceDir, projectSlug, role, level, slotIndex, { issueId: null });
           }
+
           fix.fixed = true;
         }
+
         fixes.push(fix);
         continue;
       }
@@ -455,10 +479,12 @@ export async function checkWorkerHealth(opts: {
           },
           fixed: false,
         };
+
         if (autoFix) {
           await updateSlot(workspaceDir, projectSlug, role, level, slotIndex, { issueId: null });
           fix.fixed = true;
         }
+
         fixes.push(fix);
       }
     }

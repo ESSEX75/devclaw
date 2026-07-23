@@ -10,13 +10,14 @@
  * - Breaking down an epic into smaller tasks
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
-import { loadConfig } from "../../state/config/index.js";
-import { loadInstanceName } from "../../instance.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import type { NotifyTarget } from "../../state/issues/index.js";
+
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
+import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
+import { loadInstanceName } from "../../instance.js";
+import { loadConfig } from "../../state/config/index.js";
+import type { NotifyTarget } from "../../state/issues/index.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskCreateTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -91,6 +92,7 @@ export function createTaskCreateTool(ctx: PluginContext) {
 
       const hasBody = description && description.trim().length > 0;
       let announcement = `📋 Created #${created.issue.iid}: "${title}" (${created.label})`;
+
       if (hasBody) announcement += "\nWith detailed description.";
       announcement += `\n🔗 [Issue #${created.issue.iid}](${created.issue.web_url})`;
       announcement += created.announcementSuffix;

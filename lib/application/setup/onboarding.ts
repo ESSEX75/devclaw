@@ -5,6 +5,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+
 import { getAllDefaultModels } from "../../roles/index.js";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +28,7 @@ export async function hasWorkspaceFiles(
       path.join(workspaceDir, "AGENTS.md"),
       "utf-8",
     );
+
     return content.includes("DevClaw") && (content.includes("task_start") || content.includes("work_start"));
   } catch {
     return false;
@@ -39,16 +41,19 @@ export async function hasWorkspaceFiles(
 
 function buildModelTable(): string {
   const lines: string[] = [];
+
   for (const [role, levels] of Object.entries(getAllDefaultModels())) {
     for (const [level, model] of Object.entries(levels)) {
       lines.push(`  - **${role} ${level}**: ${model}`);
     }
   }
+
   return lines.join("\n");
 }
 
 export function buildReconfigContext(): string {
   const modelTable = buildModelTable();
+
   return `# DevClaw Reconfiguration
 
 The user wants to reconfigure DevClaw. Default model configuration:
@@ -75,11 +80,13 @@ export function buildOnboardToolContext(): string {
     medior: "Features, bug fixes, code review",
     senior: "Architecture, refactoring, complex tasks",
   };
+
   for (const [role, levels] of Object.entries(getAllDefaultModels())) {
     for (const [level, model] of Object.entries(levels)) {
       rows.push(`| ${role} | ${level} | ${model} | ${purposes[level] ?? ""} |`);
     }
   }
+
   const modelTable = rows.join("\n");
 
   return `# DevClaw Onboarding

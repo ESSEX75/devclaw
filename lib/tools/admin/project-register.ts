@@ -6,17 +6,19 @@
  *
  * Replaces the manual steps of running glab/gh label create + editing projects.json.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { readProjects, writeProjects, emptyRoleWorkerState } from "../../state/projects/index.js";
-import { resolveRepoPath } from "../../state/projects/index.js";
-import { createProvider } from "../../integrations/providers/index.js";
+
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
 import { log as auditLog } from "../../audit.js";
-import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
+import type { PluginContext } from "../../context.js";
 import { getRoleLabels } from "../../domain/workflow/index.js";
+import { createProvider } from "../../integrations/providers/index.js";
+import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
+import { emptyRoleWorkerState,readProjects, writeProjects } from "../../state/projects/index.js";
+import { resolveRepoPath } from "../../state/projects/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
 
 /**
@@ -26,14 +28,18 @@ import { DATA_DIR } from "../../state/setup/paths.js";
 async function scaffoldPromptFiles(workspaceDir: string, projectName: string): Promise<boolean> {
   const projectDir = path.join(workspaceDir, DATA_DIR, "projects", projectName);
   const promptsDir = path.join(projectDir, "prompts");
+
   await fs.mkdir(promptsDir, { recursive: true });
 
   const readmePath = path.join(projectDir, "README.md");
+
   try {
     await fs.access(readmePath);
+
     return false;
   } catch {
     const roles = getAllRoleIds().join(", ");
+
     await fs.writeFile(readmePath, `# Project Overrides
 
 This directory holds project-specific configuration that overrides the workspace defaults.
@@ -75,6 +81,7 @@ roles:
 
 Call \`workflow_guide\` for the full config reference.
 `, "utf-8");
+
     return true;
   }
 }
@@ -156,6 +163,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       // If project exists, check if this channelId is already registered
       if (existing) {
         const channelExists = existing.channels.some(ch => ch.channelId === channelId && ch.threadId === threadId);
+
         if (channelExists) {
           throw new Error(
             `Channel ${channelId}${threadId ? ` thread ${threadId}` : ""} is already registered for project "${name}". Each channel/thread can only register once per project.`,
@@ -171,11 +179,13 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       const { provider, type: providerType } = await createProvider({ repo, runCommand: ctx.runCommand });
 
       const healthy = await provider.healthCheck();
+
       if (!healthy) {
         const cliName = providerType === "github" ? "gh" : "glab";
         const cliInstallUrl = providerType === "github"
           ? "https://cli.github.com"
           : "https://gitlab.com/gitlab-org/cli";
+
         throw new Error(
           `${providerType.toUpperCase()} health check failed for ${repoPath}. ` +
           `Detected provider: ${providerType}. ` +
@@ -191,17 +201,20 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       // 4b. Create role:level + step routing labels (e.g. developer:junior, review:human, test:skip)
       const resolvedConfig = await loadConfig(workspaceDir, name);
       const roleLabels = getRoleLabels(resolvedConfig.roles);
+
       for (const { name: labelName, color } of roleLabels) {
         await provider.ensureLabel(labelName, color);
       }
 
       // 5. Auto-detect repoRemote from git
       let repoRemote: string | undefined;
+
       try {
         const result = await ctx.runCommand(["git", "remote", "get-url", "origin"], {
           timeoutMs: 5_000,
           cwd: repoPath,
         });
+
         repoRemote = result.stdout.trim() || undefined;
       } catch {
         repoRemote = undefined;
@@ -217,6 +230,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           events: ["*"],
           ...(threadId ? { threadId } : {}),
         };
+
         existing.channels.push(newChannel);
         if (repoRemote && !existing.repoRemote) {
           existing.repoRemote = repoRemote;
@@ -224,8 +238,10 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       } else {
         // Create new project - get levelMaxWorkers from resolved config (already loaded above)
         const workers: Record<string, import("../../state/projects/index.js").RoleWorkerState> = {};
+
         for (const role of getAllRoleIds()) {
           const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
+
           workers[role] = emptyRoleWorkerState(levelMaxWorkers);
         }
 

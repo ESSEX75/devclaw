@@ -21,4 +21,3 @@ export function diffIssueProjection(input: ProjectionInput): ProjectionDiff {
     unexpectedManagedLabels: actualManaged.filter((label) => !expected.includes(label)),
   };
 }
-

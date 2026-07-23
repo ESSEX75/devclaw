@@ -14,6 +14,7 @@ import type {
   ReactionWriter,
   ReviewReader,
 } from "./capabilities.js";
+
 export * from "./types.js";
 
 // ---------------------------------------------------------------------------

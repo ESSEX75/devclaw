@@ -6,9 +6,10 @@
  * terminal states have no outgoing transitions.
  */
 import { z } from "zod";
-import { StateType } from "../../domain/workflow/types.js";
 
-const STATE_TYPES = Object.values(StateType) as [string, ...string[]];
+import { STATE_TYPE } from "../../domain/index.js";
+
+const STATE_TYPES = Object.values(STATE_TYPE) as [string, ...string[]];
 
 const TransitionTargetSchema = z.union([
   z.string(),
@@ -107,15 +108,15 @@ export function validateWorkflowIntegrity(
   }
 
   for (const [key, state] of Object.entries(workflow.states)) {
-    if (state.type === StateType.QUEUE && !state.role) {
+    if (state.type === STATE_TYPE.QUEUE && !state.role) {
       errors.push(`Queue state "${key}" must have a role assigned`);
     }
 
-    if (state.type === StateType.ACTIVE && !state.role) {
+    if (state.type === STATE_TYPE.ACTIVE && !state.role) {
       errors.push(`Active state "${key}" must have a role assigned`);
     }
 
-    if (state.type === StateType.TERMINAL && state.on && Object.keys(state.on).length > 0) {
+    if (state.type === STATE_TYPE.TERMINAL && state.on && Object.keys(state.on).length > 0) {
       errors.push(`Terminal state "${key}" should not have outgoing transitions`);
     }
 
@@ -124,6 +125,7 @@ export function validateWorkflowIntegrity(
         const target = typeof transition === "string"
           ? transition
           : (transition as { target: string }).target;
+
         if (!stateKeys.has(target)) {
           errors.push(`State "${key}" transition "${event}" targets non-existent state "${target}"`);
         }

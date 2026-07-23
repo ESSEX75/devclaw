@@ -1,8 +1,9 @@
 import type { Command } from "commander";
+
 import type { PluginContext } from "../../context.js";
+import type { ReviewPolicy, TestPolicy } from "../../domain/workflow/index.js";
 import { migrateIssuePolicies, repairIssueFromLocalState } from "../../tools/issues/issue-repair.js";
 import { getDefaultWorkspaceDir } from "../options/setup-options.js";
-import type { ReviewPolicy, TestPolicy } from "../../domain/workflow/index.js";
 
 function parseReviewPolicy(value: string | undefined): ReviewPolicy | undefined {
   if (value === undefined) return undefined;
@@ -34,6 +35,7 @@ export function registerRepairIssueCommand(parent: Command, ctx: PluginContext):
       if (opts.dryRun && opts.apply) throw new Error("Choose either --dry-run or --apply, not both.");
       if (!opts.dryRun && !opts.apply) throw new Error("Repair requires an explicit mode: pass --dry-run or --apply.");
       const workspaceDir = opts.workspace ?? getDefaultWorkspaceDir(ctx.runtime);
+
       if (!workspaceDir) throw new Error("Workspace path is required. Pass --workspace or configure an agent default workspace.");
       const result = await repairIssueFromLocalState({
         workspaceDir,
@@ -43,6 +45,7 @@ export function registerRepairIssueCommand(parent: Command, ctx: PluginContext):
         dryRun: !opts.apply,
         runCommand: ctx.runCommand,
       });
+
       console.log(JSON.stringify(result, null, 2));
     });
 
@@ -72,6 +75,7 @@ export function registerRepairIssueCommand(parent: Command, ctx: PluginContext):
       if (opts.dryRun && opts.apply) throw new Error("Choose either --dry-run or --apply, not both.");
       if (!opts.dryRun && !opts.apply) throw new Error("Policy migration requires an explicit mode: pass --dry-run or --apply.");
       const workspaceDir = opts.workspace ?? getDefaultWorkspaceDir(ctx.runtime);
+
       if (!workspaceDir) throw new Error("Workspace path is required. Pass --workspace or configure an agent default workspace.");
       const result = await migrateIssuePolicies({
         workspaceDir,
@@ -84,6 +88,7 @@ export function registerRepairIssueCommand(parent: Command, ctx: PluginContext):
         dryRun: !opts.apply,
         runCommand: ctx.runCommand,
       });
+
       console.log(JSON.stringify(result, null, 2));
     });
 }

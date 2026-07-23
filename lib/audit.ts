@@ -4,7 +4,8 @@
  * Automatically truncates log to keep only last 250 lines.
  */
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
+import { dirname,join } from "node:path";
+
 import { DATA_DIR } from "./state/setup/paths.js";
 
 const MAX_LOG_LINES = 50;
@@ -20,6 +21,7 @@ export async function log(
     event,
     ...data,
   });
+
   try {
     await appendFile(filePath, entry + "\n");
     await truncateIfNeeded(filePath);
@@ -40,6 +42,7 @@ async function truncateIfNeeded(filePath: string): Promise<void> {
 
     if (lines.length > MAX_LOG_LINES) {
       const keptLines = lines.slice(-MAX_LOG_LINES);
+
       await writeFile(filePath, keptLines.join("\n") + "\n", "utf-8");
     }
   } catch {

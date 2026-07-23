@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import type { IssueRuntimeState } from "../../state/issues/index.js";
-import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
+import { DEFAULT_WORKFLOW, ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
 import { summarizeTaskIssue, type ProjectionViewContext } from "../../application/tasks/index.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
@@ -84,9 +84,9 @@ describe("task projection view", () => {
       labels: ["To Do", "developer:medior", "owner:main", "review:human", "test:skip"],
       state: "opened",
       web_url: "https://example.com/issues/123",
-    }, ctx(state({ integrityStatus: "integrity_error", integrityErrors: ["metadata tamper"] })));
+    }, ctx(state({ integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR, integrityErrors: ["metadata tamper"] })));
 
-    assert.strictEqual(summary.projection.integrityStatus, "integrity_error");
+    assert.strictEqual(summary.projection.integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
     assert.ok(summary.projection.repairHint?.includes("issue_repair 123"));
   });
 });

@@ -4,7 +4,7 @@
  * A single workflow.yaml combines roles, models, and workflow.
  * Three-layer resolution: built-in → workspace → per-project.
  */
-import type { WorkflowConfig } from "../../domain/workflow/types.js";
+import type { WorkflowConfig } from "../../domain/index.js";
 
 /**
  * Role override in workflow.yaml. All fields optional — only override what you need.
@@ -40,7 +40,7 @@ export type TimeoutConfig = {
 /**
  * Instance identity config. Optional — auto-generated if not set.
  */
-export type InstanceConfig = {
+type InstanceConfig = {
   /** Override the auto-generated instance name (CS pioneer name). */
   name?: string;
 };
@@ -56,7 +56,7 @@ export type RawConfig = {
   instance?: InstanceConfig;
 };
 
-export type ValidatedConfig = RawConfig;
+type ValidatedConfig = RawConfig;
 export type DevClawConfig = ValidatedConfig;
 
 /**

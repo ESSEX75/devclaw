@@ -1,6 +1,9 @@
-/**
- * projects/types.ts — Type definitions for the projects module.
- */
+import { SoftUnion } from "../../types.js";
+import type { IssueProvider } from "../issues/types.js";
+import { NOTIFICATION_CHANNEL } from "./const.js";
+
+/** Supported notification channel/messaging platform types. */
+export type NotificationChannel = SoftUnion<typeof NOTIFICATION_CHANNEL>;
 
 // ---------------------------------------------------------------------------
 // Per-level worker model — each level gets its own slot array
@@ -29,7 +32,7 @@ export type RoleWorkerState = {
  */
 export type Channel = {
   channelId: string;
-  channel: "telegram" | "whatsapp" | "discord" | "slack";
+  channel: NotificationChannel;
   name: string; // e.g. "primary", "dev-chat"
   events: string[]; // e.g. ["*"] for all, ["workerComplete"] for filtered
   accountId?: string; // Optional account ID for multi-account setups
@@ -51,11 +54,14 @@ export type Project = {
   /** Channels registered for this project (notification endpoints). */
   channels: Channel[];
   /** Issue tracker provider type (github or gitlab). Auto-detected at registration, stored for reuse. */
-  provider?: "github" | "gitlab";
+  provider?: IssueProvider;
   /** Worker state per role (developer, tester, architect, or custom roles). Shared across all channels. */
   workers: Record<string, RoleWorkerState>;
 };
 
+/**
+ * Data structure for the projects registry store.
+ */
 export type ProjectsData = {
   projects: Record<string, Project>; // Keyed by slug
 };

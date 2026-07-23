@@ -1,13 +1,14 @@
 /**
  * workflow/labels.ts — Label formatting, detection, and routing helpers.
  */
-import type { WorkflowConfig, ReviewPolicy, TestPolicy } from "./types.js";
-import { ReviewPolicy as RP, TestPolicy as TP } from "./types.js";
-import { getLabelColors } from "./queries.js";
+import type { NotificationChannel } from "../projects/index.js";
+import { REVIEW_POLICY as RP, ROLE_LABEL_COLORS, ROUTING_LABELS, TEST_POLICY as TP } from "./const.js";
+import type { ReviewPolicy, RoleDefinition, RoutingLabel, TestPolicy } from "./types.js";
 
+/** Internal mapping of channel definitions. */
 type WorkflowChannel = {
   channelId: string;
-  channel: "telegram" | "whatsapp" | "discord" | "slack";
+  channel: NotificationChannel;
   name: string;
   events: string[];
   accountId?: string;
@@ -18,19 +19,8 @@ type WorkflowChannel = {
 // Step routing labels
 // ---------------------------------------------------------------------------
 
-/** Step routing label values — per-issue overrides for workflow steps. */
-export const StepRouting = {
-  HUMAN: "human",
-  AGENT: "agent",
-  SKIP: "skip",
-} as const;
-export type StepRoutingValue = (typeof StepRouting)[keyof typeof StepRouting];
-
 /** Known step routing labels (created on the provider during project registration). */
-export const STEP_ROUTING_LABELS: readonly string[] = [
-  "review:human", "review:agent", "review:skip",
-  "test:skip",
-];
+const STEP_ROUTING_LABELS: readonly string[] = Object.values(ROUTING_LABELS);
 
 /** Step routing label color. */
 export const STEP_ROUTING_COLOR = "#d93f0b";
@@ -39,7 +29,9 @@ export const STEP_ROUTING_COLOR = "#d93f0b";
 // Notify labels — channel routing for notifications
 // ---------------------------------------------------------------------------
 
+/** Prefix for notification routing labels. */
 export const NOTIFY_LABEL_PREFIX = "notify:";
+/** Color used for notify labels. */
 export const NOTIFY_LABEL_COLOR = "#e4e4e4";
 
 /** Build the notify label for a channel endpoint. */
@@ -56,18 +48,23 @@ export function resolveNotifyChannel(
   channels: Array<Omit<WorkflowChannel, "events">>,
 ): Omit<WorkflowChannel, "events" | "name"> | undefined {
   const notifyLabel = issueLabels.find((l) => l.startsWith(NOTIFY_LABEL_PREFIX));
+
   if (notifyLabel) {
     const value = notifyLabel.slice(NOTIFY_LABEL_PREFIX.length);
     const colonIdx = value.indexOf(":");
+
     if (colonIdx !== -1) {
       const channelType = value.slice(0, colonIdx);
       const channelName = value.slice(colonIdx + 1);
+
       return channels.find(
         (ch) => ch.channel === channelType && (ch.name === channelName || String(channels.indexOf(ch)) === channelName),
       ) ?? channels[0];
     }
+
     return channels[0];
   }
+
   return channels[0];
 }
 
@@ -75,7 +72,9 @@ export function resolveNotifyChannel(
 // Owner labels — instance identity on issues
 // ---------------------------------------------------------------------------
 
+/** Prefix for instance ownership labels. */
 export const OWNER_LABEL_PREFIX = "owner:";
+/** Color used for owner labels. */
 export const OWNER_LABEL_COLOR = "#e4e4e4";
 
 /** Build the owner label for a given instance name. */
@@ -86,6 +85,7 @@ export function getOwnerLabel(instanceName: string): string {
 /** Extract the instance name from an issue's labels, or null if unclaimed. */
 export function detectOwner(issueLabels: string[]): string | null {
   const label = issueLabels.find((l) => l.startsWith(OWNER_LABEL_PREFIX));
+
   return label ? label.slice(OWNER_LABEL_PREFIX.length) : null;
 }
 
@@ -95,54 +95,46 @@ export function isOwnedByOrUnclaimed(
   instanceName: string,
 ): boolean {
   const owner = detectOwner(issueLabels);
+
   return owner === null || owner === instanceName;
 }
 
 // ---------------------------------------------------------------------------
 // Review routing
 // ---------------------------------------------------------------------------
-
 /**
  * Determine review routing label for an issue based on project policy and developer level.
  */
-export function resolveReviewRouting(
-  policy: ReviewPolicy, _level: string,
-): "review:human" | "review:agent" | "review:skip" {
-  if (policy === RP.HUMAN) return "review:human";
-  if (policy === RP.AGENT) return "review:agent";
-  if (policy === RP.SKIP) return "review:skip";
-  return "review:human";
+export function resolveReviewRouting(policy: ReviewPolicy): RoutingLabel {
+  if (policy === RP.HUMAN) return ROUTING_LABELS.REVIEW_HUMAN;
+  if (policy === RP.AGENT) return ROUTING_LABELS.REVIEW_AGENT;
+  if (policy === RP.SKIP) return ROUTING_LABELS.REVIEW_SKIP;
+
+  return ROUTING_LABELS.REVIEW_HUMAN;
 }
 
 /**
  * Determine test routing label for an issue based on project policy.
  */
-export function resolveTestRouting(
-  policy: TestPolicy, _level: string,
-): "test:skip" | "test:agent" {
-  if (policy === TP.AGENT) return "test:agent";
-  return "test:skip";
+export function resolveTestRouting(policy: TestPolicy): RoutingLabel {
+  if (policy === TP.AGENT) return ROUTING_LABELS.TEST_AGENT;
+
+  return ROUTING_LABELS.TEST_SKIP;
 }
 
 // ---------------------------------------------------------------------------
 // Role labels
 // ---------------------------------------------------------------------------
 
-/** Default colors per role for role:level labels. */
-const ROLE_LABEL_COLORS: Record<string, string> = {
-  developer: "#0e8a16",
-  tester: "#5319e7",
-  architect: "#0075ca",
-  reviewer: "#d93f0b",
-};
 
 /**
  * Generate all role:level label definitions from resolved config roles.
  */
 export function getRoleLabels(
-  roles: Record<string, { levels: string[]; enabled?: boolean }>,
+  roles: Record<string, RoleDefinition>,
 ): Array<{ name: string; color: string }> {
   const labels: Array<{ name: string; color: string }> = [];
+
   for (const [roleId, role] of Object.entries(roles)) {
     if (role.enabled === false) continue;
     for (const level of role.levels) {
@@ -152,13 +144,17 @@ export function getRoleLabels(
       });
     }
   }
+
   for (const routingLabel of STEP_ROUTING_LABELS) {
     labels.push({ name: routingLabel, color: STEP_ROUTING_COLOR });
   }
+
   return labels;
 }
 
 /** Get the label color for a role. Falls back to gray for unknown roles. */
 export function getRoleLabelColor(role: string): string {
-  return ROLE_LABEL_COLORS[role] ?? "#cccccc";
+  const key = role.toUpperCase() as keyof typeof ROLE_LABEL_COLORS;
+
+  return ROLE_LABEL_COLORS[key] ?? "#cccccc";
 }

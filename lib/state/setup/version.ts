@@ -4,8 +4,8 @@
  * Reads/writes `devclaw/.version` to track which version scaffolded the workspace.
  * Used for upgrade detection and audit logging.
  */
-import fsAsync from "node:fs/promises";
 import fsSync from "node:fs";
+import fsAsync from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,10 +24,12 @@ export function getCurrentVersion(): string {
   if (typeof __PLUGIN_VERSION__ !== "undefined" && __PLUGIN_VERSION__) {
     return __PLUGIN_VERSION__;
   }
+
   // Dev/test fallback: read from package.json
   try {
     const pkgPath = path.join(THIS_DIR, "..", "..", "..", "package.json");
     const pkg = JSON.parse(fsSync.readFileSync(pkgPath, "utf-8"));
+
     return pkg.version ?? "0.0.0";
   } catch {
     return "0.0.0";
@@ -41,6 +43,7 @@ export function getCurrentVersion(): string {
 export async function readVersionFile(dataDir: string): Promise<string | null> {
   try {
     const content = await fsAsync.readFile(path.join(dataDir, VERSION_FILE), "utf-8");
+
     return content.trim() || null;
   } catch {
     return null;
@@ -68,9 +71,11 @@ export async function detectUpgrade(
   dataDir: string,
 ): Promise<{ from: string; to: string } | null> {
   const stored = await readVersionFile(dataDir);
+
   if (!stored) return null; // First run — no upgrade
 
   const current = getCurrentVersion();
+
   if (stored === current) return null; // Same version
 
   return { from: stored, to: current };

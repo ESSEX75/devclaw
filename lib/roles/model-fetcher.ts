@@ -24,6 +24,7 @@ export type OpenClawModelRow = {
  */
 export async function fetchModels(allModels = true, runCommand: RunCommand): Promise<OpenClawModelRow[]> {
   const rc = runCommand;
+
   try {
     const args = allModels
       ? ["openclaw", "models", "list", "--all", "--json"]
@@ -42,6 +43,7 @@ export async function fetchModels(allModels = true, runCommand: RunCommand): Pro
     // Find the first line that starts with { (the beginning of JSON)
     const jsonStartIndex = lines.findIndex((line: string) => {
       const trimmed = line.trim();
+
       return trimmed.startsWith("{");
     });
 
@@ -74,9 +76,12 @@ function parseJsonFromOutput(output: string): unknown {
   const lines = output.split("\n");
   const jsonStartIndex = lines.findIndex((line: string) => {
     const trimmed = line.trim();
+
     return trimmed.startsWith("{");
   });
+
   if (jsonStartIndex === -1) return null;
+
   return JSON.parse(lines.slice(jsonStartIndex).join("\n"));
 }
 
@@ -92,11 +97,13 @@ type ModelStatus = {
  */
 async function fetchModelStatus(runCommand: RunCommand): Promise<ModelStatus> {
   const rc = runCommand;
+
   try {
     const result = await rc(
       ["openclaw", "models", "status", "--json"],
       { timeoutMs: 10_000 },
     );
+
     return (parseJsonFromOutput(result.stdout.trim()) as ModelStatus) ?? {};
   } catch {
     return {};
@@ -125,6 +132,7 @@ export async function fetchAuthenticatedModels(runCommand: RunCommand): Promise<
 
   return allModels.filter((m) => {
     const provider = m.key.split("/")[0];
+
     return provider && authProviders.has(provider);
   });
 }

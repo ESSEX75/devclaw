@@ -5,13 +5,13 @@
  * Applied to GitHub/GitLab CLI calls that can fail due to network, rate limits, or timeouts.
  */
 import {
-  ExponentialBackoff,
-  retry,
   circuitBreaker,
   ConsecutiveBreaker,
+  ExponentialBackoff,
   handleAll,
-  wrap,
   type IPolicy,
+  retry,
+  wrap,
 } from "cockatiel";
 
 /**

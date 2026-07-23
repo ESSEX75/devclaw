@@ -1,84 +1,66 @@
-/**
- * workflow/types.ts — Type definitions for the XState-style statechart config.
- */
+import { SoftUnion } from "../../types.js";
+import {
+  ACTION,
+  DEFAULT_LEVELS,
+  DEFAULT_ROLES,
+  EXECUTION_MODE,
+  REVIEW_CHECK,
+  REVIEW_POLICY,
+  ROUTING_LABELS,
+  STATE_TYPE,
+  TEST_POLICY,
+  WORKFLOW_EVENT,
+  WORKFLOW_STATE_KEYS,
+  WORKFLOW_STATE_LABELS,
+} from "./const.js";
 
-/** Built-in state types. */
-export const StateType = {
-  QUEUE: "queue",
-  ACTIVE: "active",
-  HOLD: "hold",
-  TERMINAL: "terminal",
-} as const;
-export type StateType = (typeof StateType)[keyof typeof StateType];
+/** Internal system key for a workflow state (e.g. "planning", "todo"). */
+export type WorkflowStateKey = SoftUnion<typeof WORKFLOW_STATE_KEYS>;
 
-/** Built-in execution modes for role and project parallelism. */
-export const ExecutionMode = {
-  PARALLEL: "parallel",
-  SEQUENTIAL: "sequential",
-} as const;
-export type ExecutionMode = (typeof ExecutionMode)[keyof typeof ExecutionMode];
+/** Display label for a workflow state, often mirrored on the provider (e.g. "To Do"). */
+export type WorkflowLabel = SoftUnion<typeof WORKFLOW_STATE_LABELS>;
 
-/** Review policy for PR review after developer completion. */
-export const ReviewPolicy = {
-  HUMAN: "human",
-  AGENT: "agent",
-  SKIP: "skip",
-} as const;
-export type ReviewPolicy = (typeof ReviewPolicy)[keyof typeof ReviewPolicy];
+/** Unique identifier for a role (e.g. "developer", "tester"). */
+export type RoleId = SoftUnion<typeof DEFAULT_ROLES>;
 
-/** Test policy for automated testing after review. */
-export const TestPolicy = {
-  SKIP: "skip",
-  AGENT: "agent",
-} as const;
-export type TestPolicy = (typeof TestPolicy)[keyof typeof TestPolicy];
+/** Unique identifier for a developer tier/level (e.g. "junior", "senior"). */
+export type LevelId = SoftUnion<typeof DEFAULT_LEVELS>;
+
+/** Union type for built-in state types. */
+export type StateType = SoftUnion<typeof STATE_TYPE>;
+
+/** Union type for execution mode. */
+export type ExecutionMode = SoftUnion<typeof EXECUTION_MODE>;
+
+/** Union type for review policy. */
+export type ReviewPolicy = SoftUnion<typeof REVIEW_POLICY>;
+
+/** Union type for test policy. */
+export type TestPolicy = SoftUnion<typeof TEST_POLICY>;
+
+/** Union type for workflow events. */
+export type WorkflowEvent = SoftUnion<typeof WORKFLOW_EVENT>;
 
 /** Role identifier. Built-in: "developer", "tester", "architect". Extensible via config. */
-export type Role = string;
-/** Action identifier. Built-in actions listed in `Action`; custom actions are also valid strings. */
-export type TransitionAction = string;
+export type Role = SoftUnion<typeof DEFAULT_ROLES>;
 
-/** Built-in transition actions. Custom actions are also valid — these are just the ones with built-in handlers. */
-export const Action = {
-  GIT_PULL: "gitPull",
-  DETECT_PR: "detectPr",
-  MERGE_PR: "mergePr",
-  CLOSE_ISSUE: "closeIssue",
-  REOPEN_ISSUE: "reopenIssue",
-} as const;
+/** Action identifier. Built-in actions listed in `ACTION`; custom actions are also valid strings. */
+export type TransitionAction = SoftUnion<typeof ACTION>;
 
-/** Built-in review check types for review states. */
-export const ReviewCheck = {
-  PR_APPROVED: "prApproved",
-  PR_MERGED: "prMerged",
-} as const;
-export type ReviewCheckType = (typeof ReviewCheck)[keyof typeof ReviewCheck];
+/** Union of possible PR review check types. */
+type ReviewCheckType = SoftUnion<typeof REVIEW_CHECK>;
 
-/** Built-in workflow events. */
-export const WorkflowEvent = {
-  PICKUP: "PICKUP",
-  COMPLETE: "COMPLETE",
-  REVIEW: "REVIEW",
-  APPROVED: "APPROVED",
-  MERGE_FAILED: "MERGE_FAILED",
-  CHANGES_REQUESTED: "CHANGES_REQUESTED",
-  MERGE_CONFLICT: "MERGE_CONFLICT",
-  PASS: "PASS",
-  FAIL: "FAIL",
-  SKIP: "SKIP",
-  REFINE: "REFINE",
-  BLOCKED: "BLOCKED",
-  APPROVE: "APPROVE",
-  REJECT: "REJECT",
-  PR_CLOSED: "PR_CLOSED",
-} as const;
+/** Union of possible routing label strings. */
+export type RoutingLabel = SoftUnion<typeof ROUTING_LABELS>;
 
-export type TransitionTarget = string | {
+/** Target state name or configuration details for a state transition. */
+type TransitionTarget = string | {
   target: string;
   actions?: TransitionAction[];
   description?: string;
 };
 
+/** Configuration for a single state in the workflow statechart. */
 export type StateConfig = {
   type: StateType;
   role?: Role;
@@ -90,6 +72,7 @@ export type StateConfig = {
   on?: Record<string, TransitionTarget>;
 };
 
+/** Full workflow statechart configuration. */
 export type WorkflowConfig = {
   initial: string;
   reviewPolicy?: ReviewPolicy;
@@ -100,11 +83,15 @@ export type WorkflowConfig = {
   states: Record<string, StateConfig>;
 };
 
+/** Rule mapping a specific completion scenario to the next state and actions. */
 export type CompletionRule = {
   from: string;
   to: string;
-  actions: string[];
+  actions: TransitionAction[];
 };
 
-/** State label type alias used by providers. */
-export type StateLabel = string;
+/** Definition of a role including its active levels. */
+export type RoleDefinition = {
+  levels: string[];
+  enabled?: boolean;
+};

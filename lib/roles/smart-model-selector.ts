@@ -3,9 +3,9 @@
  *
  * Uses an LLM to intelligently analyze and assign models to DevClaw roles.
  */
+import type { RunCommand } from "../context.js";
 import { getAllRoleIds, getLevelsForRole } from "./index.js";
 import { ROLE_REGISTRY } from "./index.js";
-import type { RunCommand } from "../context.js";
 
 /** Model assignment: role → level → model ID. Derived from registry structure. */
 export type ModelAssignment = Record<string, Record<string, string>>;
@@ -15,12 +15,14 @@ export type ModelAssignment = Record<string, Record<string, string>>;
  */
 function singleModelAssignment(model: string): ModelAssignment {
   const result: ModelAssignment = {};
+
   for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
     result[roleId] = {};
     for (const level of config.levels) {
       result[roleId][level] = model;
     }
   }
+
   return result;
 }
 
@@ -55,6 +57,7 @@ export async function assignModels(
   try {
     const { selectModelsWithLLM } = await import("./llm-model-selector.js");
     const llmResult = await selectModelsWithLLM(authenticated, sessionKey, runCommand);
+
     if (llmResult) return llmResult;
   } catch (err) {
     console.warn("LLM model selection failed, using registry defaults:", (err as Error).message);
@@ -69,6 +72,7 @@ export async function assignModels(
     result[roleId] = {};
     for (const level of config.levels) {
       const registryDefault = config.models[level];
+
       result[roleId][level] = registryDefault && modelSet.has(registryDefault)
         ? registryDefault
         : fallback;
@@ -86,18 +90,23 @@ export function formatAssignment(assignment: ModelAssignment): string {
     "| Role      | Level    | Model                    |",
     "|-----------|----------|--------------------------|",
   ];
+
   for (const roleId of getAllRoleIds()) {
     const roleModels = assignment[roleId];
+
     if (!roleModels) continue;
     const displayName =
       ROLE_REGISTRY[roleId]?.displayName ?? roleId.toUpperCase();
+
     for (const level of getLevelsForRole(roleId)) {
       const model = roleModels[level] ?? "";
+
       lines.push(
         `| ${displayName.padEnd(9)} | ${level.padEnd(8)} | ${model.padEnd(24)} |`,
       );
     }
   }
+
   return lines.join("\n");
 }
 

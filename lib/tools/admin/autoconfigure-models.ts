@@ -4,14 +4,15 @@
  * Queries available authenticated models and intelligently assigns them to DevClaw roles.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
 import type { PluginContext, RunCommand } from "../../context.js";
+import { fetchAuthenticatedModels } from "../../roles/model-fetcher.js";
 import {
   assignModels,
   formatAssignment,
   generateSetupInstructions,
   type ModelAssignment,
 } from "../../roles/smart-model-selector.js";
-import { fetchAuthenticatedModels } from "../../roles/model-fetcher.js";
 
 /**
  * Get available authenticated models from OpenClaw.
@@ -24,6 +25,7 @@ async function getAuthenticatedModels(runCommand: RunCommand): Promise<Array<{ m
     return models.map((m) => {
       // Extract provider from key (format: provider/model-name)
       const provider = m.key.split("/")[0] || "unknown";
+
       return {
         model: m.key,
         provider,
@@ -61,10 +63,12 @@ export function createAutoConfigureModelsTool(ctx: PluginContext) {
 
         // Filter by preferred provider if specified
         const preferProvider = params?.preferProvider as string | undefined;
+
         if (preferProvider) {
           const filtered = authenticatedModels.filter(
             (m) => m.provider.toLowerCase() === preferProvider.toLowerCase(),
           );
+
           if (filtered.length === 0) {
             return jsonResult({
               success: false,
@@ -72,6 +76,7 @@ export function createAutoConfigureModelsTool(ctx: PluginContext) {
               message: `❌ No authenticated models found for provider "${preferProvider}".\n\nAvailable providers: ${[...new Set(authenticatedModels.map((m) => m.provider))].join(", ")}`,
             });
           }
+
           authenticatedModels = filtered;
         }
 
@@ -81,6 +86,7 @@ export function createAutoConfigureModelsTool(ctx: PluginContext) {
         if (!assignment) {
           // No models available
           const instructions = generateSetupInstructions();
+
           return jsonResult({
             success: false,
             modelCount: 0,
@@ -93,6 +99,7 @@ export function createAutoConfigureModelsTool(ctx: PluginContext) {
         const modelCount = authenticatedModels.length;
 
         let message = `✅ Auto-configured models based on ${modelCount} authenticated model${modelCount === 1 ? "" : "s"}:\n\n`;
+
         message += table;
         message += "\n\n";
 
@@ -121,7 +128,9 @@ export function createAutoConfigureModelsTool(ctx: PluginContext) {
         });
       } catch (err) {
         const errorMsg = (err as Error).message;
+
         ctx.logger.error(`Auto-configure models error: ${errorMsg}`);
+
         return jsonResult({
           success: false,
           error: errorMsg,

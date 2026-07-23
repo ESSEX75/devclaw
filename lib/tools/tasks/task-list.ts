@@ -5,11 +5,12 @@
  * specific label, or text search. Supports terminal (closed) issues.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import { loadConfig } from "../../state/config/index.js";
+
 import { listManagedTasks } from "../../application/tasks/index.js";
+import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
+import { loadConfig } from "../../state/config/index.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskListTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({

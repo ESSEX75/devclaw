@@ -23,7 +23,8 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
-const child = spawn("tsx", ["--test", ...testFiles], {
+const cmd = process.platform === "win32" ? "tsx.cmd" : "tsx";
+const child = spawn(cmd, ["--test", ...testFiles], {
   cwd: root,
   stdio: "inherit",
   shell: process.platform === "win32",

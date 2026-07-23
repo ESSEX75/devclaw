@@ -7,13 +7,15 @@
  * - Orchestrator adds summary comments
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
+
 import { log as auditLog } from "../../audit.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
+import type { PluginContext } from "../../context.js";
 import { getAllRoleIds, getFallbackEmoji } from "../../roles/index.js";
+import { applyNotifyLabel,autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 /** Valid author roles for attribution — all registry roles + orchestrator */
 const AUTHOR_ROLES = [...getAllRoleIds(), "orchestrator"];
+
 type AuthorRole = string;
 
 export function createTaskCommentTool(ctx: PluginContext) {
@@ -110,5 +112,6 @@ Examples:
 
 function getRoleEmoji(role: string): string {
   if (role === "orchestrator") return "🎛️";
+
   return getFallbackEmoji(role);
 }

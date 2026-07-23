@@ -3,9 +3,9 @@
  */
 import {
   DEFAULT_WORKFLOW,
+  type Role,
   StateType,
   type WorkflowConfig,
-  type Role,
 } from "../../domain/workflow/index.js";
 
 /**
@@ -23,11 +23,13 @@ export function getStateLabelsByType(
 
   for (const state of Object.values(workflow.states)) {
     const entry = { label: state.label, role: state.role, priority: state.priority };
+
     if (state.type === StateType.HOLD) result.hold.push(entry);
     else if (state.type === StateType.ACTIVE) result.active.push(entry);
     else if (state.type === StateType.QUEUE) result.queue.push(entry);
   }
 
   result.queue.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+
   return result;
 }

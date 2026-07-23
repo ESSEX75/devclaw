@@ -7,14 +7,16 @@
  *   try { ... } finally { await h.cleanup(); }
  */
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
-import { writeProjects, type ProjectsData, type Project, type RoleWorkerState } from "../state/projects/index.js";
+import path from "node:path";
+
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+
+import type { PluginContext } from "../context.js";
 import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
 import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
+import { type Project, type ProjectsData, type RoleWorkerState,writeProjects } from "../state/projects/index.js";
 import { TestProvider } from "./test-provider.js";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../context.js";
 
 // ---------------------------------------------------------------------------
 // Bootstrap result type — represents the agent:bootstrap hook outcome
@@ -79,18 +81,22 @@ function createCommandInterceptor(): {
     if (argv[0] === "openclaw" && argv[1] === "gateway" && argv[2] === "call") {
       const rpcMethod = argv[3];
       const paramsIdx = argv.indexOf("--params");
+
       if (paramsIdx !== -1 && argv[paramsIdx + 1]) {
         try {
           const params = JSON.parse(argv[paramsIdx + 1]);
+
           if (rpcMethod === "agent" && params.message) {
             captured.taskMessage = params.message;
             if (params.extraSystemPrompt) {
               captured.extraSystemPrompt = params.extraSystemPrompt;
             }
+
             if (params.model) {
               captured.agentModel = params.model;
             }
           }
+
           if (rpcMethod === "sessions.patch") {
             captured.sessionPatch = { key: params.key, model: params.model, label: params.label };
           }
@@ -207,6 +213,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
   const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-e2e-"));
   const dataDir = path.join(workspaceDir, "devclaw");
   const logDir = path.join(dataDir, "log");
+
   await fs.mkdir(logDir, { recursive: true });
 
   // Build project — empty per-level workers
@@ -223,6 +230,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     for (const [role, overrides] of Object.entries(workerOverrides)) {
       const level = overrides.level ?? "senior";
       const rw = defaultWorkers[role] ?? emptyRW();
+
       rw.levels[level] = [{
         active: overrides.active ?? false,
         issueId: overrides.issueId ?? null,
@@ -275,12 +283,14 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     },
     async readProjects() {
       const { readProjects } = await import("../state/projects/index.js");
+
       return readProjects(workspaceDir);
     },
     async writePrompt(role: string, content: string, forProject?: string) {
       const dir = forProject
         ? path.join(dataDir, "projects", forProject, "prompts")
         : path.join(dataDir, "prompts");
+
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, `${role}.md`), content, "utf-8");
     },
@@ -317,6 +327,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
 
       // Cast needed: TS strict mode doesn't track cross-function mutation of locals
       const hookCb = internalHookCb as ((event: any) => Promise<void>) | null;
+
       if (hookCb) {
         await hookCb({
           sessionKey,

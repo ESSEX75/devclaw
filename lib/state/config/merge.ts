@@ -33,6 +33,7 @@ export function mergeConfig(
         } else {
           // Merge role override on top of base role
           const baseRole = merged.roles[roleId];
+
           merged.roles[roleId] = mergeRoleOverride(
             typeof baseRole === "object" ? baseRole : {},
             overrideValue,

@@ -6,12 +6,13 @@
  * issue is later advanced via task_start.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
+
 import { log as auditLog } from "../../audit.js";
-import { StateType, findStateByLabel, getRoleLabelColor } from "../../domain/workflow/index.js";
+import type { PluginContext } from "../../context.js";
+import { findStateByLabel, getRoleLabelColor, STATE_TYPE } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
 import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { applyNotifyLabel, autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskSetLevelTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -62,14 +63,17 @@ Examples:
 
       const issue = await provider.getIssue(issueId);
       const runtimeState = await resolveIssueRuntimeState({ workspaceDir, project, issue, workflow: resolvedConfig.workflow });
+
       if (runtimeState.kind !== "managed") {
         throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_set_level.`);
       }
+
       const currentState = runtimeState.workflowLabel;
 
       // Restrict to HOLD states only — use task_start for queue/active transitions
       const currentStateConfig = runtimeState.stateConfig ?? findStateByLabel(resolvedConfig.workflow, currentState);
-      if (currentStateConfig?.type !== StateType.HOLD) {
+
+      if (currentStateConfig?.type !== STATE_TYPE.HOLD) {
         throw new Error(`task_set_level only works on HOLD states (Planning, Refining). Issue #${issueId} is in "${currentState}". Use task_start to advance issues.`);
       }
 
@@ -80,21 +84,26 @@ Examples:
       const targetKey = typeof approveTarget === "string" ? approveTarget : approveTarget?.target;
       const targetState = targetKey ? resolvedConfig.workflow.states[targetKey] : undefined;
       const role = targetState?.role;
+
       if (!role) {
         throw new Error(`Cannot determine target role from "${currentState}". No APPROVE transition found.`);
       }
 
       const roleConfig = resolvedConfig.roles[role];
+
       if (!roleConfig || !roleConfig.levels.includes(newLevel)) {
         throw new Error(`Invalid level "${newLevel}" for role "${role}". Valid: ${roleConfig?.levels.join(", ") ?? "none"}`);
       }
 
       const oldRoleLabels = issue.labels.filter((l) => l.startsWith(`${role}:`));
       const fromLevel = oldRoleLabels[0]?.split(":")[1];
+
       if (oldRoleLabels.length > 0) {
         await provider.removeLabels(issueId, oldRoleLabels);
       }
+
       const newRoleLabel = `${role}:${newLevel}`;
+
       await provider.ensureLabel(newRoleLabel, getRoleLabelColor(role));
       await provider.addLabel(issueId, newRoleLabel);
       const levelChanged = fromLevel !== newLevel;
@@ -106,7 +115,7 @@ Examples:
       applyNotifyLabel(provider, issueId, project, channelId, issue.labels);
 
       // Auto-assign owner label to this instance (best-effort).
-      autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => {});
+      autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => { });
 
       await writeIssueRuntimeState({
         workspaceDir,

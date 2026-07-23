@@ -2,32 +2,15 @@
  * Tests for centralized role registry.
  * Run with: npx tsx --test lib/roles/registry.test.ts
  */
-import { describe, it } from "node:test";
 import assert from "node:assert";
-import {
-  ROLE_REGISTRY,
-  getAllRoleIds,
-  isValidRole,
-  getRole,
-  requireRole,
-  getLevelsForRole,
-  getAllLevels,
-  isLevelForRole,
-  roleForLevel,
-  getDefaultLevel,
-  getDefaultModel,
-  getAllDefaultModels,
-  resolveModel,
-  getEmoji,
-  getFallbackEmoji,
-  getCompletionResults,
-  isValidResult,
-  getSessionKeyRolePattern,
-} from "./index.js";
+import { describe, it } from "node:test";
+
+import { getAllDefaultModels, getAllLevels, getAllRoleIds, getCompletionResults, getDefaultLevel, getDefaultModel, getEmoji, getFallbackEmoji, getLevelsForRole, getRole, getSessionKeyRolePattern, isLevelForRole, isValidResult, isValidRole, requireRole, resolveModel, ROLE_REGISTRY, roleForLevel } from "./index.js";
 
 describe("role registry", () => {
   it("should have all expected roles", () => {
     const ids = getAllRoleIds();
+
     assert.ok(ids.includes("developer"));
     assert.ok(ids.includes("tester"));
     assert.ok(ids.includes("architect"));
@@ -44,6 +27,7 @@ describe("role registry", () => {
 
   it("should get role config", () => {
     const dev = getRole("developer");
+
     assert.ok(dev);
     assert.strictEqual(dev.id, "developer");
     assert.strictEqual(dev.displayName, "DEVELOPER");
@@ -68,6 +52,7 @@ describe("levels", () => {
 
   it("should return all levels", () => {
     const all = getAllLevels();
+
     assert.ok(all.includes("junior"));
     assert.ok(all.includes("medior"));
     assert.ok(all.includes("senior"));
@@ -106,6 +91,7 @@ describe("models", () => {
 
   it("should return all default models", () => {
     const models = getAllDefaultModels();
+
     assert.ok(models.developer);
     assert.ok(models.tester);
     assert.ok(models.architect);
@@ -114,6 +100,7 @@ describe("models", () => {
 
   it("should resolve from resolved role config override", () => {
     const resolvedRole = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completionResults: [] as string[], enabled: true };
+
     assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
   });
 
@@ -127,6 +114,7 @@ describe("models", () => {
 
   it("should resolve with resolved role overriding defaults selectively", () => {
     const resolvedRole = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completionResults: [] as string[], enabled: true };
+
     assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
     // Levels not overridden fall through to registry defaults
     assert.strictEqual(resolveModel("developer", "medior", resolvedRole), "anthropic/claude-sonnet-4-5");
@@ -170,6 +158,7 @@ describe("completion results", () => {
 describe("session key pattern", () => {
   it("should generate pattern matching all roles", () => {
     const pattern = getSessionKeyRolePattern();
+
     assert.ok(pattern.includes("developer"));
     assert.ok(pattern.includes("tester"));
     assert.ok(pattern.includes("architect"));
@@ -179,6 +168,7 @@ describe("session key pattern", () => {
   it("should work as regex", () => {
     const pattern = getSessionKeyRolePattern();
     const regex = new RegExp(`(${pattern})`);
+
     assert.ok(regex.test("developer"));
     assert.ok(regex.test("tester"));
     assert.ok(regex.test("architect"));

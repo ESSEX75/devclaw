@@ -1,13 +1,8 @@
 /**
  * workflow/queries.ts — Pure query functions over workflow configuration.
  */
-import {
-  type WorkflowConfig,
-  type StateConfig,
-  type Role,
-  StateType,
-  WorkflowEvent,
-} from "./types.js";
+import { STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
+import { type Role, type StateConfig, type WorkflowConfig } from "./types.js";
 
 /**
  * Get all state labels (for GitHub/GitLab label creation).
@@ -22,6 +17,7 @@ export function getStateLabels(workflow: WorkflowConfig): string[] {
  */
 export function getCurrentStateLabel(labels: string[], workflow: WorkflowConfig): string | null {
   const stateLabels = getStateLabels(workflow);
+
   return stateLabels.find((l) => labels.includes(l)) ?? null;
 }
 
@@ -37,9 +33,11 @@ export function getInitialStateLabel(workflow: WorkflowConfig): string {
  */
 export function getLabelColors(workflow: WorkflowConfig): Record<string, string> {
   const colors: Record<string, string> = {};
+
   for (const state of Object.values(workflow.states)) {
     colors[state.label] = state.color;
   }
+
   return colors;
 }
 
@@ -48,7 +46,7 @@ export function getLabelColors(workflow: WorkflowConfig): Record<string, string>
  */
 export function getQueueLabels(workflow: WorkflowConfig, role: Role): string[] {
   return Object.values(workflow.states)
-    .filter((s) => s.type === StateType.QUEUE && s.role === role)
+    .filter((s) => s.type === STATE_TYPE.QUEUE && s.role === role)
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
     .map((s) => s.label);
 }
@@ -58,7 +56,7 @@ export function getQueueLabels(workflow: WorkflowConfig, role: Role): string[] {
  */
 export function getAllQueueLabels(workflow: WorkflowConfig): string[] {
   return Object.values(workflow.states)
-    .filter((s) => s.type === StateType.QUEUE)
+    .filter((s) => s.type === STATE_TYPE.QUEUE)
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
     .map((s) => s.label);
 }
@@ -68,9 +66,11 @@ export function getAllQueueLabels(workflow: WorkflowConfig): string[] {
  */
 export function getActiveLabel(workflow: WorkflowConfig, role: Role): string {
   const state = Object.values(workflow.states).find(
-    (s) => s.type === StateType.ACTIVE && s.role === role,
+    (s) => s.type === STATE_TYPE.ACTIVE && s.role === role,
   );
+
   if (!state) throw new Error(`No active state for role "${role}"`);
+
   return state.label;
 }
 
@@ -84,8 +84,9 @@ export function getRevertLabel(workflow: WorkflowConfig, role: Role): string {
   )?.[0];
 
   for (const [, state] of Object.entries(workflow.states)) {
-    if (state.type !== StateType.QUEUE || state.role !== role) continue;
-    const pickup = state.on?.[WorkflowEvent.PICKUP];
+    if (state.type !== STATE_TYPE.QUEUE || state.role !== role) continue;
+    const pickup = state.on?.[WORKFLOW_EVENT.PICKUP];
+
     if (pickup === activeStateKey) {
       return state.label;
     }
@@ -99,10 +100,11 @@ export function getRevertLabel(workflow: WorkflowConfig, role: Role): string {
  */
 export function detectRoleFromLabel(workflow: WorkflowConfig, label: string): Role | null {
   for (const state of Object.values(workflow.states)) {
-    if (state.label === label && state.type === StateType.QUEUE && state.role) {
+    if (state.label === label && state.type === STATE_TYPE.QUEUE && state.role) {
       return state.role;
     }
   }
+
   return null;
 }
 
@@ -130,12 +132,12 @@ export function hasWorkflowStates(workflow: WorkflowConfig, role: Role): boolean
 
 /** Workflow events that indicate review/test feedback. */
 const FEEDBACK_EVENTS: Set<string> = new Set([
-  WorkflowEvent.CHANGES_REQUESTED,
-  WorkflowEvent.MERGE_CONFLICT,
-  WorkflowEvent.MERGE_FAILED,
-  WorkflowEvent.REJECT,
-  WorkflowEvent.FAIL,
-  WorkflowEvent.PR_CLOSED,
+  WORKFLOW_EVENT.CHANGES_REQUESTED,
+  WORKFLOW_EVENT.MERGE_CONFLICT,
+  WORKFLOW_EVENT.MERGE_FAILED,
+  WORKFLOW_EVENT.REJECT,
+  WORKFLOW_EVENT.FAIL,
+  WORKFLOW_EVENT.PR_CLOSED,
 ]);
 
 /**
@@ -144,14 +146,17 @@ const FEEDBACK_EVENTS: Set<string> = new Set([
  */
 export function isFeedbackState(workflow: WorkflowConfig, label: string): boolean {
   const stateKey = findStateKeyByLabel(workflow, label);
+
   if (!stateKey) return false;
   for (const state of Object.values(workflow.states)) {
     if (!state.on) continue;
     for (const [event, transition] of Object.entries(state.on)) {
       const targetKey = typeof transition === "string" ? transition : transition.target;
+
       if (targetKey === stateKey && FEEDBACK_EVENTS.has(event)) return true;
     }
   }
+
   return false;
 }
 
@@ -167,22 +172,28 @@ export function hasReviewCheck(workflow: WorkflowConfig, role: string): boolean 
 /**
  * Check if completing this role's active state leads to a state with a review check.
  */
-export function producesReviewableWork(workflow: WorkflowConfig, role: string): boolean {
+export function producesReviewableWork(workflow: WorkflowConfig, role: Role): boolean {
   let activeKey: string | null;
+
   try {
     const activeLabel = getActiveLabel(workflow, role);
+
     activeKey = findStateKeyByLabel(workflow, activeLabel);
   } catch { return false; }
+
   if (!activeKey) return false;
 
   const activeState = workflow.states[activeKey];
+
   if (!activeState.on) return false;
 
   for (const transition of Object.values(activeState.on)) {
     const targetKey = typeof transition === "string" ? transition : transition.target;
     const targetState = workflow.states[targetKey];
+
     if (targetState?.check != null) return true;
   }
+
   return false;
 }
 
@@ -191,6 +202,6 @@ export function producesReviewableWork(workflow: WorkflowConfig, role: string): 
  */
 export function hasTestPhase(workflow: WorkflowConfig): boolean {
   return Object.values(workflow.states).some(
-    (s) => s.role === "tester" && s.type === StateType.QUEUE,
+    (s) => s.role === "tester" && s.type === STATE_TYPE.QUEUE,
   );
 }

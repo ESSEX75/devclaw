@@ -5,11 +5,12 @@
  * Use `project_status` for instant local info, this tool for live issue data.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import { loadConfig } from "../../state/config/index.js";
+
 import { getManagedTaskStatus } from "../../application/tasks/index.js";
+import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
+import { loadConfig } from "../../state/config/index.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTasksStatusTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({

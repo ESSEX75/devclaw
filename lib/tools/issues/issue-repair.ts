@@ -2,24 +2,25 @@
  * issue_repair — Restore provider projection from local issue state.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
+
 import { log as auditLog } from "../../audit.js";
-import { loadConfig } from "../../state/config/index.js";
-import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
-import { readProjects } from "../../state/projects/index.js";
+import type { PluginContext } from "../../context.js";
+import type { ReviewPolicy, TestPolicy, WorkflowConfig } from "../../domain/index.js";
+import { getStateLabels, ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import {
   diffIssueProjection,
   extractIssueMetadata,
-  replaceIssueMetadata,
   metadataMatches,
   type ProjectionDiff,
+  replaceIssueMetadata,
 } from "../../projection/index.js";
-import { getStateLabels } from "../../domain/workflow/index.js";
-import { requireWorkspaceDir } from "../helpers.js";
+import { loadConfig } from "../../state/config/index.js";
+import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
 import type { Project } from "../../state/projects/index.js";
-import type { ReviewPolicy, TestPolicy, WorkflowConfig } from "../../domain/workflow/index.js";
+import { readProjects } from "../../state/projects/index.js";
+import { requireWorkspaceDir } from "../helpers.js";
 
 export type IssueRepairResult = {
   issueId: number;
@@ -62,6 +63,7 @@ export async function repairIssueProjection(opts: {
 }): Promise<IssueRepairResult> {
   const store = await readIssueStateStore(opts.workspaceDir, opts.project.slug);
   const state = store.issues[String(opts.issueId)];
+
   if (!state) throw new Error(`Issue #${opts.issueId} has no local issue state.`);
 
   const issue = await opts.provider.getIssue(opts.issueId);
@@ -83,25 +85,30 @@ export async function repairIssueProjection(opts: {
   const metadataAction = metadataMatches(currentMetadata, expectedMetadata) ? "none" : "replace";
 
   const repaired: string[] = [];
+
   if (!opts.dryRun) {
     for (const label of diff.missingManagedLabels) {
       await opts.provider.addLabel(opts.issueId, label);
       repaired.push(`add-label:${label}`);
     }
+
     if (diff.unexpectedManagedLabels.length > 0) {
       await opts.provider.removeLabels(opts.issueId, diff.unexpectedManagedLabels);
       repaired.push(...diff.unexpectedManagedLabels.map((label) => `remove-label:${label}`));
     }
+
     if (metadataAction === "replace") {
       await opts.provider.editIssue(opts.issueId, {
         body: replaceIssueMetadata(issue.description, expectedMetadata),
       });
       repaired.push("metadata");
     }
+
     await updateIssueStateStore(opts.workspaceDir, opts.project.slug, (data) => {
       const target = data.issues[String(opts.issueId)];
+
       if (!target) return;
-      target.integrityStatus = "ok";
+      target.integrityStatus = ISSUE_INTEGRITY_STATUS.OK;
       target.integrityErrors = [];
       target.updatedAt = new Date().toISOString();
     });
@@ -117,7 +124,7 @@ export async function repairIssueProjection(opts: {
     dryRun: opts.dryRun === true,
     diff,
     metadataAction,
-    integrityStatus: opts.dryRun ? state.integrityStatus : "ok",
+    integrityStatus: opts.dryRun ? state.integrityStatus : ISSUE_INTEGRITY_STATUS.OK,
     warnings: [],
     repaired,
   };
@@ -138,10 +145,12 @@ export async function repairIssueFromLocalState(opts: {
 
   const projects = await readProjects(opts.workspaceDir);
   const project = projects.projects[opts.projectSlug];
+
   if (!project) throw new Error(`Project "${opts.projectSlug}" not found.`);
 
   const config = await loadConfig(opts.workspaceDir, project.name);
   const provider = opts.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: opts.runCommand })).provider;
+
   return repairIssueProjection({
     workspaceDir: opts.workspaceDir,
     project,
@@ -171,6 +180,7 @@ export async function migrateIssuePolicies(opts: {
 
   const projects = await readProjects(opts.workspaceDir);
   const project = projects.projects[opts.projectSlug];
+
   if (!project) throw new Error(`Project "${opts.projectSlug}" not found.`);
 
   const config = await loadConfig(opts.workspaceDir, project.name);
@@ -193,6 +203,7 @@ export async function migrateIssuePolicies(opts: {
       const currentTestPolicy = state.testPolicy ?? null;
       const nextReviewPolicy = opts.reviewPolicy ?? currentReviewPolicy;
       const nextTestPolicy = opts.testPolicy ?? currentTestPolicy;
+
       if (currentReviewPolicy === nextReviewPolicy && currentTestPolicy === nextTestPolicy) {
         skipped.push({ issueId: state.issueId, reason: "no_change" });
         continue;
@@ -220,6 +231,7 @@ export async function migrateIssuePolicies(opts: {
 
   if (!opts.dryRun && changed.length > 0) {
     const provider = opts.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: opts.runCommand })).provider;
+
     for (const change of changed) {
       change.projection = await repairIssueProjection({
         workspaceDir: opts.workspaceDir,
@@ -230,6 +242,7 @@ export async function migrateIssuePolicies(opts: {
         roles: Object.keys(config.roles),
       });
     }
+
     await auditLog(opts.workspaceDir, "issue_policy_migration", {
       project: opts.projectSlug,
       changed: changed.map((change) => ({
@@ -273,6 +286,7 @@ export function createIssueRepairTool(ctx: PluginContext) {
         dryRun: params.dryRun as boolean | undefined,
         runCommand: ctx.runCommand,
       });
+
       return jsonResult({ success: true, ...result });
     },
   });
@@ -309,6 +323,7 @@ export function createIssuePolicyMigrationTool(ctx: PluginContext) {
         dryRun: params.dryRun as boolean | undefined,
         runCommand: ctx.runCommand,
       });
+
       return jsonResult({ success: true, ...result });
     },
   });

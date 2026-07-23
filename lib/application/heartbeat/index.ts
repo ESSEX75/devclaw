@@ -11,19 +11,20 @@
  * Workers only consume tokens when they start processing dispatched tasks.
  */
 import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
+
 import type { PluginContext } from "../../context.js";
 import { ensureDefaultFiles } from "../../state/setup/workspace-files.js";
+import type { Agent } from "./agent-discovery.js";
+import { discoverAgents } from "./agent-discovery.js";
+import type { HeartbeatConfig } from "./config.js";
+import { HEARTBEAT_DEFAULTS, resolveHeartbeatConfig } from "./config.js";
 import {
   fetchGatewaySessions,
 } from "./health.js";
-import type { Agent } from "./agent-discovery.js";
-import { discoverAgents } from "./agent-discovery.js";
-import { HEARTBEAT_DEFAULTS, resolveHeartbeatConfig } from "./config.js";
-import type { HeartbeatConfig } from "./config.js";
 
 export { HEARTBEAT_DEFAULTS };
-import { tick } from "./tick-runner.js";
 import type { TickResult } from "./tick-runner.js";
+import { tick } from "./tick-runner.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,8 +59,10 @@ export function registerHeartbeatService(api: OpenClawPluginApi, pluginCtx: Plug
 
     start: async (svcCtx: ServiceContext) => {
       const heartbeatConfig = resolveHeartbeatConfig(pluginCtx.pluginConfig);
+
       if (!heartbeatConfig.enabled) {
         svcCtx.logger.info("work_heartbeat service disabled");
+
         return;
       }
 
@@ -89,10 +92,12 @@ export function registerHeartbeatService(api: OpenClawPluginApi, pluginCtx: Plug
         clearInterval(intervalId);
         intervalId = null;
       }
+
       if (startupTimeoutId) {
         clearTimeout(startupTimeoutId);
         startupTimeoutId = null;
       }
+
       svcCtx.logger.info("work_heartbeat service stopped");
     },
   });
@@ -122,19 +127,24 @@ async function runHeartbeatTick(
   _tickRunning = true;
   try {
     const config = resolveHeartbeatConfig(ctx.pluginConfig);
+
     if (!config.enabled) return;
 
     const agents = discoverAgents(rootConfig ?? ctx.config);
+
     if (agents.length === 0) {
       if (!_warnedNoAgents) {
         logger.warn("work_heartbeat tick skipped: no DevClaw project workspaces discovered");
         _warnedNoAgents = true;
       }
+
       return;
     }
+
     _warnedNoAgents = false;
 
     const result = await processAllAgents(agents, config, ctx.pluginConfig, logger, ctx.runCommand, ctx.runtime);
+
     logTickResult(result, logger);
   } catch (err) {
     logger.error(`work_heartbeat tick failed: ${err}`);
@@ -165,6 +175,7 @@ async function processAllAgents(
 
   // Ensure defaults are fresh on every startup (prompts, workflow, etc.)
   const refreshedWorkspaces = new Set<string>();
+
   for (const { workspace } of agents) {
     if (refreshedWorkspaces.has(workspace)) continue;
     refreshedWorkspaces.add(workspace);

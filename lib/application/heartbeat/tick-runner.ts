@@ -1,21 +1,23 @@
 /**
  * Tick runner — main heartbeat loop that processes each project.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { RunCommand } from "../../context.js";
 import path from "node:path";
-import { readProjects, getProject, type Project } from "../../state/projects/index.js";
+
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+
 import { log as auditLog } from "../../audit.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
+import type { RunCommand } from "../../context.js";
+import { EXECUTION_MODE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
+import { createProvider } from "../../integrations/providers/index.js";
+import { loadConfig } from "../../state/config/index.js";
+import { getProject, type Project,readProjects } from "../../state/projects/index.js";
+import { DATA_DIR } from "../../state/setup/paths.js";
+import { projectTick } from "../queue/tick.js";
+import type { HeartbeatConfig } from "./config.js";
 import {
   type SessionLookup,
 } from "./health.js";
-import { projectTick } from "../queue/tick.js";
-import { createProvider } from "../../integrations/providers/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { ExecutionMode } from "../../domain/workflow/index.js";
-import type { HeartbeatConfig } from "./config.js";
 import {
   performHealthPass,
   performProjectionIntegrityPass,
@@ -81,12 +83,13 @@ export async function tick(opts: {
   };
 
   const projectExecution =
-    (pluginConfig?.projectExecution as string) ?? ExecutionMode.PARALLEL;
+    (pluginConfig?.projectExecution as string) ?? EXECUTION_MODE.PARALLEL;
   let activeProjects = 0;
 
   for (const slug of slugs) {
     try {
       const project = data.projects[slug];
+
       if (!project) continue;
 
       const { provider } = await createProvider({
@@ -134,12 +137,14 @@ export async function tick(opts: {
 
       // Budget check: stop if we've hit the limit
       const remaining = config.maxPickupsPerTick - result.totalPickups;
+
       if (remaining <= 0) break;
 
       // Sequential project guard: don't start new projects if one is active
       const isProjectActive = await checkProjectActive(workspaceDir, slug);
+
       if (
-        projectExecution === ExecutionMode.SEQUENTIAL &&
+        projectExecution === EXECUTION_MODE.SEQUENTIAL &&
         !isProjectActive &&
         activeProjects >= 1
       ) {
@@ -195,7 +200,9 @@ export async function checkProjectActive(
 ): Promise<boolean> {
   const data = await readProjects(workspaceDir);
   const project = getProject(data, slug);
+
   if (!project) return false;
+
   return Object.values(project.workers).some((w) =>
     Object.values(w.levels).some(slots => slots.some(s => s.active)),
   );

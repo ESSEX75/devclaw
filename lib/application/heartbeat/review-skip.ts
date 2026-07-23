@@ -8,18 +8,18 @@
  *
  * Mirrors testSkipPass() in test-skip.ts — called by the heartbeat service.
  */
+import { log as auditLog } from "../../audit.js";
+import type { RunCommand } from "../../context.js";
+import {
+  ACTION,
+  STATE_TYPE,
+  type StateConfig,
+  WORKFLOW_EVENT,
+  type WorkflowConfig,
+} from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
 import type { Project } from "../../state/projects/index.js";
-import {
-  Action,
-  StateType,
-  WorkflowEvent,
-  type WorkflowConfig,
-  type StateConfig,
-} from "../../domain/workflow/index.js";
-import type { RunCommand } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
 import { writeHeartbeatTransitionState } from "./transition-state.js";
 
@@ -45,15 +45,17 @@ export async function reviewSkipPass(opts: {
 
   // Find review queue states (role=reviewer, type=queue) that have a SKIP event
   const reviewQueueStates = Object.entries(workflow.states)
-    .filter(([, s]) => s.role === "reviewer" && s.type === StateType.QUEUE) as [string, StateConfig][];
+    .filter(([, s]) => s.role === "reviewer" && s.type === STATE_TYPE.QUEUE) as [string, StateConfig][];
 
   for (const [_stateKey, state] of reviewQueueStates) {
-    const skipTransition = state.on?.[WorkflowEvent.SKIP];
+    const skipTransition = state.on?.[WORKFLOW_EVENT.SKIP];
+
     if (!skipTransition) continue;
 
     const targetKey = typeof skipTransition === "string" ? skipTransition : skipTransition.target;
     const actions = typeof skipTransition === "object" ? skipTransition.actions : undefined;
     const targetState = workflow.states[targetKey];
+
     if (!targetState) continue;
 
     const candidates = await getHeartbeatCandidates({
@@ -63,20 +65,24 @@ export async function reviewSkipPass(opts: {
       provider,
       routing: { field: "reviewPolicy", value: "skip" },
     });
+
     for (const { issue } of candidates) {
 
       // Execute SKIP transition actions
       let aborted = false;
+
       if (actions) {
         for (const action of actions) {
           switch (action) {
-            case Action.MERGE_PR: {
+            case ACTION.MERGE_PR: {
               const status = await provider.getPrStatus(issue.iid);
+
               // Already merged externally — skip the merge call but continue.
               if (status.state === PrState.MERGED) {
                 onMerge?.(issue.iid, status.url, status.title, status.sourceBranch);
                 break;
               }
+
               // No PR exists — skip merge (work may have been committed directly).
               if (!status.url) break;
               try {
@@ -90,10 +96,12 @@ export async function reviewSkipPass(opts: {
                   from: state.label,
                   error: (err as Error).message ?? String(err),
                 });
-                const failedTransition = state.on?.[WorkflowEvent.MERGE_FAILED];
+                const failedTransition = state.on?.[WORKFLOW_EVENT.MERGE_FAILED];
+
                 if (failedTransition) {
                   const failedKey = typeof failedTransition === "string" ? failedTransition : failedTransition.target;
                   const failedState = workflow.states[failedKey];
+
                   if (failedState) {
                     await provider.transitionLabel(issue.iid, state.label, failedState.label);
                     await writeHeartbeatTransitionState({
@@ -107,20 +115,27 @@ export async function reviewSkipPass(opts: {
                     transitions++;
                   }
                 }
+
                 aborted = true;
               }
+
               break;
             }
-            case Action.GIT_PULL:
+
+            case ACTION.GIT_PULL:
               try { await rc(["git", "pull"], { timeoutMs: gitPullTimeoutMs, cwd: repoPath }); } catch { /* best-effort */ }
+
               break;
-            case Action.CLOSE_ISSUE:
+            case ACTION.CLOSE_ISSUE:
               try { await provider.closeIssue(issue.iid); } catch { /* best-effort */ }
+
               break;
-            case Action.REOPEN_ISSUE:
+            case ACTION.REOPEN_ISSUE:
               try { await provider.reopenIssue(issue.iid); } catch { /* best-effort */ }
+
               break;
           }
+
           if (aborted) break;
         }
       }

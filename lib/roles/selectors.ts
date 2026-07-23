@@ -4,9 +4,9 @@
  * All role-related lookups go through these functions.
  * No other file should access ROLE_REGISTRY directly for role logic.
  */
+import type { ResolvedRoleConfig } from "../state/config/types.js";
 import { ROLE_REGISTRY } from "./registry.js";
 import type { RoleConfig } from "./types.js";
-import type { ResolvedRoleConfig } from "../state/config/types.js";
 
 // ---------------------------------------------------------------------------
 // Role IDs
@@ -33,7 +33,9 @@ export function getRole(role: string): RoleConfig | undefined {
 /** Get role config by ID. Throws if not found. */
 export function requireRole(role: string): RoleConfig {
   const config = ROLE_REGISTRY[role];
+
   if (!config) throw new Error(`Unknown role: "${role}". Valid roles: ${getAllRoleIds().join(", ")}`);
+
   return config;
 }
 
@@ -61,6 +63,7 @@ export function roleForLevel(level: string): string | undefined {
   for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
     if (config.levels.includes(level)) return roleId;
   }
+
   return undefined;
 }
 
@@ -89,9 +92,11 @@ export function getDefaultModel(role: string, level: string): string | undefined
 /** Get all default models, nested by role (for config schema). */
 export function getAllDefaultModels(): Record<string, Record<string, string>> {
   const result: Record<string, Record<string, string>> = {};
+
   for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
     result[roleId] = { ...config.models };
   }
+
   return result;
 }
 

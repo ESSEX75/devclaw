@@ -1,8 +1,8 @@
 /**
  * acknowledge.ts — Comment acknowledgement (mark consumed comments with eyes emoji).
  */
-import type { IssueProvider, IssueComment } from "../../integrations/providers/provider.js";
 import { log as auditLog } from "../../audit.js";
+import type { IssueComment,IssueProvider } from "../../integrations/providers/provider.js";
 import type { PrFeedback } from "./pr-context.js";
 
 // ---------------------------------------------------------------------------
@@ -36,6 +36,7 @@ export async function acknowledgeComments(
       if (await provider.issueCommentHasReaction(issueId, c.id, EYES_EMOJI)) {
         continue;
       }
+
       await provider.reactToIssueComment(issueId, c.id, EYES_EMOJI);
     } catch (err) {
       // Log error for audit trail but continue marking other comments
@@ -60,6 +61,7 @@ export async function acknowledgeComments(
           if (await provider.prCommentHasReaction(issueId, c.id, EYES_EMOJI)) {
             continue;
           }
+
           await provider.reactToPrComment(issueId, c.id, EYES_EMOJI);
         } else {
           // Determine if this is a review-level comment or a regular comment
@@ -70,12 +72,14 @@ export async function acknowledgeComments(
             if (await provider.prReviewHasReaction(issueId, c.id, EYES_EMOJI)) {
               continue;
             }
+
             await provider.reactToPrReview(issueId, c.id, EYES_EMOJI);
           } else {
             // COMMENTED/INLINE/UNRESOLVED/RESOLVED → comment-level
             if (await provider.prCommentHasReaction(issueId, c.id, EYES_EMOJI)) {
               continue;
             }
+
             await provider.reactToPrComment(issueId, c.id, EYES_EMOJI);
           }
         }

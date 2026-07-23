@@ -3,8 +3,9 @@
  * application use case.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
+
 import { editTaskBody } from "../../application/tasks/edit-task-body.js";
+import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 export function createTaskEditBodyTool(ctx: PluginContext) {

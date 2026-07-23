@@ -6,18 +6,20 @@
  * - Manually attach a local file to an issue
  * - View attachment metadata and local paths
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
-import {
-  listAttachments,
-  saveAttachment,
-  getAttachmentPath,
-  formatAttachmentComment,
-} from "../../application/tasks/attachments.js";
 import fs from "node:fs/promises";
 import path from "node:path";
+
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
+import {
+  formatAttachmentComment,
+  getAttachmentPath,
+  listAttachments,
+  saveAttachment,
+} from "../../application/tasks/attachments.js";
+import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
+import { applyNotifyLabel,autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskAttachTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -67,6 +69,7 @@ Use cases:
 
       if (action === "list") {
         const attachments = await listAttachments(workspaceDir, project.slug, issueId);
+
         return jsonResult({
           success: true,
           issueId,
@@ -87,10 +90,12 @@ Use cases:
 
       if (action === "get") {
         const attachmentId = params.attachmentId as string;
+
         if (!attachmentId) throw new Error("attachmentId is required for 'get' action");
 
         const attachments = await listAttachments(workspaceDir, project.slug, issueId);
         const attachment = attachments.find((a) => a.id === attachmentId);
+
         if (!attachment) throw new Error(`Attachment ${attachmentId} not found on issue #${issueId}`);
 
         return jsonResult({
@@ -106,6 +111,7 @@ Use cases:
 
       if (action === "add") {
         const filePath = params.filePath as string;
+
         if (!filePath) throw new Error("filePath is required for 'add' action");
 
         const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
@@ -127,10 +133,12 @@ Use cases:
 
         // Upload via provider and update metadata
         const publicUrl = await provider.uploadAttachment(issueId, { filename, buffer, mimeType });
+
         if (publicUrl) meta.publicUrl = publicUrl;
 
         // Add comment on issue
         const comment = formatAttachmentComment([meta]);
+
         await provider.addComment(issueId, comment);
 
         // Apply notify label for channel routing (best-effort).

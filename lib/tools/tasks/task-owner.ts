@@ -6,17 +6,19 @@
  * single issue or all unclaimed queued issues for a project.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
 import type { PluginContext } from "../../context.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import { loadConfig } from "../../state/config/index.js";
-import { loadInstanceName } from "../../instance.js";
-import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
 import {
+  getAllQueueLabels,
   getOwnerLabel,
+  ISSUE_INTEGRITY_STATUS,
   OWNER_LABEL_COLOR,
   OWNER_LABEL_PREFIX,
-  getAllQueueLabels,
-} from "../../domain/workflow/index.js";
+} from "../../domain/index.js";
+import { loadInstanceName } from "../../instance.js";
+import { loadConfig } from "../../state/config/index.js";
+import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskOwnerTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -85,8 +87,10 @@ export function createTaskOwnerTool(ctx: PluginContext) {
           // Remove old owner label if transferring
           if (currentOwner) {
             const oldLabel = getOwnerLabel(currentOwner);
+
             await provider.removeLabels(issueIdParam, [oldLabel]);
           }
+
           await provider.addLabel(issueIdParam, ownerLabel);
           await writeIssueRuntimeState({
             workspaceDir,
@@ -107,7 +111,7 @@ export function createTaskOwnerTool(ctx: PluginContext) {
           .filter((state) =>
             state.managed
             && state.archivedAt == null
-            && state.integrityStatus !== "integrity_error"
+            && state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
             && queueLabels.includes(state.workflowLabel),
           )
           .sort((a, b) => a.issueId - b.issueId);
@@ -115,6 +119,7 @@ export function createTaskOwnerTool(ctx: PluginContext) {
         for (const state of candidateStates) {
           try {
             const currentOwner = state.owner ?? null;
+
             if (currentOwner === instanceName) continue; // already ours
             if (currentOwner && !force) {
               skipped.push({
@@ -123,12 +128,16 @@ export function createTaskOwnerTool(ctx: PluginContext) {
               });
               continue;
             }
+
             const issue = await provider.getIssue(state.issueId);
+
             if (issue.state === "closed" || issue.state === "CLOSED") continue;
             if (currentOwner) {
               const oldLabel = getOwnerLabel(currentOwner);
+
               await provider.removeLabels(issue.iid, [oldLabel]);
             }
+
             await provider.addLabel(issue.iid, ownerLabel);
             await writeIssueRuntimeState({
               workspaceDir,

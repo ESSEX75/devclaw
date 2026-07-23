@@ -5,18 +5,18 @@
  * whose PR check condition (merged/approved) is met.
  * Called by the heartbeat service during its periodic sweep.
  */
+import { log as auditLog } from "../../audit.js";
+import type { RunCommand } from "../../context.js";
+import {
+  ACTION,
+  REVIEW_CHECK,
+  type StateConfig,
+  WORKFLOW_EVENT,
+  type WorkflowConfig,
+} from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
 import type { Project } from "../../state/projects/index.js";
-import {
-  Action,
-  ReviewCheck,
-  WorkflowEvent,
-  type WorkflowConfig,
-  type StateConfig,
-} from "../../domain/workflow/index.js";
-import type { RunCommand } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
 import { writeHeartbeatTransitionState } from "./transition-state.js";
 
@@ -60,6 +60,7 @@ export async function reviewPass(opts: {
       provider,
       routing: { field: "reviewPolicy", value: "human" },
     });
+
     for (const { issue } of candidates) {
 
       const status = await provider.getPrStatus(issue.iid);
@@ -84,6 +85,7 @@ export async function reviewPass(opts: {
       if (!status.url && status.state === PrState.CLOSED && baseBranch) {
         try {
           const isOnBranch = await provider.isCommitOnBaseBranch(issue.iid, baseBranch);
+
           if (isOnBranch) {
             status.state = PrState.MERGED;
             await auditLog(workspaceDir, "review_git_fallback", {
@@ -99,15 +101,17 @@ export async function reviewPass(opts: {
       // PR_MERGED: Only triggers on merge. This prevents self-merged PRs (no reviews) from
       // bypassing the review:human gate — a developer merging their own PR must not pass as approved.
       const conditionMet =
-        (state.check === ReviewCheck.PR_MERGED && status.state === PrState.MERGED) ||
-        (state.check === ReviewCheck.PR_APPROVED && (status.state === PrState.APPROVED || status.state === PrState.MERGED));
+        (state.check === REVIEW_CHECK.PR_MERGED && status.state === PrState.MERGED) ||
+        (state.check === REVIEW_CHECK.PR_APPROVED && (status.state === PrState.APPROVED || status.state === PrState.MERGED));
 
       // Changes requested or PR has comment feedback → transition to toImprove
       if (status.state === PrState.CHANGES_REQUESTED || status.state === PrState.HAS_COMMENTS) {
-        const changesTransition = state.on[WorkflowEvent.CHANGES_REQUESTED];
+        const changesTransition = state.on[WORKFLOW_EVENT.CHANGES_REQUESTED];
+
         if (changesTransition) {
           const targetKey = typeof changesTransition === "string" ? changesTransition : changesTransition.target;
           const targetState = workflow.states[targetKey];
+
           if (targetState) {
             await provider.transitionLabel(issue.iid, state.label, targetState.label);
             await syncTransitionState(targetKey, targetState.label);
@@ -119,7 +123,7 @@ export async function reviewPass(opts: {
             });
             onFeedback?.(issue.iid, "changes_requested", status.url, issue.title, issue.web_url);
             // React to each review comment with 🤖 to acknowledge processing (best-effort)
-            reactToFeedbackComments(provider, issue.iid).catch(() => {});
+            reactToFeedbackComments(provider, issue.iid).catch(() => { });
             transitions++;
             continue;
           }
@@ -128,10 +132,12 @@ export async function reviewPass(opts: {
 
       // Merge conflict → transition to toImprove
       if (status.mergeable === false) {
-        const conflictTransition = state.on[WorkflowEvent.MERGE_CONFLICT];
+        const conflictTransition = state.on[WORKFLOW_EVENT.MERGE_CONFLICT];
+
         if (conflictTransition) {
           const targetKey = typeof conflictTransition === "string" ? conflictTransition : conflictTransition.target;
           const targetState = workflow.states[targetKey];
+
           if (targetState) {
             await provider.transitionLabel(issue.iid, state.label, targetState.label);
             await syncTransitionState(targetKey, targetState.label);
@@ -151,29 +157,34 @@ export async function reviewPass(opts: {
       // PR closed without merging → execute configured transition + actions
       // status.url non-null distinguishes "PR was explicitly closed" from "no PR exists"
       if (status.state === PrState.CLOSED && status.url !== null) {
-        const closedTransition = state.on[WorkflowEvent.PR_CLOSED];
+        const closedTransition = state.on[WORKFLOW_EVENT.PR_CLOSED];
+
         if (closedTransition) {
           const targetKey = typeof closedTransition === "string" ? closedTransition : closedTransition.target;
           const closedActions = typeof closedTransition === "object" ? closedTransition.actions : undefined;
           const targetState = workflow.states[targetKey];
+
           if (targetState) {
             await provider.transitionLabel(issue.iid, state.label, targetState.label);
             if (closedActions) {
               for (const action of closedActions) {
                 switch (action) {
-                  case Action.CLOSE_ISSUE:
+                  case ACTION.CLOSE_ISSUE:
                     try { await provider.closeIssue(issue.iid); } catch { /* best-effort */ }
+
                     break;
-                  case Action.REOPEN_ISSUE:
+                  case ACTION.REOPEN_ISSUE:
                     try { await provider.reopenIssue(issue.iid); } catch { /* best-effort */ }
+
                     break;
                 }
               }
             }
+
             await syncTransitionState(
               targetKey,
               targetState.label,
-              closedActions?.includes(Action.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
+              closedActions?.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
             );
             await auditLog(workspaceDir, "review_transition", {
               project: projectName, issueId: issue.iid,
@@ -193,27 +204,31 @@ export async function reviewPass(opts: {
 
       // Find the success transition — use the APPROVED event (matches check condition)
       const successEvent = Object.keys(state.on).find(
-        (e) => e === WorkflowEvent.APPROVED,
+        (e) => e === WORKFLOW_EVENT.APPROVED,
       );
+
       if (!successEvent) continue;
 
       const transition = state.on[successEvent];
       const targetKey = typeof transition === "string" ? transition : transition.target;
       const actions = typeof transition === "object" ? transition.actions : undefined;
       const targetState = workflow.states[targetKey];
+
       if (!targetState) continue;
 
       // Execute transition actions — mergePr is critical (aborts on failure)
       let aborted = false;
+
       if (actions) {
         for (const action of actions) {
           switch (action) {
-            case Action.MERGE_PR:
+            case ACTION.MERGE_PR:
               // If the PR is already merged externally, skip the merge call but continue the transition.
               if (status.state === PrState.MERGED) {
                 onMerge?.(issue.iid, status.url, status.title, status.sourceBranch);
                 break;
               }
+
               try {
                 await provider.mergePr(issue.iid);
                 onMerge?.(issue.iid, status.url, status.title, status.sourceBranch);
@@ -225,10 +240,12 @@ export async function reviewPass(opts: {
                   from: state.label,
                   error: (err as Error).message ?? String(err),
                 });
-                const failedTransition = state.on[WorkflowEvent.MERGE_FAILED];
+                const failedTransition = state.on[WORKFLOW_EVENT.MERGE_FAILED];
+
                 if (failedTransition) {
                   const failedKey = typeof failedTransition === "string" ? failedTransition : failedTransition.target;
                   const failedState = workflow.states[failedKey];
+
                   if (failedState) {
                     await provider.transitionLabel(issue.iid, state.label, failedState.label);
                     await syncTransitionState(failedKey, failedState.label);
@@ -242,19 +259,23 @@ export async function reviewPass(opts: {
                     transitions++;
                   }
                 }
+
                 aborted = true;
               }
+
               break;
-            case Action.GIT_PULL:
+            case ACTION.GIT_PULL:
               try { await rc(["git", "pull"], { timeoutMs: gitPullTimeoutMs, cwd: repoPath }); } catch { /* best-effort */ }
+
               break;
-            case Action.CLOSE_ISSUE:
+            case ACTION.CLOSE_ISSUE:
               await provider.closeIssue(issue.iid);
               break;
-            case Action.REOPEN_ISSUE:
+            case ACTION.REOPEN_ISSUE:
               await provider.reopenIssue(issue.iid);
               break;
           }
+
           if (aborted) break;
         }
       }
@@ -298,6 +319,7 @@ async function reactToFeedbackComments(
   issueId: number,
 ): Promise<void> {
   const comments = await provider.getPrReviewComments(issueId);
+
   for (const comment of comments) {
     // Reviews (APPROVED, CHANGES_REQUESTED, COMMENTED) use a different reaction API
     // than issue/inline comments. Route accordingly.

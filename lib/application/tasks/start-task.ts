@@ -1,19 +1,17 @@
-import type { RunCommand } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
-import {
-  StateType,
-  WorkflowEvent,
-  type StateConfig,
-  type WorkflowConfig,
-} from "../../domain/workflow/types.js";
+import type { RunCommand } from "../../context.js";
 import {
   findStateByLabel,
   getRoleLabelColor,
-} from "../../domain/workflow/index.js";
+  STATE_TYPE,
+  type StateConfig,
+  WORKFLOW_EVENT,
+  type WorkflowConfig,
+} from "../../domain/index.js";
 import { getLevelsForRole } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../../tools/helpers.js";
 import { detectNotifyTarget, resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { applyNotifyLabel,autoAssignOwnerLabel, resolveProject, resolveProvider } from "../../tools/helpers.js";
 
 export type StartTaskInput = {
   workspaceDir: string;
@@ -46,11 +44,14 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
 
   const issue = await provider.getIssue(issueId);
   const runtimeState = await resolveIssueRuntimeState({ workspaceDir, project, issue, workflow });
+
   if (runtimeState.kind !== "managed") {
     throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_start.`);
   }
+
   const currentLabel = runtimeState.workflowLabel;
   const currentState = runtimeState.stateConfig ?? findStateByLabel(workflow, currentLabel);
+
   if (!currentState) {
     throw new Error(`No state config for label "${currentLabel}".`);
   }
@@ -64,16 +65,22 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
   }
 
   const targetRole = targetState.role;
+
   if (levelHint && targetRole) {
     const validLevels = getLevelsForRole(targetRole);
+
     if (!validLevels.includes(levelHint)) {
       throw new Error(`Invalid level "${levelHint}" for role "${targetRole}". Valid: ${validLevels.join(", ")}`);
     }
+
     const oldRoleLabels = issue.labels.filter((l) => l.startsWith(`${targetRole}:`));
+
     if (oldRoleLabels.length > 0) {
       await provider.removeLabels(issueId, oldRoleLabels);
     }
+
     const hintLabel = `${targetRole}:${levelHint}`;
+
     await provider.ensureLabel(hintLabel, getRoleLabelColor(targetRole));
     await provider.addLabel(issueId, hintLabel);
   }
@@ -84,6 +91,7 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
   const nextLabels = issue.labels
     .filter((candidate) => candidate !== currentLabel && !candidate.startsWith(`${targetRole}:`))
     .concat(targetLabel);
+
   if (levelHint && targetRole) nextLabels.push(`${targetRole}:${levelHint}`);
   await writeIssueRuntimeState({
     workspaceDir,
@@ -122,25 +130,30 @@ export function resolveStartTarget(
   currentState: StateConfig,
 ): { targetLabel: string; targetState: StateConfig; transitioned: boolean } {
   switch (currentState.type) {
-    case StateType.HOLD: {
-      const approveTransition = currentState.on?.[WorkflowEvent.APPROVE];
+    case STATE_TYPE.HOLD: {
+      const approveTransition = currentState.on?.[WORKFLOW_EVENT.APPROVE];
+
       if (!approveTransition) {
         throw new Error(`HOLD state "${currentLabel}" has no APPROVE transition.`);
       }
+
       const targetKey = typeof approveTransition === "string"
         ? approveTransition
         : approveTransition.target;
       const targetState = workflow.states[targetKey];
+
       if (!targetState) {
         throw new Error(`Transition target "${targetKey}" not found in workflow.`);
       }
+
       return { targetLabel: targetState.label, targetState, transitioned: true };
     }
-    case StateType.QUEUE:
+
+    case STATE_TYPE.QUEUE:
       return { targetLabel: currentLabel, targetState: currentState, transitioned: false };
-    case StateType.ACTIVE:
+    case STATE_TYPE.ACTIVE:
       throw new Error(`Issue is in active state "${currentLabel}" — already being worked on.`);
-    case StateType.TERMINAL:
+    case STATE_TYPE.TERMINAL:
       throw new Error(`Issue is in terminal state "${currentLabel}" — cannot start.`);
     default:
       throw new Error(`Unknown state type for "${currentLabel}".`);

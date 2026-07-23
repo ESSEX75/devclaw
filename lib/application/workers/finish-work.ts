@@ -1,16 +1,18 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { RunCommand } from "../../context.js";
-import { getRoleWorker, resolveRepoPath } from "../../state/projects/index.js";
-import { executeCompletion, getRule } from "../pipeline/completion.js";
+
 import { log as auditLog } from "../../audit.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
-import { resolveProject, resolveProvider } from "../../tools/helpers.js";
+import type { RunCommand } from "../../context.js";
+import { getActiveLabel, type LevelId, type Role } from "../../domain/index.js";
 import { getCompletionResults, isValidResult } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
-import { getActiveLabel } from "../../domain/workflow/index.js";
+import { getRoleWorker, resolveRepoPath } from "../../state/projects/index.js";
+import { DATA_DIR } from "../../state/setup/paths.js";
+import { resolveProject, resolveProvider } from "../../tools/helpers.js";
+import { executeCompletion, getRule } from "../pipeline/completion.js";
 
 export type FinishWorkInput = {
   workspaceDir: string;
@@ -31,6 +33,7 @@ async function getCurrentBranch(repoPath: string, runCommand: RunCommand): Promi
     timeoutMs: 5_000,
     cwd: repoPath,
   });
+
   return result.stdout.trim();
 }
 
@@ -39,12 +42,15 @@ export async function isConflictResolutionCycle(
   issueId: number,
 ): Promise<boolean> {
   const auditPath = join(workspaceDir, DATA_DIR, "log", "audit.log");
+
   try {
     const content = await readFile(auditPath, "utf-8");
     const lines = content.split("\n").filter(Boolean);
+
     for (let i = lines.length - 1; i >= 0; i--) {
       try {
         const entry = JSON.parse(lines[i]!);
+
         if (
           entry.issueId === issueId &&
           entry.event === "review_transition" &&
@@ -59,6 +65,7 @@ export async function isConflictResolutionCycle(
   } catch {
     // If we can't read the audit log, fail open.
   }
+
   return false;
 }
 
@@ -76,6 +83,7 @@ async function validatePrExistsForDeveloper(
 
     if (!prStatus.url) {
       let branchName = "current-branch";
+
       try {
         branchName = await getCurrentBranch(repoPath, runCommand);
       } catch {
@@ -94,6 +102,7 @@ async function validatePrExistsForDeveloper(
 
     try {
       const hasEyes = await provider.prHasReaction(issueId, "eyes");
+
       if (!hasEyes) {
         await provider.reactToPr(issueId, "eyes");
       }
@@ -112,6 +121,7 @@ async function validatePrExistsForDeveloper(
       });
 
       const branchName = prStatus.sourceBranch || "your-branch";
+
       throw new Error(
         `Cannot complete work_finish(done) while PR still shows merge conflicts.\n\n` +
         `✗ PR status: CONFLICTING\n` +
@@ -142,6 +152,7 @@ async function validatePrExistsForDeveloper(
     if (err instanceof Error && (err.message.startsWith("Cannot mark work_finish(done)") || err.message.startsWith("Cannot complete work_finish(done)"))) {
       throw err;
     }
+
     console.warn(`PR validation warning for issue #${issueId}:`, err);
   }
 }
@@ -162,6 +173,7 @@ export async function finishWork(input: FinishWorkInput) {
 
   if (!isValidResult(role, result)) {
     const valid = getCompletionResults(role);
+
     throw new Error(`${role.toUpperCase()} cannot complete with "${result}". Valid results: ${valid.join(", ")}`);
   }
 
@@ -176,14 +188,15 @@ export async function finishWork(input: FinishWorkInput) {
   for (const [level, slots] of Object.entries(roleWorker.levels)) {
     for (let i = 0; i < slots.length; i++) {
       if (slots[i]!.active && slots[i]!.issueId &&
-          (!input.sessionKey || !slots[i]!.sessionKey ||
-           slots[i]!.sessionKey === input.sessionKey)) {
+        (!input.sessionKey || !slots[i]!.sessionKey ||
+          slots[i]!.sessionKey === input.sessionKey)) {
         slotLevel = level;
         slotIndex = i;
         issueId = Number(slots[i]!.issueId);
         break;
       }
     }
+
     if (issueId !== null) break;
   }
 
@@ -203,7 +216,7 @@ export async function finishWork(input: FinishWorkInput) {
 
   const { provider } = await resolveProvider(project, runCommand);
 
-  if (!getRule(role, result, workflow)) {
+  if (!getRule(role as Role, result, workflow)) {
     await auditLog(workspaceDir, "work_finish_rejected", {
       project: project.name,
       projectSlug: project.slug,
@@ -222,11 +235,11 @@ export async function finishWork(input: FinishWorkInput) {
   }
 
   const completion = await executeCompletion({
-    workspaceDir, projectSlug: project.slug, role, result, issueId, summary, prUrl, provider, repoPath,
+    workspaceDir, projectSlug: project.slug, role: role as Role, result, issueId, summary, prUrl, provider, repoPath,
     projectName: project.name,
     channels: project.channels,
     pluginConfig,
-    level: slotLevel,
+    level: slotLevel as LevelId,
     slotIndex,
     runtime,
     workflow,
@@ -264,8 +277,9 @@ async function auditWorkFinishRejectedMissingActiveWorker(opts: {
   }> = [];
 
   try {
-    activeWorkflowLabel = getActiveLabel(opts.workflow, opts.role);
+    activeWorkflowLabel = getActiveLabel(opts.workflow, opts.role as any);
     const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
+
     candidateIssues = Object.values(store.issues)
       .filter((state) =>
         state.assignedRole === opts.role ||

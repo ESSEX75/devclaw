@@ -1,6 +1,8 @@
 import { createInterface } from "node:readline/promises";
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import {
   formatAgentLabel,
@@ -31,8 +33,10 @@ function getExistingChannelWideBinding(
         (entry.match.accountId?.trim() || "default") === normalizedAccountId &&
         !entry.match.peer,
     );
+
     if (!binding?.agentId) return undefined;
     const agent = config.agents?.list?.find((entry) => entry.id === binding.agentId);
+
     return { agentId: binding.agentId, agentName: agent?.name ?? binding.agentId };
   } catch {
     return undefined;
@@ -49,6 +53,7 @@ function getBoundTopicPeerIds(
 
   for (const binding of config.bindings ?? []) {
     const peerId = binding.match?.peer?.id?.trim();
+
     if (
       binding.match?.channel === channel &&
       (binding.match.accountId?.trim() || "default") === normalizedAccountId &&
@@ -74,6 +79,7 @@ function buildChannelEndpointChoices(
   }];
   const config = rawConfig as { groups?: Record<string, { topics?: Record<string, unknown> }> };
   const groups = config.groups;
+
   if (!groups || typeof groups !== "object" || Array.isArray(groups)) return choices;
 
   for (const [groupId, groupConfig] of Object.entries(groups)) {
@@ -86,10 +92,12 @@ function buildChannelEndpointChoices(
     });
 
     const topics = groupConfig?.topics;
+
     if (!topics || typeof topics !== "object" || Array.isArray(topics)) continue;
     for (const topicId of Object.keys(topics)) {
       if (!topicId || topicId === "*") continue;
       const peerId = `${groupId}:topic:${topicId}`;
+
       if (boundTopicPeerIds.has(peerId)) continue;
       choices.push({
         channel,
@@ -107,8 +115,10 @@ function getConfiguredChannelAccounts(runtime: PluginRuntime): ChannelAccountCho
   try {
     const config = runtime.config.current() as OpenClawConfig;
     const choices: ChannelAccountChoice[] = [];
+
     for (const channel of ["telegram", "whatsapp"] as const) {
       const channelConfig = config.channels?.[channel];
+
       if (!channelConfig || channelConfig.enabled === false) continue;
       choices.push(...buildChannelEndpointChoices(
         channel,
@@ -117,9 +127,11 @@ function getConfiguredChannelAccounts(runtime: PluginRuntime): ChannelAccountCho
         getBoundTopicPeerIds(config, channel, "default"),
       ));
       const accounts = channelConfig.accounts;
+
       if (accounts && typeof accounts === "object" && !Array.isArray(accounts)) {
         for (const [accountId, accountConfig] of Object.entries(accounts)) {
           const normalized = accountId.trim();
+
           if (normalized && normalized !== "default") {
             choices.push(...buildChannelEndpointChoices(
               channel,
@@ -131,6 +143,7 @@ function getConfiguredChannelAccounts(runtime: PluginRuntime): ChannelAccountCho
         }
       }
     }
+
     return choices;
   } catch {
     return [];
@@ -144,7 +157,9 @@ async function askYesNo(
 ): Promise<boolean> {
   const suffix = defaultValue ? " [Y/n]: " : " [y/N]: ";
   const answer = (await rl.question(question + suffix)).trim().toLowerCase();
+
   if (!answer) return defaultValue;
+
   return answer === "y" || answer === "yes";
 }
 
@@ -154,18 +169,22 @@ async function collectChannelBinding(
   targetAgentId?: string,
 ): Promise<Pick<SetupCliOptions, "channelBinding" | "channelAccountId" | "channelPeerId" | "migrateFrom">> {
   const choices = getConfiguredChannelAccounts(runtime);
+
   console.log("\nCreate a binding for an existing channel endpoint:");
   choices.forEach((choice, index) => {
     console.log(`  ${index + 1}. ${choice.label}`);
   });
   const noneIndex = choices.length + 1;
+
   console.log(`  ${noneIndex}. none`);
 
   const defaultIndex = choices.length > 0 ? 1 : noneIndex;
   const answer = (await rl.question(`Select [${defaultIndex}]: `)).trim();
   const selected = answer ? Number(answer) : defaultIndex;
+
   if (selected === noneIndex) return { channelBinding: "none" };
   const choice = Number.isInteger(selected) ? choices[selected - 1] : undefined;
+
   if (!choice) throw new Error(`Invalid channel account option: ${answer}`);
 
   const channelBinding = choice.channel;
@@ -184,11 +203,13 @@ async function collectChannelBinding(
     channelBinding,
     channelAccountId,
   );
+
   if (!existing) return result;
   if (targetAgentId && existing.agentId === targetAgentId) return result;
 
   console.log(`Existing ${channelBinding} channel-wide binding: ${existing.agentName} (${existing.agentId})`);
   const migrate = await askYesNo(rl, `Migrate this binding to the selected agent`, true);
+
   return migrate ? { ...result, migrateFrom: existing.agentId } : result;
 }
 
@@ -196,9 +217,11 @@ function hasModelOverrides(opts: SetupCliOptions): boolean {
   for (const role of getAllRoleIds()) {
     for (const level of getLevelsForRole(role)) {
       const key = `${role}${level.charAt(0).toUpperCase()}${level.slice(1)}`;
+
       if (opts[key]) return true;
     }
   }
+
   return false;
 }
 
@@ -209,18 +232,22 @@ async function collectModelOptions(
   if (hasModelOverrides(opts)) return opts;
 
   const useDefaults = await askYesNo(rl, "\nUse default model levels", true);
+
   if (useDefaults) return opts;
 
   const defaults = getAllDefaultModels();
   const next = { ...opts };
+
   for (const role of getAllRoleIds()) {
     for (const level of getLevelsForRole(role)) {
       const key = `${role}${level.charAt(0).toUpperCase()}${level.slice(1)}`;
       const defaultModel = defaults[role]?.[level] ?? "";
       const answer = (await rl.question(`${role}.${level} model [${defaultModel}]: `)).trim();
+
       if (answer) next[key] = answer;
     }
   }
+
   return next;
 }
 
@@ -235,6 +262,7 @@ async function collectWorkspaceDefaultsOption(
   console.log("  2. Eject packaged defaults (write missing workflow/prompts for manual editing)");
   const answer = (await rl.question("Select [1]: ")).trim();
   const selected = answer ? Number(answer) : 1;
+
   if (selected === 1) return { ...opts, ejectDefaults: false };
   if (selected === 2) return { ...opts, ejectDefaults: true };
   throw new Error(`Invalid workspace defaults option: ${answer}`);
@@ -253,11 +281,14 @@ export async function collectInteractiveSetupDetails(
 
   try {
     let next = { ...opts };
+
     if ((next.newAgent || next.agent) && !next.channelBinding) {
       next = { ...next, ...await collectChannelBinding(rl, runtime, next.agent) };
     }
+
     next = await collectModelOptions(next, rl);
     next = await collectWorkspaceDefaultsOption(next, rl);
+
     return next;
   } finally {
     rl.close();
@@ -292,10 +323,12 @@ export async function resolveSetupCliOptions(
     agents.forEach((agent, index) => {
       const label = formatAgentLabel(agent);
       const workspace = agent.workspace ? ` — ${agent.workspace}` : "";
+
       console.log(`  ${index + 1}. Configure existing agent: ${label}${workspace}`);
     });
     const createNewOption = agents.length + 1;
     const workspaceOption = agents.length + 2;
+
     console.log(`  ${createNewOption}. Create a new agent`);
     console.log(`  ${workspaceOption}. Configure a workspace path directly`);
 
@@ -310,13 +343,17 @@ export async function resolveSetupCliOptions(
 
     if (selected === createNewOption) {
       const name = (await rl.question("New agent name: ")).trim();
+
       if (!name) throw new Error("New agent name is required");
+
       return { ...opts, newAgent: name };
     }
 
     if (selected === workspaceOption) {
       const workspace = (await rl.question("Workspace path: ")).trim();
+
       if (!workspace) throw new Error("Workspace path is required");
+
       return { ...opts, workspace };
     }
 
@@ -331,10 +368,12 @@ export function printSelectedSetupTarget(opts: SetupCliOptions, runtime: PluginR
 
   if (opts.agent) {
     const agent = agents.find((entry) => entry.id === opts.agent);
+
     console.log("\nSelected setup target:");
     console.log(`  Agent: ${agent ? formatAgentLabel(agent) : opts.agent}`);
     if (agent?.workspace) console.log(`  Workspace: ${agent.workspace}`);
     console.log(`  Channel binding: ${formatSelectedChannelBinding(opts)}`);
+
     return;
   }
 
@@ -343,6 +382,7 @@ export function printSelectedSetupTarget(opts: SetupCliOptions, runtime: PluginR
     console.log(`  New agent: ${opts.newAgent}`);
     console.log(`  Channel binding: ${formatSelectedChannelBinding(opts)}`);
     if (opts.migrateFrom) console.log(`  Migrate binding from: ${opts.migrateFrom}`);
+
     return;
   }
 

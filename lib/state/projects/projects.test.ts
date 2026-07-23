@@ -2,29 +2,19 @@
  * Tests for projects.ts — per-level worker state and accessors.
  * Run with: npx tsx --test lib/state/projects/projects.test.ts
  */
-import { describe, it } from "node:test";
 import assert from "node:assert";
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
-import {
-  readProjects,
-  getRoleWorker,
-  emptyRoleWorkerState,
-  emptySlot,
-  findFreeSlot,
-  findSlotByIssue,
-  countActiveSlots,
-  reconcileSlots,
-  writeProjects,
-  type ProjectsData,
-  type RoleWorkerState,
-} from "./index.js";
+import path from "node:path";
+import { describe, it } from "node:test";
+
+import { countActiveSlots, emptyRoleWorkerState, emptySlot, findFreeSlot, findSlotByIssue, getRoleWorker, type ProjectsData, readProjects, reconcileSlots, type RoleWorkerState, writeProjects } from "./index.js";
 
 describe("readProjects", () => {
   it("should read current project-first per-level format correctly", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-"));
     const dataDir = path.join(tmpDir, "devclaw");
+
     await fs.mkdir(dataDir, { recursive: true });
 
     const projectFirstData = {
@@ -51,6 +41,7 @@ describe("readProjects", () => {
         },
       },
     };
+
     await fs.writeFile(path.join(dataDir, "projects.json"), JSON.stringify(projectFirstData), "utf-8");
 
     const data = await readProjects(tmpDir);
@@ -78,6 +69,7 @@ describe("per-level slot helpers", () => {
         ],
       },
     };
+
     assert.strictEqual(findFreeSlot(rw, "medior"), 1);
   });
 
@@ -87,11 +79,13 @@ describe("per-level slot helpers", () => {
         medior: [{ active: true, issueId: "1", sessionKey: null, startTime: null }],
       },
     };
+
     assert.strictEqual(findFreeSlot(rw, "medior"), null);
   });
 
   it("findFreeSlot returns null for non-existent level", () => {
     const rw: RoleWorkerState = { levels: {} };
+
     assert.strictEqual(findFreeSlot(rw, "senior"), null);
   });
 
@@ -107,6 +101,7 @@ describe("per-level slot helpers", () => {
       },
     };
     const result = findSlotByIssue(rw, "20");
+
     assert.deepStrictEqual(result, { level: "junior", slotIndex: 0 });
     assert.strictEqual(findSlotByIssue(rw, "99"), null);
   });
@@ -123,6 +118,7 @@ describe("per-level slot helpers", () => {
         ],
       },
     };
+
     assert.strictEqual(countActiveSlots(rw), 2);
   });
 });
@@ -131,6 +127,7 @@ describe("writeProjects round-trip", () => {
   it("should preserve per-level workers through write/read cycle", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-"));
     const dataDir = path.join(tmpDir, "devclaw");
+
     await fs.mkdir(dataDir, { recursive: true });
 
     const data: ProjectsData = {
@@ -173,6 +170,7 @@ describe("reconcileSlots", () => {
       levels: { medior: [emptySlot()] },
     };
     const changed = reconcileSlots(rw, { medior: 3 });
+
     assert.strictEqual(changed, true);
     assert.strictEqual(rw.levels.medior.length, 3);
     assert.strictEqual(rw.levels.medior[1]!.active, false);
@@ -184,6 +182,7 @@ describe("reconcileSlots", () => {
       levels: { medior: [emptySlot(), emptySlot(), emptySlot()] },
     };
     const changed = reconcileSlots(rw, { medior: 1 });
+
     assert.strictEqual(changed, true);
     assert.strictEqual(rw.levels.medior.length, 1);
   });
@@ -200,6 +199,7 @@ describe("reconcileSlots", () => {
     };
     // Config says 1, but last slot (index 2) is active — shrinking stops immediately
     const changed = reconcileSlots(rw, { medior: 1 });
+
     assert.strictEqual(changed, false);
     assert.strictEqual(rw.levels.medior.length, 3);
   });
@@ -216,6 +216,7 @@ describe("reconcileSlots", () => {
     };
     // Config says 1, last slot (index 2) is idle → removed, then slot 1 is active → stop
     const changed = reconcileSlots(rw, { medior: 1 });
+
     assert.strictEqual(changed, true);
     assert.strictEqual(rw.levels.medior.length, 2);
   });
@@ -225,6 +226,7 @@ describe("reconcileSlots", () => {
       levels: { medior: [emptySlot(), emptySlot()] },
     };
     const changed = reconcileSlots(rw, { medior: 2 });
+
     assert.strictEqual(changed, false);
     assert.strictEqual(rw.levels.medior.length, 2);
   });
@@ -232,6 +234,7 @@ describe("reconcileSlots", () => {
   it("should create new level arrays for levels in config but not in state", () => {
     const rw: RoleWorkerState = { levels: {} };
     const changed = reconcileSlots(rw, { medior: 2, senior: 1 });
+
     assert.strictEqual(changed, true);
     assert.strictEqual(rw.levels.medior.length, 2);
     assert.strictEqual(rw.levels.senior.length, 1);

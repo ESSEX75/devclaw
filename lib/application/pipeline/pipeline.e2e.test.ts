@@ -15,7 +15,7 @@ import { dispatchTask } from "../workers/dispatch-task.js";
 import { executeCompletion } from "./completion.js";
 import { projectTick } from "../queue/tick.js";
 import { reviewPass } from "../heartbeat/review.js";
-import { DEFAULT_WORKFLOW, ReviewPolicy, type WorkflowConfig } from "../../domain/workflow/index.js";
+import { DEFAULT_WORKFLOW, REVIEW_POLICY, type ReviewPolicy, type WorkflowConfig } from "../../domain/index.js";
 import { readProjects, getRoleWorker, getProject, countActiveSlots } from "../../state/projects/index.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import { slotName } from "../../names.js";
@@ -1135,7 +1135,7 @@ describe("E2E pipeline", () => {
         workspaceDir: h.workspaceDir,
         projectSlug: h.project.slug,
         targetRole: "reviewer",
-        workflow: workflowWithPolicy(ReviewPolicy.HUMAN),
+        workflow: workflowWithPolicy(REVIEW_POLICY.HUMAN),
         provider: h.provider,
         runCommand: h.runCommand,
       });
@@ -1148,7 +1148,7 @@ describe("E2E pipeline", () => {
 
     it("reviewPolicy: agent should dispatch reviewer", async () => {
       h = await createTestHarness();
-      const workflow = workflowWithPolicy(ReviewPolicy.AGENT);
+      const workflow = workflowWithPolicy(REVIEW_POLICY.AGENT);
       await seedManagedQueueIssue({
         iid: 81,
         title: "Needs review",
@@ -1184,7 +1184,7 @@ describe("E2E pipeline", () => {
         projectSlug: h.project.slug,
         agentId: "test-agent",
         targetRole: "reviewer",
-        workflow: workflowWithPolicy(ReviewPolicy.SKIP),
+        workflow: workflowWithPolicy(REVIEW_POLICY.SKIP),
         provider: h.provider,
         runCommand: h.runCommand,
       });
@@ -1197,7 +1197,7 @@ describe("E2E pipeline", () => {
 
     it("reviewPolicy: human should still allow developer and tester dispatch", async () => {
       h = await createTestHarness();
-      const workflow = { ...workflowWithPolicy(ReviewPolicy.HUMAN), testPolicy: "agent" as const };
+      const workflow = { ...workflowWithPolicy(REVIEW_POLICY.HUMAN), testPolicy: "agent" as const };
       await seedManagedQueueIssue({
         iid: 84,
         title: "Dev task",
@@ -1393,7 +1393,7 @@ describe("E2E pipeline", () => {
         workspaceDir: h.workspaceDir,
         projectSlug: h.project.slug,
         targetRole: "reviewer",
-        workflow: { ...DEFAULT_WORKFLOW, reviewPolicy: ReviewPolicy.AGENT },
+        workflow: { ...DEFAULT_WORKFLOW, reviewPolicy: REVIEW_POLICY.AGENT },
         provider: h.provider,
         runCommand: h.runCommand,
       });
@@ -1423,7 +1423,7 @@ describe("E2E pipeline", () => {
         projectSlug: h.project.slug,
         agentId: "test-agent",
         targetRole: "reviewer",
-        workflow: { ...DEFAULT_WORKFLOW, reviewPolicy: ReviewPolicy.AGENT },
+        workflow: { ...DEFAULT_WORKFLOW, reviewPolicy: REVIEW_POLICY.AGENT },
         provider: h.provider,
         runCommand: h.runCommand,
       });

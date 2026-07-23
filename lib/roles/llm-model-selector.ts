@@ -12,12 +12,14 @@ import type { ModelAssignment } from "./smart-model-selector.js";
  */
 function singleModelAssignment(model: string): ModelAssignment {
   const result: ModelAssignment = {};
+
   for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
     result[roleId] = {};
     for (const level of config.levels) {
       result[roleId][level] = model;
     }
   }
+
   return result;
 }
 
@@ -26,12 +28,14 @@ function singleModelAssignment(model: string): ModelAssignment {
  */
 function buildJsonExample(): string {
   const obj: Record<string, Record<string, string>> = {};
+
   for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
     obj[roleId] = {};
     for (const level of config.levels) {
       obj[roleId][level] = "provider/model-name";
     }
   }
+
   return JSON.stringify(obj, null, 2);
 }
 
@@ -43,25 +47,32 @@ function validateAssignment(
   fallbackModel: string,
 ): ModelAssignment | null {
   const result: ModelAssignment = {};
+
   for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
     const roleData = assignment[roleId] as Record<string, string> | undefined;
+
     if (!roleData) {
       // Backfill missing roles from the first available role or fallback
       result[roleId] = {};
       for (const level of config.levels) {
         result[roleId][level] = fallbackModel;
       }
+
       continue;
     }
+
     result[roleId] = {};
     for (const level of config.levels) {
       if (!roleData[level]) {
         console.error(`Missing ${roleId}.${level} in LLM assignment`);
+
         return null;
       }
+
       result[roleId][level] = roleData[level];
     }
   }
+
   return result;
 }
 
@@ -152,6 +163,7 @@ ${jsonExample}`;
     }
 
     const textContent = payloads[0].text;
+
     if (!textContent) {
       throw new Error("Empty text content in openclaw agent payload");
     }
@@ -170,6 +182,7 @@ ${jsonExample}`;
 
     // Validate and backfill
     const validated = validateAssignment(assignment, availableModels[0].model);
+
     if (!validated) {
       console.error("Invalid assignment structure. Got:", assignment);
       throw new Error(
@@ -180,6 +193,7 @@ ${jsonExample}`;
     return validated;
   } catch (err) {
     console.error("LLM model selection failed:", (err as Error).message);
+
     return null;
   }
 }

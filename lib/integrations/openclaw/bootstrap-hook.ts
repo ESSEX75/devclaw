@@ -11,7 +11,9 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+
 import type { PluginContext } from "../../context.js";
 import { getSessionKeyRolePattern } from "../../roles/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
@@ -36,11 +38,13 @@ export function parseDevClawSessionKey(
   const newMatch = sessionKey.match(
     new RegExp(`:subagent:(.+)-(${rolePattern})-[^-]+-[^-]+$`),
   );
+
   if (newMatch) return { projectName: newMatch[1], role: newMatch[2] };
 
   // Architect research sessions are role-level scoped and do not occupy a
   // named worker slot, so their keys end at `{project}-architect-{level}`.
   const architectMatch = sessionKey.match(/:subagent:(.+)-(architect)-[^-]+$/);
+
   if (architectMatch) return { projectName: architectMatch[1], role: architectMatch[2] };
 
   return null;
@@ -92,7 +96,9 @@ export async function loadRoleInstructions(
   for (const filePath of candidates) {
     try {
       const content = await fs.readFile(filePath, "utf-8");
+
       if (opts?.withSource) return { content, source: filePath };
+
       return content;
     } catch {
       /* not found, try next */
@@ -101,12 +107,15 @@ export async function loadRoleInstructions(
 
   // Final fallback: package defaults (in-memory, always available)
   const packageDefault = DEFAULT_ROLE_INSTRUCTIONS[role];
+
   if (packageDefault) {
     if (opts?.withSource) return { content: packageDefault, source: "package-default" };
+
     return packageDefault;
   }
 
   if (opts?.withSource) return { content: "", source: null };
+
   return "";
 }
 
@@ -128,9 +137,11 @@ export function registerBootstrapHook(api: OpenClawPluginApi, ctx: PluginContext
     "agent:bootstrap",
     async (event) => {
       const sessionKey = event.sessionKey;
+
       if (!sessionKey) return;
 
       const parsed = parseDevClawSessionKey(sessionKey);
+
       if (!parsed) return;
 
       const context = event.context as {
@@ -144,19 +155,23 @@ export function registerBootstrapHook(api: OpenClawPluginApi, ctx: PluginContext
       };
 
       const bootstrapFiles = context.bootstrapFiles;
+
       if (!Array.isArray(bootstrapFiles)) return;
 
       const agentsEntry = bootstrapFiles.find((f) => f.name === "AGENTS.md");
+
       if (!agentsEntry) return;
 
       // Load role instructions from workspace (project-specific → default fallback)
       const workspaceDir = context.workspaceDir;
+
       if (!workspaceDir) {
         agentsEntry.content = "";
         agentsEntry.missing = true;
         ctx.logger.info(
           `agent:bootstrap: stripped AGENTS.md for ${parsed.role} worker in "${parsed.projectName}" (no workspaceDir)`,
         );
+
         return;
       }
 

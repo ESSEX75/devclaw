@@ -1,21 +1,17 @@
 /**
  * workflow/completion.ts — Completion rules derived from workflow transitions.
  */
-import {
-  type WorkflowConfig,
-  type CompletionRule,
-  type Role,
-  StateType,
-  WorkflowEvent,
-} from "./types.js";
-import { getActiveLabel, findStateKeyByLabel, findStateByLabel } from "./queries.js";
+import { STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
+import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";
+import { type CompletionRule, type Role, type WorkflowConfig } from "./types.js";
 
 /**
  * Map completion result to workflow transition event name.
  * Convention: "done" → COMPLETE, others → uppercase.
  */
 function resultToEvent(result: string): string {
-  if (result === "done") return WorkflowEvent.COMPLETE;
+  if (result === "done") return WORKFLOW_EVENT.COMPLETE;
+
   return result.toUpperCase();
 }
 
@@ -31,22 +27,27 @@ export function getCompletionRule(
   const event = resultToEvent(result);
 
   let activeLabel: string;
+
   try {
     activeLabel = getActiveLabel(workflow, role);
   } catch { return null; }
 
   const activeKey = findStateKeyByLabel(workflow, activeLabel);
+
   if (!activeKey) return null;
 
   const activeState = workflow.states[activeKey];
+
   if (!activeState.on) return null;
 
   const transition = activeState.on[event];
+
   if (!transition) return null;
 
   const targetKey = typeof transition === "string" ? transition : transition.target;
   const actions = typeof transition === "object" ? transition.actions : undefined;
   const targetState = workflow.states[targetKey];
+
   if (!targetState) return null;
 
   return {
@@ -65,14 +66,16 @@ export function getNextStateDescription(
   result: string,
 ): string {
   const rule = getCompletionRule(workflow, role, result);
+
   if (!rule) return "";
 
   const targetState = findStateByLabel(workflow, rule.to);
+
   if (!targetState) return "";
 
-  if (targetState.type === StateType.TERMINAL) return "Done!";
-  if (targetState.type === StateType.HOLD) return "awaiting human decision";
-  if (targetState.type === StateType.QUEUE && targetState.role) {
+  if (targetState.type === STATE_TYPE.TERMINAL) return "Done!";
+  if (targetState.type === STATE_TYPE.HOLD) return "awaiting human decision";
+  if (targetState.type === STATE_TYPE.QUEUE && targetState.role) {
     return `${targetState.role.toUpperCase()} queue`;
   }
 

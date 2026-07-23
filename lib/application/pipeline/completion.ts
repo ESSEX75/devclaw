@@ -4,25 +4,26 @@
  * Uses workflow config to determine transitions and side effects.
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { StateLabel, IssueProvider } from "../../integrations/providers/provider.js";
-import { deactivateWorker, loadProjectBySlug, getRoleWorker } from "../../state/projects/index.js";
-import type { RunCommand } from "../../context.js";
-import { notify, getNotificationConfig } from "../notifications/notify.js";
+
 import { log as auditLog } from "../../audit.js";
-import { loadConfig } from "../../state/config/index.js";
-import { writeIssueRuntimeState } from "../../state/issues/index.js";
+import type { RunCommand } from "../../context.js";
 import {
+  ACTION,
+  type CompletionRule,
   DEFAULT_WORKFLOW,
-  Action,
-  WorkflowEvent,
+  getCompletionEmoji,
   getCompletionRule,
   getNextStateDescription,
-  getCompletionEmoji,
   resolveNotifyChannel,
-  type CompletionRule,
+  WORKFLOW_EVENT,
   type WorkflowConfig,
-} from "../../domain/workflow/index.js";
+} from "../../domain/index.js";
+import type { IssueProvider,StateLabel } from "../../integrations/providers/provider.js";
+import { loadConfig } from "../../state/config/index.js";
+import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import type { Channel } from "../../state/projects/index.js";
+import { deactivateWorker, getRoleWorker,loadProjectBySlug } from "../../state/projects/index.js";
+import { getNotificationConfig,notify } from "../notifications/notify.js";
 
 export type { CompletionRule };
 
@@ -86,6 +87,7 @@ export async function executeCompletion(opts: {
 
   const key = `${role}:${result}`;
   const rule = getCompletionRule(workflow, role, result);
+
   if (!rule) throw new Error(`No completion rule for ${key}`);
 
   const { timeouts } = await loadConfig(workspaceDir, projectName);
@@ -98,37 +100,43 @@ export async function executeCompletion(opts: {
   // Execute pre-notification actions
   for (const action of rule.actions) {
     switch (action) {
-      case Action.GIT_PULL:
+      case ACTION.GIT_PULL:
         try { await rc(["git", "pull"], { timeoutMs: timeouts.gitPullMs, cwd: repoPath }); } catch (err) {
           auditLog(workspaceDir, "pipeline_warning", { step: "gitPull", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => {});
         }
+
         break;
-      case Action.DETECT_PR:
+      case ACTION.DETECT_PR:
         if (!prUrl) { try {
           // Try open PR first (developer just finished — MR is still open), fall back to merged
           const prStatus = await provider.getPrStatus(issueId);
+
           prUrl = prStatus.url ?? await provider.getMergedMRUrl(issueId) ?? undefined;
           prTitle = prStatus.title;
           sourceBranch = prStatus.sourceBranch;
         } catch (err) {
           auditLog(workspaceDir, "pipeline_warning", { step: "detectPr", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => {});
         } }
+
         break;
-      case Action.MERGE_PR:
+      case ACTION.MERGE_PR:
         try {
           // Grab PR metadata before merging (the MR is still open at this point)
           if (!prTitle) {
             try {
               const prStatus = await provider.getPrStatus(issueId);
+
               prUrl = prUrl ?? prStatus.url ?? undefined;
               prTitle = prStatus.title;
               sourceBranch = prStatus.sourceBranch;
             } catch { /* best-effort */ }
           }
+
           await provider.mergePr(issueId);
           mergedPr = true;
         } catch (err) {
           const error = (err as Error).message ?? String(err);
+
           await auditLog(workspaceDir, "pipeline_action_failed", {
             step: "mergePr",
             issue: issueId,
@@ -139,8 +147,10 @@ export async function executeCompletion(opts: {
           });
           mergeFailure = { error };
         }
+
         break;
     }
+
     if (mergeFailure) break;
   }
 
@@ -150,6 +160,7 @@ export async function executeCompletion(opts: {
 
   if (mergeFailure) {
     const failedTransition = getMergeFailedTransition(workflow, rule.from);
+
     if (!failedTransition) {
       throw new Error(`mergePr failed for #${issueId}, and workflow has no MERGE_FAILED recovery transition: ${mergeFailure.error}`);
     }
@@ -199,12 +210,15 @@ export async function executeCompletion(opts: {
   // Retrieve worker name from project state (best-effort)
   let workerName: string | undefined;
   let targetBranch: string | undefined;
+
   try {
     const project = await loadProjectBySlug(workspaceDir, projectSlug);
+
     targetBranch = project?.baseBranch;
     if (project && opts.level !== undefined && opts.slotIndex !== undefined) {
       const roleWorker = getRoleWorker(project, role);
       const slot = roleWorker.levels[opts.level]?.[opts.slotIndex];
+
       workerName = slot?.name;
     }
   } catch {
@@ -213,6 +227,7 @@ export async function executeCompletion(opts: {
 
   // Send notification early (before deactivation and label transition which can fail)
   const notifyConfig = getNotificationConfig(pluginConfig);
+
   notify(
     {
       type: "workerComplete",
@@ -271,10 +286,10 @@ export async function executeCompletion(opts: {
   // Execute post-transition actions
   for (const action of rule.actions) {
     switch (action) {
-      case Action.CLOSE_ISSUE:
+      case ACTION.CLOSE_ISSUE:
         await provider.closeIssue(issueId);
         break;
-      case Action.REOPEN_ISSUE:
+      case ACTION.REOPEN_ISSUE:
         await provider.reopenIssue(issueId);
         break;
     }
@@ -291,7 +306,7 @@ export async function executeCompletion(opts: {
     workflow,
     workflowLabel: rule.to,
     activeWorker: null,
-    closedAt: rule.actions.includes(Action.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
+    closedAt: rule.actions.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
   });
 
   // Deactivate worker last (non-critical — session cleanup)
@@ -304,6 +319,7 @@ export async function executeCompletion(opts: {
     const routing = runtimeState.reviewPolicy === "human" || runtimeState.reviewPolicy === "agent"
       ? runtimeState.reviewPolicy
       : null;
+
     if (routing === "human" || routing === "agent") {
       notify(
         {
@@ -334,6 +350,7 @@ export async function executeCompletion(opts: {
   const emoji = getCompletionEmoji(role, result);
   const label = key.replace(":", " ").toUpperCase();
   let announcement = `${emoji} ${label} #${issueId}`;
+
   if (summary) announcement += ` — ${summary}`;
   announcement += `\n📋 [Issue #${issueId}](${issue.web_url})`;
   if (prUrl) announcement += `\n🔗 [PR](${prUrl})`;
@@ -343,6 +360,7 @@ export async function executeCompletion(opts: {
       announcement += `\n  - [#${t.id}: ${t.title}](${t.url})`;
     }
   }
+
   announcement += `\n${nextState}.`;
 
   return {
@@ -351,8 +369,8 @@ export async function executeCompletion(opts: {
     nextState,
     prUrl,
     issueUrl: issue.web_url,
-    issueClosed: rule.actions.includes(Action.CLOSE_ISSUE),
-    issueReopened: rule.actions.includes(Action.REOPEN_ISSUE),
+    issueClosed: rule.actions.includes(ACTION.CLOSE_ISSUE),
+    issueReopened: rule.actions.includes(ACTION.REOPEN_ISSUE),
   };
 }
 
@@ -361,13 +379,16 @@ function getMergeFailedTransition(
   fromLabel: string,
 ): { key: string; label: string } | null {
   const fromEntry = Object.entries(workflow.states).find(([, state]) => state.label === fromLabel);
-  const mergeFailed = fromEntry?.[1].on?.[WorkflowEvent.MERGE_FAILED];
+  const mergeFailed = fromEntry?.[1].on?.[WORKFLOW_EVENT.MERGE_FAILED];
+
   if (mergeFailed) {
     const key = typeof mergeFailed === "string" ? mergeFailed : mergeFailed.target;
     const state = workflow.states[key];
+
     return state ? { key, label: state.label } : null;
   }
 
   const toImprove = Object.entries(workflow.states).find(([, state]) => state.label === "To Improve");
+
   return toImprove ? { key: toImprove[0], label: toImprove[1].label } : null;
 }

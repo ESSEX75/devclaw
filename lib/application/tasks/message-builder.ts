@@ -1,9 +1,9 @@
 /**
  * message-builder.ts — Task message construction for worker sessions.
  */
+import { getFallbackEmoji } from "../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../state/config/index.js";
 import { formatPrContext, formatPrFeedback, type PrContext, type PrFeedback } from "../review/pr-context.js";
-import { getFallbackEmoji } from "../../roles/index.js";
 
 /**
  * Build the task message sent to a worker session.
@@ -61,8 +61,10 @@ export function buildTaskMessage(opts: {
     parts.push(``, `## Comments`);
     // Limit to last 20 comments to avoid bloating context
     const recentComments = opts.comments.slice(-20);
+
     for (const comment of recentComments) {
       const date = new Date(comment.created_at).toLocaleString();
+
       parts.push(``, `**${comment.author}** (${date}):`, comment.body);
     }
   }
@@ -83,6 +85,7 @@ export function buildTaskMessage(opts: {
       );
     }
   }
+
   if (opts.attachmentContext) parts.push(opts.attachmentContext);
 
   parts.push(
@@ -105,7 +108,6 @@ export function buildTaskMessage(opts: {
     `Use "blocked" with a summary explaining why you're stuck.`,
     `Never end your session without calling work_finish.`,
   );
-
 
 
   return parts.join("\n");
@@ -177,6 +179,7 @@ export function buildAnnouncement(
   const emoji = resolvedRole?.emoji[level] ?? getFallbackEmoji(role);
   const actionVerb = sessionAction === "spawn" ? "Spawning" : "Sending";
   const nameTag = botName ? ` ${botName}` : "";
+
   return `${emoji} ${actionVerb} ${role.toUpperCase()}${nameTag} (${level}) for #${issueId}: ${issueTitle}\n🔗 [Issue #${issueId}](${issueUrl})`;
 }
 
@@ -187,5 +190,6 @@ export function buildAnnouncement(
 export function formatSessionLabel(projectName: string, role: string, level: string, botName?: string): string {
   const titleCase = (s: string) => s.replace(/(^|\s|-)\S/g, (c) => c.toUpperCase()).replace(/-/g, " ");
   const nameLabel = botName ? ` ${botName}` : "";
+
   return `${titleCase(projectName)} — ${titleCase(role)}${nameLabel} (${titleCase(level)})`;
 }

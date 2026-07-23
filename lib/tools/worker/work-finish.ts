@@ -2,8 +2,9 @@
  * work_finish — Complete active worker work through the worker application use case.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
+
 import { finishWork } from "../../application/workers/finish-work.js";
+import type { PluginContext } from "../../context.js";
 import { getAllRoleIds } from "../../roles/index.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 

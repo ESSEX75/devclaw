@@ -1,5 +1,6 @@
-import path from "node:path";
 import { homedir } from "node:os";
+import path from "node:path";
+
 import { DATA_DIR } from "../setup/paths.js";
 
 export function projectsPath(workspaceDir: string): string {
@@ -13,5 +14,6 @@ export function resolveRepoPath(repoField: string): string {
   if (repoField.startsWith("~/")) {
     return repoField.replace("~", homedir());
   }
+
   return repoField;
 }

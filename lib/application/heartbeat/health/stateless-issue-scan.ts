@@ -1,19 +1,19 @@
-import type { IssueProvider } from "../../../integrations/providers/provider.js";
-import type { Project } from "../../../state/projects/index.js";
 import { log as auditLog } from "../../../audit.js";
 import {
   DEFAULT_WORKFLOW,
 } from "../../../domain/workflow/defaults.js";
 import {
-  getStateLabels,
-} from "../../../domain/workflow/queries.js";
-import {
   isOwnedByOrUnclaimed,
 } from "../../../domain/workflow/labels.js";
+import {
+  getStateLabels,
+} from "../../../domain/workflow/queries.js";
 import type {
-  WorkflowConfig,
   Role,
+  WorkflowConfig,
 } from "../../../domain/workflow/types.js";
+import type { IssueProvider } from "../../../integrations/providers/provider.js";
+import type { Project } from "../../../state/projects/index.js";
 import type { HealthFix } from "./types.js";
 
 /**
@@ -38,9 +38,11 @@ export async function scanStatelessIssues(opts: {
   const fixes: HealthFix[] = [];
   const stateLabels = getStateLabels(workflow);
   const initialLabel = workflow.states[workflow.initial]?.label;
+
   if (!initialLabel) return fixes;
 
   let allOpenIssues;
+
   try {
     allOpenIssues = await provider.listIssues({ state: "open" });
   } catch {
@@ -49,6 +51,7 @@ export async function scanStatelessIssues(opts: {
 
   for (const issue of allOpenIssues) {
     const hasStateLabel = issue.labels.some((l) => stateLabels.includes(l));
+
     if (hasStateLabel) continue;
 
     const hasWorkflowLabels = issue.labels.some((l) =>
@@ -56,6 +59,7 @@ export async function scanStatelessIssues(opts: {
       l.startsWith("architect:") || l.startsWith("review:") || l.startsWith("test:") ||
       l.startsWith("owner:") || l.startsWith("notify:"),
     );
+
     if (!hasWorkflowLabels) continue;
     if (instanceName && !isOwnedByOrUnclaimed(issue.labels, instanceName)) continue;
 

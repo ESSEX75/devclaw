@@ -6,7 +6,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { DEFAULT_WORKFLOW, getStateLabels, ReviewPolicy, resolveReviewRouting } from "../../domain/workflow/index.js";
+import { DEFAULT_WORKFLOW, getStateLabels, REVIEW_POLICY, type ReviewPolicy, resolveReviewRouting } from "../../domain/index.js";
 import { detectLevelFromLabels, detectRoleLevelFromLabels } from "../../application/queue/scan.js";
 
 describe("task_set_level tool", () => {
@@ -91,18 +91,18 @@ describe("detectRoleLevelFromLabels", () => {
 
 describe("resolveReviewRouting", () => {
   it("should return review:human for HUMAN policy", () => {
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.HUMAN, "junior"), "review:human");
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.HUMAN, "senior"), "review:human");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.HUMAN, "junior"), "review:human");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.HUMAN, "senior"), "review:human");
   });
 
   it("should return review:agent for AGENT policy", () => {
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.AGENT, "junior"), "review:agent");
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.AGENT, "senior"), "review:agent");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.AGENT, "junior"), "review:agent");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.AGENT, "senior"), "review:agent");
   });
 
   it("should return review:skip for SKIP policy", () => {
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.SKIP, "junior"), "review:skip");
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.SKIP, "medior"), "review:skip");
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.SKIP, "senior"), "review:skip");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.SKIP, "junior"), "review:skip");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.SKIP, "medior"), "review:skip");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.SKIP, "senior"), "review:skip");
   });
 });
