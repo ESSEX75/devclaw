@@ -73,22 +73,6 @@ Ask what they want to change, then call the appropriate tool.
 }
 
 export function buildOnboardToolContext(): string {
-  // Build the model table dynamically from getAllDefaultModels()
-  const rows: string[] = [];
-  const purposes: Record<string, string> = {
-    junior: "Simple tasks, single-file fixes",
-    medior: "Features, bug fixes, code review",
-    senior: "Architecture, refactoring, complex tasks",
-  };
-
-  for (const [role, levels] of Object.entries(getAllDefaultModels())) {
-    for (const [level, model] of Object.entries(levels)) {
-      rows.push(`| ${role} | ${level} | ${model} | ${purposes[level] ?? ""} |`);
-    }
-  }
-
-  const modelTable = rows.join("\n");
-
   return `# DevClaw Onboarding
 
 ## What is DevClaw?
@@ -141,9 +125,16 @@ Ask: "Do you want to configure DevClaw for the current agent, or create a new de
 
 **Step 3: Run Setup**
 Call \`setup\` with the collected answers:
-- Current agent: \`setup({ channelBinding: "telegram"|"whatsapp"|null, channelAccountId: "<accountId>"|null, channelPeerId: "<groupId[:topic:topicId]>"|null, migrateFrom: "<agentId>"|null, models: { developer: { ... }, tester: { ... } } })\`
-- New agent: \`setup({ newAgentName: "<name>", channelBinding: "telegram"|"whatsapp"|null, channelAccountId: "<accountId>"|null, channelPeerId: "<groupId[:topic:topicId]>"|null, migrateFrom: "<agentId>"|null, models: { ... } })\`
-  - Prefer \`channelPeerId\` for Telegram groups/topics so setup creates an exact binding instead of a broad account-wide fallback.
+` +
+    `- Current agent: \`setup({ channelBinding: "telegram"|"whatsapp"|null, channelAccountId: "<accountId>"|null, ` +
+    `channelPeerId: "<groupId[:topic:topicId]>"|null, migrateFrom: "<agentId>"|null, ` +
+    `models: { developer: { ... }, tester: { ... } } })\`
+` +
+    `- New agent: \`setup({ newAgentName: "<name>", channelBinding: "telegram"|"whatsapp"|null, ` +
+    `channelAccountId: "<accountId>"|null, channelPeerId: "<groupId[:topic:topicId]>"|null, ` +
+    `migrateFrom: "<agentId>"|null, models: { ... } })\`
+` +
+    `  - Prefer \`channelPeerId\` for Telegram groups/topics so setup creates an exact binding instead of a broad account-wide fallback.
   - \`migrateFrom\`: Include only when user wants to migrate an existing channel-wide binding.
 - Setup writes only route bindings; OpenClaw remains responsible for channel account configuration.
 
@@ -186,15 +177,25 @@ Explain that projects should be registered **from within their Telegram group**:
 
 This keeps each project's registration tied to its group from the start.
 
-You can also register a project from this admin session if you want, but it's better to keep this session free for general admin tasks. If they want to register here anyway, collect: project name, repo path, Telegram group ID, group name, base branch, then call \`project_register\`.
+` +
+    `You can also register a project from this admin session if you want, but it's better to keep this session ` +
+    `free for general admin tasks. If they want to register here anyway, collect: project name, repo path, ` +
+    `Telegram group ID, group name, base branch, then call \`project_register\`.
 
 **Step 6: Workflow Overview**
 After project registration, briefly tell the user about their active workflow:
 
-- **Review policy**: human (default) — PRs need human approval on GitHub/GitLab, heartbeat auto-merges when approved.
-- **Test phase**: skipped by default — the testing step is in the workflow but issues bypass it automatically. To enable testing for a specific issue, remove the \`test:skip\` label. To enable globally, set \`testPolicy: agent\` in workflow.yaml.
-- **Customization**: They can change the review policy (human/agent/auto), enable testing (testPolicy: agent), or override settings per project. Point them to \`workflow.yaml\` in the devclaw data directory.
-- Say: "Your workflow is set up with **human review** and **testing skipped** by default. You can enable testing per-issue by removing the \`test:skip\` label, or globally by setting \`testPolicy: agent\` in your workflow.yaml."
+` +
+    `- **Review policy**: human (default) — PRs need human approval on GitHub/GitLab, heartbeat auto-merges when approved.
+` +
+    `- **Test phase**: skipped by default — the testing step is in the workflow but issues bypass it automatically. ` +
+    `To enable testing for a specific issue, remove the \`test:skip\` label. To enable globally, set \`testPolicy: agent\` in workflow.yaml.
+` +
+    `- **Customization**: They can change the review policy (human/agent/auto), enable testing (testPolicy: agent), ` +
+    `or override settings per project. Point them to \`workflow.yaml\` in the devclaw data directory.
+` +
+    `- Say: "Your workflow is set up with **human review** and **testing skipped** by default. ` +
+    `You can enable testing per-issue by removing the \`test:skip\` label, or globally by setting \`testPolicy: agent\` in your workflow.yaml."
 
 ## Guidelines
 - Be conversational and friendly. Ask one question at a time.

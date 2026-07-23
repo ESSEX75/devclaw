@@ -10,11 +10,10 @@ import {
   detectRoleFromLabel as workflowDetectRole,
   getQueueLabels,
 } from "../../domain/workflow/queries.js";
-import type { Role,WorkflowConfig } from "../../domain/workflow/types.js";
+import type { Role, WorkflowConfig } from "../../domain/workflow/types.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
-import { getAllLevels,getLevelsForRole } from "../../roles/index.js";
+import { getAllLevels, getLevelsForRole } from "../../roles/index.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
 
 // ---------------------------------------------------------------------------

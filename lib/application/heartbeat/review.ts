@@ -50,7 +50,7 @@ export async function reviewPass(opts: {
   const reviewStates = Object.entries(workflow.states)
     .filter(([, s]) => s.check != null) as [string, StateConfig][];
 
-  for (const [stateKey, state] of reviewStates) {
+  for (const [, state] of reviewStates) {
     if (!state.on || !state.check) continue;
 
     const candidates = await getHeartbeatCandidates({

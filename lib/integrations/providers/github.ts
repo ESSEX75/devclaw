@@ -75,7 +75,17 @@ export class GitHubProvider implements IssueProvider {
   private async findPrsViaTimeline(
     issueId: number,
     state: "open" | "merged" | "all",
-  ): Promise<Array<{ number: number; title: string; body: string; headRefName: string; url: string; mergedAt: string | null; reviewDecision: string | null; state: string; mergeable: string | null }> | null> {
+  ): Promise<Array<{
+    number: number;
+    title: string;
+    body: string;
+    headRefName: string;
+    url: string;
+    mergedAt: string | null;
+    reviewDecision: string | null;
+    state: string;
+    mergeable: string | null;
+  }> | null> {
     const repo = await this.getRepoInfo();
 
     if (!repo) return null;
@@ -105,7 +115,17 @@ export class GitHubProvider implements IssueProvider {
 
       // Extract PR data from both event types
       const seen = new Set<number>();
-      const prs: Array<{ number: number; title: string; body: string; headRefName: string; url: string; mergedAt: string | null; reviewDecision: string | null; state: string; mergeable: string | null }> = [];
+      const prs: Array<{
+        number: number;
+        title: string;
+        body: string;
+        headRefName: string;
+        url: string;
+        mergedAt: string | null;
+        reviewDecision: string | null;
+        state: string;
+        mergeable: string | null;
+      }> = [];
 
       for (const node of nodes) {
         const pr = node.subject ?? node.source;
@@ -380,8 +400,13 @@ export class GitHubProvider implements IssueProvider {
    */
   private async hasChangesRequestedReview(prNumber: number): Promise<boolean> {
     try {
-      const raw = await this.gh(["api", `repos/:owner/:repo/pulls/${prNumber}/reviews`, "--jq",
-        "[.[] | select(.state == \"CHANGES_REQUESTED\" or .state == \"APPROVED\") | {user: .user.login, state}] | group_by(.user) | map(sort_by(.state) | last) | .[] | select(.state == \"CHANGES_REQUESTED\") | .user"]);
+      const raw = await this.gh([
+        "api",
+        `repos/:owner/:repo/pulls/${prNumber}/reviews`,
+        "--jq",
+        `[.[] | select(.state == "CHANGES_REQUESTED" or .state == "APPROVED") | {user: .user.login, state}] | ` +
+        `group_by(.user) | map(sort_by(.state) | last) | .[] | select(.state == "CHANGES_REQUESTED") | .user`,
+      ]);
 
       return raw.trim().length > 0;
     } catch { return false; }

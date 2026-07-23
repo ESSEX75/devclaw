@@ -218,7 +218,7 @@ async function readWorkflowFile(dir: string): Promise<DevClawConfig | null> {
     if ('code' in error && error.code === "ENOENT") return null;
     // Re-throw validation errors with file context
     if ('name' in error && error.name === "ZodError") {
-      throw new Error(`Invalid workflow.yaml in ${dir}: ${error.message}`);
+      throw new Error(`Invalid workflow.yaml in ${dir}: ${error.message}`, { cause: err });
     }
 
     return null;

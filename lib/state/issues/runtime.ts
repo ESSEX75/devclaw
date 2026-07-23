@@ -16,21 +16,21 @@ import type { Issue } from "../../integrations/providers/provider.js";
 
 export type IssueRuntimeResolution =
   | {
-      kind: "managed";
-      state: IssueRuntimeState;
-      workflowLabel: WorkflowLabel;
-      workflowState: WorkflowStateKey;
-      stateConfig: StateConfig | null;
-      providerIssue: Issue;
-    }
+    kind: "managed";
+    state: IssueRuntimeState;
+    workflowLabel: WorkflowLabel;
+    workflowState: WorkflowStateKey;
+    stateConfig: StateConfig | null;
+    providerIssue: Issue;
+  }
   | {
-      kind: "uninitialized";
-      state: null;
-      workflowLabel: WorkflowLabel | null;
-      workflowState: WorkflowStateKey | null;
-      stateConfig: StateConfig | null;
-      providerIssue: Issue;
-    };
+    kind: "uninitialized";
+    state: null;
+    workflowLabel: WorkflowLabel | null;
+    workflowState: WorkflowStateKey | null;
+    stateConfig: StateConfig | null;
+    providerIssue: Issue;
+  };
 
 export async function resolveIssueRuntimeState(opts: {
   workspaceDir: string;

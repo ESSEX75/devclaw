@@ -83,13 +83,26 @@ export function ensureSessionFireAndForget(sessionKey: string, model: string, wo
     auditLog(workspaceDir, "dispatch_warning", {
       step: "ensureSession", sessionKey,
       error: (err as Error).message ?? String(err),
-    }).catch(() => {});
+    }).catch(() => { });
   });
 }
 
 export function sendToAgent(
   sessionKey: string, taskMessage: string,
-  opts: { agentId?: string; projectName: string; issueId: number; role: string; level?: string; slotIndex?: number; fromLabel?: string; orchestratorSessionKey?: string; workspaceDir: string; dispatchTimeoutMs?: number; extraSystemPrompt?: string; runCommand: RunCommand },
+  opts: {
+    agentId?: string;
+    projectName: string;
+    issueId: number;
+    role: string;
+    level?: string;
+    slotIndex?: number;
+    fromLabel?: string;
+    orchestratorSessionKey?: string;
+    workspaceDir: string;
+    dispatchTimeoutMs?: number;
+    extraSystemPrompt?: string;
+    runCommand: RunCommand;
+  },
 ): void {
   const rc = opts.runCommand;
   const gatewayParams = JSON.stringify({
@@ -112,6 +125,6 @@ export function sendToAgent(
       step: "sendToAgent", sessionKey,
       issue: opts.issueId, role: opts.role,
       error: (err as Error).message ?? String(err),
-    }).catch(() => {});
+    }).catch(() => { });
   });
 }

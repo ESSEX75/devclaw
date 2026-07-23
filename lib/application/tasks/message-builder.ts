@@ -72,7 +72,7 @@ export function buildTaskMessage(opts: {
   if (opts.prContext) parts.push(...formatPrContext(opts.prContext));
   if (opts.prFeedback) {
     parts.push(...formatPrFeedback(opts.prFeedback, baseBranch));
-    
+
     // Defensive warning if branch name is missing (shouldn't happen in practice)
     if (!opts.prFeedback.branchName && opts.prFeedback.reason === "merge_conflict") {
       parts.push(
@@ -130,7 +130,7 @@ export function buildConflictFixMessage(opts: {
   prFeedback: PrFeedback;
 }): string {
   const {
-    projectName, channelId, role, issueId, issueTitle,
+    projectName, channelId, role, issueId,
     issueUrl, repo, baseBranch, prFeedback,
   } = opts;
 

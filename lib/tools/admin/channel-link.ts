@@ -9,11 +9,11 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
-import type { PluginContext } from "../../context.js";
-import { type Channel,readProjects, writeProjects } from "../../state/projects/index.js";
+import { type Channel, readProjects, writeProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createChannelLinkTool(_ctx: PluginContext) {
+export function createChannelLinkTool() {
+
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_link",
     label: "Channel Link",
@@ -83,7 +83,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
 
         throw new Error(
           `Project "${projectRef}" not found. Available projects: ${available || "none"}. ` +
-            `Register a project first with project_register.`,
+          `Register a project first with project_register.`,
         );
       }
 

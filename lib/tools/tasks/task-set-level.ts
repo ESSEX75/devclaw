@@ -18,7 +18,9 @@ export function createTaskSetLevelTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_set_level",
     label: "Task Set Level",
-    description: `Set the developer level hint on a HOLD-state issue (Planning, Refining). The level is applied as a role:level label and respected by the heartbeat when the issue is advanced via task_start.
+    description:
+      `Set the developer level hint on a HOLD-state issue (Planning, Refining). ` +
+      `The level is applied as a role:level label and respected by the heartbeat when the issue is advanced via task_start.
 
 Examples:
 - { issueId: 42, level: "senior" }
@@ -29,7 +31,9 @@ Examples:
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
         issueId: {
           type: "number",

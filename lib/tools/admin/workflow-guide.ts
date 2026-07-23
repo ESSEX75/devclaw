@@ -10,11 +10,10 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import type { PluginContext } from "../../context.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createWorkflowGuideTool(_ctx: PluginContext) {
+export function createWorkflowGuideTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "workflow_guide",
     label: "Workflow Guide",
@@ -197,9 +196,13 @@ APPROVED:
 
 ## Syncing labels after changes
 
-After adding, renaming, or removing states in workflow.yaml, run the \`sync_labels\` tool to create the corresponding labels on GitHub/GitLab. Labels are only created during \`project_register\` — workflow.yaml edits are not automatically synced.
+After adding, renaming, or removing states in workflow.yaml, run the \`sync_labels\` tool to create the ` +
+    `corresponding labels on GitHub/GitLab. Labels are only created during \`project_register\` — ` +
+    `workflow.yaml edits are not automatically synced.
 
-\`sync_labels\` reads the fully resolved config (built-in + workspace + project overrides) and ensures every state label, role:level label, and step routing label exists on the provider. It is idempotent — safe to run multiple times.
+\`sync_labels\` reads the fully resolved config (built-in + workspace + project overrides) and ensures ` +
+    `every state label, role:level label, and step routing label exists on the provider. It is idempotent — ` +
+    `safe to run multiple times.
 
 \`\`\`
 sync_labels                         # sync all projects

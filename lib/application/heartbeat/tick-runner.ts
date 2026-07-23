@@ -1,8 +1,6 @@
 /**
  * Tick runner — main heartbeat loop that processes each project.
  */
-import path from "node:path";
-
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
@@ -11,8 +9,7 @@ import { EXECUTION_MODE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { getProject, type Project,readProjects } from "../../state/projects/index.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
+import { getProject, readProjects } from "../../state/projects/index.js";
 import { projectTick } from "../queue/tick.js";
 import type { HeartbeatConfig } from "./config.js";
 import {

@@ -48,7 +48,8 @@ The architect will:
 Example:
   research_task({
     title: "Research: Session persistence strategy",
-    description: "Sessions are lost on restart. Current impl uses in-memory Map in session-store.ts. Constraints: must work with SQLite (already a dep), max 50ms latency on read. Prior discussion in #42 ruled out Redis.",
+    description: "Sessions are lost on restart. Current impl uses in-memory Map in session-store.ts. " +
+      "Constraints: must work with SQLite (already a dep), max 50ms latency on read. Prior discussion in #42 ruled out Redis.",
     focusAreas: ["SQLite vs file-based", "migration path", "cache invalidation"],
     complexity: "complex"
   })`,
@@ -58,7 +59,9 @@ Example:
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
         title: {
           type: "string",
@@ -66,7 +69,9 @@ Example:
         },
         description: {
           type: "string",
-          description: "Detailed background context: what exists today, why this needs investigation, constraints, relevant code paths, prior decisions. Must be detailed enough for the architect to produce development-ready findings.",
+          description:
+            "Detailed background context: what exists today, why this needs investigation, constraints, " +
+            "relevant code paths, prior decisions. Must be detailed enough for the architect to produce development-ready findings.",
         },
         focusAreas: {
           type: "array",

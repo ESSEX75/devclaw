@@ -65,7 +65,7 @@ export async function fetchModels(allModels = true, runCommand: RunCommand): Pro
 
     return models;
   } catch (err) {
-    throw new Error(`Failed to fetch models: ${(err as Error).message}`);
+    throw new Error(`Failed to fetch models: ${(err as Error).message}`, { cause: err });
   }
 }
 

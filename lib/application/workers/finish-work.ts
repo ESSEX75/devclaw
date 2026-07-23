@@ -277,7 +277,7 @@ async function auditWorkFinishRejectedMissingActiveWorker(opts: {
   }> = [];
 
   try {
-    activeWorkflowLabel = getActiveLabel(opts.workflow, opts.role as any);
+    activeWorkflowLabel = getActiveLabel(opts.workflow, opts.role as Role);
     const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
 
     candidateIssues = Object.values(store.issues)

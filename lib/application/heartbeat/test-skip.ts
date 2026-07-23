@@ -38,7 +38,7 @@ export async function testSkipPass(opts: {
   const testQueueStates = Object.entries(workflow.states)
     .filter(([, s]) => s.role === "tester" && s.type === STATE_TYPE.QUEUE) as [string, StateConfig][];
 
-  for (const [_stateKey, state] of testQueueStates) {
+  for (const [, state] of testQueueStates) {
     const skipTransition = state.on?.[WORKFLOW_EVENT.SKIP];
 
     if (!skipTransition) continue;

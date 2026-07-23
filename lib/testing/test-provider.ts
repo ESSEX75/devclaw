@@ -4,6 +4,7 @@
  * Tracks all method calls for assertion. Issues are stored in a simple map.
  * No external dependencies — pure TypeScript.
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { getStateLabels } from "../domain/workflow/index.js";
 import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
 import type {
@@ -20,24 +21,24 @@ import type {
 
 export type ProviderCall =
   | { method: "ensureLabel"; args: { name: string; color: string } }
-  | { method: "ensureAllStateLabels"; args: {} }
+  | { method: "ensureAllStateLabels"; args: Record<string, never> }
   | {
-      method: "createIssue";
-      args: {
-        title: string;
-        description: string;
-        label: StateLabel;
-        assignees?: string[];
-      };
-    }
+    method: "createIssue";
+    args: {
+      title: string;
+      description: string;
+      label: StateLabel;
+      assignees?: string[];
+    };
+  }
   | { method: "listIssuesByLabel"; args: { label: StateLabel } }
   | { method: "listIssues"; args: { label?: string; state?: string } }
   | { method: "getIssue"; args: { issueId: number } }
   | { method: "listComments"; args: { issueId: number } }
   | {
-      method: "transitionLabel";
-      args: { issueId: number; from: StateLabel; to: StateLabel };
-    }
+    method: "transitionLabel";
+    args: { issueId: number; from: StateLabel; to: StateLabel };
+  }
   | { method: "addLabel"; args: { issueId: number; label: string } }
   | { method: "removeLabels"; args: { issueId: number; labels: string[] } }
   | { method: "closeIssue"; args: { issueId: number } }
@@ -49,7 +50,7 @@ export type ProviderCall =
   | { method: "getPrReviewComments"; args: { issueId: number } }
   | { method: "addComment"; args: { issueId: number; body: string } }
   | { method: "editIssue"; args: { issueId: number; updates: { title?: string; body?: string } } }
-  | { method: "healthCheck"; args: {} };
+  | { method: "healthCheck"; args: Record<string, never> };
 
 // ---------------------------------------------------------------------------
 // TestProvider
@@ -111,7 +112,7 @@ export class TestProvider implements IssueProvider {
   callsTo<M extends ProviderCall["method"]>(
     method: M,
   ): Extract<ProviderCall, { method: M }>[] {
-    return this.calls.filter((c) => c.method === method) as any;
+    return this.calls.filter((c) => c.method === method) as unknown as Extract<ProviderCall, { method: M }>[];
   }
 
   /** Reset call tracking (keeps issue state). */

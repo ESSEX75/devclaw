@@ -11,7 +11,6 @@ import {
   assignModels,
   formatAssignment,
   generateSetupInstructions,
-  type ModelAssignment,
 } from "../../roles/smart-model-selector.js";
 
 /**
@@ -33,7 +32,7 @@ async function getAuthenticatedModels(runCommand: RunCommand): Promise<Array<{ m
       };
     });
   } catch (err) {
-    throw new Error(`Failed to get authenticated models: ${(err as Error).message}`);
+    throw new Error(`Failed to get authenticated models: ${(err as Error).message}`, { cause: err });
   }
 }
 
@@ -73,7 +72,9 @@ export function createAutoConfigureModelsTool(ctx: PluginContext) {
             return jsonResult({
               success: false,
               error: `No authenticated models found for provider: ${preferProvider}`,
-              message: `❌ No authenticated models found for provider "${preferProvider}".\n\nAvailable providers: ${[...new Set(authenticatedModels.map((m) => m.provider))].join(", ")}`,
+              message:
+                `❌ No authenticated models found for provider "${preferProvider}".\n\n` +
+                `Available providers: ${[...new Set(authenticatedModels.map((m) => m.provider))].join(", ")}`,
             });
           }
 

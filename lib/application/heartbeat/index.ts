@@ -227,7 +227,9 @@ function logTickResult(
     result.totalTestSkipTransitions > 0
   ) {
     logger.info(
-      `work_heartbeat tick: ${result.totalPickups} pickups, ${result.totalHealthFixes} health fixes, ${result.totalReviewTransitions} review transitions, ${result.totalReviewSkipTransitions} review skips, ${result.totalTestSkipTransitions} test skips, ${result.totalSkipped} skipped`,
+      `work_heartbeat tick: ${result.totalPickups} pickups, ${result.totalHealthFixes} health fixes, ` +
+        `${result.totalReviewTransitions} review transitions, ${result.totalReviewSkipTransitions} review skips, ` +
+        `${result.totalTestSkipTransitions} test skips, ${result.totalSkipped} skipped`,
     );
   }
 }

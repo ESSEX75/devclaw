@@ -28,7 +28,7 @@ function loadDefault(filename: string): string {
   try {
     return fs.readFileSync(filePath, "utf-8");
   } catch (err) {
-    throw new Error(`Failed to load default file: ${filePath} (${(err as Error).message})`);
+    throw new Error(`Failed to load default file: ${filePath} (${(err as Error).message})`, { cause: err });
   }
 }
 

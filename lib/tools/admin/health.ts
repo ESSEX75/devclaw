@@ -14,10 +14,10 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import { checkWorkerHealth, fetchGatewaySessions, type HealthFix,scanOrphanedLabels } from "../../application/heartbeat/health.js";
+import { checkWorkerHealth, fetchGatewaySessions, type HealthFix, scanOrphanedLabels } from "../../application/heartbeat/health.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { getProject,readProjects } from "../../state/projects/index.js";
+import { getProject, readProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
 
 export function createHealthTool(ctx: PluginContext) {

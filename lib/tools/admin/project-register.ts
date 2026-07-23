@@ -15,7 +15,7 @@ import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { getRoleLabels } from "../../domain/workflow/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
+import { getAllRoleIds } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { emptyRoleWorkerState,readProjects, writeProjects } from "../../state/projects/index.js";
 import { resolveRepoPath } from "../../state/projects/index.js";

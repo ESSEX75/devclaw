@@ -8,11 +8,10 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
-import type { PluginContext } from "../../context.js";
 import { readProjects, writeProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createChannelUnlinkTool(_ctx: PluginContext) {
+export function createChannelUnlinkTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_unlink",
     label: "Channel Unlink",

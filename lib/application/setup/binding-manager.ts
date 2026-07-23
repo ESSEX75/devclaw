@@ -75,7 +75,11 @@ export async function analyzeChannelBindings(
   } else if (!channelEnabled) {
     recommendation = `⚠️ ${channel} is configured but disabled. Enable it in openclaw.json (channels.${channel}.enabled: true) and restart OpenClaw.`;
   } else if (existingChannelWideBinding) {
-    recommendation = `⚠️ Agent "${existingChannelWideBinding.agentName}" is already bound to all ${channel} messages. Options:\n  1. Migrate binding to the new agent (recommended if replacing)\n  2. Use group-specific binding instead (if you want both agents active)\n  3. Skip binding for now`;
+    recommendation =
+      `⚠️ Agent "${existingChannelWideBinding.agentName}" is already bound to all ${channel} messages. Options:\n` +
+      `  1. Migrate binding to the new agent (recommended if replacing)\n` +
+      `  2. Use group-specific binding instead (if you want both agents active)\n` +
+      `  3. Skip binding for now`;
   } else if (groupSpecificBindings.length > 0) {
     recommendation = `✅ ${groupSpecificBindings.length} group-specific binding(s) exist. No conflicts - safe to add channel-wide binding.`;
   } else {
@@ -184,11 +188,11 @@ export async function ensureChannelBinding(
 
   const insertAt = normalizedPeerId
     ? cfg.bindings.findIndex(
-        (binding) =>
-          binding.match?.channel === channel &&
-          normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
-          !binding.match.peer,
-      )
+      (binding) =>
+        binding.match?.channel === channel &&
+        normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
+        !binding.match.peer,
+    )
     : -1;
 
   if (insertAt === -1) {

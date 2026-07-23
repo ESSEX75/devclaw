@@ -11,13 +11,12 @@ import path from "node:path";
 
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import type { PluginContext } from "../../context.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
-import { DEFAULT_ROLE_INSTRUCTIONS,WORKFLOW_YAML_TEMPLATE } from "../../state/setup/templates.js";
+import { DEFAULT_ROLE_INSTRUCTIONS, WORKFLOW_YAML_TEMPLATE } from "../../state/setup/templates.js";
 import { getCurrentVersion, readVersionFile } from "../../state/setup/version.js";
-import { backupAndWrite, fileExists,writeAllDefaults } from "../../state/setup/workspace-files.js";
+import { backupAndWrite, fileExists, writeAllDefaults } from "../../state/setup/workspace-files.js";
 
-export function createConfigTool(ctx: PluginContext) {
+export function createConfigTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "config",
     label: "Config",
@@ -160,7 +159,9 @@ async function handleDiff(workspacePath: string) {
     success: true,
     action: "diff",
     differences: diffs.length,
-    summary: `workflow.yaml differs from package default (${diffs.length} line(s)):\n\`\`\`diff\n${diffs.join("\n")}\n\`\`\`\n\nUse \`config({ action: "reset", scope: "workflow" })\` to reset to defaults.`,
+    summary:
+      `workflow.yaml differs from package default (${diffs.length} line(s)):\n\`\`\`diff\n${diffs.join("\n")}\n\`\`\`\n\n` +
+      `Use \`config({ action: "reset", scope: "workflow" })\` to reset to defaults.`,
   });
 }
 

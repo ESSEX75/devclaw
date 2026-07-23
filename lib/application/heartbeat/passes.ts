@@ -7,7 +7,7 @@ import type { RunCommand } from "../../context.js";
 import { resolveNotifyChannel } from "../../domain/workflow/index.js";
 import type { ResolvedConfig } from "../../state/config/types.js";
 import { type Project } from "../../state/projects/index.js";
-import { getNotificationConfig,notify } from "../notifications/notify.js";
+import { getNotificationConfig, notify } from "../notifications/notify.js";
 import {
   checkWorkerHealth,
   scanOrphanedLabels,
@@ -164,9 +164,9 @@ export async function performReviewPass(
               accountId: target?.accountId,
               runCommand,
             },
-          ).catch(() => {});
+          ).catch(() => { });
         })
-        .catch(() => {});
+        .catch(() => { });
     },
     onFeedback: (issueId, reason, prUrl, issueTitle, issueUrl) => {
       const type =
@@ -195,7 +195,7 @@ export async function performReviewPass(
           accountId: target?.accountId,
           runCommand,
         },
-      ).catch(() => {});
+      ).catch(() => { });
     },
     onPrClosed: (issueId, prUrl, issueTitle, issueUrl) => {
       // No issue labels available in this callback — fall back to primary channel
@@ -220,7 +220,7 @@ export async function performReviewPass(
           accountId: target?.accountId,
           runCommand,
         },
-      ).catch(() => {});
+      ).catch(() => { });
     },
   });
 }
@@ -281,9 +281,9 @@ export async function performReviewSkipPass(
               accountId: target?.accountId,
               runCommand,
             },
-          ).catch(() => {});
+          ).catch(() => { });
         })
-        .catch(() => {});
+        .catch(() => { });
     },
   });
 }

@@ -14,9 +14,12 @@ export function createTaskStartTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_start",
     label: "Task Start",
-    description: `Advance an issue to the next queue in the workflow. State-agnostic: works from any state (Planning, Refining, To Do, etc.) and determines the correct queue automatically using workflow transitions.
+    description:
+      `Advance an issue to the next queue in the workflow. State-agnostic: works from any state ` +
+      `(Planning, Refining, To Do, etc.) and determines the correct queue automatically using workflow transitions.
 
-Optionally set a level hint (e.g. "junior", "senior") so the heartbeat dispatches with the desired level. The heartbeat handles the actual dispatch — this tool only places issues in queues.
+Optionally set a level hint (e.g. "junior", "senior") so the heartbeat dispatches with the desired level.
+The heartbeat handles the actual dispatch — this tool only places issues in queues.
 
 Examples:
 - Start work: { channelId: "-1003844794417", issueId: 42 } → advances to next queue
@@ -27,7 +30,9 @@ Examples:
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
         issueId: {
           type: "number",

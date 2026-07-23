@@ -47,7 +47,7 @@ export async function reviewSkipPass(opts: {
   const reviewQueueStates = Object.entries(workflow.states)
     .filter(([, s]) => s.role === "reviewer" && s.type === STATE_TYPE.QUEUE) as [string, StateConfig][];
 
-  for (const [_stateKey, state] of reviewQueueStates) {
+  for (const [, state] of reviewQueueStates) {
     const skipTransition = state.on?.[WORKFLOW_EVENT.SKIP];
 
     if (!skipTransition) continue;

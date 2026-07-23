@@ -6,11 +6,10 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import type { PluginContext } from "../../context.js";
 import { readProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createChannelListTool(_ctx: PluginContext) {
+export function createChannelListTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_list",
     label: "Channel List",
@@ -66,15 +65,13 @@ export function createChannelListTool(_ctx: PluginContext) {
           (channels.length === 0
             ? "_(none)_"
             : channels
-                .map(
-                  (ch) =>
-                    `• **${ch.name}** (${ch.type})\n  ID: \`${ch.channelId}\`\n  Events: ${ch.events.join(", ")}${
-                      ch.accountId ? `\n  Account: ${ch.accountId}` : ""
-                    }${
-                      ch.threadId ? `\n  Thread: ${ch.threadId}` : ""
-                    }`,
-                )
-                .join("\n\n"));
+              .map(
+                (ch) =>
+                  `• **${ch.name}** (${ch.type})\n  ID: \`${ch.channelId}\`\n  Events: ${ch.events.join(", ")}${ch.accountId ? `\n  Account: ${ch.accountId}` : ""
+                  }${ch.threadId ? `\n  Thread: ${ch.threadId}` : ""
+                  }`,
+              )
+              .join("\n\n"));
 
         return jsonResult({
           success: true,
@@ -116,11 +113,11 @@ export function createChannelListTool(_ctx: PluginContext) {
                 p.channels.length === 0
                   ? "  _(no channels)_"
                   : p.channels
-                      .map(
-                        (ch) =>
-                          `  • **${ch.name}** (${ch.type}) — \`${ch.channelId}\`${ch.threadId ? ` / thread ${ch.threadId}` : ""}`,
-                      )
-                      .join("\n");
+                    .map(
+                      (ch) =>
+                        `  • **${ch.name}** (${ch.type}) — \`${ch.channelId}\`${ch.threadId ? ` / thread ${ch.threadId}` : ""}`,
+                    )
+                    .join("\n");
 
               return `**${p.project}** (${p.projectSlug}):\n${channelList}`;
             })

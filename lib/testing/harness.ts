@@ -296,9 +296,9 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     },
     async simulateBootstrap(sessionKey: string) {
       // Capture the agent:bootstrap hook callback
-      let internalHookCb: ((event: any) => Promise<void>) | null = null;
+      let internalHookCb: ((event: unknown) => Promise<void>) | null = null;
       const mockApi = {
-        registerHook(_name: string, cb: (event: any) => Promise<void>) {
+        registerHook(_name: string, cb: (event: unknown) => Promise<void>) {
           internalHookCb = cb;
         },
         logger: {
@@ -326,7 +326,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
       ];
 
       // Cast needed: TS strict mode doesn't track cross-function mutation of locals
-      const hookCb = internalHookCb as ((event: any) => Promise<void>) | null;
+      const hookCb = internalHookCb as ((event: unknown) => Promise<void>) | null;
 
       if (hookCb) {
         await hookCb({

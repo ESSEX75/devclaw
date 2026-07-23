@@ -200,6 +200,6 @@ export function registerBootstrapHook(api: OpenClawPluginApi, ctx: PluginContext
       name: "devclaw-bootstrap-role-instructions",
       description:
         "Replaces orchestrator AGENTS.md with role-specific instructions for DevClaw workers",
-    } as any,
+    } as Record<string, unknown>,
   );
 }

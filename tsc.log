@@ -1,0 +1,35 @@
+lib/application/heartbeat/passes.ts(49,7): error TS2322: Type 'string' is not assignable to type 'Role'.
+lib/application/heartbeat/passes.ts(66,7): error TS2322: Type 'string' is not assignable to type 'Role'.
+lib/application/pipeline/completion.ts(49,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Role'.
+lib/application/pipeline/completion.ts(89,44): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Role'.
+lib/application/pipeline/completion.ts(210,55): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Role'.
+lib/application/pipeline/completion.ts(360,36): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Role'.
+lib/application/queue/queue.ts(27,24): error TS2693: 'StateType' only refers to a type, but is being used as a value here.
+lib/application/queue/queue.ts(28,29): error TS2693: 'StateType' only refers to a type, but is being used as a value here.
+lib/application/queue/queue.ts(29,29): error TS2693: 'StateType' only refers to a type, but is being used as a value here.
+lib/application/queue/tick.ts(95,9): error TS2322: Type 'string[]' is not assignable to type 'Role[]'.
+  Type 'string' is not assignable to type 'Role'.
+lib/application/queue/tick.ts(180,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'LevelId'.
+lib/application/workers/dispatch-task.ts(249,42): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Role'.
+lib/state/issues/lifecycle-store.ts(126,7): error TS2322: Type 'string' is not assignable to type 'WorkflowStateKey'.
+lib/state/issues/lifecycle-store.ts(127,7): error TS2322: Type 'string' is not assignable to type 'WorkflowLabel'.
+lib/state/issues/lifecycle-store.ts(128,7): error TS2322: Type 'string | null' is not assignable to type 'RoleId | null | undefined'.
+  Type 'string' is not assignable to type 'RoleId | null | undefined'.
+lib/state/issues/lifecycle-store.ts(129,7): error TS2322: Type 'string | null' is not assignable to type 'LevelId | null | undefined'.
+  Type 'string' is not assignable to type 'LevelId | null | undefined'.
+lib/state/issues/runtime.ts(41,23): error TS2304: Cannot find name 'readIssueStateStore'.
+lib/state/issues/runtime.ts(62,5): error TS2322: Type 'string | null' is not assignable to type 'WorkflowLabel | null'.
+  Type 'string' is not assignable to type 'WorkflowLabel | null'.
+lib/state/issues/runtime.ts(63,5): error TS2322: Type 'string | null' is not assignable to type 'WorkflowStateKey | null'.
+  Type 'string' is not assignable to type 'WorkflowStateKey | null'.
+lib/state/projects/mutations.ts(99,54): error TS2345: Argument of type 'string' is not assignable to parameter of type 'LevelId'.
+lib/tools/admin/health.ts(74,13): error TS2322: Type 'string' is not assignable to type 'Role'.
+lib/tools/admin/health.ts(88,13): error TS2322: Type 'string' is not assignable to type 'Role'.
+lib/tools/admin/setup.ts(125,15): error TS2552: Cannot find name 'ExecutionMode'. Did you mean 'SelectionMode'?
+lib/tools/tasks/task-set-level.test.ts(94,66): error TS2554: Expected 1 arguments, but got 2.
+lib/tools/tasks/task-set-level.test.ts(95,66): error TS2554: Expected 1 arguments, but got 2.
+lib/tools/tasks/task-set-level.test.ts(99,66): error TS2554: Expected 1 arguments, but got 2.
+lib/tools/tasks/task-set-level.test.ts(100,66): error TS2554: Expected 1 arguments, but got 2.
+lib/tools/tasks/task-set-level.test.ts(104,65): error TS2554: Expected 1 arguments, but got 2.
+lib/tools/tasks/task-set-level.test.ts(105,65): error TS2554: Expected 1 arguments, but got 2.
+lib/tools/tasks/task-set-level.test.ts(106,65): error TS2554: Expected 1 arguments, but got 2.

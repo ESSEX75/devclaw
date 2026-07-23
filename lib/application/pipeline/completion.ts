@@ -18,12 +18,12 @@ import {
   WORKFLOW_EVENT,
   type WorkflowConfig,
 } from "../../domain/index.js";
-import type { IssueProvider,StateLabel } from "../../integrations/providers/provider.js";
+import type { IssueProvider, StateLabel } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import type { Channel } from "../../state/projects/index.js";
-import { deactivateWorker, getRoleWorker,loadProjectBySlug } from "../../state/projects/index.js";
-import { getNotificationConfig,notify } from "../notifications/notify.js";
+import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/projects/index.js";
+import { getNotificationConfig, notify } from "../notifications/notify.js";
 
 export type { CompletionRule };
 
@@ -102,21 +102,23 @@ export async function executeCompletion(opts: {
     switch (action) {
       case ACTION.GIT_PULL:
         try { await rc(["git", "pull"], { timeoutMs: timeouts.gitPullMs, cwd: repoPath }); } catch (err) {
-          auditLog(workspaceDir, "pipeline_warning", { step: "gitPull", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => {});
+          auditLog(workspaceDir, "pipeline_warning", { step: "gitPull", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
         }
 
         break;
       case ACTION.DETECT_PR:
-        if (!prUrl) { try {
-          // Try open PR first (developer just finished — MR is still open), fall back to merged
-          const prStatus = await provider.getPrStatus(issueId);
+        if (!prUrl) {
+          try {
+            // Try open PR first (developer just finished — MR is still open), fall back to merged
+            const prStatus = await provider.getPrStatus(issueId);
 
-          prUrl = prStatus.url ?? await provider.getMergedMRUrl(issueId) ?? undefined;
-          prTitle = prStatus.title;
-          sourceBranch = prStatus.sourceBranch;
-        } catch (err) {
-          auditLog(workspaceDir, "pipeline_warning", { step: "detectPr", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => {});
-        } }
+            prUrl = prStatus.url ?? await provider.getMergedMRUrl(issueId) ?? undefined;
+            prTitle = prStatus.title;
+            sourceBranch = prStatus.sourceBranch;
+          } catch (err) {
+            auditLog(workspaceDir, "pipeline_warning", { step: "detectPr", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
+          }
+        }
 
         break;
       case ACTION.MERGE_PR:
@@ -253,7 +255,7 @@ export async function executeCompletion(opts: {
       accountId: notifyTarget?.accountId,
     },
   ).catch((err) => {
-    auditLog(workspaceDir, "pipeline_warning", { step: "notify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => {});
+    auditLog(workspaceDir, "pipeline_warning", { step: "notify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
   });
 
   // Send merge notification when PR was merged during this completion
@@ -271,16 +273,24 @@ export async function executeCompletion(opts: {
         targetBranch,
         mergedBy: "pipeline",
       },
-      { workspaceDir, config: notifyConfig, channelId: notifyTarget?.channelId, channel: notifyTarget?.channel ?? "telegram", threadId: notifyTarget?.threadId, runtime, accountId: notifyTarget?.accountId },
+      {
+        workspaceDir,
+        config: notifyConfig,
+        channelId: notifyTarget?.channelId,
+        channel: notifyTarget?.channel ?? "telegram",
+        threadId: notifyTarget?.threadId,
+        runtime,
+        accountId: notifyTarget?.accountId,
+      },
     ).catch((err) => {
-      auditLog(workspaceDir, "pipeline_warning", { step: "mergeNotify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => {});
+      auditLog(workspaceDir, "pipeline_warning", { step: "mergeNotify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
     });
   }
 
   // Transition label first (critical — if this fails, issue still has correct state)
   // Then execute post-transition actions (close/reopen)
   // Finally deactivate worker (last — ensures label is set even if deactivation fails)
-  
+
   await provider.transitionLabel(issueId, rule.from as StateLabel, rule.to as StateLabel);
 
   // Execute post-transition actions
@@ -341,7 +351,7 @@ export async function executeCompletion(opts: {
           accountId: notifyTarget?.accountId,
         },
       ).catch((err) => {
-        auditLog(workspaceDir, "pipeline_warning", { step: "reviewNotify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => {});
+        auditLog(workspaceDir, "pipeline_warning", { step: "reviewNotify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
       });
     }
   }
