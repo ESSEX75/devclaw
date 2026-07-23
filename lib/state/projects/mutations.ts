@@ -1,7 +1,7 @@
 /**
  * projects/mutations.ts — State mutations for project worker slots.
  */
-import type { Project, ProjectsData, RoleWorkerState, SlotState } from "../../domain/index.js";
+import type { LevelId, Project, ProjectsData, Role, RoleWorkerState, SlotState } from "../../domain/index.js";
 import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
 import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjects } from "./store.js";
 
@@ -11,7 +11,7 @@ import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjec
  */
 export function getRoleWorker(
   project: Project,
-  role: string,
+  role: Role,
 ): RoleWorkerState {
   return project.workers[role] ?? { levels: {} };
 }
@@ -23,10 +23,10 @@ export function getRoleWorker(
 export async function updateSlot(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: string,
-  level: string,
+  role: Role,
+  level: LevelId,
   slotIndex: number,
-  updates: Partial<SlotState>,
+  updater: (slot: SlotState) => SlotState,
 ): Promise<ProjectsData> {
   await acquireLock(workspaceDir);
   try {
@@ -48,7 +48,7 @@ export async function updateSlot(
       slots.push(emptySlot());
     }
 
-    slots[slotIndex] = { ...slots[slotIndex]!, ...updates };
+    slots[slotIndex] = updater(slots[slotIndex]!);
     project.workers[role] = rw;
 
     await writeProjects(workspaceDir, data);
@@ -67,10 +67,10 @@ export async function updateSlot(
 export async function activateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: string,
+  role: Role,
   params: {
     issueId: string;
-    level: string;
+    level: LevelId;
     sessionKey?: string;
     startTime?: string;
     /** Label the issue had before transitioning to the active state (e.g. "To Do", "To Improve"). */
@@ -131,8 +131,8 @@ export async function activateWorker(
 export async function deactivateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: string,
-  opts?: { level?: string; slotIndex?: number; issueId?: string },
+  role: Role,
+  opts?: { level?: LevelId; slotIndex?: number; issueId?: string },
 ): Promise<ProjectsData> {
   await acquireLock(workspaceDir);
   try {

@@ -15,7 +15,16 @@ import { dispatchTask } from "../workers/dispatch-task.js";
 import { executeCompletion } from "./completion.js";
 import { projectTick } from "../queue/tick.js";
 import { reviewPass } from "../heartbeat/review.js";
-import { DEFAULT_WORKFLOW, REVIEW_POLICY, type ReviewPolicy, type WorkflowConfig } from "../../domain/index.js";
+import {
+  DEFAULT_WORKFLOW,
+  type LevelId,
+  REVIEW_POLICY,
+  type ReviewPolicy,
+  type RoleId,
+  type WorkflowConfig,
+  type WorkflowLabel,
+  type WorkflowStateKey,
+} from "../../domain/index.js";
 import { readProjects, getRoleWorker, getProject, countActiveSlots } from "../../state/projects/index.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import { slotName } from "../../names.js";
@@ -35,10 +44,10 @@ describe("E2E pipeline", () => {
     iid: number;
     title: string;
     labels: string[];
-    workflowState: string;
-    workflowLabel: string;
-    assignedRole: string;
-    assignedLevel: string;
+    workflowState: WorkflowStateKey;
+    workflowLabel: WorkflowLabel;
+    assignedRole: RoleId;
+    assignedLevel: LevelId;
     reviewPolicy?: "human" | "agent" | "skip" | null;
     testPolicy?: "agent" | "skip" | null;
     workflow?: WorkflowConfig;

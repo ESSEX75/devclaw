@@ -5,6 +5,8 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../context.js";
 import { resolveNotifyChannel } from "../../domain/workflow/index.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
+import { getAllRoleIds } from "../../roles/index.js";
 import type { ResolvedConfig } from "../../state/config/types.js";
 import { type Project } from "../../state/projects/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
@@ -31,7 +33,7 @@ export async function performHealthPass(
   projectSlug: string,
   project: Project,
   sessions: SessionLookup | null,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
   staleWorkerHours?: number,
   instanceName?: string,
   runCommand?: RunCommand,
@@ -40,7 +42,7 @@ export async function performHealthPass(
 ): Promise<number> {
   let fixedCount = 0;
 
-  for (const role of Object.keys(project.workers)) {
+  for (const role of getAllRoleIds()) {
     // Check worker health (session liveness, label consistency, etc)
     const healthFixes = await checkWorkerHealth({
       workspaceDir,

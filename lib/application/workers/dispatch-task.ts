@@ -24,13 +24,15 @@ import {
   resolveTestRouting,
   REVIEW_POLICY,
   type ReviewPolicy,
-  type RoleId,
+  type Role,
   STEP_ROUTING_COLOR,
   TEST_POLICY,
   type TestPolicy,
+  type WorkflowLabel,
 } from "../../domain/workflow/index.js";
 import { loadRoleInstructions } from "../../integrations/openclaw/bootstrap-hook.js";
 import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "../../integrations/openclaw/session.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { slotName } from "../../names.js";
 import { resolveModel } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
@@ -56,15 +58,15 @@ export type DispatchOpts = {
   issueTitle: string;
   issueDescription: string;
   issueUrl: string;
-  role: string;
+  role: Role;
   /** Developer level (junior, mid, senior) or raw model ID */
-  level: string;
+  level: LevelId;
   /** Label to transition FROM (e.g. "To Do", "To Test", "To Improve") */
-  fromLabel: string;
+  fromLabel: WorkflowLabel;
   /** Label to transition TO (e.g. "Doing", "Testing") */
-  toLabel: string;
+  toLabel: WorkflowLabel;
   /** Issue provider for issue operations and label transitions */
-  provider: import("../../integrations/providers/provider.js").IssueProvider;
+  provider: IssueProvider;
   /** Plugin config for model resolution and notification config */
   pluginConfig?: Record<string, unknown>;
   /** Orchestrator's session key (used as spawnedBy for subagent tracking) */
@@ -82,7 +84,7 @@ export type DispatchOpts = {
 export type DispatchResult = {
   sessionAction: "spawn" | "send";
   sessionKey: string;
-  level: string;
+  level: LevelId;
   model: string;
   announcement: string;
 };
@@ -145,9 +147,10 @@ export async function dispatchTask(
         ["openclaw", "gateway", "call", "sessions.delete", "--params", JSON.stringify({ key: existingSessionKey })],
         { timeoutMs: 10_000 },
       ).catch(() => { });
-      await updateSlot(workspaceDir, project.slug, role, level, slotIndex, {
+      await updateSlot(workspaceDir, project.slug, role, level, slotIndex, (currentSlot) => ({
+        ...currentSlot,
         sessionKey: null,
-      });
+      }));
       existingSessionKey = null;
     }
   }
@@ -362,8 +365,8 @@ export async function dispatchTask(
       reviewPolicy: reviewPolicyForState,
       testPolicy: testPolicyForState,
       activeWorker: {
-        role: role as RoleId,
-        level: level as LevelId,
+        role,
+        level,
         slotIndex,
         sessionKey,
         startedAt: new Date().toISOString(),
@@ -391,8 +394,8 @@ export async function dispatchTask(
 }
 
 async function recordWorkerState(
-  workspaceDir: string, slug: string, role: string, slotIndex: number,
-  opts: { issueId: number; level: string; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: string; name?: string },
+  workspaceDir: string, slug: string, role: Role, slotIndex: number,
+  opts: { issueId: number; level: LevelId; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: WorkflowLabel; name?: string },
 ): Promise<void> {
   await activateWorker(workspaceDir, slug, role, {
     issueId: String(opts.issueId),

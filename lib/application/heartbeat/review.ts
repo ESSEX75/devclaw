@@ -10,9 +10,10 @@ import type { RunCommand } from "../../context.js";
 import {
   ACTION,
   REVIEW_CHECK,
-  type StateConfig,
   WORKFLOW_EVENT,
   type WorkflowConfig,
+  type WorkflowLabel,
+  type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
@@ -47,10 +48,9 @@ export async function reviewPass(opts: {
   let transitions = 0;
 
   // Find all states with a review check (e.g. toReview with check: prApproved)
-  const reviewStates = Object.entries(workflow.states)
-    .filter(([, s]) => s.check != null) as [string, StateConfig][];
+  const reviewStates = Object.values(workflow.states).filter((state) => state.check != null);
 
-  for (const [, state] of reviewStates) {
+  for (const state of reviewStates) {
     if (!state.on || !state.check) continue;
 
     const candidates = await getHeartbeatCandidates({
@@ -65,8 +65,8 @@ export async function reviewPass(opts: {
 
       const status = await provider.getPrStatus(issue.iid);
       const syncTransitionState = async (
-        targetKey: string,
-        targetLabel: string,
+        targetKey: WorkflowStateKey,
+        targetLabel: WorkflowLabel,
         closedAt?: string | null,
       ): Promise<void> => {
         await writeHeartbeatTransitionState({

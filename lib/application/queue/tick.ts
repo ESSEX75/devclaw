@@ -13,6 +13,7 @@ import type { RunCommand } from "../../context.js";
 import {
   EXECUTION_MODE,
   getActiveLabel,
+  type LevelId,
   REVIEW_POLICY,
   type Role,
   TEST_POLICY,
@@ -20,7 +21,7 @@ import {
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
-import { getLevelsForRole } from "../../roles/index.js";
+import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import { loadConfig } from "../../state/config/index.js";
 import { countActiveSlots, findFreeSlot, getProject, getRoleWorker, readProjects, reconcileSlots } from "../../state/projects/index.js";
@@ -38,7 +39,7 @@ export type TickAction = {
   issueTitle: string;
   issueUrl: string;
   role: Role;
-  level: string;
+  level: LevelId;
   sessionAction: "spawn" | "send";
   announcement: string;
 };
@@ -89,9 +90,7 @@ export async function projectTick(opts: {
 
   const provider = opts.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: runCommand! })).provider;
   const roleExecution = workflow.roleExecution ?? EXECUTION_MODE.PARALLEL;
-  const enabledRoles = Object.entries(resolvedConfig.roles)
-    .filter(([, r]) => r.enabled)
-    .map(([id]) => id);
+  const enabledRoles = getAllRoleIds().filter((role) => resolvedConfig.roles[role]?.enabled);
   const roles: Role[] = targetRole ? [targetRole] : enabledRoles;
 
   const pickups: TickAction[] = [];
@@ -115,9 +114,9 @@ export async function projectTick(opts: {
     reconcileSlots(roleWorker, levelMaxWorkers);
 
     // Check sequential role execution: any other role must be inactive
-    const otherRoles = enabledRoles.filter((r: string) => r !== role);
+    const otherRoles = enabledRoles.filter((candidate) => candidate !== role);
 
-    if (roleExecution === EXECUTION_MODE.SEQUENTIAL && otherRoles.some((r: string) => countActiveSlots(getRoleWorker(fresh, r)) > 0)) {
+    if (roleExecution === EXECUTION_MODE.SEQUENTIAL && otherRoles.some((candidate) => countActiveSlots(getRoleWorker(fresh, candidate)) > 0)) {
       skipped.push({ role, reason: "Sequential: other role active" });
       continue;
     }
@@ -236,7 +235,7 @@ export async function projectTick(opts: {
  * 2. Inherit from another role's label (e.g. developer:medior → tester uses medior)
  * 3. Heuristic fallback (first dispatch, no labels yet)
  */
-function resolveLevelForIssue(issue: Issue, role: Role, localState?: { assignedRole?: string | null; assignedLevel?: string | null }): string {
+function resolveLevelForIssue(issue: Issue, role: Role, localState?: { assignedRole?: Role | null; assignedLevel?: LevelId | null }): LevelId {
   if (localState?.assignedLevel) {
     if (localState.assignedRole === role) return localState.assignedLevel;
     const levels = getLevelsForRole(role);

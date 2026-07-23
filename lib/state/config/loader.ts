@@ -14,7 +14,7 @@ import YAML from "yaml";
 
 import type { WorkflowConfig } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
-import { ROLE_REGISTRY } from "../../roles/registry.js";
+import { getAllRoleIds, getRole, ROLE_REGISTRY } from "../../roles/index.js";
 import { DATA_DIR } from "../setup/paths.js";
 import { mergeConfig } from "./merge.js";
 import { validateConfig, validateWorkflowIntegrity } from "./schema.js";
@@ -62,7 +62,9 @@ export async function loadConfig(
 function buildDefaultConfig(): DevClawConfig {
   const roles: Record<string, RoleOverride> = {};
 
-  for (const [id, reg] of Object.entries(ROLE_REGISTRY)) {
+  for (const id of getAllRoleIds()) {
+    const reg = ROLE_REGISTRY[id];
+
     roles[id] = {
       levels: [...reg.levels],
       defaultLevel: reg.defaultLevel,
@@ -118,7 +120,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
     for (const [id, override] of Object.entries(config.roles)) {
       if (override === false) {
         // Disabled role — include with enabled: false for visibility
-        const reg = ROLE_REGISTRY[id];
+        const reg = getRole(id);
         const models: Record<string, ModelEntry> = reg ? { ...reg.models } : {};
 
         roles[id] = {
@@ -133,7 +135,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
         continue;
       }
 
-      const reg = ROLE_REGISTRY[id];
+      const reg = getRole(id);
       const mergedModels: Record<string, ModelEntry> = {
         ...(reg?.models ?? {}),
         ...(override.models ?? {}),
@@ -152,7 +154,9 @@ function resolve(config: DevClawConfig): ResolvedConfig {
   }
 
   // Ensure all built-in roles exist even if not in config
-  for (const [id, reg] of Object.entries(ROLE_REGISTRY)) {
+  for (const id of getAllRoleIds()) {
+    const reg = ROLE_REGISTRY[id];
+
     if (!roles[id]) {
       const models: Record<string, ModelEntry> = { ...reg.models };
 

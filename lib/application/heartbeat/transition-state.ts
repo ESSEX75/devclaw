@@ -1,7 +1,13 @@
 /**
  * transition-state.ts — Keep project-local issue runtime state in sync after heartbeat transitions.
  */
-import { getStateLabels, ISSUE_PROVIDER, type WorkflowConfig } from "../../domain/index.js";
+import {
+  getStateLabels,
+  ISSUE_PROVIDER,
+  type WorkflowConfig,
+  type WorkflowLabel,
+  type WorkflowStateKey,
+} from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { type IssueProvider as IssueProviderKind, writeIssueRuntimeState } from "../../state/issues/index.js";
 import type { Project } from "../../state/projects/index.js";
@@ -11,8 +17,8 @@ export async function writeHeartbeatTransitionState(opts: {
   project: Pick<Project, "slug" | "channels" | "provider">;
   issue: Issue;
   workflow: WorkflowConfig;
-  workflowState: string;
-  workflowLabel: string;
+  workflowState: WorkflowStateKey;
+  workflowLabel: WorkflowLabel;
   closedAt?: string | null;
 }): Promise<void> {
   const stateLabels = new Set(getStateLabels(opts.workflow));

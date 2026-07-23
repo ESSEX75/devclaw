@@ -8,6 +8,7 @@ import {
   TEST_POLICY,
   WORKFLOW_EVENT,
   type WorkflowConfig,
+  type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
@@ -93,7 +94,7 @@ export async function createManagedTaskIssue(opts: {
 function resolveInitialQueueTarget(
   workflow: WorkflowConfig,
   initialState: StateConfig,
-): { targetKey: string; targetState: StateConfig } {
+): { targetKey: WorkflowStateKey; targetState: StateConfig } {
   if (initialState.type === STATE_TYPE.QUEUE) {
     return { targetKey: workflow.initial, targetState: initialState };
   }

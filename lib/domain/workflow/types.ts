@@ -54,8 +54,8 @@ type ReviewCheckType = SoftUnion<typeof REVIEW_CHECK>;
 export type RoutingLabel = SoftUnion<typeof ROUTING_LABELS>;
 
 /** Target state name or configuration details for a state transition. */
-type TransitionTarget = string | {
-  target: string;
+type TransitionTarget = WorkflowStateKey | {
+  target: WorkflowStateKey;
   actions?: TransitionAction[];
   description?: string;
 };
@@ -64,7 +64,7 @@ type TransitionTarget = string | {
 export type StateConfig = {
   type: StateType;
   role?: Role;
-  label: string;
+  label: WorkflowLabel;
   color: string;
   priority?: number;
   description?: string;
@@ -74,7 +74,7 @@ export type StateConfig = {
 
 /** Full workflow statechart configuration. */
 export type WorkflowConfig = {
-  initial: string;
+  initial: WorkflowStateKey;
   reviewPolicy?: ReviewPolicy;
   testPolicy?: TestPolicy;
   roleExecution?: ExecutionMode;
@@ -85,8 +85,8 @@ export type WorkflowConfig = {
 
 /** Rule mapping a specific completion scenario to the next state and actions. */
 export type CompletionRule = {
-  from: string;
-  to: string;
+  from: WorkflowLabel;
+  to: WorkflowLabel;
   actions: TransitionAction[];
 };
 

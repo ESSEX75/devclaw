@@ -2,7 +2,8 @@
  * workflow/queries.ts — Pure query functions over workflow configuration.
  */
 import { STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
-import { type Role, type StateConfig, type WorkflowConfig } from "./types.js";
+import { isWorkflowStateKey } from "./guards.js";
+import { type Role, type StateConfig, type WorkflowConfig, type WorkflowLabel, type WorkflowStateKey } from "./types.js";
 
 /**
  * Get all state labels (for GitHub/GitLab label creation).
@@ -15,16 +16,18 @@ export function getStateLabels(workflow: WorkflowConfig): string[] {
  * Find the current workflow state label on an issue.
  * Pure utility — no provider dependency.
  */
-export function getCurrentStateLabel(labels: string[], workflow: WorkflowConfig): string | null {
-  const stateLabels = getStateLabels(workflow);
+export function getCurrentStateLabel(labels: string[], workflow: WorkflowConfig): WorkflowLabel | null {
+  for (const state of Object.values(workflow.states)) {
+    if (labels.includes(state.label)) return state.label;
+  }
 
-  return stateLabels.find((l) => labels.includes(l)) ?? null;
+  return null;
 }
 
 /**
  * Get the initial state label (the first state in the workflow, e.g. "Planning").
  */
-export function getInitialStateLabel(workflow: WorkflowConfig): string {
+export function getInitialStateLabel(workflow: WorkflowConfig): WorkflowLabel {
   return workflow.states[workflow.initial].label;
 }
 
@@ -44,7 +47,7 @@ export function getLabelColors(workflow: WorkflowConfig): Record<string, string>
 /**
  * Get queue labels for a role, ordered by priority (highest first).
  */
-export function getQueueLabels(workflow: WorkflowConfig, role: Role): string[] {
+export function getQueueLabels(workflow: WorkflowConfig, role: Role): WorkflowLabel[] {
   return Object.values(workflow.states)
     .filter((s) => s.type === STATE_TYPE.QUEUE && s.role === role)
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
@@ -54,7 +57,7 @@ export function getQueueLabels(workflow: WorkflowConfig, role: Role): string[] {
 /**
  * Get all queue labels ordered by priority (for findNextIssue).
  */
-export function getAllQueueLabels(workflow: WorkflowConfig): string[] {
+export function getAllQueueLabels(workflow: WorkflowConfig): WorkflowLabel[] {
   return Object.values(workflow.states)
     .filter((s) => s.type === STATE_TYPE.QUEUE)
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
@@ -64,7 +67,7 @@ export function getAllQueueLabels(workflow: WorkflowConfig): string[] {
 /**
  * Get the active (in-progress) label for a role.
  */
-export function getActiveLabel(workflow: WorkflowConfig, role: Role): string {
+export function getActiveLabel(workflow: WorkflowConfig, role: Role): WorkflowLabel {
   const state = Object.values(workflow.states).find(
     (s) => s.type === STATE_TYPE.ACTIVE && s.role === role,
   );
@@ -77,7 +80,7 @@ export function getActiveLabel(workflow: WorkflowConfig, role: Role): string {
 /**
  * Get the revert label for a role (first queue state for that role).
  */
-export function getRevertLabel(workflow: WorkflowConfig, role: Role): string {
+export function getRevertLabel(workflow: WorkflowConfig, role: Role): WorkflowLabel {
   const activeLabel = getActiveLabel(workflow, role);
   const activeStateKey = Object.entries(workflow.states).find(
     ([, s]) => s.label === activeLabel,
@@ -119,8 +122,10 @@ export function findStateByLabel(workflow: WorkflowConfig, label: string): State
 /**
  * Find state key by label.
  */
-export function findStateKeyByLabel(workflow: WorkflowConfig, label: string): string | null {
-  return Object.entries(workflow.states).find(([, s]) => s.label === label)?.[0] ?? null;
+export function findStateKeyByLabel(workflow: WorkflowConfig, label: string): WorkflowStateKey | null {
+  const stateKey = Object.entries(workflow.states).find(([, state]) => state.label === label)?.[0];
+
+  return stateKey && isWorkflowStateKey(stateKey) ? stateKey : null;
 }
 
 /**

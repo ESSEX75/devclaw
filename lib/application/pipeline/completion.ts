@@ -11,14 +11,20 @@ import {
   ACTION,
   type CompletionRule,
   DEFAULT_WORKFLOW,
+  findStateByLabel,
+  findStateKeyByLabel,
   getCompletionEmoji,
   getCompletionRule,
   getNextStateDescription,
+  type LevelId,
   resolveNotifyChannel,
+  type Role,
   WORKFLOW_EVENT,
   type WorkflowConfig,
+  type WorkflowLabel,
+  type WorkflowStateKey,
 } from "../../domain/index.js";
-import type { IssueProvider, StateLabel } from "../../integrations/providers/provider.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import type { Channel } from "../../state/projects/index.js";
@@ -42,7 +48,7 @@ export type CompletionOutput = {
  * Uses workflow config when available.
  */
 export function getRule(
-  role: string,
+  role: Role,
   result: string,
   workflow: WorkflowConfig = DEFAULT_WORKFLOW,
 ): CompletionRule | undefined {
@@ -55,7 +61,7 @@ export function getRule(
 export async function executeCompletion(opts: {
   workspaceDir: string;
   projectSlug: string;
-  role: string;
+  role: Role;
   result: string;
   issueId: number;
   summary?: string;
@@ -72,7 +78,7 @@ export async function executeCompletion(opts: {
   /** Tasks created during this work session (e.g. architect implementation tasks) */
   createdTasks?: Array<{ id: number; title: string; url: string }>;
   /** Level of the completing worker */
-  level?: string;
+  level?: LevelId;
   /** Slot index within the level's array */
   slotIndex?: number;
   runCommand: RunCommand;
@@ -167,7 +173,7 @@ export async function executeCompletion(opts: {
       throw new Error(`mergePr failed for #${issueId}, and workflow has no MERGE_FAILED recovery transition: ${mergeFailure.error}`);
     }
 
-    await provider.transitionLabel(issueId, rule.from as StateLabel, failedTransition.label as StateLabel);
+    await provider.transitionLabel(issueId, rule.from, failedTransition.label);
 
     await writeIssueRuntimeState({
       workspaceDir,
@@ -291,7 +297,7 @@ export async function executeCompletion(opts: {
   // Then execute post-transition actions (close/reopen)
   // Finally deactivate worker (last — ensures label is set even if deactivation fails)
 
-  await provider.transitionLabel(issueId, rule.from as StateLabel, rule.to as StateLabel);
+  await provider.transitionLabel(issueId, rule.from, rule.to);
 
   // Execute post-transition actions
   for (const action of rule.actions) {
@@ -386,10 +392,10 @@ export async function executeCompletion(opts: {
 
 function getMergeFailedTransition(
   workflow: WorkflowConfig,
-  fromLabel: string,
-): { key: string; label: string } | null {
-  const fromEntry = Object.entries(workflow.states).find(([, state]) => state.label === fromLabel);
-  const mergeFailed = fromEntry?.[1].on?.[WORKFLOW_EVENT.MERGE_FAILED];
+  fromLabel: WorkflowLabel,
+): { key: WorkflowStateKey; label: WorkflowLabel } | null {
+  const fromState = findStateByLabel(workflow, fromLabel);
+  const mergeFailed = fromState?.on?.[WORKFLOW_EVENT.MERGE_FAILED];
 
   if (mergeFailed) {
     const key = typeof mergeFailed === "string" ? mergeFailed : mergeFailed.target;
@@ -398,7 +404,8 @@ function getMergeFailedTransition(
     return state ? { key, label: state.label } : null;
   }
 
-  const toImprove = Object.entries(workflow.states).find(([, state]) => state.label === "To Improve");
+  const toImprove = findStateByLabel(workflow, "To Improve");
+  const toImproveKey = toImprove ? findStateKeyByLabel(workflow, toImprove.label) : null;
 
-  return toImprove ? { key: toImprove[0], label: toImprove[1].label } : null;
+  return toImprove && toImproveKey ? { key: toImproveKey, label: toImprove.label } : null;
 }

@@ -17,6 +17,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import { checkWorkerHealth, fetchGatewaySessions, type HealthFix, scanOrphanedLabels } from "../../application/heartbeat/health.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
+import { getAllRoleIds } from "../../roles/index.js";
 import { getProject, readProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
 
@@ -65,7 +66,7 @@ export function createHealthTool(ctx: PluginContext) {
         if (!project) continue;
         const { provider } = await resolveProvider(project, ctx.runCommand);
 
-        for (const role of Object.keys(project.workers)) {
+        for (const role of getAllRoleIds()) {
           // Worker health check (session liveness, label consistency, etc)
           const healthFixes = await checkWorkerHealth({
             workspaceDir,

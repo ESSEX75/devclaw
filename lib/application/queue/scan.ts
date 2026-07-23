@@ -4,23 +4,24 @@
  * Shared by: tick (projectTick), work-start (auto-pickup), and other consumers
  * that need to find queued issues or detect roles/levels from labels.
  */
+import { isLevelId, type LevelId, type RoleId } from "../../domain/index.js";
 import type { IssueRuntimeState } from "../../domain/issues/types.js";
 import { isOwnedByOrUnclaimed } from "../../domain/workflow/labels.js";
 import {
   detectRoleFromLabel as workflowDetectRole,
   getQueueLabels,
 } from "../../domain/workflow/queries.js";
-import type { Role, WorkflowConfig } from "../../domain/workflow/types.js";
+import type { Role, WorkflowConfig, WorkflowLabel } from "../../domain/workflow/types.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
-import { getAllLevels, getLevelsForRole } from "../../roles/index.js";
+import { getAllLevels, getLevelsForRole, isValidRole } from "../../roles/index.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
 
 // ---------------------------------------------------------------------------
 // Label detection
 // ---------------------------------------------------------------------------
 
-export function detectLevelFromLabels(labels: string[]): string | null {
+export function detectLevelFromLabels(labels: string[]): LevelId | null {
   const lower = labels.map((l) => l.toLowerCase());
 
   // Match projected role:level labels (e.g., "developer:senior").
@@ -32,7 +33,7 @@ export function detectLevelFromLabels(labels: string[]): string | null {
     const level = parts[1]!;
     const all = getAllLevels();
 
-    if (all.includes(level)) return level;
+    if (isLevelId(level) && all.includes(level)) return level;
   }
 
   return null;
@@ -46,13 +47,16 @@ export function detectLevelFromLabels(labels: string[]): string | null {
  */
 export function detectRoleLevelFromLabels(
   labels: string[],
-): { role: string; level: string } | null {
+): { role: RoleId; level: LevelId } | null {
   for (const label of labels) {
     const parts = label.split(":");
 
     if (parts.length !== 2) continue;
     const role = parts[0]!.toLowerCase();
     const level = parts[1]!.toLowerCase();
+
+    if (!isValidRole(role) || !isLevelId(level)) continue;
+
     const roleLevels = getLevelsForRole(role);
 
     if (roleLevels.includes(level)) {
@@ -83,7 +87,7 @@ export async function findNextIssueForRole(
   workflow: WorkflowConfig,
   instanceName: string | undefined,
   localState: { workspaceDir: string; projectSlug: string },
-): Promise<{ issue: Issue; label: StateLabel; localState: IssueRuntimeState } | null> {
+): Promise<{ issue: Issue; label: WorkflowLabel; localState: IssueRuntimeState } | null> {
   const labels = getQueueLabels(workflow, role);
 
   return findNextIssueForRoleFromLocalState(
@@ -97,11 +101,11 @@ export async function findNextIssueForRole(
 
 async function findNextIssueForRoleFromLocalState(
   provider: Pick<IssueReader, "getIssue">,
-  queueLabels: StateLabel[],
+  queueLabels: WorkflowLabel[],
   instanceName: string | undefined,
   workspaceDir: string,
   projectSlug: string,
-): Promise<{ issue: Issue; label: StateLabel; localState: IssueRuntimeState } | null> {
+): Promise<{ issue: Issue; label: WorkflowLabel; localState: IssueRuntimeState } | null> {
   const store = await readIssueStateStore(workspaceDir, projectSlug);
   const localCandidates = Object.values(store.issues)
     .filter((state) =>

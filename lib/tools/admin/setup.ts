@@ -13,7 +13,7 @@ import {
   isScopeApprovalRequiredError,
 } from "../../application/setup/scopes.js";
 import type { PluginContext } from "../../context.js";
-import { EXECUTION_MODE } from "../../domain/index.js";
+import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { writeAllDefaults } from "../../state/setup/workspace-files.js";
 

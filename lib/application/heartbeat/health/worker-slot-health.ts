@@ -41,6 +41,7 @@ import type {
 } from "../../../domain/workflow/types.js";
 import { sendToAgent } from "../../../integrations/openclaw/session.js";
 import type { Issue,IssueProvider, StateLabel } from "../../../integrations/providers/provider.js";
+import { getLevelsForRole } from "../../../roles/index.js";
 import type { Project } from "../../../state/projects/index.js";
 import {
   deactivateWorker,
@@ -98,7 +99,9 @@ export async function checkWorkerHealth(opts: {
   const queueLabel = getRevertLabel(workflow, role);
 
   // Iterate over all levels and their slots
-  for (const [level, slots] of Object.entries(roleWorker.levels)) {
+  for (const level of getLevelsForRole(role)) {
+    const slots = roleWorker.levels[level] ?? [];
+
     for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
       const slot = slots[slotIndex]!;
       const sessionKey = slot.sessionKey;
@@ -454,7 +457,10 @@ export async function checkWorkerHealth(opts: {
           await revertLabel(fix, expectedLabel, slotQueueLabel);
           // Clear the slot's issueId
           if (slot.issueId) {
-            await updateSlot(workspaceDir, projectSlug, role, level, slotIndex, { issueId: null });
+            await updateSlot(workspaceDir, projectSlug, role, level, slotIndex, (currentSlot) => ({
+              ...currentSlot,
+              issueId: null,
+            }));
           }
 
           fix.fixed = true;
@@ -481,7 +487,10 @@ export async function checkWorkerHealth(opts: {
         };
 
         if (autoFix) {
-          await updateSlot(workspaceDir, projectSlug, role, level, slotIndex, { issueId: null });
+          await updateSlot(workspaceDir, projectSlug, role, level, slotIndex, (currentSlot) => ({
+            ...currentSlot,
+            issueId: null,
+          }));
           fix.fixed = true;
         }
 

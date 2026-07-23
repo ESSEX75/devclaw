@@ -6,19 +6,25 @@ import {
   detectOwner,
   findStateKeyByLabel,
   getCurrentStateLabel,
+  isLevelId,
+  isRoleId,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   type IssueIntegrityStatus,
   type IssueProvider as IssueProviderKind,
   type IssueRuntimeState,
+  type LevelId,
   NOTIFY_LABEL_PREFIX,
   type NotifyTarget,
   type Project,
   REVIEW_POLICY,
   type ReviewPolicy,
+  type RoleId,
   TEST_POLICY,
   type TestPolicy,
   type WorkflowConfig,
+  type WorkflowLabel,
+  type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { Issue, IssueProvider as ProviderIssueProvider } from "../../integrations/providers/provider.js";
 import { updateIssueStateStore } from "./store.js";
@@ -29,10 +35,10 @@ export type IssueStateWriteInput = {
   issue: Pick<Issue, "iid" | "labels" | "state">;
   providerType: IssueProviderKind;
   workflow: WorkflowConfig;
-  workflowLabel?: string;
-  workflowState?: string;
-  assignedRole?: string | null;
-  assignedLevel?: string | null;
+  workflowLabel?: WorkflowLabel;
+  workflowState?: WorkflowStateKey;
+  assignedRole?: RoleId | null;
+  assignedLevel?: LevelId | null;
   owner?: string | null;
   notifyTarget?: NotifyTarget | null;
   reviewPolicy?: ReviewPolicy | null;
@@ -44,8 +50,8 @@ export type IssueStateWriteInput = {
 };
 
 type RoleLevel = {
-  role: string;
-  level: string;
+  role: RoleId;
+  level: LevelId;
 };
 
 export function detectNotifyTarget(
@@ -80,7 +86,7 @@ export function detectRoleLevel(labels: string[]): RoleLevel | null {
     if (!role || !level) continue;
     if (role === "review" || role === "test" || role === "notify" || role === "owner" || role === "devclaw") continue;
 
-    return { role, level };
+    if (isRoleId(role) && isLevelId(level)) return { role, level };
   }
 
   return null;
@@ -93,10 +99,10 @@ function detectRouting(labels: string[], prefix: "review" | "test"): ReviewPolic
   const value = label ? label.slice(prefix.length + 1) : null;
 
   if (prefix === "review") {
-    return value === REVIEW_POLICY.HUMAN || value === REVIEW_POLICY.AGENT || value === REVIEW_POLICY.SKIP ? value as ReviewPolicy : null;
+    return value === REVIEW_POLICY.HUMAN || value === REVIEW_POLICY.AGENT || value === REVIEW_POLICY.SKIP ? value : null;
   }
 
-  return value === TEST_POLICY.AGENT || value === TEST_POLICY.SKIP ? value as TestPolicy : null;
+  return value === TEST_POLICY.AGENT || value === TEST_POLICY.SKIP ? value : null;
 }
 
 export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promise<IssueRuntimeState> {
@@ -108,9 +114,13 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
   }
 
   const detectedRoleLevel = detectRoleLevel(labels);
-  const workflowState = input.workflowState
-    ?? findStateKeyByLabel(input.workflow, detectedWorkflowLabel)
-    ?? detectedWorkflowLabel;
+  const foundStateKey = input.workflowState ?? findStateKeyByLabel(input.workflow, detectedWorkflowLabel);
+
+  if (!foundStateKey) {
+    throw new Error(`Cannot find workflow state key for label "${detectedWorkflowLabel}".`);
+  }
+
+  const workflowState = foundStateKey;
   const now = new Date().toISOString();
 
   let written!: IssueRuntimeState;

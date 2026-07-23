@@ -9,7 +9,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { findStateByLabel, getRoleLabelColor, STATE_TYPE } from "../../domain/index.js";
+import { findStateByLabel, getRoleLabelColor, isLevelId, STATE_TYPE } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { applyNotifyLabel, autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
@@ -51,13 +51,20 @@ Examples:
     },
 
     async execute(_id: string, params: Record<string, unknown>) {
-      const channelId = resolveChannelId(toolCtx, params.channelId as string | undefined);
-      const issueId = params.issueId as number;
-      const newLevel = (params.level as string) ?? undefined;
-      const reason = (params.reason as string) ?? undefined;
+      const channelId = resolveChannelId(
+        toolCtx,
+        typeof params.channelId === "string" ? params.channelId : undefined,
+      );
+      const issueId = params.issueId;
+      const newLevel = params.level;
+      const reason = typeof params.reason === "string" ? params.reason : undefined;
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
-      if (!newLevel) {
+      if (typeof issueId !== "number") {
+        throw new Error("'issueId' is required and must be a number.");
+      }
+
+      if (typeof newLevel !== "string") {
         throw new Error("'level' is required.");
       }
 
@@ -95,7 +102,7 @@ Examples:
 
       const roleConfig = resolvedConfig.roles[role];
 
-      if (!roleConfig || !roleConfig.levels.includes(newLevel)) {
+      if (!isLevelId(newLevel) || !roleConfig || !roleConfig.levels.includes(newLevel)) {
         throw new Error(`Invalid level "${newLevel}" for role "${role}". Valid: ${roleConfig?.levels.join(", ") ?? "none"}`);
       }
 

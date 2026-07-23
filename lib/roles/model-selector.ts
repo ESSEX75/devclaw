@@ -7,10 +7,11 @@
  * - 2 levels: simple binary (complex → last, else first)
  * - 3+ levels: full heuristic (simple → first, complex → last, default → middle)
  */
-import { getDefaultLevel,getLevelsForRole } from "./index.js";
+import { DEFAULT_LEVELS, type LevelId, type Role } from "../domain/index.js";
+import { getDefaultLevel, getLevelsForRole } from "./index.js";
 
 export type LevelSelection = {
-  level: string;
+  level: LevelId;
   reason: string;
 };
 
@@ -54,14 +55,14 @@ const COMPLEX_KEYWORDS = [
 export function selectLevel(
   issueTitle: string,
   issueDescription: string,
-  role: string,
+  role: Role,
 ): LevelSelection {
   const levels = getLevelsForRole(role);
-  const defaultLvl = getDefaultLevel(role);
+  const defaultLvl = getDefaultLevel(role) ?? DEFAULT_LEVELS.MEDIOR;
 
   // Roles with only 1 level — always return it
   if (levels.length <= 1) {
-    const level = levels[0] ?? defaultLvl ?? "medior";
+    const level = levels[0] ?? defaultLvl;
 
     return { level, reason: `Only level for ${role}` };
   }
@@ -71,8 +72,8 @@ export function selectLevel(
   const isSimple = SIMPLE_KEYWORDS.some((kw) => text.includes(kw));
   const isComplex = COMPLEX_KEYWORDS.some((kw) => text.includes(kw));
 
-  const lowest = levels[0];
-  const highest = levels[levels.length - 1];
+  const lowest = levels[0] ?? defaultLvl;
+  const highest = levels[levels.length - 1] ?? defaultLvl;
 
   // Roles with 2 levels — binary decision
   if (levels.length === 2) {

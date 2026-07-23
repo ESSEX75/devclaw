@@ -5,20 +5,22 @@
  * All role-related behavior should be derived from this config.
  */
 
+import type { LevelId, RoleId } from "../domain/workflow/types.js";
+
 /** Configuration for a single worker role. */
 export type RoleConfig = {
   /** Unique role identifier (e.g., "developer", "tester", "architect"). */
-  id: string;
+  id: RoleId;
   /** Human-readable display name. */
   displayName: string;
   /** Valid levels for this role. */
-  levels: readonly string[];
+  levels: readonly LevelId[];
   /** Default level when none specified. */
-  defaultLevel: string;
+  defaultLevel: LevelId;
   /** Default model per level. */
-  models: Record<string, string>;
+  models: Partial<Record<LevelId, string>>;
   /** Emoji per level (used in announcements). */
-  emoji: Record<string, string>;
+  emoji: Partial<Record<LevelId, string>>;
   /** Fallback emoji when level-specific emoji not found. */
   fallbackEmoji: string;
   /** Valid completion results for this role. */
@@ -31,6 +33,3 @@ export type RoleConfig = {
     onComplete: boolean;
   };
 };
-
-/** A role ID string (typed from registry keys). */
-export type RoleId = string;

@@ -13,6 +13,7 @@ import {
   type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
+import { readIssueStateStore } from "./store.js";
 
 export type IssueRuntimeResolution =
   | {
@@ -60,7 +61,7 @@ export async function resolveIssueRuntimeState(opts: {
     kind: "uninitialized",
     state: null,
     workflowLabel,
-    workflowState: workflowLabel ? findStateKeyByLabel(opts.workflow, workflowLabel) ?? workflowLabel : null,
+    workflowState: workflowLabel ? findStateKeyByLabel(opts.workflow, workflowLabel) : null,
     stateConfig: workflowLabel ? findStateByLabel(opts.workflow, workflowLabel) ?? null : null,
     providerIssue: opts.issue,
   };

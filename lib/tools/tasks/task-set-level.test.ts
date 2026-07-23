@@ -91,18 +91,14 @@ describe("detectRoleLevelFromLabels", () => {
 
 describe("resolveReviewRouting", () => {
   it("should return review:human for HUMAN policy", () => {
-    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.HUMAN, "junior"), "review:human");
-    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.HUMAN, "senior"), "review:human");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.HUMAN), "review:human");
   });
 
   it("should return review:agent for AGENT policy", () => {
-    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.AGENT, "junior"), "review:agent");
-    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.AGENT, "senior"), "review:agent");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.AGENT), "review:agent");
   });
 
   it("should return review:skip for SKIP policy", () => {
-    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.SKIP, "junior"), "review:skip");
-    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.SKIP, "medior"), "review:skip");
-    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.SKIP, "senior"), "review:skip");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.SKIP), "review:skip");
   });
 });

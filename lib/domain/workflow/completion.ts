@@ -3,7 +3,7 @@
  */
 import { STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
 import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";
-import { type CompletionRule, type Role, type WorkflowConfig } from "./types.js";
+import { type CompletionRule, type Role, type WorkflowConfig, type WorkflowLabel } from "./types.js";
 
 /**
  * Map completion result to workflow transition event name.
@@ -26,7 +26,7 @@ export function getCompletionRule(
 ): CompletionRule | null {
   const event = resultToEvent(result);
 
-  let activeLabel: string;
+  let activeLabel: WorkflowLabel;
 
   try {
     activeLabel = getActiveLabel(workflow, role);
