@@ -1,7 +1,7 @@
 /**
  * issues/types.ts — Runtime state for DevClaw-managed provider issues.
  */
-import { SoftUnion } from "../../types.js";
+import type { SoftUnion } from "../../types.js";
 import type { LevelId, ReviewPolicy, RoleId, TestPolicy, WorkflowLabel, WorkflowStateKey } from "../workflow/types.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER } from "./const.js";
 

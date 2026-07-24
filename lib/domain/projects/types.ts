@@ -1,4 +1,4 @@
-import { SoftUnion } from "../../types.js";
+import type { SoftUnion } from "../../types.js";
 import type { IssueProvider } from "../issues/types.js";
 import { NOTIFICATION_CHANNEL } from "./const.js";
 

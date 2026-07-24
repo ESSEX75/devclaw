@@ -1,4 +1,4 @@
-import { SoftUnion } from "../../types.js";
+import type { SoftUnion } from "../../types.js";
 import {
   ACTION,
   DEFAULT_LEVELS,
