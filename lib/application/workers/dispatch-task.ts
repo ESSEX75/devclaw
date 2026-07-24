@@ -8,6 +8,7 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
+import { emptySlot, ISSUE_PROVIDER, type Project } from "../../domain/index.js";
 import {
   detectOwner,
   getOwnerLabel,
@@ -29,7 +30,7 @@ import {
   TEST_POLICY,
   type TestPolicy,
   type WorkflowLabel,
-} from "../../domain/workflow/index.js";
+} from "../../domain/index.js";
 import { loadRoleInstructions } from "../../integrations/openclaw/bootstrap-hook.js";
 import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "../../integrations/openclaw/session.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
@@ -39,9 +40,7 @@ import { loadConfig } from "../../state/config/index.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import {
   activateWorker,
-  emptySlot,
   getRoleWorker,
-  type Project,
   updateSlot,
 } from "../../state/projects/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
@@ -356,7 +355,9 @@ export async function dispatchTask(
           .concat(toLabel, `${role}:${level}`),
         state: "open",
       },
-      providerType: project.provider === "github" ? "github" : "gitlab",
+      providerType: project.provider === ISSUE_PROVIDER.GITHUB
+        ? ISSUE_PROVIDER.GITHUB
+        : ISSUE_PROVIDER.GITLAB,
       workflow,
       workflowLabel: toLabel,
       assignedRole: role,

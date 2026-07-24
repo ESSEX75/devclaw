@@ -7,6 +7,7 @@
  */
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
+import type { Project } from "../../domain/index.js";
 import {
   ACTION,
   REVIEW_CHECK,
@@ -17,7 +18,6 @@ import {
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
-import type { Project } from "../../state/projects/index.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
 import { writeHeartbeatTransitionState } from "./transition-state.js";
 

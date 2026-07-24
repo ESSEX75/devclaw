@@ -5,7 +5,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import type { ReviewPolicy, TestPolicy, WorkflowConfig } from "../../domain/index.js";
+import type { IssueIntegrityStatus, Project, ReviewPolicy, TestPolicy, WorkflowConfig } from "../../domain/index.js";
 import { getStateLabels, ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
@@ -18,7 +18,6 @@ import {
 } from "../../projection/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
-import type { Project } from "../../state/projects/index.js";
 import { readProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
@@ -27,7 +26,7 @@ export type IssueRepairResult = {
   dryRun: boolean;
   diff: ProjectionDiff;
   metadataAction: "none" | "replace";
-  integrityStatus: string;
+  integrityStatus: IssueIntegrityStatus;
   warnings: string[];
   repaired: string[];
 };

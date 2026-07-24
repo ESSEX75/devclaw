@@ -11,9 +11,12 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../context.js";
 import {
+  countActiveSlots,
   EXECUTION_MODE,
+  findFreeSlot,
   getActiveLabel,
   type LevelId,
+  reconcileSlots,
   REVIEW_POLICY,
   type Role,
   TEST_POLICY,
@@ -24,7 +27,7 @@ import type { Issue, IssueProvider } from "../../integrations/providers/provider
 import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import { loadConfig } from "../../state/config/index.js";
-import { countActiveSlots, findFreeSlot, getProject, getRoleWorker, readProjects, reconcileSlots } from "../../state/projects/index.js";
+import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
 import { dispatchTask } from "../workers/dispatch-task.js";
 import { detectRoleLevelFromLabels, findNextIssueForRole } from "./scan.js";
 

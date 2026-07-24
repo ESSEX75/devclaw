@@ -1,19 +1,19 @@
 import { log as auditLog } from "../../../audit.js";
-import {
-  DEFAULT_WORKFLOW,
-} from "../../../domain/workflow/defaults.js";
-import {
-  isOwnedByOrUnclaimed,
-} from "../../../domain/workflow/labels.js";
-import {
-  getStateLabels,
-} from "../../../domain/workflow/queries.js";
 import type {
   Role,
   WorkflowConfig,
-} from "../../../domain/workflow/types.js";
+} from "../../../domain/index.js";
+import type { Project } from "../../../domain/index.js";
+import {
+  DEFAULT_WORKFLOW,
+} from "../../../domain/index.js";
+import {
+  isOwnedByOrUnclaimed,
+} from "../../../domain/index.js";
+import {
+  getStateLabels,
+} from "../../../domain/index.js";
 import type { IssueProvider } from "../../../integrations/providers/provider.js";
-import type { Project } from "../../../state/projects/index.js";
 import type { HealthFix } from "./types.js";
 
 /**

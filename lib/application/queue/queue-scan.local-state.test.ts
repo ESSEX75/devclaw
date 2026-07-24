@@ -3,16 +3,17 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { emptyIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../state/issues/index.js";
+import { emptyIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
+import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { detectLevelFromLabels, detectRoleLevelFromLabels, findNextIssueForRole } from "./scan.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug: "devclaw",
     issueId: 123,
-    provider: "github",
+    provider: ISSUE_PROVIDER.GITHUB,
     managed: true,
     workflowState: "todo",
     workflowLabel: "To Do",
@@ -24,7 +25,7 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     notifyTarget: null,
     branchContract: null,
     activeWorker: null,
-    integrityStatus: "ok",
+    integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
     projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
@@ -71,7 +72,10 @@ describe("findNextIssueForRole local state", () => {
   });
 
   it("skips initialized managed issues with integrity_error", async () => {
-    await withStore([state({ integrityStatus: "integrity_error", integrityErrors: ["tamper"] })], async (tmpDir, provider) => {
+    await withStore([state({
+      integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,
+      integrityErrors: ["tamper"],
+    })], async (tmpDir, provider) => {
       provider.seedIssue({ iid: 123, labels: ["To Do"], description: "Body" });
 
       const next = await findNextIssueForRole(

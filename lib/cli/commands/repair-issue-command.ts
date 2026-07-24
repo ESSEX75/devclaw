@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 
 import type { PluginContext } from "../../context.js";
-import type { ReviewPolicy, TestPolicy } from "../../domain/workflow/index.js";
+import type { ReviewPolicy, TestPolicy } from "../../domain/index.js";
 import { migrateIssuePolicies, repairIssueFromLocalState } from "../../tools/issues/issue-repair.js";
 import { getDefaultWorkspaceDir } from "../options/setup-options.js";
 

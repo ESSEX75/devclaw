@@ -4,14 +4,14 @@
  * Shared by: tick (projectTick), work-start (auto-pickup), and other consumers
  * that need to find queued issues or detect roles/levels from labels.
  */
-import { isLevelId, type LevelId, type RoleId } from "../../domain/index.js";
-import type { IssueRuntimeState } from "../../domain/issues/types.js";
-import { isOwnedByOrUnclaimed } from "../../domain/workflow/labels.js";
+import type { IssueRuntimeState } from "../../domain/index.js";
+import type { Role, WorkflowConfig, WorkflowLabel } from "../../domain/index.js";
+import { isLevelId, ISSUE_INTEGRITY_STATUS, type LevelId, type RoleId } from "../../domain/index.js";
+import { isOwnedByOrUnclaimed } from "../../domain/index.js";
 import {
   detectRoleFromLabel as workflowDetectRole,
   getQueueLabels,
-} from "../../domain/workflow/queries.js";
-import type { Role, WorkflowConfig, WorkflowLabel } from "../../domain/workflow/types.js";
+} from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
 import { getAllLevels, getLevelsForRole, isValidRole } from "../../roles/index.js";
@@ -111,7 +111,7 @@ async function findNextIssueForRoleFromLocalState(
     .filter((state) =>
       state.managed
       && state.archivedAt == null
-      && state.integrityStatus !== "integrity_error"
+      && state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
       && queueLabels.includes(state.workflowLabel),
     )
     .sort((a, b) => a.issueId - b.issueId);

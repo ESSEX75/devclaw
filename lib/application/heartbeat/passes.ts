@@ -4,11 +4,11 @@
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../context.js";
-import { resolveNotifyChannel } from "../../domain/workflow/index.js";
+import { resolveNotifyChannel } from "../../domain/index.js";
+import { type Project } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getAllRoleIds } from "../../roles/index.js";
 import type { ResolvedConfig } from "../../state/config/types.js";
-import { type Project } from "../../state/projects/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import {
   checkWorkerHealth,

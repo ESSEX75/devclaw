@@ -4,13 +4,14 @@
 import {
   getStateLabels,
   ISSUE_PROVIDER,
+  type IssueProvider,
+  type Project,
   type WorkflowConfig,
   type WorkflowLabel,
   type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
-import { type IssueProvider as IssueProviderKind, writeIssueRuntimeState } from "../../state/issues/index.js";
-import type { Project } from "../../state/projects/index.js";
+import { writeIssueRuntimeState } from "../../state/issues/index.js";
 
 export async function writeHeartbeatTransitionState(opts: {
   workspaceDir: string;
@@ -42,6 +43,6 @@ export async function writeHeartbeatTransitionState(opts: {
   });
 }
 
-function providerType(provider: Project["provider"]): IssueProviderKind {
+function providerType(provider: Project["provider"]): IssueProvider {
   return provider === ISSUE_PROVIDER.GITLAB ? ISSUE_PROVIDER.GITLAB : ISSUE_PROVIDER.GITHUB;
 }

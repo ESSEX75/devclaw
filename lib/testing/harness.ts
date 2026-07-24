@@ -13,9 +13,16 @@ import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
 import type { PluginContext } from "../context.js";
-import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
+import {
+  DEFAULT_WORKFLOW,
+  ISSUE_PROVIDER,
+  type Project,
+  type ProjectsData,
+  type RoleWorkerState,
+  type WorkflowConfig,
+} from "../domain/index.js";
 import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
-import { type Project, type ProjectsData, type RoleWorkerState,writeProjects } from "../state/projects/index.js";
+import { writeProjects } from "../state/projects/index.js";
 import { TestProvider } from "./test-provider.js";
 
 // ---------------------------------------------------------------------------
@@ -251,7 +258,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     baseBranch,
     deployBranch: baseBranch,
     channels: [{ channelId, channel: "telegram", name: "primary", events: ["*"] }],
-    provider: "github",
+    provider: ISSUE_PROVIDER.GITHUB,
     workers: defaultWorkers,
   };
 

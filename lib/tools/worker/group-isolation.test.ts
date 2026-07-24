@@ -14,8 +14,8 @@ import {
   NOTIFY_LABEL_PREFIX,
   NOTIFY_LABEL_COLOR,
   resolveNotifyChannel,
-} from "../../domain/workflow/index.js";
-import type { Channel } from "../../state/projects/index.js";
+  type Channel,
+} from "../../domain/index.js";
 
 // ---------------------------------------------------------------------------
 // getNotifyLabel / constants

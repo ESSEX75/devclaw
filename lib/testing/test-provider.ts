@@ -5,8 +5,7 @@
  * No external dependencies — pure TypeScript.
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { getStateLabels } from "../domain/workflow/index.js";
-import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
+import { DEFAULT_WORKFLOW, getStateLabels, type WorkflowConfig } from "../domain/index.js";
 import type {
   Issue,
   IssueComment,

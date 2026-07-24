@@ -18,7 +18,8 @@ import { rm } from "node:fs/promises";
 import { createTestHarness } from "../../testing/index.js";
 import { finishWork } from "../../application/workers/finish-work.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
-import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
+import { ISSUE_PROVIDER } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 
 // Helper to create a mock audit log with a merge_conflict transition
 async function createMockAuditLog(workspaceDir: string, issueId: number, hasMergeConflict: boolean): Promise<void> {
@@ -313,7 +314,7 @@ describe("work_finish: PR validation and conflict resolution", () => {
           workspaceDir: h.workspaceDir,
           project: h.project,
           issue,
-          providerType: "github",
+          providerType: ISSUE_PROVIDER.GITHUB,
           workflow: DEFAULT_WORKFLOW,
           workflowState: "testing",
           workflowLabel: "Testing",

@@ -11,7 +11,7 @@
  * - Session key matching
  * - Notification preferences
  */
-import type { RoleId } from "../domain/workflow/types.js";
+import type { RoleId } from "../domain/index.js";
 import type { RoleConfig } from "./types.js";
 
 export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {

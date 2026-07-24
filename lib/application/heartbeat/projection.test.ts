@@ -3,17 +3,18 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../state/issues/index.js";
+import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
+import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { projectionIntegrityPass } from "./projection.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug: "devclaw",
     issueId: 123,
-    provider: "github",
+    provider: ISSUE_PROVIDER.GITHUB,
     managed: true,
     workflowState: "todo",
     workflowLabel: "To Do",
@@ -25,7 +26,7 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     notifyTarget: null,
     branchContract: null,
     activeWorker: null,
-    integrityStatus: "ok",
+    integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
     projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
@@ -92,7 +93,7 @@ describe("projectionIntegrityPass", () => {
       const loaded = await readIssueStateStore(tmpDir, "devclaw");
 
       assert.strictEqual(result.errors, 1);
-      assert.strictEqual(loaded.issues["123"]!.integrityStatus, "integrity_error");
+      assert.strictEqual(loaded.issues["123"]!.integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
       assert.deepStrictEqual(loaded.issues["123"]!.integrityErrors, ["issue metadata is missing"]);
       assert.strictEqual(provider.callsTo("addLabel").length, 0);
     });
@@ -111,7 +112,7 @@ describe("projectionIntegrityPass", () => {
       });
       const loaded = await readIssueStateStore(tmpDir, "devclaw");
 
-      assert.strictEqual(loaded.issues["123"]!.integrityStatus, "integrity_error");
+      assert.strictEqual(loaded.issues["123"]!.integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
       assert.deepStrictEqual(loaded.issues["123"]!.integrityErrors, ["issue metadata does not match local issue state"]);
     });
   });

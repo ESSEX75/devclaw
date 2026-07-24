@@ -3,15 +3,21 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../state/issues/index.js";
-import { DEFAULT_WORKFLOW, WORKFLOW_STATE_KEYS } from "../../domain/index.js";
+import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
+import {
+  DEFAULT_WORKFLOW,
+  ISSUE_INTEGRITY_STATUS,
+  ISSUE_PROVIDER,
+  type IssueRuntimeState,
+  WORKFLOW_STATE_KEYS,
+} from "../../domain/index.js";
 import { cleanupIssueState } from "./issues-cleanup.js";
 
 function issue(overrides: Partial<IssueRuntimeState>): IssueRuntimeState {
   return {
     projectSlug: "devclaw",
     issueId: 1,
-    provider: "github",
+    provider: ISSUE_PROVIDER.GITHUB,
     managed: true,
     workflowState: "done",
     workflowLabel: "Done",
@@ -23,7 +29,7 @@ function issue(overrides: Partial<IssueRuntimeState>): IssueRuntimeState {
     notifyTarget: null,
     branchContract: null,
     activeWorker: null,
-    integrityStatus: "ok",
+    integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
     projectionVersion: 1,
     createdAt: "2026-05-01T00:00:00.000Z",
@@ -41,7 +47,10 @@ describe("issues cleanup", () => {
       const store = emptyIssueStateStore("devclaw");
       store.issues["1"] = issue({ issueId: 1 });
       store.issues["2"] = issue({ issueId: 2, closedAt: new Date().toISOString() });
-      store.issues["3"] = issue({ issueId: 3, integrityStatus: "integrity_error" });
+      store.issues["3"] = issue({
+        issueId: 3,
+        integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,
+      });
       store.issues["4"] = issue({
         issueId: 4,
         activeWorker: { role: "developer", level: "medior", slotIndex: 0, sessionKey: "s", startedAt: "2026-05-01T00:00:00.000Z" },

@@ -3,9 +3,10 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore, type IssueRuntimeState } from "../../state/issues/index.js";
+import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
+import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { extractIssueMetadata } from "../../projection/index.js";
 import { migrateIssuePolicies, repairIssueProjection, repairIssueFromLocalState } from "./issue-repair.js";
 import { createTestHarness } from "../../testing/index.js";
@@ -14,7 +15,7 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug: "devclaw",
     issueId: 123,
-    provider: "github",
+    provider: ISSUE_PROVIDER.GITHUB,
     managed: true,
     workflowState: "todo",
     workflowLabel: "To Do",
@@ -26,7 +27,7 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     notifyTarget: { channel: "telegram", name: "primary" },
     branchContract: null,
     activeWorker: null,
-    integrityStatus: "integrity_error",
+    integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,
     integrityErrors: ["metadata tamper"],
     projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
@@ -69,7 +70,7 @@ describe("issue repair", () => {
       assert.strictEqual(provider.callsTo("addLabel").length, 0);
       assert.strictEqual(provider.callsTo("removeLabels").length, 0);
       assert.strictEqual(provider.callsTo("editIssue").length, 0);
-      assert.strictEqual(loaded.issues["123"]!.integrityStatus, "integrity_error");
+      assert.strictEqual(loaded.issues["123"]!.integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
@@ -93,7 +94,7 @@ describe("issue repair", () => {
       const issue = await provider.getIssue(123);
       const loaded = await readIssueStateStore(tmpDir, "devclaw");
 
-      assert.strictEqual(result.integrityStatus, "ok");
+      assert.strictEqual(result.integrityStatus, ISSUE_INTEGRITY_STATUS.OK);
       assert.ok(issue.labels.includes("To Do"));
       assert.ok(issue.labels.includes("bug"));
       assert.ok(!issue.labels.includes("Doing"));
@@ -102,7 +103,7 @@ describe("issue repair", () => {
         issueId: 123,
         projectionVersion: 1,
       });
-      assert.strictEqual(loaded.issues["123"]!.integrityStatus, "ok");
+      assert.strictEqual(loaded.issues["123"]!.integrityStatus, ISSUE_INTEGRITY_STATUS.OK);
       assert.deepStrictEqual(loaded.issues["123"]!.integrityErrors, []);
     } finally {
       await fs.rm(tmpDir, { recursive: true });
@@ -172,7 +173,7 @@ describe("issue repair", () => {
         workflowLabel: "To Review",
         reviewPolicy: "human",
         testPolicy: "skip",
-        integrityStatus: "ok",
+        integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
         integrityErrors: [],
       }));
       h.provider.seedIssue({ iid: 75, labels: ["To Review", "review:human", "test:skip"], description: "Body" });
@@ -243,7 +244,7 @@ describe("issue repair", () => {
         workflowLabel: "To Review",
         reviewPolicy: "human",
         testPolicy: "skip",
-        integrityStatus: "ok",
+        integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
         integrityErrors: [],
       }));
       h.provider.seedIssue({ iid: 80, labels: ["To Review", "review:agent", "test:agent"], description: "Body" });

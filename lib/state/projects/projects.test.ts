@@ -8,7 +8,17 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { countActiveSlots, emptyRoleWorkerState, emptySlot, findFreeSlot, findSlotByIssue, getRoleWorker, type ProjectsData, readProjects, reconcileSlots, type RoleWorkerState, writeProjects } from "./index.js";
+import {
+  countActiveSlots,
+  emptyRoleWorkerState,
+  emptySlot,
+  findFreeSlot,
+  findSlotByIssue,
+  type ProjectsData,
+  reconcileSlots,
+  type RoleWorkerState,
+} from "../../domain/index.js";
+import { getRoleWorker, readProjects, writeProjects } from "./index.js";
 
 describe("readProjects", () => {
   it("should read current project-first per-level format correctly", async () => {

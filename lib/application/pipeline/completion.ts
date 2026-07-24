@@ -9,6 +9,7 @@ import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import {
   ACTION,
+  type Channel,
   type CompletionRule,
   DEFAULT_WORKFLOW,
   findStateByLabel,
@@ -26,8 +27,7 @@ import {
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
-import { writeIssueRuntimeState } from "../../state/issues/index.js";
-import type { Channel } from "../../state/projects/index.js";
+import { providerKindFromProject, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/projects/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 
@@ -97,6 +97,13 @@ export async function executeCompletion(opts: {
   if (!rule) throw new Error(`No completion rule for ${key}`);
 
   const { timeouts } = await loadConfig(workspaceDir, projectName);
+  const project = await loadProjectBySlug(workspaceDir, projectSlug);
+
+  if (!project) {
+    throw new Error(`Project "${projectSlug}" not found.`);
+  }
+
+  const providerType = providerKindFromProject(project);
   let prUrl = opts.prUrl;
   let mergedPr = false;
   let prTitle: string | undefined;
@@ -182,7 +189,7 @@ export async function executeCompletion(opts: {
         ...issue,
         labels: issue.labels.filter((label) => label !== rule.from).concat(failedTransition.label),
       },
-      providerType: provider.constructor.name.toLowerCase().includes("github") ? "github" : "gitlab",
+      providerType,
       workflow,
       workflowState: failedTransition.key,
       workflowLabel: failedTransition.label,
@@ -220,10 +227,8 @@ export async function executeCompletion(opts: {
   let targetBranch: string | undefined;
 
   try {
-    const project = await loadProjectBySlug(workspaceDir, projectSlug);
-
-    targetBranch = project?.baseBranch;
-    if (project && opts.level !== undefined && opts.slotIndex !== undefined) {
+    targetBranch = project.baseBranch;
+    if (opts.level !== undefined && opts.slotIndex !== undefined) {
       const roleWorker = getRoleWorker(project, role);
       const slot = roleWorker.levels[opts.level]?.[opts.slotIndex];
 
@@ -318,7 +323,7 @@ export async function executeCompletion(opts: {
       ...issue,
       labels: issue.labels.filter((label) => label !== rule.from).concat(rule.to),
     },
-    providerType: provider.constructor.name.toLowerCase().includes("github") ? "github" : "gitlab",
+    providerType,
     workflow,
     workflowLabel: rule.to,
     activeWorker: null,

@@ -8,6 +8,7 @@
  * Mirrors reviewPass() in review.ts — called by the heartbeat service.
  */
 import { log as auditLog } from "../../audit.js";
+import type { Project } from "../../domain/index.js";
 import {
   ACTION,
   STATE_TYPE,
@@ -16,7 +17,6 @@ import {
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
-import type { Project } from "../../state/projects/index.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
 import { writeHeartbeatTransitionState } from "./transition-state.js";
 

@@ -26,23 +26,23 @@
  */
 import { log as auditLog } from "../../../audit.js";
 import type { RunCommand } from "../../../context.js";
+import type {
+  Role,
+  WorkflowConfig,
+} from "../../../domain/index.js";
+import type { Project } from "../../../domain/index.js";
 import {
   DEFAULT_WORKFLOW,
-} from "../../../domain/workflow/defaults.js";
+} from "../../../domain/index.js";
 import {
   getActiveLabel,
   getCurrentStateLabel,
   getRevertLabel,
   hasWorkflowStates,
-} from "../../../domain/workflow/queries.js";
-import type {
-  Role,
-  WorkflowConfig,
-} from "../../../domain/workflow/types.js";
+} from "../../../domain/index.js";
 import { sendToAgent } from "../../../integrations/openclaw/session.js";
 import type { Issue,IssueProvider, StateLabel } from "../../../integrations/providers/provider.js";
 import { getLevelsForRole } from "../../../roles/index.js";
-import type { Project } from "../../../state/projects/index.js";
 import {
   deactivateWorker,
   getRoleWorker,

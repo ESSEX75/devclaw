@@ -1,7 +1,10 @@
 import {
+  type IssueProvider,
   NOTIFY_LABEL_COLOR,
   NOTIFY_LABEL_PREFIX,
+  type NotifyTarget,
   OWNER_LABEL_COLOR,
+  type Project,
   REVIEW_POLICY,
   STATE_TYPE,
   type StateConfig,
@@ -13,8 +16,7 @@ import {
 import type { IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { expectedManagedLabels, replaceIssueMetadata } from "../../projection/index.js";
-import { type NotifyTarget,writeIssueRuntimeState } from "../../state/issues/index.js";
-import type { Project } from "../../state/projects/index.js";
+import { writeIssueRuntimeState } from "../../state/issues/index.js";
 
 export type CreatedManagedTask = {
   issue: Issue;
@@ -27,7 +29,7 @@ export type CreatedManagedTask = {
 export async function createManagedTaskIssue(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug" | "channels">;
-  providerType: "github" | "gitlab";
+  providerType: IssueProvider;
   provider: Pick<IssueWriter, "createIssue" | "editIssue"> & Pick<LabelProjector, "addLabel" | "ensureLabel">;
   workflow: WorkflowConfig;
   title: string;

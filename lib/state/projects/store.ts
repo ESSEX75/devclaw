@@ -3,7 +3,7 @@
  */
 import fs from "node:fs/promises";
 
-import type { Project,ProjectsData } from "../../domain/projects/types.js";
+import type { Project,ProjectsData } from "../../domain/index.js";
 import { projectsPath, resolveRepoPath } from "./paths.js";
 
 

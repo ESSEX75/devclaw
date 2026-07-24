@@ -7,7 +7,7 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
-import type { ExecutionMode } from "../../domain/workflow/index.js";
+import type { ExecutionMode } from "../../domain/index.js";
 import { HEARTBEAT_DEFAULTS } from "../heartbeat/config.js";
 
 export const DEVCLAW_AGENT_TOOLS = [

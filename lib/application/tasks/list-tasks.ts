@@ -1,9 +1,9 @@
+import type { IssueRuntimeState } from "../../domain/index.js";
 import {
   findStateByLabel,
   STATE_TYPE,
   type WorkflowConfig,
 } from "../../domain/index.js";
-import type { IssueRuntimeState } from "../../domain/issues/types.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
 import {

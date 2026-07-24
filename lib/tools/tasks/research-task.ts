@@ -17,12 +17,12 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import { dispatchTask } from "../../application/workers/dispatch-task.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { getActiveLabel } from "../../domain/workflow/index.js";
+import { countActiveSlots, getActiveLabel } from "../../domain/index.js";
 import type { StateLabel } from "../../integrations/providers/provider.js";
 import { resolveModel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import { loadConfig } from "../../state/config/index.js";
-import { countActiveSlots,getRoleWorker } from "../../state/projects/index.js";
+import { getRoleWorker } from "../../state/projects/index.js";
 import { applyNotifyLabel,autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 /** Queue label for research tasks. */

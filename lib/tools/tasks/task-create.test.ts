@@ -6,7 +6,8 @@ import os from "node:os";
 import { readIssueStateStore } from "../../state/issues/index.js";
 import { extractIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
+import { ISSUE_PROVIDER } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 
 describe("task_create managed queue flow", () => {
@@ -21,7 +22,7 @@ describe("task_create managed queue flow", () => {
           slug: "devclaw",
           channels: [{ channelId: "telegram:1", channel: "telegram", name: "primary", events: ["*"] }],
         },
-        providerType: "github",
+        providerType: ISSUE_PROVIDER.GITHUB,
         provider,
         workflow: DEFAULT_WORKFLOW,
         title: "Implement login",

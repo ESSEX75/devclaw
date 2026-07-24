@@ -5,7 +5,7 @@
  * All role-related behavior should be derived from this config.
  */
 
-import type { LevelId, RoleId } from "../domain/workflow/types.js";
+import type { LevelId, RoleId } from "../domain/index.js";
 
 /** Configuration for a single worker role. */
 export type RoleConfig = {

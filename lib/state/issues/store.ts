@@ -4,7 +4,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import type { IssueStateStore } from "../../domain/issues/types.js";
+import type { IssueStateStore } from "../../domain/index.js";
 import { DATA_DIR } from "../setup/paths.js";
 
 const LOCK_STALE_MS = 30_000;

@@ -1,14 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import type { IssueRuntimeState } from "../../state/issues/index.js";
-import { DEFAULT_WORKFLOW, ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW, ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
 import { summarizeTaskIssue, type ProjectionViewContext } from "../../application/tasks/index.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug: "devclaw",
     issueId: 123,
-    provider: "github",
+    provider: ISSUE_PROVIDER.GITHUB,
     managed: true,
     workflowState: "todo",
     workflowLabel: "To Do",
@@ -20,7 +19,7 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     notifyTarget: null,
     branchContract: null,
     activeWorker: null,
-    integrityStatus: "ok",
+    integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
     projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
@@ -52,7 +51,7 @@ describe("task projection view", () => {
 
     assert.strictEqual(summary.projection.localState?.workflowState, "todo");
     assert.strictEqual(summary.projection.localState?.workflowLabel, "To Do");
-    assert.strictEqual(summary.projection.integrityStatus, "ok");
+    assert.strictEqual(summary.projection.integrityStatus, ISSUE_INTEGRITY_STATUS.OK);
     assert.ok(summary.projection.providerLabels.includes("bug"));
     assert.ok(summary.projection.missingManagedLabels.includes("To Do"));
     assert.ok(summary.projection.unexpectedManagedLabels.includes("Doing"));
@@ -71,7 +70,10 @@ describe("task projection view", () => {
     }, ctx());
 
     assert.strictEqual(summary.projection.localState, null);
-    assert.strictEqual(summary.projection.integrityStatus, "projection_uninitialized");
+    assert.strictEqual(
+      summary.projection.integrityStatus,
+      ISSUE_INTEGRITY_STATUS.PROJECTION_UNINITIALIZED,
+    );
     assert.deepStrictEqual(summary.projection.unmanagedLabels, ["To Do", "human"]);
     assert.strictEqual(summary.projection.repairHint, null);
   });

@@ -16,7 +16,7 @@ import {
   getLabelColors,
   getRoleLabels,
   getStateLabels,
-} from "../../domain/workflow/index.js";
+} from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { getProject,readProjects } from "../../state/projects/index.js";

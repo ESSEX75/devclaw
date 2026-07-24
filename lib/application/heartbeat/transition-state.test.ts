@@ -5,10 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import type { RunCommand } from "../../context.js";
 import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
-import type { Project } from "../../state/projects/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
+import { ISSUE_PROVIDER, type Project } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { projectionIntegrityPass } from "./projection.js";
 import { reviewPass } from "./review.js";
 import { testSkipPass } from "./test-skip.js";
@@ -29,7 +29,7 @@ async function withProject<T>(fn: (ctx: {
     baseBranch: "main",
     deployBranch: "main",
     channels: [{ channelId: "-123", channel: "telegram", name: "primary", events: ["*"] }],
-    provider: "github",
+    provider: ISSUE_PROVIDER.GITHUB,
     workers: {},
   };
   const provider = new TestProvider();
@@ -62,7 +62,7 @@ describe("heartbeat transition state sync", () => {
         workspaceDir,
         project,
         issue,
-        providerType: "github",
+        providerType: ISSUE_PROVIDER.GITHUB,
         workflow: DEFAULT_WORKFLOW,
         workflowState: "toReview",
         workflowLabel: "To Review",
@@ -109,7 +109,7 @@ describe("heartbeat transition state sync", () => {
         workspaceDir,
         project,
         issue,
-        providerType: "github",
+        providerType: ISSUE_PROVIDER.GITHUB,
         workflow: DEFAULT_WORKFLOW,
         workflowState: "toTest",
         workflowLabel: "To Test",

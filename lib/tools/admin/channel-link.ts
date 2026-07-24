@@ -9,7 +9,8 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
-import { type Channel, readProjects, writeProjects } from "../../state/projects/index.js";
+import type { Channel } from "../../domain/index.js";
+import { readProjects, writeProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createChannelLinkTool() {

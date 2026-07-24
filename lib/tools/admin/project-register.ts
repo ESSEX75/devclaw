@@ -13,11 +13,17 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { getRoleLabels } from "../../domain/workflow/index.js";
+import {
+  type Channel,
+  emptyRoleWorkerState,
+  getRoleLabels,
+  ISSUE_PROVIDER,
+  type RoleWorkerState,
+} from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { getAllRoleIds } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { emptyRoleWorkerState,readProjects, writeProjects } from "../../state/projects/index.js";
+import { readProjects, writeProjects } from "../../state/projects/index.js";
 import { resolveRepoPath } from "../../state/projects/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
 
@@ -181,8 +187,8 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       const healthy = await provider.healthCheck();
 
       if (!healthy) {
-        const cliName = providerType === "github" ? "gh" : "glab";
-        const cliInstallUrl = providerType === "github"
+        const cliName = providerType === ISSUE_PROVIDER.GITHUB ? "gh" : "glab";
+        const cliInstallUrl = providerType === ISSUE_PROVIDER.GITHUB
           ? "https://cli.github.com"
           : "https://gitlab.com/gitlab-org/cli";
 
@@ -223,7 +229,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       // 6. Add or update project in projects.json
       if (existing) {
         // Add channel to existing project
-        const newChannel: import("../../state/projects/index.js").Channel = {
+        const newChannel: Channel = {
           channelId,
           channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
           name: `channel-${existing.channels.length + 1}`,
@@ -237,7 +243,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         }
       } else {
         // Create new project - get levelMaxWorkers from resolved config (already loaded above)
-        const workers: Record<string, import("../../state/projects/index.js").RoleWorkerState> = {};
+        const workers: Record<string, RoleWorkerState> = {};
 
         for (const role of getAllRoleIds()) {
           const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
@@ -245,7 +251,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           workers[role] = emptyRoleWorkerState(levelMaxWorkers);
         }
 
-        const newChannel: import("../../state/projects/index.js").Channel = {
+        const newChannel: Channel = {
           channelId,
           channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
           name: "primary",

@@ -10,7 +10,7 @@ import path from "node:path";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import YAML from "yaml";
 
-import type { ExecutionMode } from "../../domain/workflow/index.js";
+import type { ExecutionMode } from "../../domain/index.js";
 import { getAllDefaultModels } from "../../roles/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
 import { scaffoldWorkspace, writeAllDefaults } from "../../state/setup/workspace-files.js";

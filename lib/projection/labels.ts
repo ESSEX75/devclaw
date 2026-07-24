@@ -1,8 +1,7 @@
 /**
  * projection/labels.ts — Managed provider label detection and rendering.
  */
-import { NOTIFY_LABEL_PREFIX, OWNER_LABEL_PREFIX } from "../domain/workflow/index.js";
-import type { IssueRuntimeState } from "../state/issues/index.js";
+import { type IssueRuntimeState,NOTIFY_LABEL_PREFIX, OWNER_LABEL_PREFIX } from "../domain/index.js";
 import type { ManagedLabelOptions } from "./types.js";
 
 const DEVCLAW_LABEL_PREFIX = "devclaw:";

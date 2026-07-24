@@ -1,7 +1,7 @@
 /**
  * Provider factory — auto-detects GitHub vs GitLab from git remote.
  */
-import type { IssueProvider } from "./provider.js";
+import { ISSUE_PROVIDER, type IssueProvider } from "../../domain/index.js";
 
 export type * from "./capabilities.js";
 export * from "./provider.js";
@@ -12,24 +12,26 @@ import { GitHubProvider } from "./github.js";
 import { GitLabProvider } from "./gitlab.js";
 
 export type ProviderOptions = {
-  provider?: "gitlab" | "github";
+  provider?: IssueProvider;
   repo?: string;
   repoPath?: string;
   runCommand: RunCommand;
 };
 
 export type ProviderWithType = {
-  provider: IssueProvider;
-  type: "github" | "gitlab";
+  provider: GitHubProvider | GitLabProvider;
+  type: IssueProvider;
 };
 
-async function detectProvider(repoPath: string, runCommand: RunCommand): Promise<"gitlab" | "github"> {
+async function detectProvider(repoPath: string, runCommand: RunCommand): Promise<IssueProvider> {
   try {
     const result = await runCommand(["git", "remote", "get-url", "origin"], { timeoutMs: 5_000, cwd: repoPath });
 
-    return result.stdout.trim().includes("github.com") ? "github" : "gitlab";
+    return result.stdout.trim().includes("github.com")
+      ? ISSUE_PROVIDER.GITHUB
+      : ISSUE_PROVIDER.GITLAB;
   } catch {
-    return "gitlab";
+    return ISSUE_PROVIDER.GITLAB;
   }
 }
 
@@ -39,7 +41,7 @@ export async function createProvider(opts: ProviderOptions): Promise<ProviderWit
   if (!repoPath) throw new Error("Either repoPath or repo must be provided");
   const rc = opts.runCommand;
   const type = opts.provider ?? await detectProvider(repoPath, rc);
-  const provider = type === "github"
+  const provider = type === ISSUE_PROVIDER.GITHUB
     ? new GitHubProvider({ repoPath, runCommand: rc })
     : new GitLabProvider({ repoPath, runCommand: rc });
 

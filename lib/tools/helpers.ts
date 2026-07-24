@@ -7,11 +7,19 @@
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../context.js";
-import { getNotifyLabel, getOwnerLabel, NOTIFY_LABEL_COLOR,NOTIFY_LABEL_PREFIX, OWNER_LABEL_COLOR } from "../domain/workflow/index.js";
+import {
+  getNotifyLabel,
+  getOwnerLabel,
+  NOTIFY_LABEL_COLOR,
+  NOTIFY_LABEL_PREFIX,
+  OWNER_LABEL_COLOR,
+  type Project,
+  type ProjectsData,
+} from "../domain/index.js";
 import { loadInstanceName } from "../instance.js";
 import { createProvider, type ProviderWithType } from "../integrations/providers/index.js";
 import { loadConfig } from "../state/config/index.js";
-import { getProject, type Project, type ProjectsData,readProjects } from "../state/projects/index.js";
+import { getProject,readProjects } from "../state/projects/index.js";
 
 /**
  * Require workspaceDir from context or throw a clear error.

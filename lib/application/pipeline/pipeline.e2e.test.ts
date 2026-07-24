@@ -17,6 +17,8 @@ import { projectTick } from "../queue/tick.js";
 import { reviewPass } from "../heartbeat/review.js";
 import {
   DEFAULT_WORKFLOW,
+  countActiveSlots,
+  ISSUE_PROVIDER,
   type LevelId,
   REVIEW_POLICY,
   type ReviewPolicy,
@@ -25,7 +27,7 @@ import {
   type WorkflowLabel,
   type WorkflowStateKey,
 } from "../../domain/index.js";
-import { readProjects, getRoleWorker, getProject, countActiveSlots } from "../../state/projects/index.js";
+import { readProjects, getRoleWorker, getProject } from "../../state/projects/index.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import { slotName } from "../../names.js";
 
@@ -57,7 +59,7 @@ describe("E2E pipeline", () => {
       workspaceDir: h.workspaceDir,
       project: h.project,
       issue,
-      providerType: "github",
+      providerType: ISSUE_PROVIDER.GITHUB,
       workflow: args.workflow ?? DEFAULT_WORKFLOW,
       workflowState: args.workflowState,
       workflowLabel: args.workflowLabel,
@@ -522,7 +524,7 @@ describe("E2E pipeline", () => {
         workspaceDir: h.workspaceDir,
         project: h.project,
         issue,
-        providerType: "github",
+        providerType: ISSUE_PROVIDER.GITHUB,
         workflow: DEFAULT_WORKFLOW,
         workflowState: "toReview",
         workflowLabel: "To Review",
@@ -1391,7 +1393,7 @@ describe("E2E pipeline", () => {
         workspaceDir: h.workspaceDir,
         project: h.project,
         issue,
-        providerType: "github",
+        providerType: ISSUE_PROVIDER.GITHUB,
         workflow: DEFAULT_WORKFLOW,
         workflowState: "toReview",
         workflowLabel: "To Review",
@@ -1420,7 +1422,7 @@ describe("E2E pipeline", () => {
         workspaceDir: h.workspaceDir,
         project: h.project,
         issue,
-        providerType: "github",
+        providerType: ISSUE_PROVIDER.GITHUB,
         workflow: DEFAULT_WORKFLOW,
         workflowState: "toReview",
         workflowLabel: "To Review",

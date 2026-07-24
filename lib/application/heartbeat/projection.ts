@@ -2,6 +2,7 @@
  * projection.ts — Heartbeat projection integrity pass.
  */
 import { log as auditLog } from "../../audit.js";
+import type { Project } from "../../domain/index.js";
 import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader, LabelProjector } from "../../integrations/providers/capabilities.js";
 import {
@@ -11,7 +12,6 @@ import {
   type ProjectionDiff,
 } from "../../projection/index.js";
 import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
-import type { Project } from "../../state/projects/index.js";
 
 export type ProjectionIntegrityAction =
   | "label_repair"

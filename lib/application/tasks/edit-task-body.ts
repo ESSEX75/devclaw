@@ -1,6 +1,6 @@
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
-import { getInitialStateLabel } from "../../domain/workflow/index.js";
+import { getInitialStateLabel } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { resolveIssueRuntimeState } from "../../state/issues/index.js";
 import { applyNotifyLabel,autoAssignOwnerLabel, resolveProject, resolveProvider } from "../../tools/helpers.js";

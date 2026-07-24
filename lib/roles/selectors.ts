@@ -4,8 +4,7 @@
  * All role-related lookups go through these functions.
  * No other file should access ROLE_REGISTRY directly for role logic.
  */
-import { isLevelId, isRoleId } from "../domain/workflow/guards.js";
-import type { LevelId, RoleId } from "../domain/workflow/types.js";
+import { isLevelId, isRoleId, type LevelId, type RoleId } from "../domain/index.js";
 import type { ResolvedRoleConfig } from "../state/config/types.js";
 import { ROLE_REGISTRY } from "./registry.js";
 import type { RoleConfig } from "./types.js";
