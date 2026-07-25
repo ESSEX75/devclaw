@@ -12,10 +12,11 @@ import path from "node:path";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
-import type { PluginContext } from "../context.js";
+import type { PluginContext, RunCommand } from "../context.js";
 import {
   DEFAULT_WORKFLOW,
   ISSUE_PROVIDER,
+  NOTIFICATION_CHANNEL,
   type Project,
   type ProjectsData,
   type RoleWorkerState,
@@ -161,7 +162,7 @@ export type TestHarness = {
   /** Command interceptor — captures all runCommand calls. */
   commands: CommandInterceptor;
   /** Mock runCommand function for passing to functions that require it. */
-  runCommand: import("../context.js").RunCommand;
+  runCommand: RunCommand;
   /** The project channel ID used for test data. */
   channelId: string;
   /** The project data. */
@@ -257,7 +258,12 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     deployUrl: "",
     baseBranch,
     deployBranch: baseBranch,
-    channels: [{ channelId, channel: "telegram", name: "primary", events: ["*"] }],
+    channels: [{
+      channelId,
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      events: ["*"],
+    }],
     provider: ISSUE_PROVIDER.GITHUB,
     workers: defaultWorkers,
   };
@@ -309,10 +315,10 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
           internalHookCb = cb;
         },
         logger: {
-          debug() {},
-          info() {},
-          warn() {},
-          error() {},
+          debug() { },
+          info() { },
+          warn() { },
+          error() { },
         },
       } as unknown as OpenClawPluginApi;
 

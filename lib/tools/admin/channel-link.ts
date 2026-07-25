@@ -9,7 +9,11 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
-import type { Channel } from "../../domain/index.js";
+import {
+  type Channel,
+  isNotificationChannel,
+  NOTIFICATION_CHANNEL,
+} from "../../domain/index.js";
 import { readProjects, writeProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
@@ -38,7 +42,7 @@ export function createChannelLinkTool() {
         },
         channel: {
           type: "string",
-          enum: ["telegram", "whatsapp", "discord", "slack"],
+          enum: Object.values(NOTIFICATION_CHANNEL),
           description: "Channel type. Defaults to 'telegram'.",
         },
         threadId: {
@@ -57,7 +61,13 @@ export function createChannelLinkTool() {
     async execute(_id: string, params: Record<string, unknown>) {
       const channelId = params.channelId as string;
       const projectRef = params.project as string;
-      const channelType = (params.channel as Channel["channel"]) ?? "telegram";
+      const channelTypeInput = params.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;
+
+      if (!isNotificationChannel(channelTypeInput)) {
+        throw new Error(`Unsupported notification channel: ${String(channelTypeInput)}.`);
+      }
+
+      const channelType = channelTypeInput;
       const threadId = typeof params.threadId === "string" && params.threadId.trim()
         ? params.threadId.trim()
         : undefined;

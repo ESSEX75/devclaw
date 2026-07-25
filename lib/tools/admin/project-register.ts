@@ -17,7 +17,9 @@ import {
   type Channel,
   emptyRoleWorkerState,
   getRoleLabels,
+  isNotificationChannel,
   ISSUE_PROVIDER,
+  NOTIFICATION_CHANNEL,
   type RoleWorkerState,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
@@ -115,6 +117,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         },
         channel: {
           type: "string",
+          enum: Object.values(NOTIFICATION_CHANNEL),
           description: "Channel type (e.g. 'telegram', 'whatsapp'). Defaults to 'telegram'.",
         },
         threadId: {
@@ -145,7 +148,13 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       const channelId = params.channelId as string;
       const name = params.name as string;
       const repo = params.repo as string;
-      const channel = (params.channel as string) ?? "telegram";
+      const channelInput = params.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;
+
+      if (!isNotificationChannel(channelInput)) {
+        throw new Error(`Unsupported notification channel: ${String(channelInput)}.`);
+      }
+
+      const channel = channelInput;
       const threadId = typeof params.threadId === "string" && params.threadId.trim()
         ? params.threadId.trim()
         : undefined;
@@ -231,7 +240,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         // Add channel to existing project
         const newChannel: Channel = {
           channelId,
-          channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
+          channel,
           name: `channel-${existing.channels.length + 1}`,
           events: ["*"],
           ...(threadId ? { threadId } : {}),
@@ -253,7 +262,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
 
         const newChannel: Channel = {
           channelId,
-          channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
+          channel,
           name: "primary",
           events: ["*"],
           ...(threadId ? { threadId } : {}),

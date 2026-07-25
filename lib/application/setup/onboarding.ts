@@ -6,6 +6,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import { getAllDefaultModels } from "../../roles/index.js";
 
 // ---------------------------------------------------------------------------
@@ -126,11 +127,11 @@ Ask: "Do you want to configure DevClaw for the current agent, or create a new de
 **Step 3: Run Setup**
 Call \`setup\` with the collected answers:
 ` +
-    `- Current agent: \`setup({ channelBinding: "telegram"|"whatsapp"|null, channelAccountId: "<accountId>"|null, ` +
+      `- Current agent: \`setup({ channelBinding: "${NOTIFICATION_CHANNEL.TELEGRAM}"|"${NOTIFICATION_CHANNEL.WHATSAPP}"|null, channelAccountId: "<accountId>"|null, ` +
     `channelPeerId: "<groupId[:topic:topicId]>"|null, migrateFrom: "<agentId>"|null, ` +
     `models: { developer: { ... }, tester: { ... } } })\`
 ` +
-    `- New agent: \`setup({ newAgentName: "<name>", channelBinding: "telegram"|"whatsapp"|null, ` +
+      `- New agent: \`setup({ newAgentName: "<name>", channelBinding: "${NOTIFICATION_CHANNEL.TELEGRAM}"|"${NOTIFICATION_CHANNEL.WHATSAPP}"|null, ` +
     `channelAccountId: "<accountId>"|null, channelPeerId: "<groupId[:topic:topicId]>"|null, ` +
     `migrateFrom: "<agentId>"|null, models: { ... } })\`
 ` +

@@ -12,7 +12,7 @@
  */
 import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 
-import type { PluginContext } from "../../context.js";
+import type { PluginContext, RunCommand } from "../../context.js";
 import { ensureDefaultFiles } from "../../state/setup/workspace-files.js";
 import type { Agent } from "./agent-discovery.js";
 import { discoverAgents } from "./agent-discovery.js";
@@ -161,7 +161,7 @@ async function processAllAgents(
   config: HeartbeatConfig,
   pluginConfig: Record<string, unknown> | undefined,
   logger: ServiceContext["logger"],
-  runCommand: import("../../context.js").RunCommand,
+  runCommand: RunCommand,
   runtime?: PluginRuntime,
 ): Promise<TickResult> {
   const result: TickResult = {
@@ -228,8 +228,8 @@ function logTickResult(
   ) {
     logger.info(
       `work_heartbeat tick: ${result.totalPickups} pickups, ${result.totalHealthFixes} health fixes, ` +
-        `${result.totalReviewTransitions} review transitions, ${result.totalReviewSkipTransitions} review skips, ` +
-        `${result.totalTestSkipTransitions} test skips, ${result.totalSkipped} skipped`,
+      `${result.totalReviewTransitions} review transitions, ${result.totalReviewSkipTransitions} review skips, ` +
+      `${result.totalTestSkipTransitions} test skips, ${result.totalSkipped} skipped`,
     );
   }
 }

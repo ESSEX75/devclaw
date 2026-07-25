@@ -4,7 +4,7 @@
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../context.js";
-import { resolveNotifyChannel } from "../../domain/index.js";
+import { NOTIFICATION_CHANNEL, resolveNotifyChannel } from "../../domain/index.js";
 import { type Project } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getAllRoleIds } from "../../roles/index.js";
@@ -95,7 +95,7 @@ export async function performHealthPass(
 export async function performProjectionIntegrityPass(
   workspaceDir: string,
   project: Project,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
 ): Promise<number> {
   const result = await projectionIntegrityPass({
@@ -116,7 +116,7 @@ export async function performReviewPass(
   workspaceDir: string,
   projectSlug: string,
   project: Project,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
   pluginConfig: Record<string, unknown> | undefined,
   runtime?: PluginRuntime,
@@ -160,7 +160,7 @@ export async function performReviewPass(
               workspaceDir,
               config: notifyConfig,
               channelId: target?.channelId,
-              channel: target?.channel ?? "telegram",
+              channel: target?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
               threadId: target?.threadId,
               runtime,
               accountId: target?.accountId,
@@ -191,7 +191,7 @@ export async function performReviewPass(
           workspaceDir,
           config: notifyConfig,
           channelId: target?.channelId,
-          channel: target?.channel ?? "telegram",
+          channel: target?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
           threadId: target?.threadId,
           runtime,
           accountId: target?.accountId,
@@ -216,7 +216,7 @@ export async function performReviewPass(
           workspaceDir,
           config: notifyConfig,
           channelId: target?.channelId,
-          channel: target?.channel ?? "telegram",
+          channel: target?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
           threadId: target?.threadId,
           runtime,
           accountId: target?.accountId,
@@ -234,7 +234,7 @@ export async function performReviewSkipPass(
   workspaceDir: string,
   projectSlug: string,
   project: Project,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
   pluginConfig: Record<string, unknown> | undefined,
   runtime?: PluginRuntime,
@@ -277,7 +277,7 @@ export async function performReviewSkipPass(
               workspaceDir,
               config: notifyConfig,
               channelId: target?.channelId,
-              channel: target?.channel ?? "telegram",
+              channel: target?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
               threadId: target?.threadId,
               runtime,
               accountId: target?.accountId,
@@ -297,7 +297,7 @@ export async function performTestSkipPass(
   workspaceDir: string,
   projectSlug: string,
   project: Project,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
 ): Promise<number> {
   return testSkipPass({

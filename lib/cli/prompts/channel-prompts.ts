@@ -3,6 +3,10 @@ import { createInterface } from "node:readline/promises";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
+import {
+  SETUP_NOTIFICATION_CHANNELS,
+  type SetupNotificationChannel,
+} from "../../application/setup/run-setup.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import {
   formatAgentLabel,
@@ -13,7 +17,7 @@ import {
 } from "../options/setup-options.js";
 
 type ChannelAccountChoice = {
-  channel: "telegram" | "whatsapp";
+  channel: SetupNotificationChannel;
   accountId: string;
   label: string;
   peerId?: string;
@@ -21,7 +25,7 @@ type ChannelAccountChoice = {
 
 function getExistingChannelWideBinding(
   runtime: PluginRuntime,
-  channel: "telegram" | "whatsapp",
+  channel: SetupNotificationChannel,
   accountId?: string,
 ): { agentId: string; agentName: string } | undefined {
   try {
@@ -45,7 +49,7 @@ function getExistingChannelWideBinding(
 
 function getBoundTopicPeerIds(
   config: OpenClawConfig,
-  channel: "telegram" | "whatsapp",
+  channel: SetupNotificationChannel,
   accountId: string,
 ): Set<string> {
   const normalizedAccountId = accountId.trim() || "default";
@@ -67,7 +71,7 @@ function getBoundTopicPeerIds(
 }
 
 function buildChannelEndpointChoices(
-  channel: "telegram" | "whatsapp",
+  channel: SetupNotificationChannel,
   accountId: string,
   rawConfig: unknown,
   boundTopicPeerIds: Set<string>,
@@ -116,7 +120,7 @@ function getConfiguredChannelAccounts(runtime: PluginRuntime): ChannelAccountCho
     const config = runtime.config.current() as OpenClawConfig;
     const choices: ChannelAccountChoice[] = [];
 
-    for (const channel of ["telegram", "whatsapp"] as const) {
+  for (const channel of SETUP_NOTIFICATION_CHANNELS) {
       const channelConfig = config.channels?.[channel];
 
       if (!channelConfig || channelConfig.enabled === false) continue;

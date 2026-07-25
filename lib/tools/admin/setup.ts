@@ -6,7 +6,12 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import { runSetup, type SetupOpts } from "../../application/setup/index.js";
+import {
+  isSetupNotificationChannel,
+  runSetup,
+  SETUP_NOTIFICATION_CHANNELS,
+  type SetupOpts,
+} from "../../application/setup/index.js";
 import {
   ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
@@ -35,7 +40,7 @@ export function createSetupTool(ctx: PluginContext) {
         },
         channelBinding: {
           type: "string",
-          enum: ["telegram", "whatsapp"],
+          enum: SETUP_NOTIFICATION_CHANNELS,
           description: "Channel to bind to the selected or newly-created agent.",
         },
         channelAccountId: {
@@ -105,14 +110,21 @@ export function createSetupTool(ctx: PluginContext) {
 
       let scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>>;
       let result: Awaited<ReturnType<typeof runSetup>>;
+      const channelBindingInput = params.channelBinding;
+
+      if (
+        channelBindingInput !== undefined
+        && !isSetupNotificationChannel(channelBindingInput)
+      ) {
+        throw new Error(`Unsupported setup channel: ${String(channelBindingInput)}.`);
+      }
 
       try {
         scopePreflight = await ensureRequiredOpenClawScopes(ctx.runCommand);
         result = await runSetup({
           runtime: ctx.runtime,
           newAgentName: params.newAgentName as string | undefined,
-          channelBinding:
-            (params.channelBinding as "telegram" | "whatsapp") ?? null,
+          channelBinding: channelBindingInput ?? null,
           channelAccountId:
             typeof params.channelAccountId === "string" ? params.channelAccountId : undefined,
           channelPeerId:

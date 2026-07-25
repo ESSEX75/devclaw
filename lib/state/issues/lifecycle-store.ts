@@ -7,6 +7,7 @@ import {
   findStateKeyByLabel,
   getCurrentStateLabel,
   isLevelId,
+  isNotificationChannel,
   isRoleId,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
@@ -70,10 +71,11 @@ export function detectNotifyTarget(
     return channel ? { channel: channel.channel, name: channel.name } : null;
   }
 
-  return {
-    channel: value.slice(0, colonIdx),
-    name: value.slice(colonIdx + 1),
-  };
+  const channel = value.slice(0, colonIdx);
+
+  return isNotificationChannel(channel)
+    ? { channel, name: value.slice(colonIdx + 1) }
+    : null;
 }
 
 export function detectRoleLevel(labels: string[]): RoleLevel | null {

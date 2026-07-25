@@ -5,7 +5,12 @@ import path from "node:path";
 import os from "node:os";
 import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
+import {
+  ISSUE_INTEGRITY_STATUS,
+  ISSUE_PROVIDER,
+  NOTIFICATION_CHANNEL,
+  type IssueRuntimeState,
+} from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { extractIssueMetadata } from "../../projection/index.js";
 import { migrateIssuePolicies, repairIssueProjection, repairIssueFromLocalState } from "./issue-repair.js";
@@ -24,7 +29,7 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     owner: "main",
     reviewPolicy: "human",
     testPolicy: "skip",
-    notifyTarget: { channel: "telegram", name: "primary" },
+    notifyTarget: { channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
     branchContract: null,
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,

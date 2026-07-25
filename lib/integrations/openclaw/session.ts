@@ -3,6 +3,7 @@
  */
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
+import type { ResolvedTimeouts } from "../../state/config/types.js";
 import { fetchGatewaySessions } from "./gateway-sessions.js";
 
 // ---------------------------------------------------------------------------
@@ -20,7 +21,7 @@ export async function shouldClearSession(
   sessionKey: string,
   slotIssueId: string | null,
   newIssueId: number,
-  timeouts: import("../../state/config/types.js").ResolvedTimeouts,
+  timeouts: ResolvedTimeouts,
   workspaceDir: string,
   projectName: string,
   runCommand: RunCommand,

@@ -1,13 +1,17 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
+import {
+  isSetupNotificationChannel,
+  type SetupNotificationChannel,
+} from "../../application/setup/run-setup.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
 
 export type SetupCliOptions = {
   newAgent?: string;
   agent?: string;
   workspace?: string;
-  channelBinding?: "telegram" | "whatsapp" | "none";
+  channelBinding?: SetupNotificationChannel | "none";
   channelAccountId?: string;
   channelPeerId?: string;
   migrateFrom?: string;
@@ -55,10 +59,12 @@ export function formatSelectedChannelBinding(opts: Pick<SetupCliOptions, "channe
     : `${opts.channelBinding}/${account}`;
 }
 
-export function normalizeChannelBinding(value: SetupCliOptions["channelBinding"]): "telegram" | "whatsapp" | null | undefined {
+export function normalizeChannelBinding(
+  value: SetupCliOptions["channelBinding"],
+): SetupNotificationChannel | null | undefined {
   if (value === undefined) return undefined;
   if (value === "none") return null;
-  if (value === "telegram" || value === "whatsapp") return value;
+  if (isSetupNotificationChannel(value)) return value;
   throw new Error(`Invalid channel binding: ${value}. Use telegram, whatsapp, or none.`);
 }
 

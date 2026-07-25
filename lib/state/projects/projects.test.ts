@@ -14,6 +14,7 @@ import {
   emptySlot,
   findFreeSlot,
   findSlotByIssue,
+  NOTIFICATION_CHANNEL,
   type ProjectsData,
   reconcileSlots,
   type RoleWorkerState,
@@ -37,7 +38,12 @@ describe("readProjects", () => {
           deployUrl: "",
           baseBranch: "main",
           deployBranch: "main",
-          channels: [{ channelId: "g1", channel: "telegram", name: "primary", events: ["*"] }],
+          channels: [{
+            channelId: "g1",
+            channel: NOTIFICATION_CHANNEL.TELEGRAM,
+            name: "primary",
+            events: ["*"],
+          }],
           workers: {
             developer: {
               levels: {
@@ -150,7 +156,12 @@ describe("writeProjects round-trip", () => {
           deployUrl: "",
           baseBranch: "main",
           deployBranch: "main",
-          channels: [{ channelId: "g1", channel: "telegram", name: "primary", events: ["*"] }],
+      channels: [{
+        channelId: "g1",
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        name: "primary",
+        events: ["*"],
+      }],
           workers: {
             developer: emptyRoleWorkerState({ medior: 2 }),
             tester: emptyRoleWorkerState({ medior: 1 }),

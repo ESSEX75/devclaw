@@ -35,7 +35,7 @@ export const NOTIFY_LABEL_PREFIX = "notify:";
 export const NOTIFY_LABEL_COLOR = "#e4e4e4";
 
 /** Build the notify label for a channel endpoint. */
-export function getNotifyLabel(channel: string, nameOrIndex: string): string {
+export function getNotifyLabel(channel: NotificationChannel, nameOrIndex: string): string {
   return `${NOTIFY_LABEL_PREFIX}${channel}:${nameOrIndex}`;
 }
 

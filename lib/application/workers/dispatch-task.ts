@@ -8,7 +8,7 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
-import { emptySlot, ISSUE_PROVIDER, type Project } from "../../domain/index.js";
+import { emptySlot, ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type Project } from "../../domain/index.js";
 import {
   detectOwner,
   getOwnerLabel,
@@ -310,7 +310,7 @@ export async function dispatchTask(
       workspaceDir,
       config: notifyConfig,
       channelId: notifyTarget?.channelId,
-      channel: notifyTarget?.channel ?? "telegram",
+      channel: notifyTarget?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
       threadId: notifyTarget?.threadId,
       runtime,
       accountId: notifyTarget?.accountId,

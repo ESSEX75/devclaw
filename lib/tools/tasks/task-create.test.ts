@@ -6,7 +6,7 @@ import os from "node:os";
 import { readIssueStateStore } from "../../state/issues/index.js";
 import { extractIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { ISSUE_PROVIDER } from "../../domain/index.js";
+import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 
@@ -20,14 +20,19 @@ describe("task_create managed queue flow", () => {
         workspaceDir: tmpDir,
         project: {
           slug: "devclaw",
-          channels: [{ channelId: "telegram:1", channel: "telegram", name: "primary", events: ["*"] }],
+        channels: [{
+          channelId: "telegram:1",
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          name: "primary",
+          events: ["*"],
+        }],
         },
         providerType: ISSUE_PROVIDER.GITHUB,
         provider,
         workflow: DEFAULT_WORKFLOW,
         title: "Implement login",
         description: "Build the login screen",
-        notifyTarget: { channel: "telegram", name: "primary" },
+        notifyTarget: { channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
         owner: "main",
       });
 
@@ -46,7 +51,10 @@ describe("task_create managed queue flow", () => {
       assert.strictEqual(state.owner, "main");
       assert.strictEqual(state.reviewPolicy, "human");
       assert.strictEqual(state.testPolicy, "skip");
-      assert.deepStrictEqual(state.notifyTarget, { channel: "telegram", name: "primary" });
+      assert.deepStrictEqual(state.notifyTarget, {
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        name: "primary",
+      });
       assert.ok(issue.labels.includes("To Do"));
       assert.ok(issue.labels.includes("owner:main"));
       assert.ok(issue.labels.includes("review:human"));

@@ -10,7 +10,11 @@ import path from "node:path";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import YAML from "yaml";
 
-import type { ExecutionMode } from "../../domain/index.js";
+import {
+  type ExecutionMode,
+  NOTIFICATION_CHANNEL,
+  type NotificationChannel,
+} from "../../domain/index.js";
 import { getAllDefaultModels } from "../../roles/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
 import { scaffoldWorkspace, writeAllDefaults } from "../../state/setup/workspace-files.js";
@@ -20,13 +24,27 @@ import { writePluginConfig } from "./plugin-config.js";
 
 export type ModelConfig = Record<string, Record<string, string>>;
 
+export type SetupNotificationChannel = Extract<
+  NotificationChannel,
+  typeof NOTIFICATION_CHANNEL.TELEGRAM | typeof NOTIFICATION_CHANNEL.WHATSAPP
+>;
+
+export const SETUP_NOTIFICATION_CHANNELS: readonly SetupNotificationChannel[] = [
+  NOTIFICATION_CHANNEL.TELEGRAM,
+  NOTIFICATION_CHANNEL.WHATSAPP,
+];
+
+export function isSetupNotificationChannel(value: unknown): value is SetupNotificationChannel {
+  return SETUP_NOTIFICATION_CHANNELS.some((channel) => channel === value);
+}
+
 export type SetupOpts = {
   /** OpenClaw plugin runtime for config access. */
   runtime: PluginRuntime;
   /** Create a new agent with this name. Mutually exclusive with agentId. */
   newAgentName?: string;
   /** Channel binding for the selected or newly-created agent. */
-  channelBinding?: "telegram" | "whatsapp" | null;
+  channelBinding?: SetupNotificationChannel | null;
   /** Optional account id for channel-wide bindings in multi-account channel setups. */
   channelAccountId?: string;
   /** Optional peer id for group/topic-scoped bindings, e.g. "-100123:topic:331". */
@@ -54,9 +72,9 @@ export type SetupResult = {
   warnings: string[];
   bindingMigrated?: {
     from: string;
-    channel: "telegram" | "whatsapp";
+    channel: SetupNotificationChannel;
   };
-  channelBinding?: "telegram" | "whatsapp" | null;
+  channelBinding?: SetupNotificationChannel | null;
   channelAccountId?: string;
   channelPeerId?: string;
   defaultsEjected?: boolean;

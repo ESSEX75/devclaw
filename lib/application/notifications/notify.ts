@@ -13,6 +13,7 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
+import { NOTIFICATION_CHANNEL, type NotificationChannel } from "../../domain/index.js";
 
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;
@@ -282,7 +283,7 @@ function buildMessage(event: NotifyEvent): string {
 async function sendMessage(
   target: string,
   message: string,
-  channel: string,
+  channel: NotificationChannel,
   workspaceDir: string,
   runtime?: PluginRuntime,
   accountId?: string,
@@ -370,7 +371,7 @@ export async function notify(
     /** Target for project-scoped notifications (channelId) */
     channelId?: string;
     /** Channel type for routing (e.g. "telegram", "whatsapp", "discord", "slack") */
-    channel?: string;
+    channel?: NotificationChannel;
     /** Optional thread/topic ID for forum-style channels */
     threadId?: string;
     /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
@@ -383,7 +384,7 @@ export async function notify(
 ): Promise<boolean> {
   if (opts.config?.[event.type] === false) return true;
 
-  const channel = opts.channel ?? "telegram";
+  const channel = opts.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;
   const message = buildMessage(event);
   const target = opts.channelId;
 

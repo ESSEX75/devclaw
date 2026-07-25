@@ -7,7 +7,7 @@ import type { RunCommand } from "../../context.js";
 import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { ISSUE_PROVIDER, type Project } from "../../domain/index.js";
+import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type Project } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { projectionIntegrityPass } from "./projection.js";
 import { reviewPass } from "./review.js";
@@ -28,7 +28,12 @@ async function withProject<T>(fn: (ctx: {
     deployUrl: "",
     baseBranch: "main",
     deployBranch: "main",
-    channels: [{ channelId: "-123", channel: "telegram", name: "primary", events: ["*"] }],
+    channels: [{
+      channelId: "-123",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      events: ["*"],
+    }],
     provider: ISSUE_PROVIDER.GITHUB,
     workers: {},
   };

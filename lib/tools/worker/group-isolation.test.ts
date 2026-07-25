@@ -11,6 +11,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import {
   getNotifyLabel,
+  NOTIFICATION_CHANNEL,
   NOTIFY_LABEL_PREFIX,
   NOTIFY_LABEL_COLOR,
   resolveNotifyChannel,
@@ -23,12 +24,21 @@ import {
 
 describe("notify label helpers", () => {
   it("should build notify label from channel type and name", () => {
-    assert.strictEqual(getNotifyLabel("telegram", "primary"), "notify:telegram:primary");
-    assert.strictEqual(getNotifyLabel("whatsapp", "dev-chat"), "notify:whatsapp:dev-chat");
+    assert.strictEqual(
+      getNotifyLabel(NOTIFICATION_CHANNEL.TELEGRAM, "primary"),
+      "notify:telegram:primary",
+    );
+    assert.strictEqual(
+      getNotifyLabel(NOTIFICATION_CHANNEL.WHATSAPP, "dev-chat"),
+      "notify:whatsapp:dev-chat",
+    );
   });
 
   it("should build notify label with index fallback", () => {
-    assert.strictEqual(getNotifyLabel("telegram", "0"), "notify:telegram:0");
+    assert.strictEqual(
+      getNotifyLabel(NOTIFICATION_CHANNEL.TELEGRAM, "0"),
+      "notify:telegram:0",
+    );
   });
 
   it("NOTIFY_LABEL_PREFIX should be 'notify:'", () => {
@@ -40,7 +50,7 @@ describe("notify label helpers", () => {
   });
 
   it("getNotifyLabel output should start with NOTIFY_LABEL_PREFIX", () => {
-    const label = getNotifyLabel("telegram", "primary");
+    const label = getNotifyLabel(NOTIFICATION_CHANNEL.TELEGRAM, "primary");
     assert.ok(label.startsWith(NOTIFY_LABEL_PREFIX));
   });
 });
@@ -51,22 +61,22 @@ describe("notify label helpers", () => {
 
 describe("resolveNotifyChannel (new format)", () => {
   const channels: Array<Omit<Channel, "events">> = [
-    { channelId: "-111", channel: "telegram", name: "primary" },
-    { channelId: "-222", channel: "whatsapp", name: "dev-chat" },
+      { channelId: "-111", channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
+      { channelId: "-222", channel: NOTIFICATION_CHANNEL.WHATSAPP, name: "dev-chat" },
   ];
 
   it("should resolve channel by channel type and name", () => {
     const result = resolveNotifyChannel(["To Do", "notify:whatsapp:dev-chat"], channels);
     assert.ok(result);
     assert.strictEqual(result!.channelId, "-222");
-    assert.strictEqual(result!.channel, "whatsapp");
+    assert.strictEqual(result!.channel, NOTIFICATION_CHANNEL.WHATSAPP);
   });
 
   it("should resolve channel by channel type and index", () => {
     const result = resolveNotifyChannel(["To Do", "notify:whatsapp:1"], channels);
     assert.ok(result);
     assert.strictEqual(result!.channelId, "-222");
-    assert.strictEqual(result!.channel, "whatsapp");
+    assert.strictEqual(result!.channel, NOTIFICATION_CHANNEL.WHATSAPP);
   });
 
   it("should fall back to first channel when new-format label matches nothing", () => {
