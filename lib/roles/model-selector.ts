@@ -7,7 +7,7 @@
  * - 2 levels: simple binary (complex → last, else first)
  * - 3+ levels: full heuristic (simple → first, complex → last, default → middle)
  */
-import { DEFAULT_LEVELS, type LevelId, type Role } from "../domain/index.js";
+import { DEFAULT_LEVELS, type LevelId, type RoleId } from "../domain/index.js";
 import { getDefaultLevel, getLevelsForRole } from "./index.js";
 
 export type LevelSelection = {
@@ -55,7 +55,7 @@ const COMPLEX_KEYWORDS = [
 export function selectLevel(
   issueTitle: string,
   issueDescription: string,
-  role: Role,
+  role: RoleId,
 ): LevelSelection {
   const levels = getLevelsForRole(role);
   const defaultLvl = getDefaultLevel(role) ?? DEFAULT_LEVELS.MEDIOR;

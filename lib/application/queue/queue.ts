@@ -3,7 +3,7 @@
  */
 import {
   DEFAULT_WORKFLOW,
-  type Role,
+  type RoleId,
   STATE_TYPE,
   type WorkflowConfig,
 } from "../../domain/index.js";
@@ -14,8 +14,8 @@ import {
  */
 export function getStateLabelsByType(
   workflow: WorkflowConfig = DEFAULT_WORKFLOW,
-): Record<"hold" | "active" | "queue", Array<{ label: string; role?: Role; priority?: number }>> {
-  const result: Record<"hold" | "active" | "queue", Array<{ label: string; role?: Role; priority?: number }>> = {
+): Record<"hold" | "active" | "queue", Array<{ label: string; role?: RoleId; priority?: number }>> {
+  const result: Record<"hold" | "active" | "queue", Array<{ label: string; role?: RoleId; priority?: number }>> = {
     hold: [],
     active: [],
     queue: [],

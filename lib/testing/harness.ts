@@ -20,7 +20,7 @@ import {
   NOTIFICATION_CHANNEL,
   type Project,
   type ProjectsData,
-  type Role,
+  type RoleId,
   type RoleWorkerState,
   type WorkflowConfig,
   type WorkflowLabel,
@@ -205,7 +205,7 @@ export type HarnessOptions = {
   /** Workflow config (default: DEFAULT_WORKFLOW). */
   workflow?: WorkflowConfig;
   /** Initial worker state overrides (level + slot fields). */
-  workers?: Partial<Record<Role, {
+  workers?: Partial<Record<RoleId, {
     level?: LevelId;
     active?: boolean;
     issueId?: string | null;
@@ -237,7 +237,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
 
   // Build project — empty per-level workers
   const emptyRW = (): RoleWorkerState => ({ levels: {} });
-  const defaultWorkers: Partial<Record<Role, RoleWorkerState>> = {
+  const defaultWorkers: Partial<Record<RoleId, RoleWorkerState>> = {
     developer: emptyRW(),
     tester: emptyRW(),
     architect: emptyRW(),

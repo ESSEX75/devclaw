@@ -18,7 +18,7 @@ import {
   type LevelId,
   reconcileSlots,
   REVIEW_POLICY,
-  type Role,
+  type RoleId,
   TEST_POLICY,
   type WorkflowConfig,
 } from "../../domain/index.js";
@@ -41,7 +41,7 @@ export type TickAction = {
   issueId: number;
   issueTitle: string;
   issueUrl: string;
-  role: Role;
+  role: RoleId;
   level: LevelId;
   sessionAction: "spawn" | "send";
   announcement: string;
@@ -67,7 +67,7 @@ export async function projectTick(opts: {
   dryRun?: boolean;
   maxPickups?: number;
   /** Only attempt this role. Used by work_finish to fill the next pipeline step. */
-  targetRole?: Role;
+  targetRole?: RoleId;
   /** Optional provider override (for testing). Uses createProvider if omitted. */
   provider?: IssueProvider;
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
@@ -94,7 +94,7 @@ export async function projectTick(opts: {
   const provider = opts.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: runCommand! })).provider;
   const roleExecution = workflow.roleExecution ?? EXECUTION_MODE.PARALLEL;
   const enabledRoles = getAllRoleIds().filter((role) => resolvedConfig.roles[role]?.enabled);
-  const roles: Role[] = targetRole ? [targetRole] : enabledRoles;
+  const roles: RoleId[] = targetRole ? [targetRole] : enabledRoles;
 
   const pickups: TickAction[] = [];
   const skipped: ProjectTickResult["skipped"] = [];
@@ -238,7 +238,7 @@ export async function projectTick(opts: {
  * 2. Inherit from another role's label (e.g. developer:medior → tester uses medior)
  * 3. Heuristic fallback (first dispatch, no labels yet)
  */
-function resolveLevelForIssue(issue: Issue, role: Role, localState?: { assignedRole?: Role | null; assignedLevel?: LevelId | null }): LevelId {
+function resolveLevelForIssue(issue: Issue, role: RoleId, localState?: { assignedRole?: RoleId | null; assignedLevel?: LevelId | null }): LevelId {
   if (localState?.assignedLevel) {
     if (localState.assignedRole === role) return localState.assignedLevel;
     const levels = getLevelsForRole(role);
@@ -249,7 +249,7 @@ function resolveLevelForIssue(issue: Issue, role: Role, localState?: { assignedR
   const roleLevel = detectRoleLevelFromLabels(issue.labels);
 
   // Own role label
-  if (roleLevel?.role === role) return roleLevel.level;
+  if (roleLevel && roleLevel.role === role) return roleLevel.level;
 
   // Inherit from another role's label if level is valid for this role
   if (roleLevel) {

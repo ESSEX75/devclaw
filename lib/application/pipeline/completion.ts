@@ -20,7 +20,7 @@ import {
   type LevelId,
   NOTIFICATION_CHANNEL,
   resolveNotifyChannel,
-  type Role,
+  type RoleId,
   WORKFLOW_EVENT,
   type WorkflowConfig,
   type WorkflowLabel,
@@ -49,7 +49,7 @@ export type CompletionOutput = {
  * Uses workflow config when available.
  */
 export function getRule(
-  role: Role,
+  role: RoleId,
   result: string,
   workflow: WorkflowConfig = DEFAULT_WORKFLOW,
 ): CompletionRule | undefined {
@@ -62,7 +62,7 @@ export function getRule(
 export async function executeCompletion(opts: {
   workspaceDir: string;
   projectSlug: string;
-  role: Role;
+  role: RoleId;
   result: string;
   issueId: number;
   summary?: string;

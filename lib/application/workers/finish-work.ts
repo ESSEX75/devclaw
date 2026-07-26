@@ -5,7 +5,7 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
-import { getActiveLabel, type LevelId, type Role, type WorkflowLabel } from "../../domain/index.js";
+import { getActiveLabel, type LevelId, type RoleId, type WorkflowLabel } from "../../domain/index.js";
 import { getCompletionResults, getLevelsForRole, isValidResult, isValidRole } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
@@ -268,7 +268,7 @@ async function auditWorkFinishRejectedMissingActiveWorker(opts: {
   workspaceDir: string;
   projectName: string;
   projectSlug: string;
-  role: Role;
+  role: RoleId;
   result: string;
   sessionKey?: string;
   roleWorker: ReturnType<typeof getRoleWorker>;

@@ -25,7 +25,7 @@ import {
   resolveTestRouting,
   REVIEW_POLICY,
   type ReviewPolicy,
-  type Role,
+  type RoleId,
   STEP_ROUTING_COLOR,
   TEST_POLICY,
   type TestPolicy,
@@ -57,7 +57,7 @@ export type DispatchOpts = {
   issueTitle: string;
   issueDescription: string;
   issueUrl: string;
-  role: Role;
+  role: RoleId;
   /** Developer level (junior, mid, senior) or raw model ID */
   level: LevelId;
   /** Label to transition FROM (e.g. "To Do", "To Test", "To Improve") */
@@ -395,7 +395,7 @@ export async function dispatchTask(
 }
 
 async function recordWorkerState(
-  workspaceDir: string, slug: string, role: Role, slotIndex: number,
+  workspaceDir: string, slug: string, role: RoleId, slotIndex: number,
   opts: { issueId: number; level: LevelId; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: WorkflowLabel; name?: string },
 ): Promise<void> {
   await activateWorker(workspaceDir, slug, role, {

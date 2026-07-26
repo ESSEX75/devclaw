@@ -4,7 +4,7 @@
 import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI, STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
 import { isWorkflowEvent } from "./guards.js";
 import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";
-import { type CompletionRule, type Role, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel } from "./types.js";
+import { type CompletionRule, type RoleId, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel } from "./types.js";
 
 /**
  * Map completion result to workflow transition event name.
@@ -24,7 +24,7 @@ function resultToEvent(result: string): WorkflowEvent | null {
  */
 export function getCompletionRule(
   workflow: WorkflowConfig,
-  role: Role,
+  role: RoleId,
   result: string,
 ): CompletionRule | null {
   const event = resultToEvent(result);
@@ -67,7 +67,7 @@ export function getCompletionRule(
  */
 export function getNextStateDescription(
   workflow: WorkflowConfig,
-  role: Role,
+  role: RoleId,
   result: string,
 ): string {
   const rule = getCompletionRule(workflow, role, result);

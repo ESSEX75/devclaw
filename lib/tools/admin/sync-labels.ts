@@ -92,7 +92,10 @@ export function createSyncLabelsTool(ctx: PluginContext) {
           const labelColors = getLabelColors(resolvedConfig.workflow);
 
           for (const label of stateLabels) {
-            await provider.ensureLabel(label, labelColors[label]);
+            const color = labelColors.get(label);
+
+            if (!color) throw new Error(`No color configured for workflow label "${label}".`);
+            await provider.ensureLabel(label, color);
           }
 
           // Role:level + step routing labels

@@ -5,7 +5,7 @@ import type {
   LevelId,
   Project,
   ProjectsData,
-  Role,
+  RoleId,
   RoleWorkerState,
   SlotState,
   WorkflowLabel,
@@ -19,7 +19,7 @@ import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjec
  */
 export function getRoleWorker(
   project: Project,
-  role: Role,
+  role: RoleId,
 ): RoleWorkerState {
   return project.workers[role] ?? { levels: {} };
 }
@@ -31,7 +31,7 @@ export function getRoleWorker(
 export async function updateSlot(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: Role,
+  role: RoleId,
   level: LevelId,
   slotIndex: number,
   updater: (slot: SlotState) => SlotState,
@@ -75,7 +75,7 @@ export async function updateSlot(
 export async function activateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: Role,
+  role: RoleId,
   params: {
     issueId: string;
     level: LevelId;
@@ -139,7 +139,7 @@ export async function activateWorker(
 export async function deactivateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: Role,
+  role: RoleId,
   opts?: { level?: LevelId; slotIndex?: number; issueId?: string },
 ): Promise<ProjectsData> {
   await acquireLock(workspaceDir);

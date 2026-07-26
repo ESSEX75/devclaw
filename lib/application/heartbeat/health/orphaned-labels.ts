@@ -1,5 +1,5 @@
 import type {
-  Role,
+  RoleId,
   WorkflowConfig,
 } from "../../../domain/index.js";
 import type { Project } from "../../../domain/index.js";
@@ -31,7 +31,7 @@ export async function scanOrphanedLabels(opts: {
   workspaceDir: string;
   projectSlug: string;
   project: Project;
-  role: Role;
+  role: RoleId;
   autoFix: boolean;
   provider: IssueProvider;
   workflow?: WorkflowConfig;

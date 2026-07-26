@@ -214,7 +214,10 @@ export class GitHubProvider implements IssueProvider {
     const colors = getLabelColors(this.workflow);
 
     for (const label of labels) {
-      await this.ensureLabel(label, colors[label]);
+      const color = colors.get(label);
+
+      if (!color) throw new Error(`No color configured for workflow label "${label}".`);
+      await this.ensureLabel(label, color);
     }
   }
 

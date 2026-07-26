@@ -1,4 +1,4 @@
-import type { Role } from "../../../domain/index.js";
+import type { RoleId } from "../../../domain/index.js";
 
 /** Grace period: skip session-dead checks for workers started within this window. */
 export const GRACE_PERIOD_MS = 5 * 60 * 1_000; // 5 minutes
@@ -25,7 +25,7 @@ export type HealthIssue = {
   severity: "critical" | "warning";
   project: string;
   projectSlug: string;
-  role: Role;
+  role: RoleId;
   message: string;
   level?: string | null;
   sessionKey?: string | null;

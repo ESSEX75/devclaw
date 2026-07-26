@@ -3,7 +3,7 @@
  */
 import { STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
 import { isWorkflowEvent, isWorkflowStateKey } from "./guards.js";
-import { type Role, type StateConfig, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel, type WorkflowStateKey } from "./types.js";
+import { type RoleId, type StateConfig, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel, type WorkflowStateKey } from "./types.js";
 
 /**
  * Get all state labels (for GitHub/GitLab label creation).
@@ -16,7 +16,7 @@ export function getStateLabels(workflow: WorkflowConfig): WorkflowLabel[] {
  * Find the current workflow state label on an issue.
  * Pure utility — no provider dependency.
  */
-export function getCurrentStateLabel(labels: string[], workflow: WorkflowConfig): WorkflowLabel | null {
+export function getCurrentStateLabel(labels: readonly string[], workflow: WorkflowConfig): WorkflowLabel | null {
   for (const state of Object.values(workflow.states)) {
     if (labels.includes(state.label)) return state.label;
   }
@@ -34,11 +34,11 @@ export function getInitialStateLabel(workflow: WorkflowConfig): WorkflowLabel {
 /**
  * Get label → color mapping.
  */
-export function getLabelColors(workflow: WorkflowConfig): Record<string, string> {
-  const colors: Record<string, string> = {};
+export function getLabelColors(workflow: WorkflowConfig): ReadonlyMap<WorkflowLabel, string> {
+  const colors = new Map<WorkflowLabel, string>();
 
   for (const state of Object.values(workflow.states)) {
-    colors[state.label] = state.color;
+    colors.set(state.label, state.color);
   }
 
   return colors;
@@ -47,7 +47,7 @@ export function getLabelColors(workflow: WorkflowConfig): Record<string, string>
 /**
  * Get queue labels for a role, ordered by priority (highest first).
  */
-export function getQueueLabels(workflow: WorkflowConfig, role: Role): WorkflowLabel[] {
+export function getQueueLabels(workflow: WorkflowConfig, role: RoleId): WorkflowLabel[] {
   return Object.values(workflow.states)
     .filter((s) => s.type === STATE_TYPE.QUEUE && s.role === role)
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
@@ -67,7 +67,7 @@ export function getAllQueueLabels(workflow: WorkflowConfig): WorkflowLabel[] {
 /**
  * Get the active (in-progress) label for a role.
  */
-export function getActiveLabel(workflow: WorkflowConfig, role: Role): WorkflowLabel {
+export function getActiveLabel(workflow: WorkflowConfig, role: RoleId): WorkflowLabel {
   const state = Object.values(workflow.states).find(
     (s) => s.type === STATE_TYPE.ACTIVE && s.role === role,
   );
@@ -80,7 +80,7 @@ export function getActiveLabel(workflow: WorkflowConfig, role: Role): WorkflowLa
 /**
  * Get the revert label for a role (first queue state for that role).
  */
-export function getRevertLabel(workflow: WorkflowConfig, role: Role): WorkflowLabel {
+export function getRevertLabel(workflow: WorkflowConfig, role: RoleId): WorkflowLabel {
   const activeLabel = getActiveLabel(workflow, role);
   const activeStateKey = Object.entries(workflow.states).find(
     ([, s]) => s.label === activeLabel,
@@ -105,7 +105,7 @@ export function getRevertLabel(workflow: WorkflowConfig, role: Role): WorkflowLa
 /**
  * Detect role from a label.
  */
-export function detectRoleFromLabel(workflow: WorkflowConfig, label: string): Role | null {
+export function detectRoleFromLabel(workflow: WorkflowConfig, label: string): RoleId | null {
   for (const state of Object.values(workflow.states)) {
     if (state.label === label && state.type === STATE_TYPE.QUEUE && state.role) {
       return state.role;
@@ -135,7 +135,7 @@ export function findStateKeyByLabel(workflow: WorkflowConfig, label: string): Wo
 /**
  * Check if a role has any workflow states (queue, active, etc.).
  */
-export function hasWorkflowStates(workflow: WorkflowConfig, role: Role): boolean {
+export function hasWorkflowStates(workflow: WorkflowConfig, role: RoleId): boolean {
   return Object.values(workflow.states).some((s) => s.role === role);
 }
 
@@ -174,7 +174,7 @@ export function isFeedbackState(workflow: WorkflowConfig, label: string): boolea
 /**
  * Check if a role has states with PR review checks (e.g. prApproved, prMerged).
  */
-export function hasReviewCheck(workflow: WorkflowConfig, role: Role): boolean {
+export function hasReviewCheck(workflow: WorkflowConfig, role: RoleId): boolean {
   return Object.values(workflow.states).some(
     (s) => s.role === role && s.check != null,
   );
@@ -183,7 +183,7 @@ export function hasReviewCheck(workflow: WorkflowConfig, role: Role): boolean {
 /**
  * Check if completing this role's active state leads to a state with a review check.
  */
-export function producesReviewableWork(workflow: WorkflowConfig, role: Role): boolean {
+export function producesReviewableWork(workflow: WorkflowConfig, role: RoleId): boolean {
   let activeKey: WorkflowStateKey | null;
 
   try {

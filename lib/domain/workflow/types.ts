@@ -44,9 +44,6 @@ export type TestPolicy = SoftUnion<typeof TEST_POLICY>;
 /** Union type for workflow transition events (e.g. PICKUP, COMPLETE). */
 export type WorkflowEvent = SoftUnion<typeof WORKFLOW_EVENT>;
 
-/** Role identifier. Built-in: "developer", "tester", "architect". Extensible via config. */
-export type Role = SoftUnion<typeof DEFAULT_ROLES>;
-
 /** Action identifier executed during transitions (e.g. gitPull, mergePr). */
 export type TransitionAction = SoftUnion<typeof ACTION>;
 
@@ -71,7 +68,7 @@ export type StateConfig = {
   /** Behavior type of the state (queue, active, hold, terminal). */
   type: StateType;
   /** Assigned worker role responsible for this state, if any. */
-  role?: Role;
+  role?: RoleId;
   /** Provider-side display label matching this state. */
   label: WorkflowLabel;
   /** Hex color code for the state label. */

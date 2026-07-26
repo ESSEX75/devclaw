@@ -5,7 +5,7 @@
  * that need to find queued issues or detect roles/levels from labels.
  */
 import type { IssueRuntimeState } from "../../domain/index.js";
-import type { Role, WorkflowConfig, WorkflowLabel } from "../../domain/index.js";
+import type { WorkflowConfig, WorkflowLabel } from "../../domain/index.js";
 import { isLevelId, ISSUE_INTEGRITY_STATUS, type LevelId, type RoleId } from "../../domain/index.js";
 import { isOwnedByOrUnclaimed } from "../../domain/index.js";
 import {
@@ -73,7 +73,7 @@ export function detectRoleLevelFromLabels(
 export function detectRoleFromStateLabel(
   label: StateLabel,
   workflow: WorkflowConfig,
-): Role | null {
+): RoleId | null {
   return detectRoleFromLabel(workflow, label);
 }
 
@@ -83,7 +83,7 @@ export function detectRoleFromStateLabel(
 
 export async function findNextIssueForRole(
   provider: Pick<IssueReader, "getIssue">,
-  role: Role,
+  role: RoleId,
   workflow: WorkflowConfig,
   instanceName: string | undefined,
   localState: { workspaceDir: string; projectSlug: string },

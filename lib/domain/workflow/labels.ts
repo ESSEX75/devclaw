@@ -14,7 +14,7 @@ import {
   STEP_ROUTING_COLOR,
   TEST_POLICY,
 } from "./const.js";
-import type { ReviewPolicy, Role, RoleDefinition, RoutingLabel, TestPolicy } from "./types.js";
+import type { ReviewPolicy, RoleDefinition, RoleId, RoutingLabel, TestPolicy } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Step routing labels
@@ -121,7 +121,7 @@ export function resolveTestRouting(policy: TestPolicy): RoutingLabel {
  * Generate all role:level label definitions from resolved config roles.
  */
 export function getRoleLabels(
-  roles: Partial<Record<Role, RoleDefinition>>,
+  roles: Partial<Record<RoleId, RoleDefinition>>,
 ): Array<{ name: string; color: string }> {
   const labels: Array<{ name: string; color: string }> = [];
 
@@ -146,7 +146,7 @@ export function getRoleLabels(
 }
 
 /** Get the label color for a role. Falls back to gray for unknown roles. */
-export function getRoleLabelColor(role: Role): string {
+export function getRoleLabelColor(role: RoleId): string {
   if (role === DEFAULT_ROLES.DEVELOPER) return ROLE_LABEL_COLORS.DEVELOPER;
   if (role === DEFAULT_ROLES.TESTER) return ROLE_LABEL_COLORS.TESTER;
   if (role === DEFAULT_ROLES.ARCHITECT) return ROLE_LABEL_COLORS.ARCHITECT;

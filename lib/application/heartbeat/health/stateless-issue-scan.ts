@@ -1,8 +1,5 @@
 import { log as auditLog } from "../../../audit.js";
-import type {
-  Role,
-  WorkflowConfig,
-} from "../../../domain/index.js";
+import type { WorkflowConfig } from "../../../domain/index.js";
 import type { Project } from "../../../domain/index.js";
 import {
   DEFAULT_WORKFLOW,
@@ -69,7 +66,7 @@ export async function scanStatelessIssues(opts: {
         severity: "critical",
         project: project.name,
         projectSlug,
-        role: "developer" as Role,
+        role: "developer",
         issueId: String(issue.iid),
         expectedLabel: initialLabel,
         actualLabel: null,
