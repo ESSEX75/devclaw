@@ -47,7 +47,7 @@ export type TickAction = {
   announcement: string;
 };
 
-export type TickResult = {
+export type ProjectTickResult = {
   pickups: TickAction[];
   skipped: Array<{ role?: string; reason: string }>;
 };
@@ -78,7 +78,7 @@ export async function projectTick(opts: {
   instanceName?: string;
   /** Injected runCommand for dependency injection. */
   runCommand?: RunCommand;
-}): Promise<TickResult> {
+}): Promise<ProjectTickResult> {
   const {
     workspaceDir, projectSlug, agentId, sessionKey, pluginConfig, dryRun,
     maxPickups, targetRole, runtime, instanceName, runCommand,
@@ -97,7 +97,7 @@ export async function projectTick(opts: {
   const roles: Role[] = targetRole ? [targetRole] : enabledRoles;
 
   const pickups: TickAction[] = [];
-  const skipped: TickResult["skipped"] = [];
+  const skipped: ProjectTickResult["skipped"] = [];
   let pickupCount = 0;
 
   for (const role of roles) {

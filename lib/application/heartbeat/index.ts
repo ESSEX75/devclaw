@@ -23,7 +23,7 @@ import {
 } from "./health.js";
 
 export { HEARTBEAT_DEFAULTS };
-import type { TickResult } from "./tick-runner.js";
+import type { HeartbeatTickResult } from "./tick-runner.js";
 import { tick } from "./tick-runner.js";
 
 // ---------------------------------------------------------------------------
@@ -163,8 +163,8 @@ async function processAllAgents(
   logger: ServiceContext["logger"],
   runCommand: RunCommand,
   runtime?: PluginRuntime,
-): Promise<TickResult> {
-  const result: TickResult = {
+): Promise<HeartbeatTickResult> {
+  const result: HeartbeatTickResult = {
     totalPickups: 0,
     totalHealthFixes: 0,
     totalSkipped: 0,
@@ -216,7 +216,7 @@ async function processAllAgents(
  * Log tick results if anything happened.
  */
 function logTickResult(
-  result: TickResult,
+  result: HeartbeatTickResult,
   logger: ServiceContext["logger"],
 ): void {
   if (

@@ -27,7 +27,7 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-export type TickResult = {
+export type HeartbeatTickResult = {
   totalPickups: number;
   totalHealthFixes: number;
   totalSkipped: number;
@@ -49,7 +49,7 @@ export async function tick(opts: {
   logger: { info(msg: string): void; warn(msg: string): void };
   runtime?: PluginRuntime;
   runCommand: RunCommand;
-}): Promise<TickResult> {
+}): Promise<HeartbeatTickResult> {
   const { workspaceDir, agentId, config, pluginConfig, sessions, runtime, runCommand } = opts;
 
   // Load instance name for ownership filtering and auto-claiming
@@ -70,7 +70,7 @@ export async function tick(opts: {
     };
   }
 
-  const result: TickResult = {
+  const result: HeartbeatTickResult = {
     totalPickups: 0,
     totalHealthFixes: 0,
     totalSkipped: 0,

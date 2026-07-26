@@ -1,12 +1,7 @@
 /**
  * projects/types.ts — Domain types for projects, worker slots, and notification channels.
  */
-import type { SoftUnion } from "../../types.js";
-import type { IssueProvider } from "../issues/types.js";
-import { NOTIFICATION_CHANNEL } from "./const.js";
-
-/** Supported notification channel or messaging platform identifier. */
-export type NotificationChannel = SoftUnion<typeof NOTIFICATION_CHANNEL>;
+import type { IssueProviderType, NotificationChannel } from "../shared/types.js";
 
 /** Slot state. Level is structural (implied by position in the levels map). */
 export type SlotState = {
@@ -69,7 +64,7 @@ export type Project = {
   /** Channels registered for this project (notification endpoints). */
   channels: Channel[];
   /** Issue tracker provider type (github or gitlab). Auto-detected at registration, stored for reuse. */
-  provider?: IssueProvider;
+  provider?: IssueProviderType;
   /** Worker state per role (developer, tester, architect, etc.). Shared across all channels. */
   workers: Record<string, RoleWorkerState>;
 };

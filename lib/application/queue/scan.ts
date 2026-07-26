@@ -9,7 +9,7 @@ import type { Role, WorkflowConfig, WorkflowLabel } from "../../domain/index.js"
 import { isLevelId, ISSUE_INTEGRITY_STATUS, type LevelId, type RoleId } from "../../domain/index.js";
 import { isOwnedByOrUnclaimed } from "../../domain/index.js";
 import {
-  detectRoleFromLabel as workflowDetectRole,
+  detectRoleFromLabel,
   getQueueLabels,
 } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
@@ -70,11 +70,11 @@ export function detectRoleLevelFromLabels(
 /**
  * Detect role from a label using workflow config.
  */
-export function detectRoleFromLabel(
+export function detectRoleFromStateLabel(
   label: StateLabel,
   workflow: WorkflowConfig,
 ): Role | null {
-  return workflowDetectRole(workflow, label);
+  return detectRoleFromLabel(workflow, label);
 }
 
 // ---------------------------------------------------------------------------

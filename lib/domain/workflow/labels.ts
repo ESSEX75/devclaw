@@ -1,8 +1,17 @@
 /**
  * workflow/labels.ts — Label formatting, detection, and routing helpers.
  */
-import type { NotificationChannel } from "../projects/index.js";
-import { REVIEW_POLICY as RP, ROLE_LABEL_COLORS, ROUTING_LABELS, TEST_POLICY as TP } from "./const.js";
+import type { NotificationChannel } from "../shared/types.js";
+import {
+  DEFAULT_ROLE_LABEL_COLOR,
+  NOTIFY_LABEL_PREFIX,
+  OWNER_LABEL_PREFIX,
+  REVIEW_POLICY,
+  ROLE_LABEL_COLORS,
+  ROUTING_LABELS,
+  STEP_ROUTING_COLOR,
+  TEST_POLICY,
+} from "./const.js";
 import type { ReviewPolicy, RoleDefinition, RoutingLabel, TestPolicy } from "./types.js";
 
 /** Internal mapping of channel definitions. */
@@ -22,17 +31,10 @@ type WorkflowChannel = {
 /** Known step routing labels (created on the provider during project registration). */
 const STEP_ROUTING_LABELS: readonly string[] = Object.values(ROUTING_LABELS);
 
-/** Step routing label color. */
-export const STEP_ROUTING_COLOR = "#d93f0b";
-
 // ---------------------------------------------------------------------------
 // Notify labels — channel routing for notifications
 // ---------------------------------------------------------------------------
 
-/** Prefix for notification routing labels. */
-export const NOTIFY_LABEL_PREFIX = "notify:";
-/** Color used for notify labels. */
-export const NOTIFY_LABEL_COLOR = "#e4e4e4";
 
 /** Build the notify label for a channel endpoint. */
 export function getNotifyLabel(channel: NotificationChannel, nameOrIndex: string): string {
@@ -72,10 +74,6 @@ export function resolveNotifyChannel(
 // Owner labels — instance identity on issues
 // ---------------------------------------------------------------------------
 
-/** Prefix for instance ownership labels. */
-export const OWNER_LABEL_PREFIX = "owner:";
-/** Color used for owner labels. */
-export const OWNER_LABEL_COLOR = "#e4e4e4";
 
 /** Build the owner label for a given instance name. */
 export function getOwnerLabel(instanceName: string): string {
@@ -106,9 +104,9 @@ export function isOwnedByOrUnclaimed(
  * Determine review routing label for an issue based on project policy and developer level.
  */
 export function resolveReviewRouting(policy: ReviewPolicy): RoutingLabel {
-  if (policy === RP.HUMAN) return ROUTING_LABELS.REVIEW_HUMAN;
-  if (policy === RP.AGENT) return ROUTING_LABELS.REVIEW_AGENT;
-  if (policy === RP.SKIP) return ROUTING_LABELS.REVIEW_SKIP;
+  if (policy === REVIEW_POLICY.HUMAN) return ROUTING_LABELS.REVIEW_HUMAN;
+  if (policy === REVIEW_POLICY.AGENT) return ROUTING_LABELS.REVIEW_AGENT;
+  if (policy === REVIEW_POLICY.SKIP) return ROUTING_LABELS.REVIEW_SKIP;
 
   return ROUTING_LABELS.REVIEW_HUMAN;
 }
@@ -117,7 +115,7 @@ export function resolveReviewRouting(policy: ReviewPolicy): RoutingLabel {
  * Determine test routing label for an issue based on project policy.
  */
 export function resolveTestRouting(policy: TestPolicy): RoutingLabel {
-  if (policy === TP.AGENT) return ROUTING_LABELS.TEST_AGENT;
+  if (policy === TEST_POLICY.AGENT) return ROUTING_LABELS.TEST_AGENT;
 
   return ROUTING_LABELS.TEST_SKIP;
 }
@@ -156,5 +154,5 @@ export function getRoleLabels(
 export function getRoleLabelColor(role: string): string {
   const key = role.toUpperCase() as keyof typeof ROLE_LABEL_COLORS;
 
-  return ROLE_LABEL_COLORS[key] ?? "#cccccc";
+  return ROLE_LABEL_COLORS[key] ?? DEFAULT_ROLE_LABEL_COLOR;
 }

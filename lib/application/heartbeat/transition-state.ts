@@ -4,7 +4,7 @@
 import {
   getStateLabels,
   ISSUE_PROVIDER,
-  type IssueProvider,
+  type IssueProviderType,
   type Project,
   type WorkflowConfig,
   type WorkflowLabel,
@@ -43,6 +43,6 @@ export async function writeHeartbeatTransitionState(opts: {
   });
 }
 
-function providerType(provider: Project["provider"]): IssueProvider {
+function providerType(provider: Project["provider"]): IssueProviderType {
   return provider === ISSUE_PROVIDER.GITLAB ? ISSUE_PROVIDER.GITLAB : ISSUE_PROVIDER.GITHUB;
 }
