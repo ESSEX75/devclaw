@@ -56,7 +56,7 @@ roles:
 | `defaultLevel` | string | Default level when not specified |
 | `models` | Record<string, string \| object> | Model ID per level, or `{ model, maxWorkers }` for per-level concurrency |
 | `emoji` | Record<string, string> | Emoji per level for announcements |
-| `completionResults` | string[] | Valid completion results |
+| `completion` | Record<string, WorkflowEvent> | Maps completion results to workflow events |
 
 Per-level worker capacity is resolved from `roles.<role>.models.<level>.maxWorkers`, then `workflow.maxWorkersPerLevel`, then the built-in default.
 

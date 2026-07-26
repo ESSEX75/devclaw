@@ -5,6 +5,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 
 import { finishWork } from "../../application/workers/finish-work.js";
 import type { PluginContext } from "../../context.js";
+import { COMPLETION_RESULT } from "../../domain/index.js";
 import { getAllRoleIds } from "../../roles/index.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
@@ -27,7 +28,7 @@ export function createWorkFinishTool(ctx: PluginContext) {
             "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
         role: { type: "string", enum: getAllRoleIds(), description: "Worker role" },
-        result: { type: "string", enum: ["done", "pass", "fail", "refine", "blocked", "approve", "reject"], description: "Completion result" },
+        result: { type: "string", enum: Object.values(COMPLETION_RESULT), description: "Completion result" },
         summary: { type: "string", description: "Brief summary" },
         prUrl: { type: "string", description: "PR/MR URL (auto-detected if omitted)" },
         createdTasks: {

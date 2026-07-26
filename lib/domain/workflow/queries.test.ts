@@ -97,7 +97,11 @@ describe("extensible workflow queries", () => {
     const stateKey: CustomStateKey | null = findStateKeyByLabel(workflow, "Security Review");
     const role: CustomRoleId | null = detectRoleFromLabel(workflow, "Security Review");
     const activeLabel: CustomLabel = getActiveLabel(workflow, "security_auditor");
-    const completionRule = getCompletionRule(workflow, "security_auditor", "done");
+    const completionRule = getCompletionRule(
+      workflow,
+      "security_auditor",
+      WORKFLOW_EVENT.COMPLETE,
+    );
 
     assert.deepEqual(customRole.levels, ["standard", "expert"]);
     assert.equal(stateKey, "securityReview");

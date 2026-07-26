@@ -4,7 +4,7 @@
  * All role-related lookups go through these functions.
  * No other file should access ROLE_REGISTRY directly for role logic.
  */
-import { isLevelId, isRoleId, type LevelId, type RoleId } from "../domain/index.js";
+import { isLevelId, isRoleId, type LevelId, type RoleId, type WorkflowEvent } from "../domain/index.js";
 import type { ResolvedRoleConfig } from "../state/config/types.js";
 import { ROLE_REGISTRY } from "./registry.js";
 import type { RoleConfig } from "./types.js";
@@ -147,12 +147,19 @@ export function getFallbackEmoji(role: string): string {
 
 /** Get valid completion results for a role. */
 export function getCompletionResults(role: string): readonly string[] {
-  return getRole(role)?.completionResults ?? [];
+  const completion = getRole(role)?.completion;
+
+  return completion ? Object.keys(completion) : [];
+}
+
+/** Resolve a configured completion result to its workflow event. */
+export function getCompletionEvent(role: string, result: string): WorkflowEvent | undefined {
+  return getRole(role)?.completion[result];
 }
 
 /** Check if a result is valid for a role. */
 export function isValidResult(role: string, result: string): boolean {
-  return getCompletionResults(role).includes(result);
+  return getCompletionEvent(role, result) !== undefined;
 }
 
 // ---------------------------------------------------------------------------

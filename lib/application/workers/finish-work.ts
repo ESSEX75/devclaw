@@ -6,7 +6,7 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import { getActiveLabel, type LevelId, type RoleId, type WorkflowLabel } from "../../domain/index.js";
-import { getCompletionResults, getLevelsForRole, isValidResult, isValidRole } from "../../roles/index.js";
+import { getLevelsForRole, isValidRole } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
 import { getRoleWorker, resolveRepoPath } from "../../state/projects/index.js";
@@ -175,15 +175,18 @@ export async function finishWork(input: FinishWorkInput) {
     throw new Error(`Unknown worker role "${role}".`);
   }
 
-  if (!isValidResult(role, result)) {
-    const valid = getCompletionResults(role);
+  const { project } = await resolveProject(workspaceDir, channelId);
+  const roleWorker = getRoleWorker(project, role);
+  const config = await loadConfig(workspaceDir, project.name);
+  const resolvedRole = config.roles[role];
+  const workflow = config.workflow;
+  const completionEvent = resolvedRole?.completion[result];
+
+  if (!completionEvent) {
+    const valid = Object.keys(resolvedRole?.completion ?? {});
 
     throw new Error(`${role.toUpperCase()} cannot complete with "${result}". Valid results: ${valid.join(", ")}`);
   }
-
-  const { project } = await resolveProject(workspaceDir, channelId);
-  const roleWorker = getRoleWorker(project, role);
-  const workflow = (await loadConfig(workspaceDir, project.name)).workflow;
 
   let slotIndex: number | null = null;
   let slotLevel: LevelId | null = null;
@@ -222,7 +225,7 @@ export async function finishWork(input: FinishWorkInput) {
 
   const { provider } = await resolveProvider(project, runCommand);
 
-  if (!getRule(role, result, workflow)) {
+  if (!getRule(role, result, resolvedRole.completion, workflow)) {
     await auditLog(workspaceDir, "work_finish_rejected", {
       project: project.name,
       projectSlug: project.slug,

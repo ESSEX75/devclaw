@@ -2,13 +2,20 @@
  * workflow/guards.ts — Type guard functions for workflow domain entities.
  */
 import {
+  COMPLETION_RESULT,
   DEFAULT_LEVELS,
   DEFAULT_ROLES,
   WORKFLOW_EVENT,
   WORKFLOW_STATE_KEYS,
   WORKFLOW_STATE_LABELS,
 } from "./const.js";
-import type { LevelId, RoleId, WorkflowEvent, WorkflowLabel, WorkflowStateKey } from "./types.js";
+import type { CompletionResult, LevelId, RoleId, WorkflowEvent, WorkflowLabel, WorkflowStateKey } from "./types.js";
+
+/** Checks if a value matches a built-in completion result. */
+export function isCompletionResult(value: unknown): value is CompletionResult {
+  return typeof value === "string"
+    && Object.values(COMPLETION_RESULT).some((result) => result === value);
+}
 
 /** Checks if a value matches a known built-in RoleId. */
 export function isRoleId(value: unknown): value is RoleId {

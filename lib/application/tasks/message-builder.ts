@@ -35,8 +35,8 @@ export function buildTaskMessage(opts: {
     issueDescription, issueUrl, repo, baseBranch,
   } = opts;
 
-  const results = opts.resolvedRole?.completionResults ?? [];
-  const availableResults = results.map((r: string) => `"${r}"`).join(", ");
+  const results = Object.keys(opts.resolvedRole?.completion ?? {});
+  const availableResults = results.map((result) => `"${result}"`).join(", ");
 
   const isFeedbackCycle = !!opts.prFeedback;
 
@@ -135,8 +135,8 @@ export function buildConflictFixMessage(opts: {
     issueUrl, repo, baseBranch, prFeedback,
   } = opts;
 
-  const results = opts.resolvedRole?.completionResults ?? [];
-  const availableResults = results.map((r: string) => `"${r}"`).join(", ");
+  const results = Object.keys(opts.resolvedRole?.completion ?? {});
+  const availableResults = results.map((result) => `"${result}"`).join(", ");
 
   const parts = [
     `${role.toUpperCase()} task for project "${projectName}" — Issue #${issueId}`,

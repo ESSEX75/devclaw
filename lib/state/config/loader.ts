@@ -70,7 +70,7 @@ function buildDefaultConfig(): DevClawConfig {
       defaultLevel: reg.defaultLevel,
       models: { ...reg.models },
       emoji: { ...reg.emoji },
-      completionResults: [...reg.completionResults],
+        completion: { ...reg.completion },
     };
   }
 
@@ -138,7 +138,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
           defaultLevel: reg.defaultLevel,
           models: flattenModels(models),
           emoji: { ...reg.emoji },
-          completionResults: [...reg.completionResults],
+          completion: { ...reg.completion },
           enabled: false,
         };
         continue;
@@ -155,7 +155,10 @@ function resolve(config: DevClawConfig): ResolvedConfig {
         defaultLevel: override.defaultLevel ?? reg.defaultLevel,
         models: flattenModels(mergedModels),
         emoji: { ...reg.emoji, ...(override.emoji ?? {}) },
-        completionResults: override.completionResults ?? [...reg.completionResults],
+        completion: {
+          ...reg.completion,
+          ...override.completion,
+        },
         enabled: true,
       };
     }
@@ -174,7 +177,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
         defaultLevel: reg.defaultLevel,
         models: flattenModels(models),
         emoji: { ...reg.emoji },
-        completionResults: [...reg.completionResults],
+      completion: { ...reg.completion },
         enabled: true,
       };
     }

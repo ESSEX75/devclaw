@@ -5,7 +5,7 @@
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
-import { DEFAULT_WORKFLOW, getActiveLabel, getCompletionEmoji, getCompletionRule, getQueueLabels, getStateLabels, hasWorkflowStates } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW, getActiveLabel, getCompletionEmoji, getCompletionRule, getQueueLabels, getStateLabels, hasWorkflowStates, WORKFLOW_EVENT } from "../../domain/index.js";
 import { parseDevClawSessionKey } from "../../integrations/openclaw/bootstrap-hook.js";
 import { getDefaultModel, getEmoji, isLevelForRole, resolveModel, roleForLevel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
@@ -31,7 +31,7 @@ describe("architect tiers", () => {
   });
 
   it("should resolve architect model from resolved role config", () => {
-    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, senior: 2 }, models: { senior: "custom/model" }, levels: ["junior", "senior"], defaultLevel: "junior", emoji: {}, completionResults: [], enabled: true };
+    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, senior: 2 }, models: { senior: "custom/model" }, levels: ["junior", "senior"], defaultLevel: "junior", emoji: {}, completion: {}, enabled: true };
 
     assert.strictEqual(resolveModel("architect", "senior", resolvedRole), "custom/model");
   });
@@ -80,7 +80,7 @@ describe("architect workflow — To Research / Researching states", () => {
   });
 
   it("should have completion rule for architect:done → Done", () => {
-    const rule = getCompletionRule(DEFAULT_WORKFLOW, "architect", "done");
+    const rule = getCompletionRule(DEFAULT_WORKFLOW, "architect", WORKFLOW_EVENT.COMPLETE);
 
     assert.ok(rule !== null, "architect:done rule should exist");
     assert.strictEqual(rule.from, "Researching");
@@ -89,7 +89,7 @@ describe("architect workflow — To Research / Researching states", () => {
   });
 
   it("should have completion rule for architect:blocked → Refining", () => {
-    const rule = getCompletionRule(DEFAULT_WORKFLOW, "architect", "blocked");
+    const rule = getCompletionRule(DEFAULT_WORKFLOW, "architect", WORKFLOW_EVENT.BLOCKED);
 
     assert.ok(rule !== null, "architect:blocked rule should exist");
     assert.strictEqual(rule.from, "Researching");

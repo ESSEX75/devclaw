@@ -7,9 +7,7 @@
  */
 import { z } from "zod";
 
-import { STATE_TYPE } from "../../domain/index.js";
-
-const STATE_TYPES = Object.values(STATE_TYPE) as [string, ...string[]];
+import { STATE_TYPE, WORKFLOW_EVENT } from "../../domain/index.js";
 
 const TransitionTargetSchema = z.union([
   z.string(),
@@ -21,7 +19,7 @@ const TransitionTargetSchema = z.union([
 ]);
 
 const StateConfigSchema = z.object({
-  type: z.enum(STATE_TYPES),
+  type: z.enum(STATE_TYPE),
   role: z.string().optional(),
   label: z.string(),
   color: z.string(),
@@ -55,8 +53,8 @@ const RoleOverrideSchema = z.union([
     defaultLevel: z.string().optional(),
     models: z.record(z.string(), ModelEntrySchema).optional(),
     emoji: z.record(z.string(), z.string()).optional(),
-    completionResults: z.array(z.string()).optional(),
-  }),
+    completion: z.record(z.string(), z.enum(WORKFLOW_EVENT)).optional(),
+  }).strict(),
 ]);
 
 const TimeoutConfigSchema = z.object({
@@ -85,6 +83,23 @@ export const DevClawConfigSchema = z.object({
  */
 export function validateConfig(raw: unknown): void {
   DevClawConfigSchema.parse(raw);
+}
+
+function getTransitionTarget(transition: unknown): string | undefined {
+  if (typeof transition === "string") {
+    return transition;
+  }
+
+  if (
+    typeof transition === "object"
+    && transition !== null
+    && "target" in transition
+    && typeof transition.target === "string"
+  ) {
+    return transition.target;
+  }
+
+  return undefined;
 }
 
 /**
@@ -122,9 +137,12 @@ export function validateWorkflowIntegrity(
 
     if (state.on) {
       for (const [event, transition] of Object.entries(state.on)) {
-        const target = typeof transition === "string"
-          ? transition
-          : (transition as { target: string }).target;
+        const target = getTransitionTarget(transition);
+
+        if (target === undefined) {
+          errors.push(`State "${key}" transition "${event}" has no valid target`);
+          continue;
+        }
 
         if (!stateKeys.has(target)) {
           errors.push(`State "${key}" transition "${event}" targets non-existent state "${target}"`);

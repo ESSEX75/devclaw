@@ -5,6 +5,7 @@
  * Three-layer resolution: built-in → workspace → per-project.
  */
 import type {
+  CompletionEventMap,
   LevelId,
   StateConfig,
   WorkflowConfig,
@@ -23,7 +24,7 @@ export type RoleOverride = {
   defaultLevel?: LevelId;
   models?: Partial<Record<LevelId, ModelEntry>>;
   emoji?: Partial<Record<LevelId, string>>;
-  completionResults?: string[];
+  completion?: CompletionEventMap;
 };
 
 type WorkflowOverride = Omit<Partial<WorkflowConfig>, "states"> & {
@@ -106,6 +107,6 @@ export type ResolvedRoleConfig = {
   /** Flattened model map (string IDs only, for existing consumers). */
   models: Partial<Record<LevelId, string>>;
   emoji: Partial<Record<LevelId, string>>;
-  completionResults: string[];
+  completion: CompletionEventMap;
   enabled: boolean;
 };

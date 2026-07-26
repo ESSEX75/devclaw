@@ -210,6 +210,24 @@ export const WORKFLOW_EVENT = {
   PR_CLOSED: "PR_CLOSED",
 } as const;
 
+/** Built-in worker completion result identifiers. */
+export const COMPLETION_RESULT = {
+  /** Work completed successfully. */
+  DONE: "done",
+  /** Verification passed. */
+  PASS: "pass",
+  /** Verification failed. */
+  FAIL: "fail",
+  /** Work requires refinement. */
+  REFINE: "refine",
+  /** Work cannot continue. */
+  BLOCKED: "blocked",
+  /** Review approved the work. */
+  APPROVE: "approve",
+  /** Review rejected the work. */
+  REJECT: "reject",
+} as const;
+
 /** Built-in workflow state behavior types. */
 export const STATE_TYPE = {
   /** Queue state waiting for worker pickup. */
@@ -254,13 +272,13 @@ export const DEFAULT_ROLE_LABEL_COLOR = "#cccccc";
 
 /** Emoji displayed for known worker completion results. */
 export const RESULT_EMOJI = {
-  DONE: "✅",
-  PASS: "🎉",
-  FAIL: "❌",
-  REFINE: "🤔",
-  BLOCKED: "🚫",
-  APPROVE: "✅",
-  REJECT: "❌",
+  [COMPLETION_RESULT.DONE]: "✅",
+  [COMPLETION_RESULT.PASS]: "🎉",
+  [COMPLETION_RESULT.FAIL]: "❌",
+  [COMPLETION_RESULT.REFINE]: "🤔",
+  [COMPLETION_RESULT.BLOCKED]: "🚫",
+  [COMPLETION_RESULT.APPROVE]: "✅",
+  [COMPLETION_RESULT.REJECT]: "❌",
 } as const;
 
 /** Fallback emoji displayed for an unknown completion result. */

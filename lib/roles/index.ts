@@ -13,6 +13,7 @@ export {
   // Role IDs
   getAllRoleIds,
   // Completion
+  getCompletionEvent,
   getCompletionResults,
   getDefaultLevel,
   // Models

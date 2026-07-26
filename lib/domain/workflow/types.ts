@@ -4,6 +4,7 @@
 import type { SoftUnion } from "../../types.js";
 import {
   ACTION,
+  COMPLETION_RESULT,
   DEFAULT_LEVELS,
   DEFAULT_ROLES,
   EXECUTION_MODE,
@@ -43,6 +44,13 @@ export type TestPolicy = SoftUnion<typeof TEST_POLICY>;
 
 /** Union type for workflow transition events (e.g. PICKUP, COMPLETE). */
 export type WorkflowEvent = SoftUnion<typeof WORKFLOW_EVENT>;
+
+/** Built-in worker completion result identifier. */
+export type CompletionResult = SoftUnion<typeof COMPLETION_RESULT>;
+
+/** Explicit mapping from role completion results to workflow events. */
+export type CompletionEventMap<TResult extends string = string> =
+  Readonly<Record<TResult, WorkflowEvent>>;
 
 /** Action identifier executed during transitions (e.g. gitPull, mergePr). */
 export type TransitionAction = SoftUnion<typeof ACTION>;

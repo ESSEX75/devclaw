@@ -85,8 +85,11 @@ function mergeRoleOverride(
     emoji: base.emoji || overlay.emoji
       ? { ...base.emoji, ...overlay.emoji }
       : undefined,
+    // Completion mappings merge by result identifier
+    completion: base.completion || overlay.completion
+      ? { ...base.completion, ...overlay.completion }
+      : undefined,
     // Arrays replace entirely
     ...(overlay.levels ? { levels: overlay.levels } : {}),
-    ...(overlay.completionResults ? { completionResults: overlay.completionResults } : {}),
   };
 }

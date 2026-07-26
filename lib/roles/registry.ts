@@ -11,7 +11,7 @@
  * - Session key matching
  * - Notification preferences
  */
-import type { RoleId } from "../domain/index.js";
+import { COMPLETION_RESULT, type RoleId, WORKFLOW_EVENT } from "../domain/index.js";
 import type { RoleConfig } from "./types.js";
 
 export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {
@@ -31,7 +31,10 @@ export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {
       senior: "🧠",
     },
     fallbackEmoji: "🔧",
-    completionResults: ["done", "blocked"],
+    completion: {
+      [COMPLETION_RESULT.DONE]: WORKFLOW_EVENT.COMPLETE,
+      [COMPLETION_RESULT.BLOCKED]: WORKFLOW_EVENT.BLOCKED,
+    },
     sessionKeyPattern: "developer",
     notifications: { onStart: true, onComplete: true },
   },
@@ -52,7 +55,12 @@ export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {
       senior: "🧠",
     },
     fallbackEmoji: "🔍",
-    completionResults: ["pass", "fail", "refine", "blocked"],
+    completion: {
+      [COMPLETION_RESULT.PASS]: WORKFLOW_EVENT.PASS,
+      [COMPLETION_RESULT.FAIL]: WORKFLOW_EVENT.FAIL,
+      [COMPLETION_RESULT.REFINE]: WORKFLOW_EVENT.REFINE,
+      [COMPLETION_RESULT.BLOCKED]: WORKFLOW_EVENT.BLOCKED,
+    },
     sessionKeyPattern: "tester",
     notifications: { onStart: true, onComplete: true },
   },
@@ -71,7 +79,10 @@ export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {
       senior: "🏗️",
     },
     fallbackEmoji: "🏗️",
-    completionResults: ["done", "blocked"],
+    completion: {
+      [COMPLETION_RESULT.DONE]: WORKFLOW_EVENT.COMPLETE,
+      [COMPLETION_RESULT.BLOCKED]: WORKFLOW_EVENT.BLOCKED,
+    },
     sessionKeyPattern: "architect",
     notifications: { onStart: true, onComplete: true },
   },
@@ -90,7 +101,11 @@ export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {
       senior: "🔬",
     },
     fallbackEmoji: "👁️",
-    completionResults: ["approve", "reject", "blocked"],
+    completion: {
+      [COMPLETION_RESULT.APPROVE]: WORKFLOW_EVENT.APPROVE,
+      [COMPLETION_RESULT.REJECT]: WORKFLOW_EVENT.REJECT,
+      [COMPLETION_RESULT.BLOCKED]: WORKFLOW_EVENT.BLOCKED,
+    },
     sessionKeyPattern: "reviewer",
     notifications: { onStart: true, onComplete: true },
   },

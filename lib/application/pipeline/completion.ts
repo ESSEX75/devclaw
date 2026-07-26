@@ -10,6 +10,8 @@ import type { RunCommand } from "../../context.js";
 import {
   ACTION,
   type Channel,
+  COMPLETION_RESULT,
+  type CompletionEventMap,
   type CompletionRule,
   DEFAULT_WORKFLOW,
   findStateByLabel,
@@ -51,9 +53,14 @@ export type CompletionOutput = {
 export function getRule(
   role: RoleId,
   result: string,
+  completion: CompletionEventMap,
   workflow: WorkflowConfig = DEFAULT_WORKFLOW,
 ): CompletionRule | undefined {
-  return getCompletionRule(workflow, role, result) ?? undefined;
+  const event = completion[result];
+
+  return event
+    ? getCompletionRule(workflow, role, event) ?? undefined
+    : undefined;
 }
 
 /**
@@ -93,11 +100,18 @@ export async function executeCompletion(opts: {
   } = opts;
 
   const key = `${role}:${result}`;
-  const rule = getCompletionRule(workflow, role, result);
+  const config = await loadConfig(workspaceDir, projectName);
+  const completionEvent = config.roles[role]?.completion[result];
+
+  if (!completionEvent) {
+    throw new Error(`No completion event configured for ${key}`);
+  }
+
+  const rule = getCompletionRule(workflow, role, completionEvent);
 
   if (!rule) throw new Error(`No completion rule for ${key}`);
 
-  const { timeouts } = await loadConfig(workspaceDir, projectName);
+  const { timeouts } = config;
   const project = await loadProjectBySlug(workspaceDir, projectSlug);
 
   if (!project) {
@@ -221,7 +235,7 @@ export async function executeCompletion(opts: {
   }
 
   // Get next state description from workflow
-  const nextState = getNextStateDescription(workflow, role, result);
+  const nextState = getNextStateDescription(workflow, role, completionEvent);
 
   // Retrieve worker name from project state (best-effort)
   let workerName: string | undefined;
@@ -251,7 +265,7 @@ export async function executeCompletion(opts: {
       role,
       level: opts.level,
       name: workerName,
-      result: result as "done" | "pass" | "fail" | "refine" | "blocked",
+      result,
       summary,
       nextState,
       prUrl,
@@ -335,7 +349,7 @@ export async function executeCompletion(opts: {
   await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });
 
   // Send review routing notification when developer completes
-  if (role === "developer" && result === "done") {
+  if (role === "developer" && result === COMPLETION_RESULT.DONE) {
     // Re-fetch issue to get labels after transition
     const updated = await provider.getIssue(issueId);
     const routing = runtimeState.reviewPolicy === "human" || runtimeState.reviewPolicy === "agent"

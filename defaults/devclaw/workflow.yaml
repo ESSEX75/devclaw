@@ -13,19 +13,34 @@ roles:
       junior: anthropic/claude-haiku-4-5
       medior: anthropic/claude-sonnet-4-5
       senior: anthropic/claude-opus-4-6
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
   tester:
     models:
       junior: anthropic/claude-haiku-4-5
       medior: anthropic/claude-sonnet-4-5
       senior: anthropic/claude-opus-4-6
+    completion:
+      pass: PASS
+      fail: FAIL
+      refine: REFINE
+      blocked: BLOCKED
   architect:
     models:
       junior: anthropic/claude-sonnet-4-5
       senior: anthropic/claude-opus-4-6
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
   reviewer:
     models:
       junior: anthropic/claude-haiku-4-5
       senior: anthropic/claude-sonnet-4-5
+    completion:
+      approve: APPROVE
+      reject: REJECT
+      blocked: BLOCKED
 
 workflow:
   initial: planning

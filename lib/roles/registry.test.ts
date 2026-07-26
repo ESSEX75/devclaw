@@ -100,7 +100,7 @@ describe("models", () => {
   });
 
   it("should resolve from resolved role config override", () => {
-    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completionResults: [], enabled: true };
+    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completion: {}, enabled: true };
 
     assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
   });
@@ -114,7 +114,7 @@ describe("models", () => {
   });
 
   it("should resolve with resolved role overriding defaults selectively", () => {
-    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completionResults: [], enabled: true };
+    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completion: {}, enabled: true };
 
     assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
     // Levels not overridden fall through to registry defaults
@@ -185,7 +185,7 @@ describe("registry consistency", () => {
       assert.ok(config.displayName, `${id}: missing displayName`);
       assert.ok(config.levels.length > 0, `${id}: empty levels`);
       assert.ok(config.levels.includes(config.defaultLevel), `${id}: defaultLevel not in levels`);
-      assert.ok(config.completionResults.length > 0, `${id}: empty completionResults`);
+      assert.ok(Object.keys(config.completion).length > 0, `${id}: empty completion mapping`);
       assert.ok(config.fallbackEmoji, `${id}: missing fallbackEmoji`);
 
       // Every level should have a model

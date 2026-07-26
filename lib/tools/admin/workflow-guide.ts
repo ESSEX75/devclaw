@@ -90,8 +90,8 @@ Config is resolved by merging three layers (later layers override earlier):
 3. **Project config** — \`${dataDir}/projects/<name>/workflow.yaml\` — per-project overrides
 
 ### Merge semantics
-- **Objects**: deep merge (sparse override — only specify what you change)
-- **Arrays**: replace entirely (levels, completionResults)
+- **Objects**: deep merge (sparse override — only specify what you change, including completion mappings)
+- **Arrays**: replace entirely (levels)
 - **Primitives**: override
 - **\`false\` for a role**: disables it entirely
 
@@ -231,7 +231,7 @@ function buildRolesSection(): string {
 | \`defaultLevel\`    | Must be one of \`levels\` | Used when no level specified on issue. |
 | \`models\`          | FREE — map of level→model ID | Model IDs are free-form strings. Format: \`provider/model-name\`. |
 | \`emoji\`           | FREE — map of level→emoji | Used in announcements. Any emoji string. |
-| \`completionResults\`| Mapped to events | \`"done"\` maps to COMPLETE event, others map to UPPERCASE event name. Must have matching transitions in active states. |
+| \`completion\` | Result-to-event mapping | Maps worker results to explicit events; each event needs a transition in the role's active states. |
 
 ## Default model assignments
 
@@ -263,7 +263,9 @@ roles:
     models:
       standard: anthropic/claude-sonnet-4-5
       expert: anthropic/claude-opus-4-6
-    completionResults: [done, blocked]
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
 \`\`\`
 Then add states that use \`role: security_auditor\`.
 

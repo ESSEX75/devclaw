@@ -5,7 +5,7 @@
  * All role-related behavior should be derived from this config.
  */
 
-import type { LevelId, RoleId } from "../domain/index.js";
+import type { CompletionEventMap, LevelId, RoleId } from "../domain/index.js";
 
 /** Configuration for a single worker role. */
 export type RoleConfig = {
@@ -23,8 +23,8 @@ export type RoleConfig = {
   emoji: Partial<Record<LevelId, string>>;
   /** Fallback emoji when level-specific emoji not found. */
   fallbackEmoji: string;
-  /** Valid completion results for this role. */
-  completionResults: readonly string[];
+  /** Explicit mapping from valid completion results to workflow events. */
+  completion: CompletionEventMap;
   /** Regex pattern fragment for session key matching (e.g., "developer|tester|architect"). */
   sessionKeyPattern: string;
   /** Notification config per event type. */
