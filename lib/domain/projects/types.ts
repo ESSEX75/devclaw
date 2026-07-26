@@ -28,7 +28,15 @@ export type RoleWorkerState = {
   levels: Partial<Record<LevelId, SlotState[]>>;
 };
 
-/** Channel registration: maps a channelId to messaging endpoint with event filters. */
+/** Location of a worker slot within a role's level map. */
+export type SlotLocation = {
+  /** Level containing the slot. */
+  level: LevelId;
+  /** Zero-based slot index within the level. */
+  slotIndex: number;
+};
+
+/** Channel registration mapping a channel ID to a messaging endpoint. */
 export type Channel = {
   /** Unique channel identifier. */
   channelId: string;

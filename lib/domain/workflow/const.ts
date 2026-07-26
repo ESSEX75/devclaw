@@ -222,16 +222,6 @@ export const STATE_TYPE = {
   TERMINAL: "terminal",
 } as const;
 
-/** Step routing label values — per-issue overrides for workflow steps. */
-export const STEP_ROUTING = {
-  /** Route step to human worker. */
-  HUMAN: "human",
-  /** Route step to AI agent worker. */
-  AGENT: "agent",
-  /** Skip this workflow step. */
-  SKIP: "skip",
-} as const;
-
 /** Default colors per role for role:level labels. */
 export const ROLE_LABEL_COLORS = {
   /** Green label color for developer role. */

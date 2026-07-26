@@ -3,7 +3,7 @@
  */
 import { isLevelId } from "../workflow/guards.js";
 import type { LevelId } from "../workflow/types.js";
-import type { RoleWorkerState, SlotState } from "./types.js";
+import type { RoleWorkerState, SlotLocation, SlotState } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Slot helpers
@@ -86,8 +86,6 @@ export function reconcileSlots(
 
   return changed;
 }
-
-export type SlotLocation = { level: LevelId; slotIndex: number };
 
 /** Find the level and slot index for a given issueId, or null if not found. */
 export function findSlotByIssue(roleWorker: RoleWorkerState, issueId: string): SlotLocation | null {

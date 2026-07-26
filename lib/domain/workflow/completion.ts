@@ -4,6 +4,7 @@
 import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI, STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
 import { isWorkflowEvent } from "./guards.js";
 import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";
+import { getTransitionTargetKey } from "./transitions.js";
 import { type CompletionRule, type RoleId, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel } from "./types.js";
 
 /**
@@ -49,7 +50,7 @@ export function getCompletionRule(
 
   if (!transition) return null;
 
-  const targetKey = typeof transition === "string" ? transition : transition.target;
+  const targetKey = getTransitionTargetKey(transition);
   const actions = typeof transition === "object" ? transition.actions : undefined;
   const targetState = workflow.states[targetKey];
 

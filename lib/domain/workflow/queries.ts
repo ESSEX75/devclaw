@@ -1,8 +1,9 @@
 /**
  * workflow/queries.ts — Pure query functions over workflow configuration.
  */
-import { STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
+import { DEFAULT_ROLES, STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
 import { isWorkflowEvent, isWorkflowStateKey } from "./guards.js";
+import { getTransitionTargetKey } from "./transitions.js";
 import { type RoleId, type StateConfig, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel, type WorkflowStateKey } from "./types.js";
 
 /**
@@ -90,7 +91,7 @@ export function getRevertLabel(workflow: WorkflowConfig, role: RoleId): Workflow
     if (state.type !== STATE_TYPE.QUEUE || state.role !== role) continue;
     const pickup = state.on?.[WORKFLOW_EVENT.PICKUP];
 
-    if (pickup === activeStateKey) {
+    if (pickup && getTransitionTargetKey(pickup) === activeStateKey) {
       return state.label;
     }
   }
@@ -162,7 +163,7 @@ export function isFeedbackState(workflow: WorkflowConfig, label: string): boolea
     for (const [event, transition] of Object.entries(state.on)) {
       if (!isWorkflowEvent(event)) continue;
 
-      const targetKey = typeof transition === "string" ? transition : transition.target;
+      const targetKey = getTransitionTargetKey(transition);
 
       if (targetKey === stateKey && FEEDBACK_EVENTS.has(event)) return true;
     }
@@ -199,7 +200,7 @@ export function producesReviewableWork(workflow: WorkflowConfig, role: RoleId): 
   if (!activeState.on) return false;
 
   for (const transition of Object.values(activeState.on)) {
-    const targetKey = typeof transition === "string" ? transition : transition.target;
+    const targetKey = getTransitionTargetKey(transition);
     const targetState = workflow.states[targetKey];
 
     if (targetState?.check != null) return true;
@@ -213,6 +214,6 @@ export function producesReviewableWork(workflow: WorkflowConfig, role: RoleId): 
  */
 export function hasTestPhase(workflow: WorkflowConfig): boolean {
   return Object.values(workflow.states).some(
-    (s) => s.role === "tester" && s.type === STATE_TYPE.QUEUE,
+    (s) => s.role === DEFAULT_ROLES.TESTER && s.type === STATE_TYPE.QUEUE,
   );
 }
