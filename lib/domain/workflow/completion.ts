@@ -5,7 +5,7 @@ import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI, STATE_TYPE, WORKFLOW_EVENT } from "
 import { isWorkflowEvent } from "./guards.js";
 import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";
 import { getTransitionTargetKey } from "./transitions.js";
-import { type CompletionRule, type RoleId, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel } from "./types.js";
+import { type CompletionRule, type WorkflowConfig, type WorkflowEvent } from "./types.js";
 
 /**
  * Map completion result to workflow transition event name.
@@ -23,16 +23,20 @@ function resultToEvent(result: string): WorkflowEvent | null {
  * Get completion rule for a role:result pair.
  * Derives entirely from workflow transitions — no hardcoded role:result mapping.
  */
-export function getCompletionRule(
-  workflow: WorkflowConfig,
-  role: RoleId,
+export function getCompletionRule<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
   result: string,
-): CompletionRule | null {
+): CompletionRule<TLabel> | null {
   const event = resultToEvent(result);
 
   if (!event) return null;
 
-  let activeLabel: WorkflowLabel;
+  let activeLabel: TLabel;
 
   try {
     activeLabel = getActiveLabel(workflow, role);
@@ -66,9 +70,13 @@ export function getCompletionRule(
 /**
  * Get human-readable next state description.
  */
-export function getNextStateDescription(
-  workflow: WorkflowConfig,
-  role: RoleId,
+export function getNextStateDescription<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
   result: string,
 ): string {
   const rule = getCompletionRule(workflow, role, result);

@@ -4,13 +4,21 @@ import { describe, it } from "node:test";
 import {
   DEFAULT_ROLES,
   DEFAULT_WORKFLOW,
+  detectRoleFromLabel,
+  findStateKeyByLabel,
+  getActiveLabel,
+  getCompletionRule,
   getRevertLabel,
   STATE_TYPE,
   WORKFLOW_EVENT,
   WORKFLOW_STATE_COLORS,
   WORKFLOW_STATE_KEYS,
   WORKFLOW_STATE_LABELS,
+  type RoleDefinition,
+  type RoleId,
   type WorkflowConfig,
+  type WorkflowLabel,
+  type WorkflowStateKey,
 } from "../index.js";
 
 describe("getRevertLabel", () => {
@@ -48,5 +56,54 @@ describe("getRevertLabel", () => {
       getRevertLabel(workflow, DEFAULT_ROLES.DEVELOPER),
       WORKFLOW_STATE_LABELS.TO_IMPROVE,
     );
+  });
+});
+
+describe("extensible workflow queries", () => {
+  it("preserves custom role, state key, label, and level types", () => {
+    type CustomRoleId = RoleId | "security_auditor";
+    type CustomStateKey = WorkflowStateKey | "securityReview" | "securityReviewing";
+    type CustomLabel = WorkflowLabel | "Security Review" | "Security Reviewing";
+    type CustomLevelId = "standard" | "expert";
+
+    const customRole: RoleDefinition<CustomLevelId> = {
+      levels: ["standard", "expert"],
+      enabled: true,
+    };
+    const workflow: WorkflowConfig<CustomRoleId, CustomStateKey, CustomLabel> = {
+      ...DEFAULT_WORKFLOW,
+      states: {
+        ...DEFAULT_WORKFLOW.states,
+        securityReview: {
+          type: STATE_TYPE.QUEUE,
+          role: "security_auditor",
+          label: "Security Review",
+          color: "#123456",
+          on: {
+            [WORKFLOW_EVENT.PICKUP]: "securityReviewing",
+          },
+        },
+        securityReviewing: {
+          type: STATE_TYPE.ACTIVE,
+          role: "security_auditor",
+          label: "Security Reviewing",
+          color: "#654321",
+          on: {
+            [WORKFLOW_EVENT.COMPLETE]: WORKFLOW_STATE_KEYS.DONE,
+          },
+        },
+      },
+    };
+    const stateKey: CustomStateKey | null = findStateKeyByLabel(workflow, "Security Review");
+    const role: CustomRoleId | null = detectRoleFromLabel(workflow, "Security Review");
+    const activeLabel: CustomLabel = getActiveLabel(workflow, "security_auditor");
+    const completionRule = getCompletionRule(workflow, "security_auditor", "done");
+
+    assert.deepEqual(customRole.levels, ["standard", "expert"]);
+    assert.equal(stateKey, "securityReview");
+    assert.equal(role, "security_auditor");
+    assert.equal(activeLabel, "Security Reviewing");
+    assert.equal(completionRule?.from, "Security Reviewing");
+    assert.equal(completionRule?.to, WORKFLOW_STATE_LABELS.DONE);
   });
 });

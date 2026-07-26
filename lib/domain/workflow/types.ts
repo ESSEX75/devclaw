@@ -54,9 +54,9 @@ export type ReviewCheckType = SoftUnion<typeof REVIEW_CHECK>;
 export type RoutingLabel = SoftUnion<typeof ROUTING_LABELS>;
 
 /** Target state name or detailed transition configuration for an event. */
-export type TransitionTarget = WorkflowStateKey | {
+export type TransitionTarget<TStateKey extends string = WorkflowStateKey> = TStateKey | {
   /** Target workflow state key to transition to. */
-  target: WorkflowStateKey;
+  target: TStateKey;
   /** List of actions to execute during transition. */
   actions?: TransitionAction[];
   /** Optional description of why/when this transition occurs. */
@@ -64,13 +64,17 @@ export type TransitionTarget = WorkflowStateKey | {
 };
 
 /** Configuration for a single state in the workflow statechart. */
-export type StateConfig = {
+export type StateConfig<
+  TRoleId extends string = RoleId,
+  TStateKey extends string = WorkflowStateKey,
+  TLabel extends string = WorkflowLabel,
+> = {
   /** Behavior type of the state (queue, active, hold, terminal). */
   type: StateType;
   /** Assigned worker role responsible for this state, if any. */
-  role?: RoleId;
+  role?: TRoleId;
   /** Provider-side display label matching this state. */
-  label: WorkflowLabel;
+  label: TLabel;
   /** Hex color code for the state label. */
   color: string;
   /** Priority ordering for processing. */
@@ -80,13 +84,17 @@ export type StateConfig = {
   /** Mandatory check condition before transitioning (e.g. prApproved). */
   check?: ReviewCheckType;
   /** Map of workflow events to their transition targets. */
-  on?: Partial<Record<WorkflowEvent, TransitionTarget>>;
+  on?: Partial<Record<WorkflowEvent, TransitionTarget<TStateKey>>>;
 };
 
 /** Full workflow statechart configuration. */
-export type WorkflowConfig = {
+export type WorkflowConfig<
+  TRoleId extends string = RoleId,
+  TStateKey extends string = WorkflowStateKey,
+  TLabel extends string = WorkflowLabel,
+> = {
   /** Initial workflow state key for new issues. */
-  initial: WorkflowStateKey;
+  initial: TStateKey;
   /** Default review policy for PRs. */
   reviewPolicy?: ReviewPolicy;
   /** Default test policy for completed PRs. */
@@ -96,23 +104,23 @@ export type WorkflowConfig = {
   /** Default max workers per level across all roles. Default: 2. */
   maxWorkersPerLevel?: number;
   /** Map of state keys to their state configurations. */
-  states: Record<WorkflowStateKey, StateConfig>;
+  states: Record<TStateKey, StateConfig<TRoleId, TStateKey, TLabel>>;
 };
 
 /** Rule mapping a specific completion scenario to the next state and actions. */
-export type CompletionRule = {
+export type CompletionRule<TLabel extends string = WorkflowLabel> = {
   /** Source workflow label. */
-  from: WorkflowLabel;
+  from: TLabel;
   /** Destination workflow label. */
-  to: WorkflowLabel;
+  to: TLabel;
   /** Actions to execute upon completing transition. */
   actions: TransitionAction[];
 };
 
 /** Definition of a role including its active levels. */
-export type RoleDefinition = {
+export type RoleDefinition<TLevelId extends string = LevelId> = {
   /** List of active level identifiers (e.g. ["junior", "senior"]). */
-  levels: readonly LevelId[];
+  levels: readonly TLevelId[];
   /** Whether the role is enabled in the workflow pipeline. */
   enabled?: boolean;
 };

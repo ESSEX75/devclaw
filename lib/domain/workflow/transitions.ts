@@ -4,6 +4,8 @@
 import type { TransitionTarget, WorkflowStateKey } from "./types.js";
 
 /** Return the destination state key from either transition target representation. */
-export function getTransitionTargetKey(transition: TransitionTarget): WorkflowStateKey {
+export function getTransitionTargetKey<TStateKey extends string = WorkflowStateKey>(
+  transition: TransitionTarget<TStateKey>,
+): TStateKey {
   return typeof transition === "string" ? transition : transition.target;
 }

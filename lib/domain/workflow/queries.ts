@@ -2,23 +2,51 @@
  * workflow/queries.ts — Pure query functions over workflow configuration.
  */
 import { DEFAULT_ROLES, STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
-import { isWorkflowEvent, isWorkflowStateKey } from "./guards.js";
+import { isWorkflowEvent } from "./guards.js";
 import { getTransitionTargetKey } from "./transitions.js";
-import { type RoleId, type StateConfig, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel, type WorkflowStateKey } from "./types.js";
+import { type StateConfig, type WorkflowConfig, type WorkflowEvent } from "./types.js";
+
+/** Return workflow states without losing generic identifier types. */
+function getWorkflowStates<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+): Array<StateConfig<TRoleId, TStateKey, TLabel>> {
+  const states: Array<StateConfig<TRoleId, TStateKey, TLabel>> = [];
+
+  for (const stateKey in workflow.states) {
+    states.push(workflow.states[stateKey]);
+  }
+
+  return states;
+}
 
 /**
  * Get all state labels (for GitHub/GitLab label creation).
  */
-export function getStateLabels(workflow: WorkflowConfig): WorkflowLabel[] {
-  return Object.values(workflow.states).map((s) => s.label);
+export function getStateLabels<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): TLabel[] {
+  return getWorkflowStates(workflow).map((state) => state.label);
 }
 
 /**
  * Find the current workflow state label on an issue.
  * Pure utility — no provider dependency.
  */
-export function getCurrentStateLabel(labels: readonly string[], workflow: WorkflowConfig): WorkflowLabel | null {
-  for (const state of Object.values(workflow.states)) {
+export function getCurrentStateLabel<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  labels: readonly string[],
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+): TLabel | null {
+  for (const state of getWorkflowStates(workflow)) {
     if (labels.includes(state.label)) return state.label;
   }
 
@@ -28,17 +56,25 @@ export function getCurrentStateLabel(labels: readonly string[], workflow: Workfl
 /**
  * Get the initial state label (the first state in the workflow, e.g. "Planning").
  */
-export function getInitialStateLabel(workflow: WorkflowConfig): WorkflowLabel {
+export function getInitialStateLabel<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): TLabel {
   return workflow.states[workflow.initial].label;
 }
 
 /**
  * Get label → color mapping.
  */
-export function getLabelColors(workflow: WorkflowConfig): ReadonlyMap<WorkflowLabel, string> {
-  const colors = new Map<WorkflowLabel, string>();
+export function getLabelColors<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): ReadonlyMap<TLabel, string> {
+  const colors = new Map<TLabel, string>();
 
-  for (const state of Object.values(workflow.states)) {
+  for (const state of getWorkflowStates(workflow)) {
     colors.set(state.label, state.color);
   }
 
@@ -48,8 +84,15 @@ export function getLabelColors(workflow: WorkflowConfig): ReadonlyMap<WorkflowLa
 /**
  * Get queue labels for a role, ordered by priority (highest first).
  */
-export function getQueueLabels(workflow: WorkflowConfig, role: RoleId): WorkflowLabel[] {
-  return Object.values(workflow.states)
+export function getQueueLabels<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
+): TLabel[] {
+  return getWorkflowStates(workflow)
     .filter((s) => s.type === STATE_TYPE.QUEUE && s.role === role)
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
     .map((s) => s.label);
@@ -58,8 +101,12 @@ export function getQueueLabels(workflow: WorkflowConfig, role: RoleId): Workflow
 /**
  * Get all queue labels ordered by priority (for findNextIssue).
  */
-export function getAllQueueLabels(workflow: WorkflowConfig): WorkflowLabel[] {
-  return Object.values(workflow.states)
+export function getAllQueueLabels<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): TLabel[] {
+  return getWorkflowStates(workflow)
     .filter((s) => s.type === STATE_TYPE.QUEUE)
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
     .map((s) => s.label);
@@ -68,8 +115,15 @@ export function getAllQueueLabels(workflow: WorkflowConfig): WorkflowLabel[] {
 /**
  * Get the active (in-progress) label for a role.
  */
-export function getActiveLabel(workflow: WorkflowConfig, role: RoleId): WorkflowLabel {
-  const state = Object.values(workflow.states).find(
+export function getActiveLabel<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
+): TLabel {
+  const state = getWorkflowStates(workflow).find(
     (s) => s.type === STATE_TYPE.ACTIVE && s.role === role,
   );
 
@@ -81,13 +135,18 @@ export function getActiveLabel(workflow: WorkflowConfig, role: RoleId): Workflow
 /**
  * Get the revert label for a role (first queue state for that role).
  */
-export function getRevertLabel(workflow: WorkflowConfig, role: RoleId): WorkflowLabel {
+export function getRevertLabel<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
+): TLabel {
   const activeLabel = getActiveLabel(workflow, role);
-  const activeStateKey = Object.entries(workflow.states).find(
-    ([, s]) => s.label === activeLabel,
-  )?.[0];
+  const activeStateKey = findStateKeyByLabel(workflow, activeLabel);
 
-  for (const [, state] of Object.entries(workflow.states)) {
+  for (const state of getWorkflowStates(workflow)) {
     if (state.type !== STATE_TYPE.QUEUE || state.role !== role) continue;
     const pickup = state.on?.[WORKFLOW_EVENT.PICKUP];
 
@@ -106,8 +165,15 @@ export function getRevertLabel(workflow: WorkflowConfig, role: RoleId): Workflow
 /**
  * Detect role from a label.
  */
-export function detectRoleFromLabel(workflow: WorkflowConfig, label: string): RoleId | null {
-  for (const state of Object.values(workflow.states)) {
+export function detectRoleFromLabel<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  label: string,
+): TRoleId | null {
+  for (const state of getWorkflowStates(workflow)) {
     if (state.label === label && state.type === STATE_TYPE.QUEUE && state.role) {
       return state.role;
     }
@@ -120,24 +186,47 @@ export function detectRoleFromLabel(workflow: WorkflowConfig, label: string): Ro
 /**
  * Find state config by label.
  */
-export function findStateByLabel(workflow: WorkflowConfig, label: string): StateConfig | null {
-  return Object.values(workflow.states).find((s) => s.label === label) ?? null;
+export function findStateByLabel<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  label: string,
+): StateConfig<TRoleId, TStateKey, TLabel> | null {
+  return getWorkflowStates(workflow).find((state) => state.label === label) ?? null;
 }
 
 /**
  * Find state key by label.
  */
-export function findStateKeyByLabel(workflow: WorkflowConfig, label: string): WorkflowStateKey | null {
-  const stateKey = Object.entries(workflow.states).find(([, state]) => state.label === label)?.[0];
+export function findStateKeyByLabel<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  label: string,
+): TStateKey | null {
+  for (const stateKey in workflow.states) {
+    if (workflow.states[stateKey].label === label) return stateKey;
+  }
 
-  return stateKey && isWorkflowStateKey(stateKey) ? stateKey : null;
+  return null;
 }
 
 /**
  * Check if a role has any workflow states (queue, active, etc.).
  */
-export function hasWorkflowStates(workflow: WorkflowConfig, role: RoleId): boolean {
-  return Object.values(workflow.states).some((s) => s.role === role);
+export function hasWorkflowStates<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
+): boolean {
+  return getWorkflowStates(workflow).some((state) => state.role === role);
 }
 
 /** Workflow events that indicate review/test feedback. */
@@ -154,11 +243,18 @@ const FEEDBACK_EVENTS: Set<WorkflowEvent> = new Set([
  * Check if a label's state is a "feedback" state — one that issues land in
  * after review rejection, test failure, or merge conflict.
  */
-export function isFeedbackState(workflow: WorkflowConfig, label: string): boolean {
+export function isFeedbackState<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  label: string,
+): boolean {
   const stateKey = findStateKeyByLabel(workflow, label);
 
   if (!stateKey) return false;
-  for (const state of Object.values(workflow.states)) {
+  for (const state of getWorkflowStates(workflow)) {
     if (!state.on) continue;
     for (const [event, transition] of Object.entries(state.on)) {
       if (!isWorkflowEvent(event)) continue;
@@ -175,8 +271,15 @@ export function isFeedbackState(workflow: WorkflowConfig, label: string): boolea
 /**
  * Check if a role has states with PR review checks (e.g. prApproved, prMerged).
  */
-export function hasReviewCheck(workflow: WorkflowConfig, role: RoleId): boolean {
-  return Object.values(workflow.states).some(
+export function hasReviewCheck<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
+): boolean {
+  return getWorkflowStates(workflow).some(
     (s) => s.role === role && s.check != null,
   );
 }
@@ -184,8 +287,15 @@ export function hasReviewCheck(workflow: WorkflowConfig, role: RoleId): boolean 
 /**
  * Check if completing this role's active state leads to a state with a review check.
  */
-export function producesReviewableWork(workflow: WorkflowConfig, role: RoleId): boolean {
-  let activeKey: WorkflowStateKey | null;
+export function producesReviewableWork<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
+): boolean {
+  let activeKey: TStateKey | null;
 
   try {
     const activeLabel = getActiveLabel(workflow, role);
@@ -212,8 +322,12 @@ export function producesReviewableWork(workflow: WorkflowConfig, role: RoleId): 
 /**
  * Check if the workflow has a test phase (any queue state with role=tester).
  */
-export function hasTestPhase(workflow: WorkflowConfig): boolean {
-  return Object.values(workflow.states).some(
+export function hasTestPhase<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): boolean {
+  return getWorkflowStates(workflow).some(
     (s) => s.role === DEFAULT_ROLES.TESTER && s.type === STATE_TYPE.QUEUE,
   );
 }
