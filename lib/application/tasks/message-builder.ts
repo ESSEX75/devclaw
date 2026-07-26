@@ -1,6 +1,7 @@
 /**
  * message-builder.ts — Task message construction for worker sessions.
  */
+import type { LevelId } from "../../domain/index.js";
 import { getFallbackEmoji } from "../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../state/config/index.js";
 import { formatPrContext, formatPrFeedback, type PrContext, type PrFeedback } from "../review/pr-context.js";
@@ -172,7 +173,7 @@ export function buildConflictFixMessage(opts: {
 }
 
 export function buildAnnouncement(
-  level: string, role: string, sessionAction: "spawn" | "send",
+  level: LevelId, role: string, sessionAction: "spawn" | "send",
   issueId: number, issueTitle: string, issueUrl: string,
   resolvedRole?: ResolvedRoleConfig, botName?: string,
 ): string {

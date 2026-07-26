@@ -203,13 +203,10 @@ export async function reviewPass(opts: {
       if (!conditionMet) continue;
 
       // Find the success transition — use the APPROVED event (matches check condition)
-      const successEvent = Object.keys(state.on).find(
-        (e) => e === WORKFLOW_EVENT.APPROVED,
-      );
+      const transition = state.on[WORKFLOW_EVENT.APPROVED];
 
-      if (!successEvent) continue;
+      if (!transition) continue;
 
-      const transition = state.on[successEvent];
       const targetKey = typeof transition === "string" ? transition : transition.target;
       const actions = typeof transition === "object" ? transition.actions : undefined;
       const targetState = workflow.states[targetKey];

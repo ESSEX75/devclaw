@@ -36,7 +36,7 @@ export async function scanStatelessIssues(opts: {
   } = opts;
 
   const fixes: HealthFix[] = [];
-  const stateLabels = getStateLabels(workflow);
+  const stateLabels = new Set<string>(getStateLabels(workflow));
   const initialLabel = workflow.states[workflow.initial]?.label;
 
   if (!initialLabel) return fixes;
@@ -50,7 +50,7 @@ export async function scanStatelessIssues(opts: {
   }
 
   for (const issue of allOpenIssues) {
-    const hasStateLabel = issue.labels.some((l) => stateLabels.includes(l));
+    const hasStateLabel = issue.labels.some((label) => stateLabels.has(label));
 
     if (hasStateLabel) continue;
 

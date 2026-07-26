@@ -22,7 +22,7 @@ export async function writeHeartbeatTransitionState(opts: {
   workflowLabel: WorkflowLabel;
   closedAt?: string | null;
 }): Promise<void> {
-  const stateLabels = new Set(getStateLabels(opts.workflow));
+  const stateLabels = new Set<string>(getStateLabels(opts.workflow));
   const labels = opts.issue.labels
     .filter((label) => !stateLabels.has(label))
     .concat(opts.workflowLabel);

@@ -369,7 +369,7 @@ export async function executeCompletion(opts: {
   }
 
   // Build announcement using workflow-derived emoji
-  const emoji = getCompletionEmoji(role, result);
+  const emoji = getCompletionEmoji(result);
   const label = key.replace(":", " ").toUpperCase();
   let announcement = `${emoji} ${label} #${issueId}`;
 

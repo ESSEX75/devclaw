@@ -9,6 +9,7 @@ import { DEFAULT_WORKFLOW, getActiveLabel, getCompletionEmoji, getCompletionRule
 import { parseDevClawSessionKey } from "../../integrations/openclaw/bootstrap-hook.js";
 import { getDefaultModel, getEmoji, isLevelForRole, resolveModel, roleForLevel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
+import type { ResolvedRoleConfig } from "../../state/config/index.js";
 
 describe("architect tiers", () => {
   it("should recognize architect levels", () => {
@@ -30,7 +31,7 @@ describe("architect tiers", () => {
   });
 
   it("should resolve architect model from resolved role config", () => {
-    const resolvedRole = { levelMaxWorkers: { junior: 2, senior: 2 }, models: { senior: "custom/model" }, levels: ["junior", "senior"], defaultLevel: "junior", emoji: {}, completionResults: [] as string[], enabled: true };
+    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, senior: 2 }, models: { senior: "custom/model" }, levels: ["junior", "senior"], defaultLevel: "junior", emoji: {}, completionResults: [], enabled: true };
 
     assert.strictEqual(resolveModel("architect", "senior", resolvedRole), "custom/model");
   });
@@ -96,15 +97,15 @@ describe("architect workflow — To Research / Researching states", () => {
   });
 
   it("should still have completion emoji for architect results", () => {
-    assert.strictEqual(getCompletionEmoji("architect", "done"), "\u2705");
-    assert.strictEqual(getCompletionEmoji("architect", "blocked"), "\u{1f6ab}");
+    assert.strictEqual(getCompletionEmoji("done"), "\u2705");
+    assert.strictEqual(getCompletionEmoji("blocked"), "\u{1f6ab}");
   });
 
   it("should NOT have To Design or Designing in state labels", () => {
-    const labels = getStateLabels(DEFAULT_WORKFLOW);
+    const labels = new Set<string>(getStateLabels(DEFAULT_WORKFLOW));
 
-    assert.ok(!labels.includes("To Design"), "To Design should not exist");
-    assert.ok(!labels.includes("Designing"), "Designing should not exist");
+    assert.ok(!labels.has("To Design"), "To Design should not exist");
+    assert.ok(!labels.has("Designing"), "Designing should not exist");
   });
 });
 

@@ -1,9 +1,11 @@
 /**
  * workflow/labels.ts — Label formatting, detection, and routing helpers.
  */
+import type { Channel } from "../projects/types.js";
 import type { NotificationChannel } from "../shared/types.js";
 import {
   DEFAULT_ROLE_LABEL_COLOR,
+  DEFAULT_ROLES,
   NOTIFY_LABEL_PREFIX,
   OWNER_LABEL_PREFIX,
   REVIEW_POLICY,
@@ -12,17 +14,7 @@ import {
   STEP_ROUTING_COLOR,
   TEST_POLICY,
 } from "./const.js";
-import type { ReviewPolicy, RoleDefinition, RoutingLabel, TestPolicy } from "./types.js";
-
-/** Internal mapping of channel definitions. */
-type WorkflowChannel = {
-  channelId: string;
-  channel: NotificationChannel;
-  name: string;
-  events: string[];
-  accountId?: string;
-  threadId?: string;
-};
+import type { ReviewPolicy, Role, RoleDefinition, RoutingLabel, TestPolicy } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Step routing labels
@@ -47,8 +39,8 @@ export function getNotifyLabel(channel: NotificationChannel, nameOrIndex: string
  */
 export function resolveNotifyChannel(
   issueLabels: string[],
-  channels: Array<Omit<WorkflowChannel, "events">>,
-): Omit<WorkflowChannel, "events" | "name"> | undefined {
+  channels: readonly Channel[],
+): Channel | undefined {
   const notifyLabel = issueLabels.find((l) => l.startsWith(NOTIFY_LABEL_PREFIX));
 
   if (notifyLabel) {
@@ -129,11 +121,14 @@ export function resolveTestRouting(policy: TestPolicy): RoutingLabel {
  * Generate all role:level label definitions from resolved config roles.
  */
 export function getRoleLabels(
-  roles: Record<string, RoleDefinition>,
+  roles: Partial<Record<Role, RoleDefinition>>,
 ): Array<{ name: string; color: string }> {
   const labels: Array<{ name: string; color: string }> = [];
 
-  for (const [roleId, role] of Object.entries(roles)) {
+  for (const roleId of Object.values(DEFAULT_ROLES)) {
+    const role = roles[roleId];
+
+    if (!role) continue;
     if (role.enabled === false) continue;
     for (const level of role.levels) {
       labels.push({
@@ -151,8 +146,11 @@ export function getRoleLabels(
 }
 
 /** Get the label color for a role. Falls back to gray for unknown roles. */
-export function getRoleLabelColor(role: string): string {
-  const key = role.toUpperCase() as keyof typeof ROLE_LABEL_COLORS;
+export function getRoleLabelColor(role: Role): string {
+  if (role === DEFAULT_ROLES.DEVELOPER) return ROLE_LABEL_COLORS.DEVELOPER;
+  if (role === DEFAULT_ROLES.TESTER) return ROLE_LABEL_COLORS.TESTER;
+  if (role === DEFAULT_ROLES.ARCHITECT) return ROLE_LABEL_COLORS.ARCHITECT;
+  if (role === DEFAULT_ROLES.REVIEWER) return ROLE_LABEL_COLORS.REVIEWER;
 
-  return ROLE_LABEL_COLORS[key] ?? DEFAULT_ROLE_LABEL_COLOR;
+  return DEFAULT_ROLE_LABEL_COLOR;
 }

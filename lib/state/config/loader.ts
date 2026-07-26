@@ -12,9 +12,9 @@ import path from "node:path";
 
 import YAML from "yaml";
 
-import type { WorkflowConfig } from "../../domain/index.js";
-import { DEFAULT_WORKFLOW } from "../../domain/index.js";
-import { getAllRoleIds, getRole, ROLE_REGISTRY } from "../../roles/index.js";
+import type { LevelId, WorkflowConfig } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW, isLevelId, isRoleId } from "../../domain/index.js";
+import { getAllRoleIds, ROLE_REGISTRY } from "../../roles/index.js";
 import { DATA_DIR } from "../setup/paths.js";
 import { mergeConfig } from "./merge.js";
 import { validateConfig, validateWorkflowIntegrity } from "./schema.js";
@@ -84,10 +84,14 @@ function buildDefaultConfig(): DevClawConfig {
 const DEFAULT_MAX_WORKERS_PER_LEVEL = 2;
 
 /** Flatten a ModelEntry map to string-only model IDs. */
-function flattenModels(entries: Record<string, ModelEntry>): Record<string, string> {
-  const flat: Record<string, string> = {};
+function flattenModels(
+  entries: Partial<Record<LevelId, ModelEntry>>,
+): Partial<Record<LevelId, string>> {
+  const flat: Partial<Record<LevelId, string>> = {};
 
   for (const [level, entry] of Object.entries(entries)) {
+    if (!isLevelId(level)) continue;
+
     flat[level] = typeof entry === "string" ? entry : entry.model;
   }
 
@@ -96,12 +100,14 @@ function flattenModels(entries: Record<string, ModelEntry>): Record<string, stri
 
 /** Resolve per-level maxWorkers from model entries + global default. */
 function resolveLevelMaxWorkers(
-  models: Record<string, ModelEntry>,
+  models: Partial<Record<LevelId, ModelEntry>>,
   globalDefault: number,
-): Record<string, number> {
-  const result: Record<string, number> = {};
+): Partial<Record<LevelId, number>> {
+  const result: Partial<Record<LevelId, number>> = {};
 
   for (const [level, entry] of Object.entries(models)) {
+    if (!isLevelId(level)) continue;
+
     if (typeof entry === "object" && entry.maxWorkers !== undefined) {
       result[level] = entry.maxWorkers;
     } else {
@@ -118,36 +124,38 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 
   if (config.roles) {
     for (const [id, override] of Object.entries(config.roles)) {
+      if (!isRoleId(id)) continue;
+
+      const reg = ROLE_REGISTRY[id];
+
       if (override === false) {
         // Disabled role — include with enabled: false for visibility
-        const reg = getRole(id);
-        const models: Record<string, ModelEntry> = reg ? { ...reg.models } : {};
+        const models: Partial<Record<LevelId, ModelEntry>> = { ...reg.models };
 
         roles[id] = {
           levelMaxWorkers: resolveLevelMaxWorkers(models, globalMaxWorkers),
-          levels: reg ? [...reg.levels] : [],
-          defaultLevel: reg?.defaultLevel ?? "",
+          levels: [...reg.levels],
+          defaultLevel: reg.defaultLevel,
           models: flattenModels(models),
-          emoji: reg ? { ...reg.emoji } : {},
-          completionResults: reg ? [...reg.completionResults] : [],
+          emoji: { ...reg.emoji },
+          completionResults: [...reg.completionResults],
           enabled: false,
         };
         continue;
       }
 
-      const reg = getRole(id);
-      const mergedModels: Record<string, ModelEntry> = {
-        ...(reg?.models ?? {}),
+      const mergedModels: Partial<Record<LevelId, ModelEntry>> = {
+        ...reg.models,
         ...(override.models ?? {}),
       };
 
       roles[id] = {
         levelMaxWorkers: resolveLevelMaxWorkers(mergedModels, globalMaxWorkers),
-        levels: override.levels ?? (reg ? [...reg.levels] : []),
-        defaultLevel: override.defaultLevel ?? reg?.defaultLevel ?? "",
+        levels: override.levels ?? [...reg.levels],
+        defaultLevel: override.defaultLevel ?? reg.defaultLevel,
         models: flattenModels(mergedModels),
-        emoji: { ...(reg?.emoji ?? {}), ...(override.emoji ?? {}) },
-        completionResults: override.completionResults ?? (reg ? [...reg.completionResults] : []),
+        emoji: { ...reg.emoji, ...(override.emoji ?? {}) },
+        completionResults: override.completionResults ?? [...reg.completionResults],
         enabled: true,
       };
     }
@@ -158,7 +166,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
     const reg = ROLE_REGISTRY[id];
 
     if (!roles[id]) {
-      const models: Record<string, ModelEntry> = { ...reg.models };
+      const models: Partial<Record<LevelId, ModelEntry>> = { ...reg.models };
 
       roles[id] = {
         levelMaxWorkers: resolveLevelMaxWorkers(models, globalMaxWorkers),

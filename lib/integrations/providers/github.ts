@@ -276,8 +276,8 @@ export class GitHubProvider implements IssueProvider {
 
     // Remove old state labels (best-effort if there are multiple old labels)
     const issue = await this.getIssue(issueId);
-    const stateLabels = getStateLabels(this.workflow);
-    const currentStateLabels = issue.labels.filter((l) => stateLabels.includes(l) && l !== to);
+    const stateLabels = new Set<string>(getStateLabels(this.workflow));
+    const currentStateLabels = issue.labels.filter((label) => stateLabels.has(label) && label !== to);
 
     if (currentStateLabels.length > 0) {
       const args = ["issue", "edit", String(issueId)];
@@ -289,7 +289,7 @@ export class GitHubProvider implements IssueProvider {
     // Post-transition validation: verify exactly one state label remains (#473)
     try {
       const postIssue = await this.getIssue(issueId);
-      const postStateLabels = postIssue.labels.filter((l) => stateLabels.includes(l));
+      const postStateLabels = postIssue.labels.filter((label) => stateLabels.has(label));
 
       if (postStateLabels.length !== 1 || !postStateLabels.includes(to)) {
         // Log anomaly but don't throw — transition is already committed

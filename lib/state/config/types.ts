@@ -4,7 +4,12 @@
  * A single workflow.yaml combines roles, models, and workflow.
  * Three-layer resolution: built-in → workspace → per-project.
  */
-import type { WorkflowConfig } from "../../domain/index.js";
+import type {
+  LevelId,
+  StateConfig,
+  WorkflowConfig,
+  WorkflowStateKey,
+} from "../../domain/index.js";
 
 /**
  * Role override in workflow.yaml. All fields optional — only override what you need.
@@ -14,11 +19,15 @@ import type { WorkflowConfig } from "../../domain/index.js";
 export type ModelEntry = string | { model: string; maxWorkers?: number };
 
 export type RoleOverride = {
-  levels?: string[];
-  defaultLevel?: string;
-  models?: Record<string, ModelEntry>;
-  emoji?: Record<string, string>;
+  levels?: LevelId[];
+  defaultLevel?: LevelId;
+  models?: Partial<Record<LevelId, ModelEntry>>;
+  emoji?: Partial<Record<LevelId, string>>;
   completionResults?: string[];
+};
+
+type WorkflowOverride = Omit<Partial<WorkflowConfig>, "states"> & {
+  states?: Partial<Record<WorkflowStateKey, StateConfig>>;
 };
 
 /**
@@ -51,7 +60,7 @@ type InstanceConfig = {
  */
 export type RawConfig = {
   roles?: Record<string, RoleOverride | false>;
-  workflow?: Partial<WorkflowConfig>;
+  workflow?: WorkflowOverride;
   timeouts?: TimeoutConfig;
   instance?: InstanceConfig;
 };
@@ -91,12 +100,12 @@ export type ResolvedConfig = {
  */
 export type ResolvedRoleConfig = {
   /** Per-level max workers. Resolved from: per-model maxWorkers → workflow maxWorkersPerLevel → default 2. */
-  levelMaxWorkers: Record<string, number>;
-  levels: string[];
-  defaultLevel: string;
+  levelMaxWorkers: Partial<Record<LevelId, number>>;
+  levels: LevelId[];
+  defaultLevel: LevelId;
   /** Flattened model map (string IDs only, for existing consumers). */
-  models: Record<string, string>;
-  emoji: Record<string, string>;
+  models: Partial<Record<LevelId, string>>;
+  emoji: Partial<Record<LevelId, string>>;
   completionResults: string[];
   enabled: boolean;
 };

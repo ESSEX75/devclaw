@@ -261,3 +261,17 @@ export const OWNER_LABEL_COLOR = "#e4e4e4";
 
 /** Default fallback color for unknown roles. */
 export const DEFAULT_ROLE_LABEL_COLOR = "#cccccc";
+
+/** Emoji displayed for known worker completion results. */
+export const RESULT_EMOJI = {
+  DONE: "✅",
+  PASS: "🎉",
+  FAIL: "❌",
+  REFINE: "🤔",
+  BLOCKED: "🚫",
+  APPROVE: "✅",
+  REJECT: "❌",
+} as const;
+
+/** Fallback emoji displayed for an unknown completion result. */
+export const DEFAULT_RESULT_EMOJI = "📋";

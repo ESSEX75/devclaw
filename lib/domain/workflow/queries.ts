@@ -2,13 +2,13 @@
  * workflow/queries.ts — Pure query functions over workflow configuration.
  */
 import { STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
-import { isWorkflowStateKey } from "./guards.js";
-import { type Role, type StateConfig, type WorkflowConfig, type WorkflowLabel, type WorkflowStateKey } from "./types.js";
+import { isWorkflowEvent, isWorkflowStateKey } from "./guards.js";
+import { type Role, type StateConfig, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel, type WorkflowStateKey } from "./types.js";
 
 /**
  * Get all state labels (for GitHub/GitLab label creation).
  */
-export function getStateLabels(workflow: WorkflowConfig): string[] {
+export function getStateLabels(workflow: WorkflowConfig): WorkflowLabel[] {
   return Object.values(workflow.states).map((s) => s.label);
 }
 
@@ -95,7 +95,11 @@ export function getRevertLabel(workflow: WorkflowConfig, role: Role): WorkflowLa
     }
   }
 
-  return getQueueLabels(workflow, role)[0] ?? "";
+  const queueLabel = getQueueLabels(workflow, role)[0];
+
+  if (!queueLabel) throw new Error(`No queue state for role "${role}"`);
+
+  return queueLabel;
 }
 
 /**
@@ -136,7 +140,7 @@ export function hasWorkflowStates(workflow: WorkflowConfig, role: Role): boolean
 }
 
 /** Workflow events that indicate review/test feedback. */
-const FEEDBACK_EVENTS: Set<string> = new Set([
+const FEEDBACK_EVENTS: Set<WorkflowEvent> = new Set([
   WORKFLOW_EVENT.CHANGES_REQUESTED,
   WORKFLOW_EVENT.MERGE_CONFLICT,
   WORKFLOW_EVENT.MERGE_FAILED,
@@ -156,6 +160,8 @@ export function isFeedbackState(workflow: WorkflowConfig, label: string): boolea
   for (const state of Object.values(workflow.states)) {
     if (!state.on) continue;
     for (const [event, transition] of Object.entries(state.on)) {
+      if (!isWorkflowEvent(event)) continue;
+
       const targetKey = typeof transition === "string" ? transition : transition.target;
 
       if (targetKey === stateKey && FEEDBACK_EVENTS.has(event)) return true;
@@ -168,7 +174,7 @@ export function isFeedbackState(workflow: WorkflowConfig, label: string): boolea
 /**
  * Check if a role has states with PR review checks (e.g. prApproved, prMerged).
  */
-export function hasReviewCheck(workflow: WorkflowConfig, role: string): boolean {
+export function hasReviewCheck(workflow: WorkflowConfig, role: Role): boolean {
   return Object.values(workflow.states).some(
     (s) => s.role === role && s.check != null,
   );
@@ -178,7 +184,7 @@ export function hasReviewCheck(workflow: WorkflowConfig, role: string): boolean 
  * Check if completing this role's active state leads to a state with a review check.
  */
 export function producesReviewableWork(workflow: WorkflowConfig, role: Role): boolean {
-  let activeKey: string | null;
+  let activeKey: WorkflowStateKey | null;
 
   try {
     const activeLabel = getActiveLabel(workflow, role);

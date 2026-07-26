@@ -83,7 +83,7 @@ export type StateConfig = {
   /** Mandatory check condition before transitioning (e.g. prApproved). */
   check?: ReviewCheckType;
   /** Map of workflow events to their transition targets. */
-  on?: Record<string, TransitionTarget>;
+  on?: Partial<Record<WorkflowEvent, TransitionTarget>>;
 };
 
 /** Full workflow statechart configuration. */
@@ -99,7 +99,7 @@ export type WorkflowConfig = {
   /** Default max workers per level across all roles. Default: 2. */
   maxWorkersPerLevel?: number;
   /** Map of state keys to their state configurations. */
-  states: Record<string, StateConfig>;
+  states: Record<WorkflowStateKey, StateConfig>;
 };
 
 /** Rule mapping a specific completion scenario to the next state and actions. */
@@ -115,7 +115,7 @@ export type CompletionRule = {
 /** Definition of a role including its active levels. */
 export type RoleDefinition = {
   /** List of active level identifiers (e.g. ["junior", "senior"]). */
-  levels: string[];
+  levels: readonly LevelId[];
   /** Whether the role is enabled in the workflow pipeline. */
   enabled?: boolean;
 };

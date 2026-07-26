@@ -5,6 +5,7 @@
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
+import type { ResolvedRoleConfig } from "../state/config/index.js";
 import { getAllDefaultModels, getAllLevels, getAllRoleIds, getCompletionResults, getDefaultLevel, getDefaultModel, getEmoji, getFallbackEmoji, getLevelsForRole, getRole, getSessionKeyRolePattern, isLevelForRole, isValidResult, isValidRole, requireRole, resolveModel, ROLE_REGISTRY, roleForLevel } from "./index.js";
 
 describe("role registry", () => {
@@ -99,7 +100,7 @@ describe("models", () => {
   });
 
   it("should resolve from resolved role config override", () => {
-    const resolvedRole = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completionResults: [] as string[], enabled: true };
+    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completionResults: [], enabled: true };
 
     assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
   });
@@ -113,7 +114,7 @@ describe("models", () => {
   });
 
   it("should resolve with resolved role overriding defaults selectively", () => {
-    const resolvedRole = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completionResults: [] as string[], enabled: true };
+    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completionResults: [], enabled: true };
 
     assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
     // Levels not overridden fall through to registry defaults

@@ -217,9 +217,9 @@ export class TestProvider implements IssueProvider {
 
     if (!issue) throw new Error(`Issue #${issueId} not found in TestProvider`);
     // Remove all state labels, add the new one
-    const stateLabels = getStateLabels(this.workflow);
+    const stateLabels = new Set<string>(getStateLabels(this.workflow));
 
-    issue.labels = issue.labels.filter((l) => !stateLabels.includes(l));
+    issue.labels = issue.labels.filter((label) => !stateLabels.has(label));
     issue.labels.push(to);
   }
 
