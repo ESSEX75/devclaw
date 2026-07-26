@@ -63,29 +63,89 @@ export type TransitionTarget<TStateKey extends string = WorkflowStateKey> = TSta
   description?: string;
 };
 
+/** Fields shared by every workflow state. */
+type BaseStateConfig<TLabel extends string> = {
+  /** Provider-side display label matching this state. */
+  label: TLabel;
+  /** Hex color code for the state label. */
+  color: string;
+  /** Human-readable explanation of this state's purpose. */
+  description?: string;
+  /** Mandatory check condition before transitioning (e.g. prApproved). */
+  check?: ReviewCheckType;
+};
+
+/** Outgoing transitions supported by non-terminal workflow states. */
+type StatefulTransitions<TStateKey extends string> = {
+  /** Map of workflow events to their transition targets. */
+  on?: Partial<Record<WorkflowEvent, TransitionTarget<TStateKey>>>;
+};
+
+/** Queue state waiting for a role to pick up work. */
+export type QueueStateConfig<
+  TRoleId extends string = RoleId,
+  TStateKey extends string = WorkflowStateKey,
+  TLabel extends string = WorkflowLabel,
+> = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
+  /** Queue behavior discriminator. */
+  type: typeof STATE_TYPE.QUEUE;
+  /** Worker role responsible for this queue. */
+  role: TRoleId;
+  /** Priority ordering for processing. */
+  priority?: number;
+};
+
+/** Active state currently processed by a worker role. */
+export type ActiveStateConfig<
+  TRoleId extends string = RoleId,
+  TStateKey extends string = WorkflowStateKey,
+  TLabel extends string = WorkflowLabel,
+> = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
+  /** Active behavior discriminator. */
+  type: typeof STATE_TYPE.ACTIVE;
+  /** Worker role responsible for active processing. */
+  role: TRoleId;
+  /** Priority is meaningful only for queue states. */
+  priority?: never;
+};
+
+/** Hold state waiting for an external or human decision. */
+export type HoldStateConfig<
+  TStateKey extends string = WorkflowStateKey,
+  TLabel extends string = WorkflowLabel,
+> = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
+  /** Hold behavior discriminator. */
+  type: typeof STATE_TYPE.HOLD;
+  /** Hold states are not assigned to worker roles. */
+  role?: never;
+  /** Priority is meaningful only for queue states. */
+  priority?: never;
+};
+
+/** Terminal state concluding the workflow. */
+export type TerminalStateConfig<
+  TLabel extends string = WorkflowLabel,
+> = BaseStateConfig<TLabel> & {
+  /** Terminal behavior discriminator. */
+  type: typeof STATE_TYPE.TERMINAL;
+  /** Terminal states are not assigned to worker roles. */
+  role?: never;
+  /** Priority is meaningful only for queue states. */
+  priority?: never;
+  /** Terminal states cannot have outgoing transitions. */
+  on?: never;
+};
+
 /** Configuration for a single state in the workflow statechart. */
 export type StateConfig<
   TRoleId extends string = RoleId,
   TStateKey extends string = WorkflowStateKey,
   TLabel extends string = WorkflowLabel,
-> = {
-  /** Behavior type of the state (queue, active, hold, terminal). */
-  type: StateType;
-  /** Assigned worker role responsible for this state, if any. */
-  role?: TRoleId;
-  /** Provider-side display label matching this state. */
-  label: TLabel;
-  /** Hex color code for the state label. */
-  color: string;
-  /** Priority ordering for processing. */
-  priority?: number;
-  /** Human-readable explanation of this state's purpose. */
-  description?: string;
-  /** Mandatory check condition before transitioning (e.g. prApproved). */
-  check?: ReviewCheckType;
-  /** Map of workflow events to their transition targets. */
-  on?: Partial<Record<WorkflowEvent, TransitionTarget<TStateKey>>>;
-};
+> =
+  | QueueStateConfig<TRoleId, TStateKey, TLabel>
+  | ActiveStateConfig<TRoleId, TStateKey, TLabel>
+  | HoldStateConfig<TStateKey, TLabel>
+  | TerminalStateConfig<TLabel>;
 
 /** Full workflow statechart configuration. */
 export type WorkflowConfig<
