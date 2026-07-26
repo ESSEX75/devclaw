@@ -20,6 +20,7 @@ import {
   isNotificationChannel,
   ISSUE_PROVIDER,
   NOTIFICATION_CHANNEL,
+  type Role,
   type RoleWorkerState,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
@@ -242,7 +243,6 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           channelId,
           channel,
           name: `channel-${existing.channels.length + 1}`,
-          events: ["*"],
           ...(threadId ? { threadId } : {}),
         };
 
@@ -252,7 +252,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         }
       } else {
         // Create new project - get levelMaxWorkers from resolved config (already loaded above)
-        const workers: Record<string, RoleWorkerState> = {};
+  const workers: Partial<Record<Role, RoleWorkerState>> = {};
 
         for (const role of getAllRoleIds()) {
           const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
@@ -264,7 +264,6 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           channelId,
           channel,
           name: "primary",
-          events: ["*"],
           ...(threadId ? { threadId } : {}),
         };
 

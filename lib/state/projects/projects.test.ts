@@ -42,7 +42,6 @@ describe("readProjects", () => {
             channelId: "g1",
             channel: NOTIFICATION_CHANNEL.TELEGRAM,
             name: "primary",
-            events: ["*"],
           }],
           workers: {
             developer: {
@@ -63,11 +62,14 @@ describe("readProjects", () => {
     const data = await readProjects(tmpDir);
     const rw = data.projects["g1"].workers.developer;
 
-    assert.ok(rw.levels.medior, "should have medior level");
-    assert.strictEqual(rw.levels.medior.length, 2);
-    assert.strictEqual(rw.levels.medior[0]!.active, true);
-    assert.strictEqual(rw.levels.medior[0]!.issueId, "5");
-    assert.strictEqual(rw.levels.medior[1]!.active, false);
+    assert.ok(rw, "should have developer worker state");
+    const mediorSlots = rw.levels.medior;
+
+    assert.ok(mediorSlots, "should have medior level");
+    assert.strictEqual(mediorSlots.length, 2);
+    assert.strictEqual(mediorSlots[0]!.active, true);
+    assert.strictEqual(mediorSlots[0]!.issueId, "5");
+    assert.strictEqual(mediorSlots[1]!.active, false);
 
     await fs.rm(tmpDir, { recursive: true });
   });
@@ -160,7 +162,6 @@ describe("writeProjects round-trip", () => {
         channelId: "g1",
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
         name: "primary",
-        events: ["*"],
       }],
           workers: {
             developer: emptyRoleWorkerState({ medior: 2 }),
@@ -191,11 +192,13 @@ describe("reconcileSlots", () => {
       levels: { medior: [emptySlot()] },
     };
     const changed = reconcileSlots(rw, { medior: 3 });
+    const slots = rw.levels.medior;
 
     assert.strictEqual(changed, true);
-    assert.strictEqual(rw.levels.medior.length, 3);
-    assert.strictEqual(rw.levels.medior[1]!.active, false);
-    assert.strictEqual(rw.levels.medior[2]!.active, false);
+    assert.ok(slots);
+    assert.strictEqual(slots.length, 3);
+    assert.strictEqual(slots[1]!.active, false);
+    assert.strictEqual(slots[2]!.active, false);
   });
 
   it("should shrink idle slots when config decreases maxWorkers", () => {
@@ -203,9 +206,11 @@ describe("reconcileSlots", () => {
       levels: { medior: [emptySlot(), emptySlot(), emptySlot()] },
     };
     const changed = reconcileSlots(rw, { medior: 1 });
+    const slots = rw.levels.medior;
 
     assert.strictEqual(changed, true);
-    assert.strictEqual(rw.levels.medior.length, 1);
+    assert.ok(slots);
+    assert.strictEqual(slots.length, 1);
   });
 
   it("should not remove active slots when shrinking", () => {
@@ -220,9 +225,11 @@ describe("reconcileSlots", () => {
     };
     // Config says 1, but last slot (index 2) is active — shrinking stops immediately
     const changed = reconcileSlots(rw, { medior: 1 });
+    const slots = rw.levels.medior;
 
     assert.strictEqual(changed, false);
-    assert.strictEqual(rw.levels.medior.length, 3);
+    assert.ok(slots);
+    assert.strictEqual(slots.length, 3);
   });
 
   it("should remove trailing idle slots but stop at active ones", () => {
@@ -237,9 +244,11 @@ describe("reconcileSlots", () => {
     };
     // Config says 1, last slot (index 2) is idle → removed, then slot 1 is active → stop
     const changed = reconcileSlots(rw, { medior: 1 });
+    const slots = rw.levels.medior;
 
     assert.strictEqual(changed, true);
-    assert.strictEqual(rw.levels.medior.length, 2);
+    assert.ok(slots);
+    assert.strictEqual(slots.length, 2);
   });
 
   it("should not change when slots match config", () => {
@@ -247,17 +256,23 @@ describe("reconcileSlots", () => {
       levels: { medior: [emptySlot(), emptySlot()] },
     };
     const changed = reconcileSlots(rw, { medior: 2 });
+    const slots = rw.levels.medior;
 
     assert.strictEqual(changed, false);
-    assert.strictEqual(rw.levels.medior.length, 2);
+    assert.ok(slots);
+    assert.strictEqual(slots.length, 2);
   });
 
   it("should create new level arrays for levels in config but not in state", () => {
     const rw: RoleWorkerState = { levels: {} };
     const changed = reconcileSlots(rw, { medior: 2, senior: 1 });
+    const mediorSlots = rw.levels.medior;
+    const seniorSlots = rw.levels.senior;
 
     assert.strictEqual(changed, true);
-    assert.strictEqual(rw.levels.medior.length, 2);
-    assert.strictEqual(rw.levels.senior.length, 1);
+    assert.ok(mediorSlots);
+    assert.ok(seniorSlots);
+    assert.strictEqual(mediorSlots.length, 2);
+    assert.strictEqual(seniorSlots.length, 1);
   });
 });

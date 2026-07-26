@@ -59,8 +59,6 @@ export type IssueRuntimeState = IssueProjectionState & {
   issueId: number;
   /** Provider host name. */
   provider: IssueProviderType;
-  /** Flag identifying this issue as managed by DevClaw. */
-  managed: true;
   /** Current state key in the workflow statechart. */
   workflowState: WorkflowStateKey;
   /** Current display state label matching the provider label. */

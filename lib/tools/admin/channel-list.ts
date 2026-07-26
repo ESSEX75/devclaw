@@ -1,7 +1,7 @@
 /**
  * channel_list — List channels for a project or all projects.
  *
- * Shows registered channels with their type, ID, name, and event subscriptions.
+ * Shows registered channels with their type, ID, and name.
  * Can list channels for a specific project or all projects.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
@@ -14,7 +14,7 @@ export function createChannelListTool() {
     name: "channel_list",
     label: "Channel List",
     description:
-      "List channels for a project or all projects. Shows channel type, ID, name, and event subscriptions.",
+      "List channels for a project or all projects. Shows channel type, ID, and name.",
     parameters: {
       type: "object",
       properties: {
@@ -55,7 +55,6 @@ export function createChannelListTool() {
           channelId: ch.channelId,
           type: ch.channel,
           name: ch.name,
-          events: ch.events,
           accountId: ch.accountId,
           threadId: ch.threadId,
         }));
@@ -67,7 +66,7 @@ export function createChannelListTool() {
             : channels
               .map(
                 (ch) =>
-                  `• **${ch.name}** (${ch.type})\n  ID: \`${ch.channelId}\`\n  Events: ${ch.events.join(", ")}${ch.accountId ? `\n  Account: ${ch.accountId}` : ""
+                  `• **${ch.name}** (${ch.type})\n  ID: \`${ch.channelId}\`${ch.accountId ? `\n  Account: ${ch.accountId}` : ""
                   }${ch.threadId ? `\n  Thread: ${ch.threadId}` : ""
                   }`,
               )
@@ -99,7 +98,6 @@ export function createChannelListTool() {
             channelId: ch.channelId,
             type: ch.channel,
             name: ch.name,
-            events: ch.events,
             accountId: ch.accountId,
             threadId: ch.threadId,
           })),

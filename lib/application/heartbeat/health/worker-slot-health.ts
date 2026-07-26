@@ -107,7 +107,7 @@ export async function checkWorkerHealth(opts: {
       const sessionKey = slot.sessionKey;
 
       // Use the label stored at dispatch time (previousLabel) if available
-      const slotQueueLabel: string = slot.previousLabel ?? queueLabel;
+      const slotQueueLabel = slot.previousLabel ?? queueLabel;
 
       // Grace period: skip session liveness checks for recently-started workers
       const workerStartTime = slot.startTime ? new Date(slot.startTime).getTime() : null;

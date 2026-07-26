@@ -19,8 +19,7 @@ export async function getHeartbeatCandidates(opts: {
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
   const states = Object.values(store.issues)
     .filter((state) =>
-      state.managed
-      && state.archivedAt == null
+      state.archivedAt == null
       && state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
       && state.workflowLabel === opts.workflowLabel
       && (!opts.routing || state[opts.routing.field] === opts.routing.value),

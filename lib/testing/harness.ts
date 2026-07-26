@@ -16,13 +16,17 @@ import type { PluginContext, RunCommand } from "../context.js";
 import {
   DEFAULT_WORKFLOW,
   ISSUE_PROVIDER,
+  type LevelId,
   NOTIFICATION_CHANNEL,
   type Project,
   type ProjectsData,
+  type Role,
   type RoleWorkerState,
   type WorkflowConfig,
+  type WorkflowLabel,
 } from "../domain/index.js";
 import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
+import { getAllRoleIds } from "../roles/index.js";
 import { writeProjects } from "../state/projects/index.js";
 import { TestProvider } from "./test-provider.js";
 
@@ -201,7 +205,14 @@ export type HarnessOptions = {
   /** Workflow config (default: DEFAULT_WORKFLOW). */
   workflow?: WorkflowConfig;
   /** Initial worker state overrides (level + slot fields). */
-  workers?: Record<string, { level?: string; active?: boolean; issueId?: string | null; sessionKey?: string | null; startTime?: string | null; previousLabel?: string | null }>;
+  workers?: Partial<Record<Role, {
+    level?: LevelId;
+    active?: boolean;
+    issueId?: string | null;
+    sessionKey?: string | null;
+    startTime?: string | null;
+    previousLabel?: WorkflowLabel | null;
+  }>>;
   /** Additional projects to seed. */
   extraProjects?: Record<string, Project>;
 };
@@ -226,7 +237,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
 
   // Build project — empty per-level workers
   const emptyRW = (): RoleWorkerState => ({ levels: {} });
-  const defaultWorkers: Record<string, RoleWorkerState> = {
+  const defaultWorkers: Partial<Record<Role, RoleWorkerState>> = {
     developer: emptyRW(),
     tester: emptyRW(),
     architect: emptyRW(),
@@ -235,7 +246,11 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
 
   // Apply worker overrides: places override into levels[level][0]
   if (workerOverrides) {
-    for (const [role, overrides] of Object.entries(workerOverrides)) {
+    for (const role of getAllRoleIds()) {
+      const overrides = workerOverrides[role];
+
+      if (!overrides) continue;
+
       const level = overrides.level ?? "senior";
       const rw = defaultWorkers[role] ?? emptyRW();
 
@@ -262,7 +277,6 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
       channelId,
       channel: NOTIFICATION_CHANNEL.TELEGRAM,
       name: "primary",
-      events: ["*"],
     }],
     provider: ISSUE_PROVIDER.GITHUB,
     workers: defaultWorkers,

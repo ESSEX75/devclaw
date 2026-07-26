@@ -134,7 +134,6 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       projectSlug: input.project.slug,
       issueId: input.issue.iid,
       provider: input.providerType,
-      managed: true,
       workflowState,
       workflowLabel: detectedWorkflowLabel,
       assignedRole: input.assignedRole !== undefined ? input.assignedRole : detectedRoleLevel?.role ?? previous?.assignedRole ?? null,

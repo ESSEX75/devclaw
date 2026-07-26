@@ -48,7 +48,7 @@ export async function listManagedTasks(opts: {
   });
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
   const localStates = Object.values(store.issues)
-    .filter((state) => state.managed && state.archivedAt == null);
+    .filter((state) => state.archivedAt == null);
   const labelsToFetch = resolveTaskListLabels(opts.workflow, opts.stateType, opts.label);
   const searchLower = opts.search?.toLowerCase();
   const results: TaskListStateGroup[] = [];

@@ -135,7 +135,6 @@ export function createChannelLinkTool() {
         channelId,
         channel: channelType,
         name: channelName ?? `channel-${target.channels.length + 1}`,
-        events: ["*"],
         ...(threadId ? { threadId } : {}),
       };
 

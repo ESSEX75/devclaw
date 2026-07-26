@@ -42,7 +42,7 @@ export async function resolveIssueRuntimeState(opts: {
   const store = await readIssueStateStore(opts.workspaceDir, opts.project.slug);
   const state = store.issues[String(opts.issue.iid)];
 
-  if (state?.managed) {
+  if (state) {
     const stateConfig = findStateByLabel(opts.workflow, state.workflowLabel) ?? null;
 
     return {

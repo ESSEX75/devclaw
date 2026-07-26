@@ -32,7 +32,6 @@ async function withProject<T>(fn: (ctx: {
       channelId: "-123",
       channel: NOTIFICATION_CHANNEL.TELEGRAM,
       name: "primary",
-      events: ["*"],
     }],
     provider: ISSUE_PROVIDER.GITHUB,
     workers: {},

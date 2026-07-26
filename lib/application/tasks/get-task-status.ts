@@ -39,7 +39,7 @@ export async function getManagedTaskStatus(opts: {
   });
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
   const openLocalStates = Object.values(store.issues)
-    .filter((state) => state.managed && state.archivedAt == null && state.closedAt == null);
+    .filter((state) => state.archivedAt == null && state.closedAt == null);
 
   const hold = await summarizeStateBucket(statesByType.hold, openLocalStates, opts.provider, projectionCtx);
   const active = await summarizeStateBucket(statesByType.active, openLocalStates, opts.provider, projectionCtx);

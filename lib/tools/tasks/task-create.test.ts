@@ -24,7 +24,6 @@ describe("task_create managed queue flow", () => {
           channelId: "telegram:1",
           channel: NOTIFICATION_CHANNEL.TELEGRAM,
           name: "primary",
-          events: ["*"],
         }],
         },
         providerType: ISSUE_PROVIDER.GITHUB,

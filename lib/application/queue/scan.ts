@@ -109,8 +109,7 @@ async function findNextIssueForRoleFromLocalState(
   const store = await readIssueStateStore(workspaceDir, projectSlug);
   const localCandidates = Object.values(store.issues)
     .filter((state) =>
-      state.managed
-      && state.archivedAt == null
+      state.archivedAt == null
       && state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
       && queueLabels.includes(state.workflowLabel),
     )

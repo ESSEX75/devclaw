@@ -18,7 +18,6 @@ function issue(overrides: Partial<IssueRuntimeState>): IssueRuntimeState {
     projectSlug: "devclaw",
     issueId: 1,
     provider: ISSUE_PROVIDER.GITHUB,
-    managed: true,
     workflowState: "done",
     workflowLabel: "Done",
     assignedRole: null,

@@ -1,7 +1,15 @@
 /**
  * projects/mutations.ts — State mutations for project worker slots.
  */
-import type { LevelId, Project, ProjectsData, Role, RoleWorkerState, SlotState } from "../../domain/index.js";
+import type {
+  LevelId,
+  Project,
+  ProjectsData,
+  Role,
+  RoleWorkerState,
+  SlotState,
+  WorkflowLabel,
+} from "../../domain/index.js";
 import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
 import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjects } from "./store.js";
 
@@ -74,7 +82,7 @@ export async function activateWorker(
     sessionKey?: string;
     startTime?: string;
     /** Label the issue had before transitioning to the active state (e.g. "To Do", "To Improve"). */
-    previousLabel?: string;
+    previousLabel?: WorkflowLabel;
     /** Slot index within the level's array. If omitted, finds first free slot. */
     slotIndex?: number;
     /** Deterministic fun name for this slot. */
@@ -146,7 +154,7 @@ export async function deactivateWorker(
     const project = data.projects[slug]!;
     const rw = project.workers[role] ?? { levels: {} };
 
-    let level: string | undefined;
+    let level: LevelId | undefined;
     let idx: number | undefined;
 
     if (opts?.level !== undefined && opts?.slotIndex !== undefined) {

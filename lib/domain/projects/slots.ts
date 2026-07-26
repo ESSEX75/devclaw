@@ -1,6 +1,7 @@
 /**
  * projects/slots.ts — Pure slot helpers (no I/O).
  */
+import { isLevelId } from "../workflow/guards.js";
 import type { LevelId } from "../workflow/types.js";
 import type { RoleWorkerState, SlotState } from "./types.js";
 
@@ -19,10 +20,14 @@ export function emptySlot(): SlotState {
 }
 
 /** Create a blank RoleWorkerState with the given per-level capacities. */
-export function emptyRoleWorkerState(levelMaxWorkers: Record<string, number>): RoleWorkerState {
-  const levels: Record<string, SlotState[]> = {};
+export function emptyRoleWorkerState(
+  levelMaxWorkers: Partial<Record<LevelId, number>>,
+): RoleWorkerState {
+  const levels: Partial<Record<LevelId, SlotState[]>> = {};
 
   for (const [level, max] of Object.entries(levelMaxWorkers)) {
+    if (!isLevelId(level)) continue;
+
     levels[level] = [];
     for (let i = 0; i < max; i++) {
       levels[level]!.push(emptySlot());
@@ -50,10 +55,15 @@ export function findFreeSlot(roleWorker: RoleWorkerState, level: LevelId): numbe
  * Active workers are never removed — they finish naturally.
  * Mutates roleWorker in place. Returns true if any changes were made.
  */
-export function reconcileSlots(roleWorker: RoleWorkerState, levelMaxWorkers: Record<string, number>): boolean {
+export function reconcileSlots(
+  roleWorker: RoleWorkerState,
+  levelMaxWorkers: Partial<Record<LevelId, number>>,
+): boolean {
   let changed = false;
 
   for (const [level, max] of Object.entries(levelMaxWorkers)) {
+    if (!isLevelId(level)) continue;
+
     if (!roleWorker.levels[level]) {
       roleWorker.levels[level] = [];
     }
@@ -82,8 +92,10 @@ export type SlotLocation = { level: LevelId; slotIndex: number };
 /** Find the level and slot index for a given issueId, or null if not found. */
 export function findSlotByIssue(roleWorker: RoleWorkerState, issueId: string): SlotLocation | null {
   for (const [level, slots] of Object.entries(roleWorker.levels)) {
+    if (!isLevelId(level)) continue;
+
     for (let i = 0; i < slots.length; i++) {
-      if (slots[i]!.issueId === issueId) return { level: level as LevelId, slotIndex: i };
+      if (slots[i]!.issueId === issueId) return { level, slotIndex: i };
     }
   }
 

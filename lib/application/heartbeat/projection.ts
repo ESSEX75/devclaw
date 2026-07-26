@@ -45,7 +45,7 @@ export async function projectionIntegrityPass(opts: {
   const { workspaceDir, project, provider, workflow, roles } = opts;
   const store = await readIssueStateStore(workspaceDir, project.slug);
   const states = Object.values(store.issues)
-    .filter((state) => state.managed && state.archivedAt == null);
+    .filter((state) => state.archivedAt == null);
   const result: ProjectionIntegrityResult = {
     checked: 0,
     removed: 0,
