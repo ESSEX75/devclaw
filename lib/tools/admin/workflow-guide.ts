@@ -189,6 +189,8 @@ APPROVED:
 - \`terminal\` states must NOT have \`on\` transitions
 - All transition targets must point to existing state keys
 - State labels must be unique
+- State labels have a maximum length of 50 characters
+- State labels must not use \`owner:\`, \`notify:\`, or \`role:level\` routing formats
 
 ## Syncing labels after changes
 

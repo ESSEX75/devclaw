@@ -17,7 +17,7 @@ import { DEFAULT_WORKFLOW, isLevelId, isRoleId } from "../../domain/index.js";
 import { getAllRoleIds, ROLE_REGISTRY } from "../../roles/index.js";
 import { DATA_DIR } from "../setup/paths.js";
 import { mergeConfig } from "./merge.js";
-import { validateConfig, validateWorkflowIntegrity } from "./schema.js";
+import { validateConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
 import type { DevClawConfig, ModelEntry, RawConfig, ResolvedConfig, ResolvedRoleConfig, ResolvedTimeouts, RoleOverride } from "./types.js";
 
 /**
@@ -121,6 +121,14 @@ function resolveLevelMaxWorkers(
 function resolve(config: DevClawConfig): ResolvedConfig {
   const roles: Record<string, ResolvedRoleConfig> = {};
   const globalMaxWorkers = config.workflow?.maxWorkersPerLevel ?? DEFAULT_MAX_WORKERS_PER_LEVEL;
+  const roleIntegrityErrors = validateRoleIntegrity(
+    config.roles ?? {},
+    new Set(getAllRoleIds()),
+  );
+
+  if (roleIntegrityErrors.length > 0) {
+    throw new Error(`Role config integrity errors:\n  - ${roleIntegrityErrors.join("\n  - ")}`);
+  }
 
   if (config.roles) {
     for (const [id, override] of Object.entries(config.roles)) {
@@ -192,7 +200,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
   };
 
   // Validate structural integrity (cross-references between states)
-  const integrityErrors = validateWorkflowIntegrity(workflow);
+  const integrityErrors = validateWorkflowIntegrity(workflow, new Set(Object.keys(roles)));
 
   if (integrityErrors.length > 0) {
     throw new Error(`Workflow config integrity errors:\n  - ${integrityErrors.join("\n  - ")}`);
