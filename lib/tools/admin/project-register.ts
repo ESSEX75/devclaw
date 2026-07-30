@@ -20,12 +20,10 @@ import {
   isNotificationChannel,
   ISSUE_PROVIDER,
   NOTIFICATION_CHANNEL,
-  type RoleId,
   type RoleWorkerState,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import { getAllRoleIds } from "../../roles/index.js";
-import { loadConfig } from "../../state/config/index.js";
+import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
 import { readProjects, writeProjects } from "../../state/projects/index.js";
 import { resolveRepoPath } from "../../state/projects/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
@@ -34,7 +32,11 @@ import { DATA_DIR } from "../../state/setup/paths.js";
  * Scaffold project directory with prompts/ folder and a README explaining overrides.
  * Returns true if files were created, false if they already existed.
  */
-async function scaffoldPromptFiles(workspaceDir: string, projectName: string): Promise<boolean> {
+async function scaffoldPromptFiles(
+  workspaceDir: string,
+  projectName: string,
+  roleIds: readonly string[],
+): Promise<boolean> {
   const projectDir = path.join(workspaceDir, DATA_DIR, "projects", projectName);
   const promptsDir = path.join(projectDir, "prompts");
 
@@ -47,7 +49,7 @@ async function scaffoldPromptFiles(workspaceDir: string, projectName: string): P
 
     return false;
   } catch {
-    const roles = getAllRoleIds().join(", ");
+    const roles = roleIds.join(", ");
 
     await fs.writeFile(readmePath, `# Project Overrides
 
@@ -252,9 +254,9 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         }
       } else {
         // Create new project - get levelMaxWorkers from resolved config (already loaded above)
-  const workers: Partial<Record<RoleId, RoleWorkerState>> = {};
+  const workers: Record<string, RoleWorkerState> = {};
 
-        for (const role of getAllRoleIds()) {
+        for (const role of getConfiguredRoleIds(resolvedConfig)) {
           const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
 
           workers[role] = emptyRoleWorkerState(levelMaxWorkers);
@@ -285,7 +287,11 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       await writeProjects(workspaceDir, data);
 
       // 7. Scaffold prompt files
-      const promptsCreated = await scaffoldPromptFiles(workspaceDir, name);
+      const promptsCreated = await scaffoldPromptFiles(
+        workspaceDir,
+        name,
+        getConfiguredRoleIds(resolvedConfig),
+      );
 
       // 8. Audit log
       await auditLog(workspaceDir, "project_register", {

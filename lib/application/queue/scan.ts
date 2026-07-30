@@ -5,7 +5,7 @@
  * that need to find queued issues or detect roles/levels from labels.
  */
 import type { IssueRuntimeState } from "../../domain/index.js";
-import type { WorkflowConfig, WorkflowLabel } from "../../domain/index.js";
+import type { WorkflowConfig } from "../../domain/index.js";
 import { isLevelId, ISSUE_INTEGRITY_STATUS, type LevelId, type RoleId } from "../../domain/index.js";
 import { isOwnedByOrUnclaimed } from "../../domain/index.js";
 import {
@@ -72,8 +72,8 @@ export function detectRoleLevelFromLabels(
  */
 export function detectRoleFromStateLabel(
   label: StateLabel,
-  workflow: WorkflowConfig,
-): RoleId | null {
+  workflow: WorkflowConfig<string, string, string>,
+): string | null {
   return detectRoleFromLabel(workflow, label);
 }
 
@@ -83,11 +83,11 @@ export function detectRoleFromStateLabel(
 
 export async function findNextIssueForRole(
   provider: Pick<IssueReader, "getIssue">,
-  role: RoleId,
-  workflow: WorkflowConfig,
+  role: string,
+  workflow: WorkflowConfig<string, string, string>,
   instanceName: string | undefined,
   localState: { workspaceDir: string; projectSlug: string },
-): Promise<{ issue: Issue; label: WorkflowLabel; localState: IssueRuntimeState } | null> {
+): Promise<{ issue: Issue; label: string; localState: IssueRuntimeState } | null> {
   const labels = getQueueLabels(workflow, role);
 
   return findNextIssueForRoleFromLocalState(
@@ -101,11 +101,11 @@ export async function findNextIssueForRole(
 
 async function findNextIssueForRoleFromLocalState(
   provider: Pick<IssueReader, "getIssue">,
-  queueLabels: WorkflowLabel[],
+  queueLabels: string[],
   instanceName: string | undefined,
   workspaceDir: string,
   projectSlug: string,
-): Promise<{ issue: Issue; label: WorkflowLabel; localState: IssueRuntimeState } | null> {
+): Promise<{ issue: Issue; label: string; localState: IssueRuntimeState } | null> {
   const store = await readIssueStateStore(workspaceDir, projectSlug);
   const localCandidates = Object.values(store.issues)
     .filter((state) =>

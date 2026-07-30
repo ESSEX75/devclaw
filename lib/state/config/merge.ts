@@ -74,16 +74,25 @@ function mergeRoleOverride(
   base: RoleOverride,
   overlay: RoleOverride,
 ): RoleOverride {
+  const levels = overlay.levels ?? base.levels;
+  const allowedLevels = levels ? new Set(levels) : undefined;
+  const baseModels = allowedLevels
+    ? Object.fromEntries(Object.entries(base.models ?? {}).filter(([level]) => allowedLevels.has(level)))
+    : base.models;
+  const baseEmoji = allowedLevels
+    ? Object.fromEntries(Object.entries(base.emoji ?? {}).filter(([level]) => allowedLevels.has(level)))
+    : base.emoji;
+
   return {
     ...base,
     ...overlay,
     // Models: merge (don't replace)
-    models: base.models || overlay.models
-      ? { ...base.models, ...overlay.models }
+    models: baseModels || overlay.models
+      ? { ...baseModels, ...overlay.models }
       : undefined,
     // Emoji: merge (don't replace)
-    emoji: base.emoji || overlay.emoji
-      ? { ...base.emoji, ...overlay.emoji }
+    emoji: baseEmoji || overlay.emoji
+      ? { ...baseEmoji, ...overlay.emoji }
       : undefined,
     // Completion mappings merge by result identifier
     completion: base.completion || overlay.completion

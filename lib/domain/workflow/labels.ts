@@ -146,7 +146,7 @@ export function getRoleLabels(
 }
 
 /** Get the label color for a role. Falls back to gray for unknown roles. */
-export function getRoleLabelColor(role: RoleId): string {
+export function getRoleLabelColor(role: string): string {
   if (role === DEFAULT_ROLES.DEVELOPER) return ROLE_LABEL_COLORS.DEVELOPER;
   if (role === DEFAULT_ROLES.TESTER) return ROLE_LABEL_COLORS.TESTER;
   if (role === DEFAULT_ROLES.ARCHITECT) return ROLE_LABEL_COLORS.ARCHITECT;

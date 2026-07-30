@@ -20,13 +20,11 @@ import {
   NOTIFICATION_CHANNEL,
   type Project,
   type ProjectsData,
-  type RoleId,
   type RoleWorkerState,
   type WorkflowConfig,
   type WorkflowLabel,
 } from "../domain/index.js";
 import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
-import { getAllRoleIds } from "../roles/index.js";
 import { writeProjects } from "../state/projects/index.js";
 import { TestProvider } from "./test-provider.js";
 
@@ -205,14 +203,14 @@ export type HarnessOptions = {
   /** Workflow config (default: DEFAULT_WORKFLOW). */
   workflow?: WorkflowConfig;
   /** Initial worker state overrides (level + slot fields). */
-  workers?: Partial<Record<RoleId, {
+  workers?: Record<string, {
     level?: LevelId;
     active?: boolean;
     issueId?: string | null;
     sessionKey?: string | null;
     startTime?: string | null;
     previousLabel?: WorkflowLabel | null;
-  }>>;
+  }>;
   /** Additional projects to seed. */
   extraProjects?: Record<string, Project>;
 };
@@ -237,7 +235,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
 
   // Build project — empty per-level workers
   const emptyRW = (): RoleWorkerState => ({ levels: {} });
-  const defaultWorkers: Partial<Record<RoleId, RoleWorkerState>> = {
+  const defaultWorkers: Record<string, RoleWorkerState> = {
     developer: emptyRW(),
     tester: emptyRW(),
     architect: emptyRW(),
@@ -246,10 +244,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
 
   // Apply worker overrides: places override into levels[level][0]
   if (workerOverrides) {
-    for (const role of getAllRoleIds()) {
-      const overrides = workerOverrides[role];
-
-      if (!overrides) continue;
+    for (const [role, overrides] of Object.entries(workerOverrides)) {
 
       const level = overrides.level ?? "senior";
       const rw = defaultWorkers[role] ?? emptyRW();

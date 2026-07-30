@@ -25,11 +25,9 @@ import {
   resolveTestRouting,
   REVIEW_POLICY,
   type ReviewPolicy,
-  type RoleId,
   STEP_ROUTING_COLOR,
   TEST_POLICY,
   type TestPolicy,
-  type WorkflowLabel,
 } from "../../domain/index.js";
 import { loadRoleInstructions } from "../../integrations/openclaw/bootstrap-hook.js";
 import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "../../integrations/openclaw/session.js";
@@ -57,13 +55,13 @@ export type DispatchOpts = {
   issueTitle: string;
   issueDescription: string;
   issueUrl: string;
-  role: RoleId;
+  role: string;
   /** Developer level (junior, mid, senior) or raw model ID */
   level: LevelId;
   /** Label to transition FROM (e.g. "To Do", "To Test", "To Improve") */
-  fromLabel: WorkflowLabel;
+  fromLabel: string;
   /** Label to transition TO (e.g. "Doing", "Testing") */
-  toLabel: WorkflowLabel;
+  toLabel: string;
   /** Issue provider for issue operations and label transitions */
   provider: IssueProvider;
   /** Plugin config for model resolution and notification config */
@@ -395,8 +393,8 @@ export async function dispatchTask(
 }
 
 async function recordWorkerState(
-  workspaceDir: string, slug: string, role: RoleId, slotIndex: number,
-  opts: { issueId: number; level: LevelId; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: WorkflowLabel; name?: string },
+  workspaceDir: string, slug: string, role: string, slotIndex: number,
+  opts: { issueId: number; level: LevelId; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: string; name?: string },
 ): Promise<void> {
   await activateWorker(workspaceDir, slug, role, {
     issueId: String(opts.issueId),

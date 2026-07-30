@@ -110,6 +110,7 @@ export async function tick(opts: {
         project,
         sessions,
         provider,
+        resolvedConfig,
         resolvedConfig.timeouts.staleWorkerHours,
         instanceName,
         runCommand,

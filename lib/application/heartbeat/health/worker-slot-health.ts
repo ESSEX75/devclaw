@@ -26,10 +26,7 @@
  */
 import { log as auditLog } from "../../../audit.js";
 import type { RunCommand } from "../../../context.js";
-import type {
-  RoleId,
-  WorkflowConfig,
-} from "../../../domain/index.js";
+import type { WorkflowConfig } from "../../../domain/index.js";
 import type { Project } from "../../../domain/index.js";
 import {
   DEFAULT_WORKFLOW,
@@ -66,7 +63,7 @@ export async function checkWorkerHealth(opts: {
   workspaceDir: string;
   projectSlug: string;
   project: Project;
-  role: RoleId;
+  role: string;
   autoFix: boolean;
   provider: IssueProvider;
   sessions: SessionLookup | null;

@@ -92,8 +92,11 @@ Examples:
       // Level is applied as a role:level label. Since HOLD states have no role, we look at the
       // APPROVE transition target to determine which role will handle this issue.
       const approveTarget = currentStateConfig.on?.["APPROVE"];
-      const targetKey = typeof approveTarget === "string" ? approveTarget : approveTarget?.target;
-      const targetState = targetKey ? resolvedConfig.workflow.states[targetKey] : undefined;
+      const targetKey = approveTarget?.target;
+      const targetState = targetKey
+        ? Object.entries(resolvedConfig.workflow.states)
+          .find(([stateKey]) => stateKey === targetKey)?.[1]
+        : undefined;
       const role = targetState?.role;
 
       if (!role) {

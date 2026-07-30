@@ -20,10 +20,11 @@ import type {
 export type ModelEntry = string | { model: string; maxWorkers?: number };
 
 export type RoleOverride = {
-  levels?: LevelId[];
-  defaultLevel?: LevelId;
-  models?: Partial<Record<LevelId, ModelEntry>>;
-  emoji?: Partial<Record<LevelId, string>>;
+  enabled?: boolean;
+  levels?: string[];
+  defaultLevel?: string;
+  models?: Record<string, ModelEntry>;
+  emoji?: Record<string, string>;
   completion?: CompletionEventMap;
 };
 

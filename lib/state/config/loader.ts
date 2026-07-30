@@ -70,7 +70,7 @@ function buildDefaultConfig(): DevClawConfig {
       defaultLevel: reg.defaultLevel,
       models: { ...reg.models },
       emoji: { ...reg.emoji },
-        completion: { ...reg.completion },
+      completion: { ...reg.completion },
     };
   }
 
@@ -85,7 +85,7 @@ const DEFAULT_MAX_WORKERS_PER_LEVEL = 2;
 
 /** Flatten a ModelEntry map to string-only model IDs. */
 function flattenModels(
-  entries: Partial<Record<LevelId, ModelEntry>>,
+  entries: Readonly<Record<string, ModelEntry>>,
 ): Partial<Record<LevelId, string>> {
   const flat: Partial<Record<LevelId, string>> = {};
 
@@ -100,7 +100,7 @@ function flattenModels(
 
 /** Resolve per-level maxWorkers from model entries + global default. */
 function resolveLevelMaxWorkers(
-  models: Partial<Record<LevelId, ModelEntry>>,
+  models: Readonly<Record<string, ModelEntry>>,
   globalDefault: number,
 ): Partial<Record<LevelId, number>> {
   const result: Partial<Record<LevelId, number>> = {};
@@ -118,6 +118,40 @@ function resolveLevelMaxWorkers(
   return result;
 }
 
+function resolveLevels(roleId: string, levels: readonly string[]): LevelId[] {
+  const resolved: LevelId[] = [];
+
+  for (const level of levels) {
+    if (!isLevelId(level)) {
+      throw new Error(`roles.${roleId}.levels: custom level "${level}" is not supported yet`);
+    }
+
+    resolved.push(level);
+  }
+
+  return resolved;
+}
+
+function resolveDefaultLevel(roleId: string, defaultLevel: string): LevelId {
+  if (!isLevelId(defaultLevel)) {
+    throw new Error(`roles.${roleId}.defaultLevel: custom level "${defaultLevel}" is not supported yet`);
+  }
+
+  return defaultLevel;
+}
+
+function resolveEmoji(entries: Readonly<Record<string, string>>): Partial<Record<LevelId, string>> {
+  const emoji: Partial<Record<LevelId, string>> = {};
+
+  for (const [level, value] of Object.entries(entries)) {
+    if (isLevelId(level)) {
+      emoji[level] = value;
+    }
+  }
+
+  return emoji;
+}
+
 function resolve(config: DevClawConfig): ResolvedConfig {
   const roles: Record<string, ResolvedRoleConfig> = {};
   const globalMaxWorkers = config.workflow?.maxWorkersPerLevel ?? DEFAULT_MAX_WORKERS_PER_LEVEL;
@@ -132,11 +166,8 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 
   if (config.roles) {
     for (const [id, override] of Object.entries(config.roles)) {
-      if (!isRoleId(id)) continue;
-
-      const reg = ROLE_REGISTRY[id];
-
-      if (override === false) {
+      if (isRoleId(id) && override === false) {
+        const reg = ROLE_REGISTRY[id];
         // Disabled role — include with enabled: false for visibility
         const models: Partial<Record<LevelId, ModelEntry>> = { ...reg.models };
 
@@ -152,22 +183,40 @@ function resolve(config: DevClawConfig): ResolvedConfig {
         continue;
       }
 
-      const mergedModels: Partial<Record<LevelId, ModelEntry>> = {
-        ...reg.models,
-        ...(override.models ?? {}),
-      };
+      if (override === false) continue;
+
+      if (isRoleId(id)) {
+        const reg = ROLE_REGISTRY[id];
+        const mergedModels = {
+          ...reg.models,
+          ...(override.models ?? {}),
+        };
+
+        roles[id] = {
+          levelMaxWorkers: resolveLevelMaxWorkers(mergedModels, globalMaxWorkers),
+          levels: resolveLevels(id, override.levels ?? reg.levels),
+          defaultLevel: resolveDefaultLevel(id, override.defaultLevel ?? reg.defaultLevel),
+          models: flattenModels(mergedModels),
+          emoji: resolveEmoji({ ...reg.emoji, ...(override.emoji ?? {}) }),
+          completion: {
+            ...reg.completion,
+            ...override.completion,
+          },
+          enabled: override.enabled ?? true,
+        };
+        continue;
+      }
+
+      const customModels = override.models ?? {};
 
       roles[id] = {
-        levelMaxWorkers: resolveLevelMaxWorkers(mergedModels, globalMaxWorkers),
-        levels: override.levels ?? [...reg.levels],
-        defaultLevel: override.defaultLevel ?? reg.defaultLevel,
-        models: flattenModels(mergedModels),
-        emoji: { ...reg.emoji, ...(override.emoji ?? {}) },
-        completion: {
-          ...reg.completion,
-          ...override.completion,
-        },
-        enabled: true,
+        levelMaxWorkers: resolveLevelMaxWorkers(customModels, globalMaxWorkers),
+        levels: resolveLevels(id, override.levels ?? []),
+        defaultLevel: resolveDefaultLevel(id, override.defaultLevel ?? ""),
+        models: flattenModels(customModels),
+        emoji: resolveEmoji(override.emoji ?? {}),
+        completion: { ...override.completion },
+        enabled: override.enabled ?? true,
       };
     }
   }
@@ -185,7 +234,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
         defaultLevel: reg.defaultLevel,
         models: flattenModels(models),
         emoji: { ...reg.emoji },
-      completion: { ...reg.completion },
+        completion: { ...reg.completion },
         enabled: true,
       };
     }
@@ -244,6 +293,6 @@ async function readWorkflowFile(dir: string): Promise<DevClawConfig | null> {
       throw new Error(`Invalid workflow.yaml in ${dir}: ${error.message}`, { cause: err });
     }
 
-    return null;
+    throw new Error(`Cannot read workflow.yaml in ${dir}: ${error.message ?? String(err)}`, { cause: err });
   }
 }

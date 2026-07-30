@@ -9,9 +9,7 @@ import {
   type StateConfig,
   WORKFLOW_EVENT,
   type WorkflowConfig,
-  type WorkflowLabel,
 } from "../../domain/index.js";
-import { getLevelsForRole } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { detectNotifyTarget, resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { applyNotifyLabel,autoAssignOwnerLabel, resolveProject, resolveProvider } from "../../tools/helpers.js";
@@ -71,7 +69,7 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
   const targetRole = targetState.role;
 
   if (levelHint && targetRole) {
-    const validLevels = getLevelsForRole(targetRole);
+    const validLevels = resolvedConfig.roles[targetRole]?.levels ?? [];
 
     if (!isLevelId(levelHint) || !validLevels.includes(levelHint)) {
       throw new Error(`Invalid level "${levelHint}" for role "${targetRole}". Valid: ${validLevels.join(", ")}`);
@@ -131,10 +129,10 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
 }
 
 export function resolveStartTarget(
-  workflow: WorkflowConfig,
-  currentLabel: WorkflowLabel,
-  currentState: StateConfig,
-): { targetLabel: WorkflowLabel; targetState: StateConfig; transitioned: boolean } {
+  workflow: WorkflowConfig<string, string, string>,
+  currentLabel: string,
+  currentState: StateConfig<string, string, string>,
+): { targetLabel: string; targetState: StateConfig<string, string, string>; transitioned: boolean } {
   switch (currentState.type) {
     case STATE_TYPE.HOLD: {
       const approveTransition = currentState.on?.[WORKFLOW_EVENT.APPROVE];

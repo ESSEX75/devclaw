@@ -5,10 +5,8 @@ import type {
   LevelId,
   Project,
   ProjectsData,
-  RoleId,
   RoleWorkerState,
   SlotState,
-  WorkflowLabel,
 } from "../../domain/index.js";
 import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
 import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjects } from "./store.js";
@@ -19,7 +17,7 @@ import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjec
  */
 export function getRoleWorker(
   project: Project,
-  role: RoleId,
+  role: string,
 ): RoleWorkerState {
   return project.workers[role] ?? { levels: {} };
 }
@@ -31,7 +29,7 @@ export function getRoleWorker(
 export async function updateSlot(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: RoleId,
+  role: string,
   level: LevelId,
   slotIndex: number,
   updater: (slot: SlotState) => SlotState,
@@ -75,14 +73,14 @@ export async function updateSlot(
 export async function activateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: RoleId,
+  role: string,
   params: {
     issueId: string;
     level: LevelId;
     sessionKey?: string;
     startTime?: string;
     /** Label the issue had before transitioning to the active state (e.g. "To Do", "To Improve"). */
-    previousLabel?: WorkflowLabel;
+    previousLabel?: string;
     /** Slot index within the level's array. If omitted, finds first free slot. */
     slotIndex?: number;
     /** Deterministic fun name for this slot. */
@@ -139,7 +137,7 @@ export async function activateWorker(
 export async function deactivateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: RoleId,
+  role: string,
   opts?: { level?: LevelId; slotIndex?: number; issueId?: string },
 ): Promise<ProjectsData> {
   await acquireLock(workspaceDir);

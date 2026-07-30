@@ -105,6 +105,7 @@ const ModelEntrySchema = z.union([
 const RoleOverrideSchema = z.union([
   z.literal(false),
   z.object({
+    enabled: z.boolean().optional(),
     levels: z.array(IdentifierSchema).min(1).optional(),
     defaultLevel: IdentifierSchema.optional(),
     models: z.record(IdentifierSchema, ModelEntrySchema).optional(),
@@ -140,6 +141,7 @@ export function validateConfig(raw: unknown): void {
 }
 
 type RoleIntegrityInput = Record<string, false | {
+  enabled?: boolean;
   levels?: readonly string[];
   defaultLevel?: string;
   models?: Readonly<Record<string, unknown>>;

@@ -20,12 +20,9 @@ import {
   type Project,
   REVIEW_POLICY,
   type ReviewPolicy,
-  type RoleId,
   TEST_POLICY,
   type TestPolicy,
   type WorkflowConfig,
-  type WorkflowLabel,
-  type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { updateIssueStateStore } from "./store.js";
@@ -35,10 +32,10 @@ export type IssueStateWriteInput = {
   project: Pick<Project, "slug" | "channels">;
   issue: Pick<Issue, "iid" | "labels" | "state">;
   providerType: IssueProviderType;
-  workflow: WorkflowConfig;
-  workflowLabel?: WorkflowLabel;
-  workflowState?: WorkflowStateKey;
-  assignedRole?: RoleId | null;
+  workflow: WorkflowConfig<string, string, string>;
+  workflowLabel?: string;
+  workflowState?: string;
+  assignedRole?: string | null;
   assignedLevel?: LevelId | null;
   owner?: string | null;
   notifyTarget?: NotifyTarget | null;
@@ -51,7 +48,7 @@ export type IssueStateWriteInput = {
 };
 
 type RoleLevel = {
-  role: RoleId;
+  role: string;
   level: LevelId;
 };
 

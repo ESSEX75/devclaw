@@ -7,7 +7,7 @@ import type { RunCommand } from "../../context.js";
 import { NOTIFICATION_CHANNEL, resolveNotifyChannel } from "../../domain/index.js";
 import { type Project } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
-import { getAllRoleIds } from "../../roles/index.js";
+import { getConfiguredRoleIds } from "../../state/config/index.js";
 import type { ResolvedConfig } from "../../state/config/types.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import {
@@ -34,6 +34,7 @@ export async function performHealthPass(
   project: Project,
   sessions: SessionLookup | null,
   provider: IssueProvider,
+  resolvedConfig: ResolvedConfig,
   staleWorkerHours?: number,
   instanceName?: string,
   runCommand?: RunCommand,
@@ -42,7 +43,7 @@ export async function performHealthPass(
 ): Promise<number> {
   let fixedCount = 0;
 
-  for (const role of getAllRoleIds()) {
+  for (const role of getConfiguredRoleIds(resolvedConfig)) {
     // Check worker health (session liveness, label consistency, etc)
     const healthFixes = await checkWorkerHealth({
       workspaceDir,

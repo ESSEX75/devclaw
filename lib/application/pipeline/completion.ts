@@ -22,11 +22,8 @@ import {
   type LevelId,
   NOTIFICATION_CHANNEL,
   resolveNotifyChannel,
-  type RoleId,
   WORKFLOW_EVENT,
   type WorkflowConfig,
-  type WorkflowLabel,
-  type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
@@ -51,11 +48,11 @@ export type CompletionOutput = {
  * Uses workflow config when available.
  */
 export function getRule(
-  role: RoleId,
+  role: string,
   result: string,
   completion: CompletionEventMap,
-  workflow: WorkflowConfig = DEFAULT_WORKFLOW,
-): CompletionRule | undefined {
+  workflow: WorkflowConfig<string, string, string> = DEFAULT_WORKFLOW,
+): CompletionRule<string> | undefined {
   const event = completion[result];
 
   return event
@@ -69,7 +66,7 @@ export function getRule(
 export async function executeCompletion(opts: {
   workspaceDir: string;
   projectSlug: string;
-  role: RoleId;
+  role: string;
   result: string;
   issueId: number;
   summary?: string;
@@ -82,7 +79,7 @@ export async function executeCompletion(opts: {
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
   runtime?: PluginRuntime;
   /** Workflow config (defaults to DEFAULT_WORKFLOW) */
-  workflow?: WorkflowConfig;
+  workflow?: WorkflowConfig<string, string, string>;
   /** Tasks created during this work session (e.g. architect implementation tasks) */
   createdTasks?: Array<{ id: number; title: string; url: string }>;
   /** Level of the completing worker */
@@ -411,14 +408,14 @@ export async function executeCompletion(opts: {
 }
 
 function getMergeFailedTransition(
-  workflow: WorkflowConfig,
-  fromLabel: WorkflowLabel,
-): { key: WorkflowStateKey; label: WorkflowLabel } | null {
+  workflow: WorkflowConfig<string, string, string>,
+  fromLabel: string,
+): { key: string; label: string } | null {
   const fromState = findStateByLabel(workflow, fromLabel);
   const mergeFailed = fromState?.on?.[WORKFLOW_EVENT.MERGE_FAILED];
 
   if (mergeFailed) {
-    const key = typeof mergeFailed === "string" ? mergeFailed : mergeFailed.target;
+    const key = mergeFailed.target;
     const state = workflow.states[key];
 
     return state ? { key, label: state.label } : null;

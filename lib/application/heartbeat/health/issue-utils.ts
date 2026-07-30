@@ -1,7 +1,4 @@
-import type {
-  RoleId,
-  WorkflowConfig,
-} from "../../../domain/index.js";
+import type { WorkflowConfig } from "../../../domain/index.js";
 import { getQueueLabels, isFeedbackState } from "../../../domain/index.js";
 import type { Issue,IssueProvider, StateLabel } from "../../../integrations/providers/provider.js";
 import { PrState } from "../../../integrations/providers/provider.js";
@@ -35,7 +32,7 @@ export function isIssueClosed(issue: Issue): boolean {
 export async function resolveOrphanRevertLabel(
   provider: IssueProvider,
   issueId: number,
-  role: RoleId,
+  role: string,
   defaultQueueLabel: StateLabel,
   workflow: WorkflowConfig,
 ): Promise<StateLabel> {

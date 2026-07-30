@@ -2,7 +2,7 @@
  * projects/types.ts — Domain types for projects, worker slots, and notification channels.
  */
 import type { IssueProviderType, NotificationChannel } from "../shared/types.js";
-import type { LevelId, RoleId, WorkflowLabel } from "../workflow/types.js";
+import type { LevelId } from "../workflow/types.js";
 
 /** Slot state. Level is structural (implied by position in the levels map). */
 export type SlotState = {
@@ -15,7 +15,7 @@ export type SlotState = {
   /** ISO timestamp when work started in this slot. */
   startTime: string | null;
   /** Previous workflow label before assignment. */
-  previousLabel?: WorkflowLabel | null;
+  previousLabel?: string | null;
   /** Deterministic fun name for this slot (e.g. "Ada", "Grace"). */
   name?: string;
   /** Last issue this slot worked on (preserved on deactivation for feedback cycle detection). */
@@ -73,7 +73,7 @@ export type Project = {
   /** Issue tracker provider type (github or gitlab). Auto-detected at registration, stored for reuse. */
   provider?: IssueProviderType;
   /** Worker state per role (developer, tester, architect, etc.). Shared across all channels. */
-  workers: Partial<Record<RoleId, RoleWorkerState>>;
+  workers: Record<string, RoleWorkerState>;
 };
 
 /** Data structure for the projects registry store. */

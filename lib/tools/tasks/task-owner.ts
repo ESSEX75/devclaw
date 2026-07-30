@@ -108,12 +108,13 @@ export function createTaskOwnerTool(ctx: PluginContext) {
         // Claim all unclaimed queued issues
         const workflow = resolvedConfig.workflow;
         const queueLabels = getAllQueueLabels(workflow);
+        const queueLabelSet: ReadonlySet<string> = new Set(queueLabels);
         const store = await readIssueStateStore(workspaceDir, project.slug);
         const candidateStates = Object.values(store.issues)
           .filter((state) =>
         state.archivedAt == null
             && state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
-            && queueLabels.includes(state.workflowLabel),
+            && queueLabelSet.has(state.workflowLabel),
           )
           .sort((a, b) => a.issueId - b.issueId);
 

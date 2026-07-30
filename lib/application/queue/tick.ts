@@ -15,18 +15,18 @@ import {
   EXECUTION_MODE,
   findFreeSlot,
   getActiveLabel,
+  isRoleId,
   type LevelId,
   reconcileSlots,
   REVIEW_POLICY,
-  type RoleId,
   TEST_POLICY,
   type WorkflowConfig,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
-import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
-import { loadConfig } from "../../state/config/index.js";
+import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
+import type { ResolvedRoleConfig } from "../../state/config/types.js";
 import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
 import { dispatchTask } from "../workers/dispatch-task.js";
 import { detectRoleLevelFromLabels, findNextIssueForRole } from "./scan.js";
@@ -41,7 +41,7 @@ export type TickAction = {
   issueId: number;
   issueTitle: string;
   issueUrl: string;
-  role: RoleId;
+  role: string;
   level: LevelId;
   sessionAction: "spawn" | "send";
   announcement: string;
@@ -67,13 +67,13 @@ export async function projectTick(opts: {
   dryRun?: boolean;
   maxPickups?: number;
   /** Only attempt this role. Used by work_finish to fill the next pipeline step. */
-  targetRole?: RoleId;
+  targetRole?: string;
   /** Optional provider override (for testing). Uses createProvider if omitted. */
   provider?: IssueProvider;
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
   runtime?: PluginRuntime;
   /** Workflow config (defaults to DEFAULT_WORKFLOW) */
-  workflow?: WorkflowConfig;
+  workflow?: WorkflowConfig<string, string, string>;
   /** Instance name for ownership filtering and auto-claiming. */
   instanceName?: string;
   /** Injected runCommand for dependency injection. */
@@ -93,8 +93,8 @@ export async function projectTick(opts: {
 
   const provider = opts.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: runCommand! })).provider;
   const roleExecution = workflow.roleExecution ?? EXECUTION_MODE.PARALLEL;
-  const enabledRoles = getAllRoleIds().filter((role) => resolvedConfig.roles[role]?.enabled);
-  const roles: RoleId[] = targetRole ? [targetRole] : enabledRoles;
+  const enabledRoles = getConfiguredRoleIds(resolvedConfig);
+  const roles = targetRole ? [targetRole] : enabledRoles;
 
   const pickups: TickAction[] = [];
   const skipped: ProjectTickResult["skipped"] = [];
@@ -176,7 +176,14 @@ export async function projectTick(opts: {
     }
 
     // Level selection: label → heuristic (must happen before free slot check)
-    const selectedLevel = resolveLevelForIssue(issue, role, next.localState);
+    const resolvedRole = resolvedConfig.roles[role];
+
+    if (!resolvedRole) {
+      skipped.push({ role, reason: "Role is not configured" });
+      continue;
+    }
+
+    const selectedLevel = resolveLevelForIssue(issue, role, resolvedRole, next.localState);
 
     // Check per-level slot availability
     const freeSlot = findFreeSlot(roleWorker, selectedLevel);
@@ -238,10 +245,15 @@ export async function projectTick(opts: {
  * 2. Inherit from another role's label (e.g. developer:medior → tester uses medior)
  * 3. Heuristic fallback (first dispatch, no labels yet)
  */
-function resolveLevelForIssue(issue: Issue, role: RoleId, localState?: { assignedRole?: RoleId | null; assignedLevel?: LevelId | null }): LevelId {
+function resolveLevelForIssue(
+  issue: Issue,
+  role: string,
+  resolvedRole: ResolvedRoleConfig,
+  localState?: { assignedRole?: string | null; assignedLevel?: LevelId | null },
+): LevelId {
   if (localState?.assignedLevel) {
     if (localState.assignedRole === role) return localState.assignedLevel;
-    const levels = getLevelsForRole(role);
+    const levels = resolvedRole.levels;
 
     if (levels.includes(localState.assignedLevel)) return localState.assignedLevel;
   }
@@ -253,11 +265,13 @@ function resolveLevelForIssue(issue: Issue, role: RoleId, localState?: { assigne
 
   // Inherit from another role's label if level is valid for this role
   if (roleLevel) {
-    const levels = getLevelsForRole(role);
+    const levels = resolvedRole.levels;
 
     if (levels.includes(roleLevel.level)) return roleLevel.level;
   }
 
   // Heuristic fallback
-  return selectLevel(issue.title, issue.description ?? "", role).level;
+  return isRoleId(role)
+    ? selectLevel(issue.title, issue.description ?? "", role).level
+    : resolvedRole.defaultLevel;
 }
