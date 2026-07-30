@@ -161,12 +161,8 @@ These are the valid keys for the \`on:\` object on a state:
 
 ## Transition target format
 
-Simple form — just the target state name:
-\`\`\`yaml
-PICKUP: doing
-\`\`\`
-
-Complex form — target with actions:
+Every transition uses an object with a required \`target\`. Optional \`actions\`
+and \`description\` fields may be added without changing the transition shape:
 \`\`\`yaml
 APPROVED:
   target: done
@@ -350,7 +346,8 @@ Add these states to your workflow (they're commented out in the default workflow
       color: "#5bc0de"
       priority: 2
       on:
-        PICKUP: testing
+        PICKUP:
+          target: testing
     testing:
       type: active
       role: tester
@@ -365,8 +362,10 @@ Add these states to your workflow (they're commented out in the default workflow
           target: toImprove
           actions:
             - reopenIssue
-        REFINE: refining
-        BLOCKED: refining
+        REFINE:
+          target: refining
+        BLOCKED:
+          target: refining
 \`\`\`
 
 ### 2. Change APPROVED targets from "done" to "toTest"

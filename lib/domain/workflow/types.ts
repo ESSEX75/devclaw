@@ -61,8 +61,8 @@ export type ReviewCheckType = SoftUnion<typeof REVIEW_CHECK>;
 /** Union of possible routing label strings (e.g. review:human, test:agent). */
 export type RoutingLabel = SoftUnion<typeof ROUTING_LABELS>;
 
-/** Target state name or detailed transition configuration for an event. */
-export type TransitionTarget<TStateKey extends string = WorkflowStateKey> = TStateKey | {
+/** Configuration for a workflow event transition. */
+export type TransitionTarget<TStateKey extends string = WorkflowStateKey> = {
   /** Target workflow state key to transition to. */
   target: TStateKey;
   /** List of actions to execute during transition. */

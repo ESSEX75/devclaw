@@ -3,7 +3,6 @@
  */
 import { DEFAULT_ROLES, STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
 import { isWorkflowEvent } from "./guards.js";
-import { getTransitionTargetKey } from "./transitions.js";
 import { type StateConfig, type WorkflowConfig, type WorkflowEvent } from "./types.js";
 
 /** Return workflow states without losing generic identifier types. */
@@ -150,7 +149,7 @@ export function getRevertLabel<
     if (state.type !== STATE_TYPE.QUEUE || state.role !== role) continue;
     const pickup = state.on?.[WORKFLOW_EVENT.PICKUP];
 
-    if (pickup && getTransitionTargetKey(pickup) === activeStateKey) {
+    if (pickup?.target === activeStateKey) {
       return state.label;
     }
   }
@@ -259,9 +258,7 @@ export function isFeedbackState<
     for (const [event, transition] of Object.entries(state.on)) {
       if (!isWorkflowEvent(event)) continue;
 
-      const targetKey = getTransitionTargetKey(transition);
-
-      if (targetKey === stateKey && FEEDBACK_EVENTS.has(event)) return true;
+      if (transition.target === stateKey && FEEDBACK_EVENTS.has(event)) return true;
     }
   }
 
@@ -310,8 +307,7 @@ export function producesReviewableWork<
   if (!activeState.on) return false;
 
   for (const transition of Object.values(activeState.on)) {
-    const targetKey = getTransitionTargetKey(transition);
-    const targetState = workflow.states[targetKey];
+    const targetState = workflow.states[transition.target];
 
     if (targetState?.check != null) return true;
   }

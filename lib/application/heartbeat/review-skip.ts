@@ -52,8 +52,8 @@ export async function reviewSkipPass(opts: {
 
     if (!skipTransition) continue;
 
-    const targetKey = typeof skipTransition === "string" ? skipTransition : skipTransition.target;
-    const actions = typeof skipTransition === "object" ? skipTransition.actions : undefined;
+    const targetKey = skipTransition.target;
+    const actions = skipTransition.actions;
     const targetState = workflow.states[targetKey];
 
     if (!targetState) continue;
@@ -99,7 +99,7 @@ export async function reviewSkipPass(opts: {
                 const failedTransition = state.on?.[WORKFLOW_EVENT.MERGE_FAILED];
 
                 if (failedTransition) {
-                  const failedKey = typeof failedTransition === "string" ? failedTransition : failedTransition.target;
+                  const failedKey = failedTransition.target;
                   const failedState = workflow.states[failedKey];
 
                   if (failedState) {

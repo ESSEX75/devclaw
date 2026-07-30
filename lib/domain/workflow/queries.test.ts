@@ -34,7 +34,9 @@ describe("getRevertLabel", () => {
           color: WORKFLOW_STATE_COLORS.TODO,
           priority: 10,
           on: {
-            [WORKFLOW_EVENT.PICKUP]: WORKFLOW_STATE_KEYS.RESEARCHING,
+            [WORKFLOW_EVENT.PICKUP]: {
+              target: WORKFLOW_STATE_KEYS.RESEARCHING,
+            },
           },
         },
         [WORKFLOW_STATE_KEYS.TO_IMPROVE]: {
@@ -80,7 +82,9 @@ describe("extensible workflow queries", () => {
           label: "Security Review",
           color: "#123456",
           on: {
-            [WORKFLOW_EVENT.PICKUP]: "securityReviewing",
+            [WORKFLOW_EVENT.PICKUP]: {
+              target: "securityReviewing",
+            },
           },
         },
         securityReviewing: {
@@ -89,7 +93,9 @@ describe("extensible workflow queries", () => {
           label: "Security Reviewing",
           color: "#654321",
           on: {
-            [WORKFLOW_EVENT.COMPLETE]: WORKFLOW_STATE_KEYS.DONE,
+            [WORKFLOW_EVENT.COMPLETE]: {
+              target: WORKFLOW_STATE_KEYS.DONE,
+            },
           },
         },
       },

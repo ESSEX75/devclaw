@@ -7,16 +7,13 @@
  */
 import { z } from "zod";
 
-import { STATE_TYPE, WORKFLOW_EVENT } from "../../domain/index.js";
+import { STATE_TYPE, type TransitionTarget, WORKFLOW_EVENT } from "../../domain/index.js";
 
-const TransitionTargetSchema = z.union([
-  z.string(),
-  z.object({
-    target: z.string(),
-    actions: z.array(z.string()).optional(),
-    description: z.string().optional(),
-  }),
-]);
+const TransitionTargetSchema = z.object({
+  target: z.string(),
+  actions: z.array(z.string()).optional(),
+  description: z.string().optional(),
+}).strict();
 
 const StateConfigSchema = z.object({
   type: z.enum(STATE_TYPE),
@@ -85,23 +82,6 @@ export function validateConfig(raw: unknown): void {
   DevClawConfigSchema.parse(raw);
 }
 
-function getTransitionTarget(transition: unknown): string | undefined {
-  if (typeof transition === "string") {
-    return transition;
-  }
-
-  if (
-    typeof transition === "object"
-    && transition !== null
-    && "target" in transition
-    && typeof transition.target === "string"
-  ) {
-    return transition.target;
-  }
-
-  return undefined;
-}
-
 /**
  * Validate structural integrity of a fully-resolved workflow config.
  * Checks cross-references that Zod schema alone can't enforce:
@@ -112,7 +92,7 @@ function getTransitionTarget(transition: unknown): string | undefined {
 export function validateWorkflowIntegrity(
   workflow: {
     initial: string;
-    states: Record<string, { type: string; role?: string; on?: Record<string, unknown> }>;
+    states: Record<string, { type: string; role?: string; on?: Record<string, TransitionTarget<string>> }>;
   },
 ): string[] {
   const errors: string[] = [];
@@ -137,15 +117,8 @@ export function validateWorkflowIntegrity(
 
     if (state.on) {
       for (const [event, transition] of Object.entries(state.on)) {
-        const target = getTransitionTarget(transition);
-
-        if (target === undefined) {
-          errors.push(`State "${key}" transition "${event}" has no valid target`);
-          continue;
-        }
-
-        if (!stateKeys.has(target)) {
-          errors.push(`State "${key}" transition "${event}" targets non-existent state "${target}"`);
+        if (!stateKeys.has(transition.target)) {
+          errors.push(`State "${key}" transition "${event}" targets non-existent state "${transition.target}"`);
         }
       }
     }

@@ -143,9 +143,7 @@ export function resolveStartTarget(
         throw new Error(`HOLD state "${currentLabel}" has no APPROVE transition.`);
       }
 
-      const targetKey = typeof approveTransition === "string"
-        ? approveTransition
-        : approveTransition.target;
+      const targetKey = approveTransition.target;
       const targetState = workflow.states[targetKey];
 
       if (!targetState) {

@@ -43,8 +43,8 @@ export async function testSkipPass(opts: {
 
     if (!skipTransition) continue;
 
-    const targetKey = typeof skipTransition === "string" ? skipTransition : skipTransition.target;
-    const actions = typeof skipTransition === "object" ? skipTransition.actions : undefined;
+    const targetKey = skipTransition.target;
+    const actions = skipTransition.actions;
     const targetState = workflow.states[targetKey];
 
     if (!targetState) continue;

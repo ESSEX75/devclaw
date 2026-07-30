@@ -7,5 +7,4 @@ export * from "./defaults.js";
 export * from "./guards.js";
 export * from "./labels.js";
 export * from "./queries.js";
-export * from "./transitions.js";
 export * from "./types.js";

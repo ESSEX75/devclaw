@@ -4,7 +4,6 @@
 import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI, STATE_TYPE } from "./const.js";
 import { isCompletionResult } from "./guards.js";
 import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";
-import { getTransitionTargetKey } from "./transitions.js";
 import { type CompletionRule, type WorkflowConfig, type WorkflowEvent } from "./types.js";
 
 /**
@@ -38,16 +37,14 @@ export function getCompletionRule<
 
   if (!transition) return null;
 
-  const targetKey = getTransitionTargetKey(transition);
-  const actions = typeof transition === "object" ? transition.actions : undefined;
-  const targetState = workflow.states[targetKey];
+  const targetState = workflow.states[transition.target];
 
   if (!targetState) return null;
 
   return {
     from: activeLabel,
     to: targetState.label,
-    actions: actions ?? [],
+    actions: transition.actions ?? [],
   };
 }
 

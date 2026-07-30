@@ -109,7 +109,7 @@ export async function reviewPass(opts: {
         const changesTransition = state.on[WORKFLOW_EVENT.CHANGES_REQUESTED];
 
         if (changesTransition) {
-          const targetKey = typeof changesTransition === "string" ? changesTransition : changesTransition.target;
+          const targetKey = changesTransition.target;
           const targetState = workflow.states[targetKey];
 
           if (targetState) {
@@ -135,7 +135,7 @@ export async function reviewPass(opts: {
         const conflictTransition = state.on[WORKFLOW_EVENT.MERGE_CONFLICT];
 
         if (conflictTransition) {
-          const targetKey = typeof conflictTransition === "string" ? conflictTransition : conflictTransition.target;
+          const targetKey = conflictTransition.target;
           const targetState = workflow.states[targetKey];
 
           if (targetState) {
@@ -160,8 +160,8 @@ export async function reviewPass(opts: {
         const closedTransition = state.on[WORKFLOW_EVENT.PR_CLOSED];
 
         if (closedTransition) {
-          const targetKey = typeof closedTransition === "string" ? closedTransition : closedTransition.target;
-          const closedActions = typeof closedTransition === "object" ? closedTransition.actions : undefined;
+          const targetKey = closedTransition.target;
+          const closedActions = closedTransition.actions;
           const targetState = workflow.states[targetKey];
 
           if (targetState) {
@@ -207,8 +207,8 @@ export async function reviewPass(opts: {
 
       if (!transition) continue;
 
-      const targetKey = typeof transition === "string" ? transition : transition.target;
-      const actions = typeof transition === "object" ? transition.actions : undefined;
+      const targetKey = transition.target;
+      const actions = transition.actions;
       const targetState = workflow.states[targetKey];
 
       if (!targetState) continue;
@@ -240,7 +240,7 @@ export async function reviewPass(opts: {
                 const failedTransition = state.on[WORKFLOW_EVENT.MERGE_FAILED];
 
                 if (failedTransition) {
-                  const failedKey = typeof failedTransition === "string" ? failedTransition : failedTransition.target;
+                  const failedKey = failedTransition.target;
                   const failedState = workflow.states[failedKey];
 
                   if (failedState) {
