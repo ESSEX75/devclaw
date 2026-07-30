@@ -60,6 +60,33 @@ roles:
 
 Per-level worker capacity is resolved from `roles.<role>.models.<level>.maxWorkers`, then `workflow.maxWorkersPerLevel`, then the built-in default.
 
+Role and level identifiers are extensible. A custom role must provide a complete
+definition after workspace and project layers are merged. Custom levels can also
+replace the built-in levels of an existing role:
+
+```yaml
+roles:
+  security_auditor:
+    levels: [apprentice, principal]
+    defaultLevel: apprentice
+    models:
+      apprentice: model/audit-fast
+      principal:
+        model: model/audit-deep
+        maxWorkers: 1
+    emoji:
+      apprentice: "🔎"
+      principal: "🔐"
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
+```
+
+Every configured level must have a model, `defaultLevel` must be listed in
+`levels`, and model or emoji keys outside `levels` are rejected. Runtime routing,
+worker slots, persisted issue state, and projected `role:level` labels all use
+the resolved role definition rather than the built-in registry.
+
 **Default models:**
 
 | Role | Level | Default Model |

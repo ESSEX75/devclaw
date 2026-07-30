@@ -42,7 +42,7 @@ describe("detectLevelFromLabels — colon format", () => {
   it("should detect level from colon-format labels", () => {
     assert.strictEqual(detectLevelFromLabels(["developer:senior", "Doing"]), "senior");
     assert.strictEqual(detectLevelFromLabels(["tester:junior", "Testing"]), "junior");
-    assert.strictEqual(detectLevelFromLabels(["reviewer:medior", "Reviewing"]), "medior");
+    assert.strictEqual(detectLevelFromLabels(["reviewer:senior", "Reviewing"]), "senior");
   });
 
   it("should ignore legacy dot-format labels when colon format is present", () => {
@@ -63,6 +63,19 @@ describe("detectLevelFromLabels — colon format", () => {
 });
 
 describe("detectRoleLevelFromLabels", () => {
+  it("detects a configured custom role and level", () => {
+    const roles = {
+      security_auditor: {
+        levels: ["apprentice", "principal"],
+      },
+    };
+
+    assert.deepStrictEqual(
+      detectRoleLevelFromLabels(["security_auditor:principal"], roles),
+      { role: "security_auditor", level: "principal" },
+    );
+  });
+
   it("should detect role and level from colon-format labels", () => {
     const result = detectRoleLevelFromLabels(["developer:senior", "Doing"]);
     assert.deepStrictEqual(result, { role: "developer", level: "senior" });

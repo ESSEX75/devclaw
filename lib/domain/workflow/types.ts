@@ -175,6 +175,32 @@ export type WorkflowConfig<
   states: Record<TStateKey, StateConfig<TRoleId, TStateKey, TLabel>>;
 };
 
+/** Role identifier validated from the resolved runtime configuration. */
+export type ConfiguredRoleId = string;
+
+/** Level identifier validated within a configured role definition. */
+export type ConfiguredLevelId = string;
+
+/** State identifier validated within the resolved workflow configuration. */
+export type ConfiguredWorkflowStateKey = string;
+
+/** Provider label validated within the resolved workflow configuration. */
+export type ConfiguredWorkflowLabel = string;
+
+/** Workflow configuration after all built-in and user layers are resolved. */
+export type ResolvedWorkflowConfig = WorkflowConfig<
+  ConfiguredRoleId,
+  ConfiguredWorkflowStateKey,
+  ConfiguredWorkflowLabel
+>;
+
+/** State configuration belonging to a resolved runtime workflow. */
+export type ResolvedStateConfig = StateConfig<
+  ConfiguredRoleId,
+  ConfiguredWorkflowStateKey,
+  ConfiguredWorkflowLabel
+>;
+
 /** Rule mapping a specific completion scenario to the next state and actions. */
 export type CompletionRule<TLabel extends string = WorkflowLabel> = {
   /** Source workflow label. */

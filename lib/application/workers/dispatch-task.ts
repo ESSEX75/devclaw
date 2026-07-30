@@ -17,7 +17,6 @@ import {
   hasReviewCheck,
   hasTestPhase,
   isFeedbackState,
-  type LevelId,
   OWNER_LABEL_COLOR,
   producesReviewableWork,
   resolveNotifyChannel,
@@ -57,7 +56,7 @@ export type DispatchOpts = {
   issueUrl: string;
   role: string;
   /** Developer level (junior, mid, senior) or raw model ID */
-  level: LevelId;
+  level: string;
   /** Label to transition FROM (e.g. "To Do", "To Test", "To Improve") */
   fromLabel: string;
   /** Label to transition TO (e.g. "Doing", "Testing") */
@@ -81,7 +80,7 @@ export type DispatchOpts = {
 export type DispatchResult = {
   sessionAction: "spawn" | "send";
   sessionKey: string;
-  level: LevelId;
+  level: string;
   model: string;
   announcement: string;
 };
@@ -394,7 +393,7 @@ export async function dispatchTask(
 
 async function recordWorkerState(
   workspaceDir: string, slug: string, role: string, slotIndex: number,
-  opts: { issueId: number; level: LevelId; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: string; name?: string },
+  opts: { issueId: number; level: string; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: string; name?: string },
 ): Promise<void> {
   await activateWorker(workspaceDir, slug, role, {
     issueId: String(opts.issueId),

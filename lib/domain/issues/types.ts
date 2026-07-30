@@ -3,7 +3,7 @@
  */
 import type { SoftUnion } from "../../types.js";
 import type { IssueProviderType, NotificationChannel } from "../shared/types.js";
-import type { LevelId, ReviewPolicy, TestPolicy } from "../workflow/types.js";
+import type { ReviewPolicy, TestPolicy } from "../workflow/types.js";
 import { ISSUE_INTEGRITY_STATUS } from "./const.js";
 
 /** Status of the issue's local state relative to the provider. */
@@ -42,7 +42,7 @@ export type ActiveIssueWorker = {
   /** The assigned worker role (e.g. developer, tester). */
   role: string;
   /** The assigned worker tier/level (e.g. junior, senior). */
-  level: LevelId;
+  level: string;
   /** Index of the worker slot. */
   slotIndex: number;
   /** Unique session key of the active run. */
@@ -66,7 +66,7 @@ export type IssueRuntimeState = IssueProjectionState & {
   /** Role currently assigned to resolve the issue. */
   assignedRole?: string | null;
   /** Developer level currently assigned. */
-  assignedLevel?: LevelId | null;
+  assignedLevel?: string | null;
   /** User name of the currently assigned human owner. */
   owner?: string | null;
   /** Override review policy for this issue. */

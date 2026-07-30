@@ -1,7 +1,7 @@
 /**
  * projection-summary.ts — Shared task output enrichment for local state and provider projection.
  */
-import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
+import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type ResolvedWorkflowConfig } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { diffIssueProjection } from "../../projection/index.js";
@@ -31,14 +31,14 @@ export type TaskIssueSummary = {
 
 export type ProjectionViewContext = {
   states: Record<string, IssueRuntimeState>;
-  workflow: WorkflowConfig;
+  workflow: ResolvedWorkflowConfig;
   roles: string[];
 };
 
 export async function loadProjectionViewContext(opts: {
   workspaceDir: string;
   projectSlug: string;
-  workflow: WorkflowConfig;
+  workflow: ResolvedWorkflowConfig;
   roles: string[];
 }): Promise<ProjectionViewContext> {
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);

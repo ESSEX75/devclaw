@@ -2,7 +2,6 @@
  * projects/mutations.ts — State mutations for project worker slots.
  */
 import type {
-  LevelId,
   Project,
   ProjectsData,
   RoleWorkerState,
@@ -30,7 +29,7 @@ export async function updateSlot(
   workspaceDir: string,
   slugOrChannelId: string,
   role: string,
-  level: LevelId,
+  level: string,
   slotIndex: number,
   updater: (slot: SlotState) => SlotState,
 ): Promise<ProjectsData> {
@@ -76,7 +75,7 @@ export async function activateWorker(
   role: string,
   params: {
     issueId: string;
-    level: LevelId;
+    level: string;
     sessionKey?: string;
     startTime?: string;
     /** Label the issue had before transitioning to the active state (e.g. "To Do", "To Improve"). */
@@ -138,7 +137,7 @@ export async function deactivateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
   role: string,
-  opts?: { level?: LevelId; slotIndex?: number; issueId?: string },
+  opts?: { level?: string; slotIndex?: number; issueId?: string },
 ): Promise<ProjectsData> {
   await acquireLock(workspaceDir);
   try {
@@ -152,7 +151,7 @@ export async function deactivateWorker(
     const project = data.projects[slug]!;
     const rw = project.workers[role] ?? { levels: {} };
 
-    let level: LevelId | undefined;
+    let level: string | undefined;
     let idx: number | undefined;
 
     if (opts?.level !== undefined && opts?.slotIndex !== undefined) {

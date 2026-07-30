@@ -1,8 +1,8 @@
 import type { IssueRuntimeState } from "../../domain/index.js";
 import {
   findStateByLabel,
+  type ResolvedWorkflowConfig,
   STATE_TYPE,
-  type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
@@ -31,7 +31,7 @@ export type TaskListResult = {
 export async function listManagedTasks(opts: {
   workspaceDir: string;
   projectSlug: string;
-  workflow: WorkflowConfig;
+  workflow: ResolvedWorkflowConfig;
   roles: string[];
   provider: Pick<IssueReader, "getIssue">;
   stateType?: string;
@@ -89,7 +89,7 @@ export async function listManagedTasks(opts: {
   };
 }
 
-function resolveTaskListLabels(workflow: WorkflowConfig, stateType?: string, label?: string): FetchEntry[] {
+function resolveTaskListLabels(workflow: ResolvedWorkflowConfig, stateType?: string, label?: string): FetchEntry[] {
   if (label) {
     const stateConfig = findStateByLabel(workflow, label);
 

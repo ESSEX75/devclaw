@@ -11,10 +11,9 @@ import { log as auditLog } from "../../audit.js";
 import type { Project } from "../../domain/index.js";
 import {
   ACTION,
+  type ResolvedWorkflowConfig,
   STATE_TYPE,
-  type StateConfig,
   WORKFLOW_EVENT,
-  type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
@@ -28,7 +27,7 @@ export async function testSkipPass(opts: {
   workspaceDir: string;
   projectName: string;
   project: Pick<Project, "slug" | "channels" | "provider">;
-  workflow: WorkflowConfig;
+  workflow: ResolvedWorkflowConfig;
   provider: IssueProvider;
 }): Promise<number> {
   const { workspaceDir, projectName, project, workflow, provider } = opts;
@@ -36,7 +35,7 @@ export async function testSkipPass(opts: {
 
   // Find test queue states (role=tester, type=queue) that have a SKIP event
   const testQueueStates = Object.entries(workflow.states)
-    .filter(([, s]) => s.role === "tester" && s.type === STATE_TYPE.QUEUE) as [string, StateConfig][];
+    .filter(([, state]) => state.role === "tester" && state.type === STATE_TYPE.QUEUE);
 
   for (const [, state] of testQueueStates) {
     const skipTransition = state.on?.[WORKFLOW_EVENT.SKIP];

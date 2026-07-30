@@ -13,10 +13,9 @@ import type { RunCommand } from "../../context.js";
 import type { Project } from "../../domain/index.js";
 import {
   ACTION,
+  type ResolvedWorkflowConfig,
   STATE_TYPE,
-  type StateConfig,
   WORKFLOW_EVENT,
-  type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
@@ -31,7 +30,7 @@ export async function reviewSkipPass(opts: {
   workspaceDir: string;
   projectName: string;
   project: Pick<Project, "slug" | "channels" | "provider">;
-  workflow: WorkflowConfig;
+  workflow: ResolvedWorkflowConfig;
   provider: IssueProvider;
   repoPath: string;
   gitPullTimeoutMs?: number;
@@ -45,7 +44,7 @@ export async function reviewSkipPass(opts: {
 
   // Find review queue states (role=reviewer, type=queue) that have a SKIP event
   const reviewQueueStates = Object.entries(workflow.states)
-    .filter(([, s]) => s.role === "reviewer" && s.type === STATE_TYPE.QUEUE) as [string, StateConfig][];
+    .filter(([, state]) => state.role === "reviewer" && state.type === STATE_TYPE.QUEUE);
 
   for (const [, state] of reviewQueueStates) {
     const skipTransition = state.on?.[WORKFLOW_EVENT.SKIP];

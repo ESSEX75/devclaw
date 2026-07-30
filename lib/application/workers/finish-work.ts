@@ -5,7 +5,7 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
-import { getActiveLabel, type LevelId } from "../../domain/index.js";
+import { getActiveLabel } from "../../domain/index.js";
 import { isConfiguredRoleId, loadConfig } from "../../state/config/index.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
 import { getRoleWorker, resolveRepoPath } from "../../state/projects/index.js";
@@ -189,7 +189,7 @@ export async function finishWork(input: FinishWorkInput) {
   }
 
   let slotIndex: number | null = null;
-  let slotLevel: LevelId | null = null;
+  let slotLevel: string | null = null;
   let issueId: number | null = null;
 
   for (const level of resolvedRole.levels) {

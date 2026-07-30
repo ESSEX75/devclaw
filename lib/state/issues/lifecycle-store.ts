@@ -6,23 +6,20 @@ import {
   detectOwner,
   findStateKeyByLabel,
   getCurrentStateLabel,
-  isLevelId,
   isNotificationChannel,
-  isRoleId,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   type IssueIntegrityStatus,
   type IssueProviderType,
   type IssueRuntimeState,
-  type LevelId,
   NOTIFY_LABEL_PREFIX,
   type NotifyTarget,
   type Project,
+  type ResolvedWorkflowConfig,
   REVIEW_POLICY,
   type ReviewPolicy,
   TEST_POLICY,
   type TestPolicy,
-  type WorkflowConfig,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { updateIssueStateStore } from "./store.js";
@@ -32,11 +29,11 @@ export type IssueStateWriteInput = {
   project: Pick<Project, "slug" | "channels">;
   issue: Pick<Issue, "iid" | "labels" | "state">;
   providerType: IssueProviderType;
-  workflow: WorkflowConfig<string, string, string>;
+  workflow: ResolvedWorkflowConfig;
   workflowLabel?: string;
   workflowState?: string;
   assignedRole?: string | null;
-  assignedLevel?: LevelId | null;
+  assignedLevel?: string | null;
   owner?: string | null;
   notifyTarget?: NotifyTarget | null;
   reviewPolicy?: ReviewPolicy | null;
@@ -49,7 +46,7 @@ export type IssueStateWriteInput = {
 
 type RoleLevel = {
   role: string;
-  level: LevelId;
+  level: string;
 };
 
 export function detectNotifyTarget(
@@ -85,7 +82,7 @@ export function detectRoleLevel(labels: string[]): RoleLevel | null {
     if (!role || !level) continue;
     if (role === "review" || role === "test" || role === "notify" || role === "owner" || role === "devclaw") continue;
 
-    if (isRoleId(role) && isLevelId(level)) return { role, level };
+    if (isConfiguredIdentifier(role) && isConfiguredIdentifier(level)) return { role, level };
   }
 
   return null;
@@ -157,4 +154,8 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
 
 export function providerKindFromProject(project: Pick<Project, "provider">): IssueProviderType {
   return project.provider === ISSUE_PROVIDER.GITHUB ? ISSUE_PROVIDER.GITHUB : ISSUE_PROVIDER.GITLAB;
+}
+
+function isConfiguredIdentifier(value: string): boolean {
+  return /^[a-z][a-z0-9_-]*$/.test(value);
 }

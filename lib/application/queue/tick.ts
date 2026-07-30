@@ -16,11 +16,10 @@ import {
   findFreeSlot,
   getActiveLabel,
   isRoleId,
-  type LevelId,
   reconcileSlots,
+  type ResolvedWorkflowConfig,
   REVIEW_POLICY,
   TEST_POLICY,
-  type WorkflowConfig,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
@@ -42,7 +41,7 @@ export type TickAction = {
   issueTitle: string;
   issueUrl: string;
   role: string;
-  level: LevelId;
+  level: string;
   sessionAction: "spawn" | "send";
   announcement: string;
 };
@@ -73,7 +72,7 @@ export async function projectTick(opts: {
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
   runtime?: PluginRuntime;
   /** Workflow config (defaults to DEFAULT_WORKFLOW) */
-  workflow?: WorkflowConfig<string, string, string>;
+  workflow?: ResolvedWorkflowConfig;
   /** Instance name for ownership filtering and auto-claiming. */
   instanceName?: string;
   /** Injected runCommand for dependency injection. */
@@ -183,7 +182,13 @@ export async function projectTick(opts: {
       continue;
     }
 
-    const selectedLevel = resolveLevelForIssue(issue, role, resolvedRole, next.localState);
+    const selectedLevel = resolveLevelForIssue(
+      issue,
+      role,
+      resolvedRole,
+      resolvedConfig.roles,
+      next.localState,
+    );
 
     // Check per-level slot availability
     const freeSlot = findFreeSlot(roleWorker, selectedLevel);
@@ -249,8 +254,9 @@ function resolveLevelForIssue(
   issue: Issue,
   role: string,
   resolvedRole: ResolvedRoleConfig,
-  localState?: { assignedRole?: string | null; assignedLevel?: LevelId | null },
-): LevelId {
+  roles: Readonly<Record<string, ResolvedRoleConfig>>,
+  localState?: { assignedRole?: string | null; assignedLevel?: string | null },
+): string {
   if (localState?.assignedLevel) {
     if (localState.assignedRole === role) return localState.assignedLevel;
     const levels = resolvedRole.levels;
@@ -258,7 +264,7 @@ function resolveLevelForIssue(
     if (levels.includes(localState.assignedLevel)) return localState.assignedLevel;
   }
 
-  const roleLevel = detectRoleLevelFromLabels(issue.labels);
+  const roleLevel = detectRoleLevelFromLabels(issue.labels, roles);
 
   // Own role label
   if (roleLevel && roleLevel.role === role) return roleLevel.level;

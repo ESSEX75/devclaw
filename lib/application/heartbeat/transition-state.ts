@@ -6,9 +6,7 @@ import {
   ISSUE_PROVIDER,
   type IssueProviderType,
   type Project,
-  type WorkflowConfig,
-  type WorkflowLabel,
-  type WorkflowStateKey,
+  type ResolvedWorkflowConfig,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
@@ -17,9 +15,9 @@ export async function writeHeartbeatTransitionState(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug" | "channels" | "provider">;
   issue: Issue;
-  workflow: WorkflowConfig;
-  workflowState: WorkflowStateKey;
-  workflowLabel: WorkflowLabel;
+  workflow: ResolvedWorkflowConfig;
+  workflowState: string;
+  workflowLabel: string;
   closedAt?: string | null;
 }): Promise<void> {
   const stateLabels = new Set<string>(getStateLabels(opts.workflow));

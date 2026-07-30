@@ -9,7 +9,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { findStateByLabel, getRoleLabelColor, isLevelId, STATE_TYPE } from "../../domain/index.js";
+import { findStateByLabel, getRoleLabelColor, STATE_TYPE } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { applyNotifyLabel, autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
@@ -105,7 +105,7 @@ Examples:
 
       const roleConfig = resolvedConfig.roles[role];
 
-      if (!isLevelId(newLevel) || !roleConfig || !roleConfig.levels.includes(newLevel)) {
+      if (!roleConfig || !roleConfig.levels.includes(newLevel)) {
         throw new Error(`Invalid level "${newLevel}" for role "${role}". Valid: ${roleConfig?.levels.join(", ") ?? "none"}`);
       }
 

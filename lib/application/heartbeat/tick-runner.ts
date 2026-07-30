@@ -202,6 +202,6 @@ export async function checkProjectActive(
   if (!project) return false;
 
   return Object.values(project.workers).some((w) =>
-    Object.values(w.levels).some(slots => slots.some(s => s.active)),
+    Object.values(w.levels).some(slots => slots?.some(s => s.active) ?? false),
   );
 }

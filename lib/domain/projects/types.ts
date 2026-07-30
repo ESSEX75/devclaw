@@ -2,7 +2,6 @@
  * projects/types.ts — Domain types for projects, worker slots, and notification channels.
  */
 import type { IssueProviderType, NotificationChannel } from "../shared/types.js";
-import type { LevelId } from "../workflow/types.js";
 
 /** Slot state. Level is structural (implied by position in the levels map). */
 export type SlotState = {
@@ -25,13 +24,13 @@ export type SlotState = {
 /** Per-level worker state: levels map instead of flat slots array. */
 export type RoleWorkerState = {
   /** Map of level IDs to arrays of slot states. */
-  levels: Partial<Record<LevelId, SlotState[]>>;
+  levels: Partial<Record<string, SlotState[]>>;
 };
 
 /** Location of a worker slot within a role's level map. */
 export type SlotLocation = {
   /** Level containing the slot. */
-  level: LevelId;
+  level: string;
   /** Zero-based slot index within the level. */
   slotIndex: number;
 };

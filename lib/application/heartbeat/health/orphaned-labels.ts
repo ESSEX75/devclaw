@@ -76,6 +76,8 @@ export async function scanOrphanedLabels(opts: {
     let isTracked = false;
 
     for (const slots of Object.values(roleWorker.levels)) {
+      if (slots === undefined) continue;
+
       if (slots.some(slot => slot.active && slot.issueId === issueIdStr)) {
         isTracked = true;
         break;

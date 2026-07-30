@@ -118,4 +118,31 @@ roles:
       /roles\.security_auditor\.defaultLevel/,
     );
   });
+
+  it("resolves custom levels without filtering them through the built-in registry", async () => {
+    const workspaceDir = await createWorkspace(`
+roles:
+  developer:
+    levels: [apprentice, principal]
+    defaultLevel: apprentice
+    models:
+      apprentice: model/apprentice
+      principal:
+        model: model/principal
+        maxWorkers: 4
+    emoji:
+      apprentice: "A"
+      principal: "P"
+`);
+
+    const config = await loadConfig(workspaceDir);
+    const role = getResolvedRole(config, "developer");
+
+    assert.deepEqual(role?.levels, ["apprentice", "principal"]);
+    assert.equal(role?.defaultLevel, "apprentice");
+    assert.equal(role?.models.apprentice, "model/apprentice");
+    assert.equal(role?.models.principal, "model/principal");
+    assert.equal(role?.levelMaxWorkers.principal, 4);
+    assert.equal(role?.emoji.principal, "P");
+  });
 });

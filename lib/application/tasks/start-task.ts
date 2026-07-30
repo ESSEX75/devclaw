@@ -3,12 +3,10 @@ import type { RunCommand } from "../../context.js";
 import {
   findStateByLabel,
   getRoleLabelColor,
-  isLevelId,
-  type LevelId,
+  type ResolvedWorkflowConfig,
   STATE_TYPE,
   type StateConfig,
   WORKFLOW_EVENT,
-  type WorkflowConfig,
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { detectNotifyTarget, resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
@@ -37,7 +35,7 @@ export type StartTaskResult = {
 export async function startTask(input: StartTaskInput): Promise<StartTaskResult> {
   const { workspaceDir, channelId, issueId, runCommand } = input;
   const levelHint = input.level;
-  let assignedLevel: LevelId | undefined;
+  let assignedLevel: string | undefined;
 
   const { project } = await resolveProject(workspaceDir, channelId);
   const { provider, type: providerType } = await resolveProvider(project, runCommand);
@@ -71,7 +69,7 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
   if (levelHint && targetRole) {
     const validLevels = resolvedConfig.roles[targetRole]?.levels ?? [];
 
-    if (!isLevelId(levelHint) || !validLevels.includes(levelHint)) {
+    if (!validLevels.includes(levelHint)) {
       throw new Error(`Invalid level "${levelHint}" for role "${targetRole}". Valid: ${validLevels.join(", ")}`);
     }
 
@@ -129,7 +127,7 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
 }
 
 export function resolveStartTarget(
-  workflow: WorkflowConfig<string, string, string>,
+  workflow: ResolvedWorkflowConfig,
   currentLabel: string,
   currentState: StateConfig<string, string, string>,
 ): { targetLabel: string; targetState: StateConfig<string, string, string>; transitioned: boolean } {

@@ -6,7 +6,8 @@
  */
 import type {
   CompletionEventMap,
-  LevelId,
+  ConfiguredLevelId,
+  ResolvedWorkflowConfig,
   StateConfig,
   WorkflowConfig,
   WorkflowStateKey,
@@ -91,7 +92,7 @@ export type ResolvedTimeouts = {
  */
 export type ResolvedConfig = {
   roles: Record<string, ResolvedRoleConfig>;
-  workflow: WorkflowConfig;
+  workflow: ResolvedWorkflowConfig;
   timeouts: ResolvedTimeouts;
   /** Instance name override from config. Undefined = use auto-generated from instance.json. */
   instanceName?: string;
@@ -102,12 +103,12 @@ export type ResolvedConfig = {
  */
 export type ResolvedRoleConfig = {
   /** Per-level max workers. Resolved from: per-model maxWorkers → workflow maxWorkersPerLevel → default 2. */
-  levelMaxWorkers: Partial<Record<LevelId, number>>;
-  levels: LevelId[];
-  defaultLevel: LevelId;
+  levelMaxWorkers: Partial<Record<ConfiguredLevelId, number>>;
+  levels: ConfiguredLevelId[];
+  defaultLevel: ConfiguredLevelId;
   /** Flattened model map (string IDs only, for existing consumers). */
-  models: Partial<Record<LevelId, string>>;
-  emoji: Partial<Record<LevelId, string>>;
+  models: Partial<Record<ConfiguredLevelId, string>>;
+  emoji: Partial<Record<ConfiguredLevelId, string>>;
   completion: CompletionEventMap;
   enabled: boolean;
 };

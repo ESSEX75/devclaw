@@ -12,8 +12,8 @@ import path from "node:path";
 
 import YAML from "yaml";
 
-import type { LevelId, WorkflowConfig } from "../../domain/index.js";
-import { DEFAULT_WORKFLOW, isLevelId, isRoleId } from "../../domain/index.js";
+import type { ResolvedWorkflowConfig } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW, isRoleId } from "../../domain/index.js";
 import { getAllRoleIds, ROLE_REGISTRY } from "../../roles/index.js";
 import { DATA_DIR } from "../setup/paths.js";
 import { mergeConfig } from "./merge.js";
@@ -85,12 +85,12 @@ const DEFAULT_MAX_WORKERS_PER_LEVEL = 2;
 
 /** Flatten a ModelEntry map to string-only model IDs. */
 function flattenModels(
-  entries: Readonly<Record<string, ModelEntry>>,
-): Partial<Record<LevelId, string>> {
-  const flat: Partial<Record<LevelId, string>> = {};
+  entries: Readonly<Partial<Record<string, ModelEntry>>>,
+): Partial<Record<string, string>> {
+  const flat: Partial<Record<string, string>> = {};
 
   for (const [level, entry] of Object.entries(entries)) {
-    if (!isLevelId(level)) continue;
+    if (entry === undefined) continue;
 
     flat[level] = typeof entry === "string" ? entry : entry.model;
   }
@@ -100,13 +100,13 @@ function flattenModels(
 
 /** Resolve per-level maxWorkers from model entries + global default. */
 function resolveLevelMaxWorkers(
-  models: Readonly<Record<string, ModelEntry>>,
+  models: Readonly<Partial<Record<string, ModelEntry>>>,
   globalDefault: number,
-): Partial<Record<LevelId, number>> {
-  const result: Partial<Record<LevelId, number>> = {};
+): Partial<Record<string, number>> {
+  const result: Partial<Record<string, number>> = {};
 
   for (const [level, entry] of Object.entries(models)) {
-    if (!isLevelId(level)) continue;
+    if (entry === undefined) continue;
 
     if (typeof entry === "object" && entry.maxWorkers !== undefined) {
       result[level] = entry.maxWorkers;
@@ -118,38 +118,16 @@ function resolveLevelMaxWorkers(
   return result;
 }
 
-function resolveLevels(roleId: string, levels: readonly string[]): LevelId[] {
-  const resolved: LevelId[] = [];
-
-  for (const level of levels) {
-    if (!isLevelId(level)) {
-      throw new Error(`roles.${roleId}.levels: custom level "${level}" is not supported yet`);
-    }
-
-    resolved.push(level);
-  }
-
-  return resolved;
+function resolveLevels(levels: readonly string[]): string[] {
+  return [...levels];
 }
 
-function resolveDefaultLevel(roleId: string, defaultLevel: string): LevelId {
-  if (!isLevelId(defaultLevel)) {
-    throw new Error(`roles.${roleId}.defaultLevel: custom level "${defaultLevel}" is not supported yet`);
-  }
-
+function resolveDefaultLevel(defaultLevel: string): string {
   return defaultLevel;
 }
 
-function resolveEmoji(entries: Readonly<Record<string, string>>): Partial<Record<LevelId, string>> {
-  const emoji: Partial<Record<LevelId, string>> = {};
-
-  for (const [level, value] of Object.entries(entries)) {
-    if (isLevelId(level)) {
-      emoji[level] = value;
-    }
-  }
-
-  return emoji;
+function resolveEmoji(entries: Readonly<Record<string, string>>): Partial<Record<string, string>> {
+  return { ...entries };
 }
 
 function resolve(config: DevClawConfig): ResolvedConfig {
@@ -169,7 +147,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
       if (isRoleId(id) && override === false) {
         const reg = ROLE_REGISTRY[id];
         // Disabled role — include with enabled: false for visibility
-        const models: Partial<Record<LevelId, ModelEntry>> = { ...reg.models };
+        const models: Partial<Record<string, ModelEntry>> = { ...reg.models };
 
         roles[id] = {
           levelMaxWorkers: resolveLevelMaxWorkers(models, globalMaxWorkers),
@@ -194,8 +172,8 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 
         roles[id] = {
           levelMaxWorkers: resolveLevelMaxWorkers(mergedModels, globalMaxWorkers),
-          levels: resolveLevels(id, override.levels ?? reg.levels),
-          defaultLevel: resolveDefaultLevel(id, override.defaultLevel ?? reg.defaultLevel),
+          levels: resolveLevels(override.levels ?? reg.levels),
+          defaultLevel: resolveDefaultLevel(override.defaultLevel ?? reg.defaultLevel),
           models: flattenModels(mergedModels),
           emoji: resolveEmoji({ ...reg.emoji, ...(override.emoji ?? {}) }),
           completion: {
@@ -211,8 +189,8 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 
       roles[id] = {
         levelMaxWorkers: resolveLevelMaxWorkers(customModels, globalMaxWorkers),
-        levels: resolveLevels(id, override.levels ?? []),
-        defaultLevel: resolveDefaultLevel(id, override.defaultLevel ?? ""),
+        levels: resolveLevels(override.levels ?? []),
+        defaultLevel: resolveDefaultLevel(override.defaultLevel ?? ""),
         models: flattenModels(customModels),
         emoji: resolveEmoji(override.emoji ?? {}),
         completion: { ...override.completion },
@@ -226,7 +204,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
     const reg = ROLE_REGISTRY[id];
 
     if (!roles[id]) {
-      const models: Partial<Record<LevelId, ModelEntry>> = { ...reg.models };
+      const models: Partial<Record<string, ModelEntry>> = { ...reg.models };
 
       roles[id] = {
         levelMaxWorkers: resolveLevelMaxWorkers(models, globalMaxWorkers),
@@ -240,7 +218,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
     }
   }
 
-  const workflow: WorkflowConfig = {
+  const workflow: ResolvedWorkflowConfig = {
     initial: config.workflow?.initial ?? DEFAULT_WORKFLOW.initial,
     reviewPolicy: config.workflow?.reviewPolicy ?? DEFAULT_WORKFLOW.reviewPolicy,
     testPolicy: config.workflow?.testPolicy ?? DEFAULT_WORKFLOW.testPolicy,

@@ -73,11 +73,11 @@ export type CommandInterceptor = {
 
 function createCommandInterceptor(): {
   interceptor: CommandInterceptor;
-  handler: (argv: string[], opts: number | { timeoutMs: number; cwd?: string }) => Promise<{ stdout: string; stderr: string; code: number | null; signal: null; killed: false }>;
+  handler: RunCommand;
 } {
   const commands: CapturedCommand[] = [];
 
-  const handler = async (
+  const handler: RunCommand = async (
     argv: string[],
     optsOrTimeout: number | { timeoutMs: number; cwd?: string },
   ) => {
@@ -116,7 +116,14 @@ function createCommandInterceptor(): {
 
     commands.push(captured);
 
-    return { stdout: "{}", stderr: "", code: 0, signal: null as null, killed: false as const };
+    return {
+      stdout: "{}",
+      stderr: "",
+      code: 0,
+      signal: null,
+      killed: false,
+      termination: "exit",
+    };
   };
 
   const interceptor: CommandInterceptor = {
@@ -296,7 +303,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     workspaceDir,
     provider,
     commands: interceptor,
-    runCommand: handler as unknown as import("../context.js").RunCommand,
+    runCommand: handler,
     channelId,
     project,
     workflow,
