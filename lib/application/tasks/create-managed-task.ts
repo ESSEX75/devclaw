@@ -5,12 +5,12 @@ import {
   type NotifyTarget,
   OWNER_LABEL_COLOR,
   type Project,
-  type ResolvedStateConfig,
-  type ResolvedWorkflowConfig,
   REVIEW_POLICY,
   STATE_TYPE,
   TEST_POLICY,
   WORKFLOW_EVENT,
+  type WorkflowConfig,
+  type WorkflowStateConfig,
 } from "../../domain/index.js";
 import type { IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
@@ -30,7 +30,7 @@ export async function createManagedTaskIssue(opts: {
   project: Pick<Project, "slug" | "channels">;
   providerType: IssueProviderType;
   provider: Pick<IssueWriter, "createIssue" | "editIssue"> & Pick<LabelProjector, "addLabel" | "ensureLabel">;
-  workflow: ResolvedWorkflowConfig;
+  workflow: WorkflowConfig;
   title: string;
   description: string;
   assignees?: string[];
@@ -93,9 +93,9 @@ export async function createManagedTaskIssue(opts: {
 }
 
 function resolveInitialQueueTarget(
-  workflow: ResolvedWorkflowConfig,
-  initialState: ResolvedStateConfig,
-): { targetKey: string; targetState: ResolvedStateConfig } {
+  workflow: WorkflowConfig,
+  initialState: WorkflowStateConfig,
+): { targetKey: string; targetState: WorkflowStateConfig } {
   if (initialState.type === STATE_TYPE.QUEUE) {
     return { targetKey: workflow.initial, targetState: initialState };
   }

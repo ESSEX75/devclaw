@@ -17,9 +17,9 @@ import {
   getActiveLabel,
   isRoleId,
   reconcileSlots,
-  type ResolvedWorkflowConfig,
   REVIEW_POLICY,
   TEST_POLICY,
+  type WorkflowConfig,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
@@ -72,7 +72,7 @@ export async function projectTick(opts: {
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
   runtime?: PluginRuntime;
   /** Workflow config (defaults to DEFAULT_WORKFLOW) */
-  workflow?: ResolvedWorkflowConfig;
+  workflow?: WorkflowConfig;
   /** Instance name for ownership filtering and auto-claiming. */
   instanceName?: string;
   /** Injected runCommand for dependency injection. */

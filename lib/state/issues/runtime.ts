@@ -7,8 +7,8 @@ import {
   getCurrentStateLabel,
   type IssueRuntimeState,
   type Project,
-  type ResolvedWorkflowConfig,
-  type StateConfig,
+  type WorkflowConfig,
+  type WorkflowStateConfig,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { readIssueStateStore } from "./store.js";
@@ -19,7 +19,7 @@ export type IssueRuntimeResolution =
     state: IssueRuntimeState;
     workflowLabel: string;
     workflowState: string;
-    stateConfig: StateConfig<string, string, string> | null;
+    stateConfig: WorkflowStateConfig | null;
     providerIssue: Issue;
   }
   | {
@@ -27,7 +27,7 @@ export type IssueRuntimeResolution =
     state: null;
     workflowLabel: string | null;
     workflowState: string | null;
-    stateConfig: StateConfig<string, string, string> | null;
+    stateConfig: WorkflowStateConfig | null;
     providerIssue: Issue;
   };
 
@@ -35,7 +35,7 @@ export async function resolveIssueRuntimeState(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug">;
   issue: Issue;
-  workflow: ResolvedWorkflowConfig;
+  workflow: WorkflowConfig;
 }): Promise<IssueRuntimeResolution> {
   const store = await readIssueStateStore(opts.workspaceDir, opts.project.slug);
   const state = store.issues[String(opts.issue.iid)];

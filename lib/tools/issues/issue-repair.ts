@@ -5,7 +5,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import type { IssueIntegrityStatus, Project, ResolvedWorkflowConfig, ReviewPolicy, TestPolicy } from "../../domain/index.js";
+import type { IssueIntegrityStatus, Project, ReviewPolicy, TestPolicy, WorkflowConfig } from "../../domain/index.js";
 import { getStateLabels, ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
@@ -56,7 +56,7 @@ export async function repairIssueProjection(opts: {
   project: Pick<Project, "slug">;
   issueId: number;
   provider: IssueProvider;
-  workflow: ResolvedWorkflowConfig;
+  workflow: WorkflowConfig;
   roles: string[];
   dryRun?: boolean;
 }): Promise<IssueRepairResult> {

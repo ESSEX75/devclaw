@@ -14,9 +14,9 @@ import {
   WORKFLOW_STATE_KEYS,
   WORKFLOW_STATE_LABELS,
 } from "./const.js";
-import type { WorkflowConfig } from "./types.js";
+import type { BuiltInWorkflowConfig } from "./types.js";
 
-export const DEFAULT_WORKFLOW: WorkflowConfig = {
+export const DEFAULT_WORKFLOW: BuiltInWorkflowConfig = {
   initial: WORKFLOW_STATE_KEYS.PLANNING,
   reviewPolicy: REVIEW_POLICY.HUMAN,
   testPolicy: TEST_POLICY.SKIP,

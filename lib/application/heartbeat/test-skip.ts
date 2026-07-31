@@ -11,9 +11,9 @@ import { log as auditLog } from "../../audit.js";
 import type { Project } from "../../domain/index.js";
 import {
   ACTION,
-  type ResolvedWorkflowConfig,
   STATE_TYPE,
   WORKFLOW_EVENT,
+  type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
@@ -27,7 +27,7 @@ export async function testSkipPass(opts: {
   workspaceDir: string;
   projectName: string;
   project: Pick<Project, "slug" | "channels" | "provider">;
-  workflow: ResolvedWorkflowConfig;
+  workflow: WorkflowConfig;
   provider: IssueProvider;
 }): Promise<number> {
   const { workspaceDir, projectName, project, workflow, provider } = opts;

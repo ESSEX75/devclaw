@@ -3,7 +3,7 @@
  */
 import { log as auditLog } from "../../audit.js";
 import type { Project } from "../../domain/index.js";
-import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type ResolvedWorkflowConfig } from "../../domain/index.js";
+import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader, LabelProjector } from "../../integrations/providers/capabilities.js";
 import {
   diffIssueProjection,
@@ -39,7 +39,7 @@ export async function projectionIntegrityPass(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug">;
   provider: Pick<IssueReader, "getIssue"> & Pick<LabelProjector, "addLabel" | "removeLabels">;
-  workflow: ResolvedWorkflowConfig;
+  workflow: WorkflowConfig;
   roles: string[];
 }): Promise<ProjectionIntegrityResult> {
   const { workspaceDir, project, provider, workflow, roles } = opts;

@@ -62,7 +62,7 @@ export type ReviewCheckType = SoftUnion<typeof REVIEW_CHECK>;
 export type RoutingLabel = SoftUnion<typeof ROUTING_LABELS>;
 
 /** Configuration for a workflow event transition. */
-export type TransitionTarget<TStateKey extends string = WorkflowStateKey> = {
+export type TransitionTarget<TStateKey extends string> = {
   /** Target workflow state key to transition to. */
   target: TStateKey;
   /** List of actions to execute during transition. */
@@ -91,9 +91,9 @@ type StatefulTransitions<TStateKey extends string> = {
 
 /** Queue state waiting for a role to pick up work. */
 export type QueueStateConfig<
-  TRoleId extends string = RoleId,
-  TStateKey extends string = WorkflowStateKey,
-  TLabel extends string = WorkflowLabel,
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
 > = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
   /** Queue behavior discriminator. */
   type: typeof STATE_TYPE.QUEUE;
@@ -105,9 +105,9 @@ export type QueueStateConfig<
 
 /** Active state currently processed by a worker role. */
 export type ActiveStateConfig<
-  TRoleId extends string = RoleId,
-  TStateKey extends string = WorkflowStateKey,
-  TLabel extends string = WorkflowLabel,
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
 > = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
   /** Active behavior discriminator. */
   type: typeof STATE_TYPE.ACTIVE;
@@ -119,8 +119,8 @@ export type ActiveStateConfig<
 
 /** Hold state waiting for an external or human decision. */
 export type HoldStateConfig<
-  TStateKey extends string = WorkflowStateKey,
-  TLabel extends string = WorkflowLabel,
+  TStateKey extends string,
+  TLabel extends string,
 > = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
   /** Hold behavior discriminator. */
   type: typeof STATE_TYPE.HOLD;
@@ -132,7 +132,7 @@ export type HoldStateConfig<
 
 /** Terminal state concluding the workflow. */
 export type TerminalStateConfig<
-  TLabel extends string = WorkflowLabel,
+  TLabel extends string,
 > = BaseStateConfig<TLabel> & {
   /** Terminal behavior discriminator. */
   type: typeof STATE_TYPE.TERMINAL;
@@ -145,10 +145,10 @@ export type TerminalStateConfig<
 };
 
 /** Configuration for a single state in the workflow statechart. */
-export type StateConfig<
-  TRoleId extends string = RoleId,
-  TStateKey extends string = WorkflowStateKey,
-  TLabel extends string = WorkflowLabel,
+export type StateDefinition<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
 > =
   | QueueStateConfig<TRoleId, TStateKey, TLabel>
   | ActiveStateConfig<TRoleId, TStateKey, TLabel>
@@ -156,10 +156,10 @@ export type StateConfig<
   | TerminalStateConfig<TLabel>;
 
 /** Full workflow statechart configuration. */
-export type WorkflowConfig<
-  TRoleId extends string = RoleId,
-  TStateKey extends string = WorkflowStateKey,
-  TLabel extends string = WorkflowLabel,
+export type WorkflowDefinition<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
 > = {
   /** Initial workflow state key for new issues. */
   initial: TStateKey;
@@ -172,34 +172,28 @@ export type WorkflowConfig<
   /** Default max workers per level across all roles. Default: 2. */
   maxWorkersPerLevel?: number;
   /** Map of state keys to their state configurations. */
-  states: Record<TStateKey, StateConfig<TRoleId, TStateKey, TLabel>>;
+  states: Record<TStateKey, StateDefinition<TRoleId, TStateKey, TLabel>>;
 };
 
-/** Role identifier validated from the resolved runtime configuration. */
-export type ConfiguredRoleId = string;
-
-/** Level identifier validated within a configured role definition. */
-export type ConfiguredLevelId = string;
-
-/** State identifier validated within the resolved workflow configuration. */
-export type ConfiguredWorkflowStateKey = string;
-
-/** Provider label validated within the resolved workflow configuration. */
-export type ConfiguredWorkflowLabel = string;
-
-/** Workflow configuration after all built-in and user layers are resolved. */
-export type ResolvedWorkflowConfig = WorkflowConfig<
-  ConfiguredRoleId,
-  ConfiguredWorkflowStateKey,
-  ConfiguredWorkflowLabel
+/** Strict configuration contract for the built-in workflow. */
+export type BuiltInWorkflowConfig = WorkflowDefinition<
+  RoleId,
+  WorkflowStateKey,
+  WorkflowLabel
 >;
 
-/** State configuration belonging to a resolved runtime workflow. */
-export type ResolvedStateConfig = StateConfig<
-  ConfiguredRoleId,
-  ConfiguredWorkflowStateKey,
-  ConfiguredWorkflowLabel
+/** Strict state contract for the built-in workflow. */
+export type BuiltInWorkflowStateConfig = StateDefinition<
+  RoleId,
+  WorkflowStateKey,
+  WorkflowLabel
 >;
+
+/** Workflow configuration after runtime validation and layer resolution. */
+export type WorkflowConfig = WorkflowDefinition<string, string, string>;
+
+/** State configuration belonging to a validated runtime workflow. */
+export type WorkflowStateConfig = StateDefinition<string, string, string>;
 
 /** Rule mapping a specific completion scenario to the next state and actions. */
 export type CompletionRule<TLabel extends string = WorkflowLabel> = {

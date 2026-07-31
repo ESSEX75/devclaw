@@ -13,9 +13,9 @@ import type { RunCommand } from "../../context.js";
 import type { Project } from "../../domain/index.js";
 import {
   ACTION,
-  type ResolvedWorkflowConfig,
   STATE_TYPE,
   WORKFLOW_EVENT,
+  type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
@@ -30,7 +30,7 @@ export async function reviewSkipPass(opts: {
   workspaceDir: string;
   projectName: string;
   project: Pick<Project, "slug" | "channels" | "provider">;
-  workflow: ResolvedWorkflowConfig;
+  workflow: WorkflowConfig;
   provider: IssueProvider;
   repoPath: string;
   gitPullTimeoutMs?: number;

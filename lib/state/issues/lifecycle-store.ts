@@ -15,11 +15,11 @@ import {
   NOTIFY_LABEL_PREFIX,
   type NotifyTarget,
   type Project,
-  type ResolvedWorkflowConfig,
   REVIEW_POLICY,
   type ReviewPolicy,
   TEST_POLICY,
   type TestPolicy,
+  type WorkflowConfig,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { updateIssueStateStore } from "./store.js";
@@ -29,7 +29,7 @@ export type IssueStateWriteInput = {
   project: Pick<Project, "slug" | "channels">;
   issue: Pick<Issue, "iid" | "labels" | "state">;
   providerType: IssueProviderType;
-  workflow: ResolvedWorkflowConfig;
+  workflow: WorkflowConfig;
   workflowLabel?: string;
   workflowState?: string;
   assignedRole?: string | null;

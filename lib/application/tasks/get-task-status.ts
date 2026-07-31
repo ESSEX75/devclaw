@@ -1,4 +1,4 @@
-import { type ResolvedWorkflowConfig,STATE_TYPE } from "../../domain/index.js";
+import { STATE_TYPE, type WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
 import {
@@ -26,7 +26,7 @@ export type TaskStatusResult = {
 export async function getManagedTaskStatus(opts: {
   workspaceDir: string;
   projectSlug: string;
-  workflow: ResolvedWorkflowConfig;
+  workflow: WorkflowConfig;
   roles: string[];
   provider: Pick<IssueReader, "getIssue">;
 }): Promise<TaskStatusResult> {
@@ -62,7 +62,7 @@ export async function getManagedTaskStatus(opts: {
   };
 }
 
-function getWorkflowStateLabelsByType(workflow: ResolvedWorkflowConfig) {
+function getWorkflowStateLabelsByType(workflow: WorkflowConfig) {
   return {
     hold: Object.values(workflow.states).filter((state) => state.type === STATE_TYPE.HOLD),
     active: Object.values(workflow.states).filter((state) => state.type === STATE_TYPE.ACTIVE),

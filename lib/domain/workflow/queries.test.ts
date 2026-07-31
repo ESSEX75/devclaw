@@ -16,6 +16,8 @@ import {
   WORKFLOW_STATE_LABELS,
   type RoleDefinition,
   type RoleId,
+  type BuiltInWorkflowConfig,
+  type WorkflowDefinition,
   type WorkflowConfig,
   type WorkflowLabel,
   type WorkflowStateKey,
@@ -23,7 +25,7 @@ import {
 
 describe("getRevertLabel", () => {
   it("matches an object-form PICKUP transition target", () => {
-    const workflow: WorkflowConfig = {
+    const workflow: BuiltInWorkflowConfig = {
       ...DEFAULT_WORKFLOW,
       states: {
         ...DEFAULT_WORKFLOW.states,
@@ -62,6 +64,34 @@ describe("getRevertLabel", () => {
 });
 
 describe("extensible workflow queries", () => {
+  it("accepts validated runtime identifiers without generic arguments", () => {
+    const workflow: WorkflowConfig = {
+      initial: "customQueue",
+      states: {
+        customQueue: {
+          type: STATE_TYPE.QUEUE,
+          role: "security_auditor",
+          label: "Security Queue",
+          color: "#123456",
+          on: {
+            [WORKFLOW_EVENT.PICKUP]: {
+              target: "customActive",
+            },
+          },
+        },
+        customActive: {
+          type: STATE_TYPE.ACTIVE,
+          role: "security_auditor",
+          label: "Security Active",
+          color: "#654321",
+        },
+      },
+    };
+
+    assert.equal(findStateKeyByLabel(workflow, "Security Active"), "customActive");
+    assert.equal(detectRoleFromLabel(workflow, "Security Queue"), "security_auditor");
+  });
+
   it("preserves custom role, state key, label, and level types", () => {
     type CustomRoleId = RoleId | "security_auditor";
     type CustomStateKey = WorkflowStateKey | "securityReview" | "securityReviewing";
@@ -72,7 +102,7 @@ describe("extensible workflow queries", () => {
       levels: ["standard", "expert"],
       enabled: true,
     };
-    const workflow: WorkflowConfig<CustomRoleId, CustomStateKey, CustomLabel> = {
+    const workflow: WorkflowDefinition<CustomRoleId, CustomStateKey, CustomLabel> = {
       ...DEFAULT_WORKFLOW,
       states: {
         ...DEFAULT_WORKFLOW.states,

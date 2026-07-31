@@ -3,10 +3,10 @@ import type { RunCommand } from "../../context.js";
 import {
   findStateByLabel,
   getRoleLabelColor,
-  type ResolvedWorkflowConfig,
   STATE_TYPE,
-  type StateConfig,
   WORKFLOW_EVENT,
+  type WorkflowConfig,
+  type WorkflowStateConfig,
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { detectNotifyTarget, resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
@@ -127,10 +127,10 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
 }
 
 export function resolveStartTarget(
-  workflow: ResolvedWorkflowConfig,
+  workflow: WorkflowConfig,
   currentLabel: string,
-  currentState: StateConfig<string, string, string>,
-): { targetLabel: string; targetState: StateConfig<string, string, string>; transitioned: boolean } {
+  currentState: WorkflowStateConfig,
+): { targetLabel: string; targetState: WorkflowStateConfig; transitioned: boolean } {
   switch (currentState.type) {
     case STATE_TYPE.HOLD: {
       const approveTransition = currentState.on?.[WORKFLOW_EVENT.APPROVE];

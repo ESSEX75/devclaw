@@ -12,7 +12,7 @@ import path from "node:path";
 
 import YAML from "yaml";
 
-import type { ResolvedWorkflowConfig } from "../../domain/index.js";
+import type { WorkflowConfig } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW, isRoleId } from "../../domain/index.js";
 import { getAllRoleIds, ROLE_REGISTRY } from "../../roles/index.js";
 import { DATA_DIR } from "../setup/paths.js";
@@ -218,7 +218,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
     }
   }
 
-  const workflow: ResolvedWorkflowConfig = {
+  const workflow: WorkflowConfig = {
     initial: config.workflow?.initial ?? DEFAULT_WORKFLOW.initial,
     reviewPolicy: config.workflow?.reviewPolicy ?? DEFAULT_WORKFLOW.reviewPolicy,
     testPolicy: config.workflow?.testPolicy ?? DEFAULT_WORKFLOW.testPolicy,

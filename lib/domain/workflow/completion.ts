@@ -4,7 +4,7 @@
 import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI, STATE_TYPE } from "./const.js";
 import { isCompletionResult } from "./guards.js";
 import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";
-import { type CompletionRule, type WorkflowConfig, type WorkflowEvent } from "./types.js";
+import { type CompletionRule, type WorkflowDefinition, type WorkflowEvent } from "./types.js";
 
 /**
  * Get completion rule for a role:result pair.
@@ -15,7 +15,7 @@ export function getCompletionRule<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   role: TRoleId,
   event: WorkflowEvent,
 ): CompletionRule<TLabel> | null {
@@ -56,7 +56,7 @@ export function getNextStateDescription<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   role: TRoleId,
   event: WorkflowEvent,
 ): string {

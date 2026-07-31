@@ -25,12 +25,8 @@ export async function scanStatelessIssues(opts: {
   autoFix: boolean;
   instanceName?: string;
 }): Promise<HealthFix[]> {
-  const {
-    workspaceDir, projectSlug, project, provider,
-    workflow = DEFAULT_WORKFLOW,
-    autoFix,
-    instanceName,
-  } = opts;
+  const { workspaceDir, projectSlug, project, provider, autoFix, instanceName } = opts;
+  const workflow: WorkflowConfig = opts.workflow ?? DEFAULT_WORKFLOW;
 
   const fixes: HealthFix[] = [];
   const stateLabels = new Set<string>(getStateLabels(workflow));

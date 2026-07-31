@@ -20,9 +20,9 @@ import {
   getCompletionRule,
   getNextStateDescription,
   NOTIFICATION_CHANNEL,
-  type ResolvedWorkflowConfig,
   resolveNotifyChannel,
   WORKFLOW_EVENT,
+  type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
@@ -50,7 +50,7 @@ export function getRule(
   role: string,
   result: string,
   completion: CompletionEventMap,
-  workflow: ResolvedWorkflowConfig = DEFAULT_WORKFLOW,
+  workflow: WorkflowConfig = DEFAULT_WORKFLOW,
 ): CompletionRule<string> | undefined {
   const event = completion[result];
 
@@ -78,7 +78,7 @@ export async function executeCompletion(opts: {
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
   runtime?: PluginRuntime;
   /** Workflow config (defaults to DEFAULT_WORKFLOW) */
-  workflow?: ResolvedWorkflowConfig;
+  workflow?: WorkflowConfig;
   /** Tasks created during this work session (e.g. architect implementation tasks) */
   createdTasks?: Array<{ id: number; title: string; url: string }>;
   /** Level of the completing worker */
@@ -407,7 +407,7 @@ export async function executeCompletion(opts: {
 }
 
 function getMergeFailedTransition(
-  workflow: ResolvedWorkflowConfig,
+  workflow: WorkflowConfig,
   fromLabel: string,
 ): { key: string; label: string } | null {
   const fromState = findStateByLabel(workflow, fromLabel);

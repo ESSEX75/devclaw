@@ -3,7 +3,7 @@
  */
 import { DEFAULT_ROLES, STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
 import { isWorkflowEvent } from "./guards.js";
-import { type StateConfig, type WorkflowConfig, type WorkflowEvent } from "./types.js";
+import { type StateDefinition, type WorkflowDefinition, type WorkflowEvent } from "./types.js";
 
 /** Return workflow states without losing generic identifier types. */
 function getWorkflowStates<
@@ -11,9 +11,9 @@ function getWorkflowStates<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
-): Array<StateConfig<TRoleId, TStateKey, TLabel>> {
-  const states: Array<StateConfig<TRoleId, TStateKey, TLabel>> = [];
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
+): Array<StateDefinition<TRoleId, TStateKey, TLabel>> {
+  const states: Array<StateDefinition<TRoleId, TStateKey, TLabel>> = [];
 
   for (const stateKey in workflow.states) {
     states.push(workflow.states[stateKey]);
@@ -29,7 +29,7 @@ export function getStateLabels<
   TRoleId extends string,
   TStateKey extends string,
   TLabel extends string,
->(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): TLabel[] {
+>(workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>): TLabel[] {
   return getWorkflowStates(workflow).map((state) => state.label);
 }
 
@@ -43,7 +43,7 @@ export function getCurrentStateLabel<
   TLabel extends string,
 >(
   labels: readonly string[],
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
 ): TLabel | null {
   for (const state of getWorkflowStates(workflow)) {
     if (labels.includes(state.label)) return state.label;
@@ -59,7 +59,7 @@ export function getInitialStateLabel<
   TRoleId extends string,
   TStateKey extends string,
   TLabel extends string,
->(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): TLabel {
+>(workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>): TLabel {
   return workflow.states[workflow.initial].label;
 }
 
@@ -70,7 +70,7 @@ export function getLabelColors<
   TRoleId extends string,
   TStateKey extends string,
   TLabel extends string,
->(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): ReadonlyMap<TLabel, string> {
+>(workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>): ReadonlyMap<TLabel, string> {
   const colors = new Map<TLabel, string>();
 
   for (const state of getWorkflowStates(workflow)) {
@@ -88,7 +88,7 @@ export function getQueueLabels<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   role: TRoleId,
 ): TLabel[] {
   return getWorkflowStates(workflow)
@@ -104,7 +104,7 @@ export function getAllQueueLabels<
   TRoleId extends string,
   TStateKey extends string,
   TLabel extends string,
->(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): TLabel[] {
+>(workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>): TLabel[] {
   return getWorkflowStates(workflow)
     .filter((s) => s.type === STATE_TYPE.QUEUE)
     .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
@@ -119,7 +119,7 @@ export function getActiveLabel<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   role: TRoleId,
 ): TLabel {
   const state = getWorkflowStates(workflow).find(
@@ -139,7 +139,7 @@ export function getRevertLabel<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   role: TRoleId,
 ): TLabel {
   const activeLabel = getActiveLabel(workflow, role);
@@ -169,7 +169,7 @@ export function detectRoleFromLabel<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   label: string,
 ): TRoleId | null {
   for (const state of getWorkflowStates(workflow)) {
@@ -190,9 +190,9 @@ export function findStateByLabel<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   label: string,
-): StateConfig<TRoleId, TStateKey, TLabel> | null {
+): StateDefinition<TRoleId, TStateKey, TLabel> | null {
   return getWorkflowStates(workflow).find((state) => state.label === label) ?? null;
 }
 
@@ -204,7 +204,7 @@ export function findStateKeyByLabel<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   label: string,
 ): TStateKey | null {
   for (const stateKey in workflow.states) {
@@ -222,7 +222,7 @@ export function hasWorkflowStates<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   role: TRoleId,
 ): boolean {
   return getWorkflowStates(workflow).some((state) => state.role === role);
@@ -247,7 +247,7 @@ export function isFeedbackState<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   label: string,
 ): boolean {
   const stateKey = findStateKeyByLabel(workflow, label);
@@ -273,7 +273,7 @@ export function hasReviewCheck<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   role: TRoleId,
 ): boolean {
   return getWorkflowStates(workflow).some(
@@ -289,7 +289,7 @@ export function producesReviewableWork<
   TStateKey extends string,
   TLabel extends string,
 >(
-  workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>,
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
   role: TRoleId,
 ): boolean {
   let activeKey: TStateKey | null;
@@ -322,7 +322,7 @@ export function hasTestPhase<
   TRoleId extends string,
   TStateKey extends string,
   TLabel extends string,
->(workflow: WorkflowConfig<TRoleId, TStateKey, TLabel>): boolean {
+>(workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>): boolean {
   return getWorkflowStates(workflow).some(
     (s) => s.role === DEFAULT_ROLES.TESTER && s.type === STATE_TYPE.QUEUE,
   );
