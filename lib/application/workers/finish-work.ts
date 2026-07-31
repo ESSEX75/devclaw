@@ -223,7 +223,7 @@ export async function finishWork(input: FinishWorkInput) {
     throw new Error(`${role.toUpperCase()} worker not active on ${project.name}`);
   }
 
-  const { provider } = await resolveProvider(project, runCommand);
+  const { provider } = await resolveProvider(workspaceDir, project, runCommand);
 
   if (!getRule(role, result, resolvedRole.completion, workflow)) {
     await auditLog(workspaceDir, "work_finish_rejected", {

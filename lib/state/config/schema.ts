@@ -3,6 +3,7 @@
  */
 import { z } from "zod";
 
+import type { WorkflowConfig } from "../../domain/index.js";
 import {
   ACTION,
   EXECUTION_MODE,
@@ -13,6 +14,7 @@ import {
   type TransitionTarget,
   WORKFLOW_EVENT,
 } from "../../domain/index.js";
+import type { DevClawConfig } from "./types.js";
 
 const IDENTIFIER_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const LABEL_MAX_LENGTH = 50;
@@ -85,13 +87,33 @@ const StateConfigSchema = z.discriminatedUnion("type", [
   TerminalStateSchema,
 ]);
 
+const StateOverrideSchema = z.object({
+  type: z.enum(STATE_TYPE).optional(),
+  role: IdentifierSchema.optional(),
+  label: LabelSchema.optional(),
+  color: ColorSchema.optional(),
+  description: z.string().trim().min(1).optional(),
+  check: z.enum(REVIEW_CHECK).optional(),
+  priority: z.number().int().optional(),
+  on: WorkflowTransitionsSchema.optional(),
+}).strict();
+
 const WorkflowConfigSchema = z.object({
   initial: IdentifierSchema.optional(),
   reviewPolicy: z.enum(REVIEW_POLICY).optional(),
   testPolicy: z.enum(TEST_POLICY).optional(),
   roleExecution: z.enum(EXECUTION_MODE).optional(),
   maxWorkersPerLevel: z.number().int().positive().optional(),
-  states: z.record(IdentifierSchema, StateConfigSchema).optional(),
+  states: z.record(IdentifierSchema, StateOverrideSchema).optional(),
+}).strict();
+
+const ResolvedWorkflowConfigSchema = z.object({
+  initial: IdentifierSchema,
+  reviewPolicy: z.enum(REVIEW_POLICY).optional(),
+  testPolicy: z.enum(TEST_POLICY).optional(),
+  roleExecution: z.enum(EXECUTION_MODE).optional(),
+  maxWorkersPerLevel: z.number().int().positive().optional(),
+  states: z.record(IdentifierSchema, StateConfigSchema),
 }).strict();
 
 const ModelEntrySchema = z.union([
@@ -138,6 +160,16 @@ export const DevClawConfigSchema = z.object({
 /** Validate raw parsed YAML and throw a path-aware Zod error on failure. */
 export function validateConfig(raw: unknown): void {
   DevClawConfigSchema.parse(raw);
+}
+
+/** Parse unknown input into the validated raw configuration model. */
+export function parseConfig(raw: unknown): DevClawConfig {
+  return DevClawConfigSchema.parse(raw);
+}
+
+/** Validate the complete workflow shape after all configuration layers merge. */
+export function parseResolvedWorkflowConfig(workflow: unknown): WorkflowConfig {
+  return ResolvedWorkflowConfigSchema.parse(workflow);
 }
 
 type RoleIntegrityInput = Record<string, false | {

@@ -1,9 +1,21 @@
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
-import { validateConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
+import { parseResolvedWorkflowConfig, validateConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
 
 describe("workflow config schema", () => {
+  it("accepts sparse state overrides before configuration layers merge", () => {
+    assert.doesNotThrow(() => validateConfig({
+      workflow: {
+        states: {
+          todo: {
+            label: "Ready for Development",
+          },
+        },
+      },
+    }));
+  });
+
   it("accepts explicit completion result mappings", () => {
     assert.doesNotThrow(() => validateConfig({
       roles: {
@@ -133,6 +145,37 @@ describe("workflow config schema", () => {
             type: "hold",
             label: "",
             color: "#428bca",
+          },
+        },
+      },
+    }));
+  });
+});
+
+describe("resolved workflow schema", () => {
+  it("rejects incomplete custom states after configuration layers merge", () => {
+    assert.throws(() => parseResolvedWorkflowConfig({
+      initial: "custom",
+      states: {
+        custom: {
+          type: "queue",
+          label: "Custom",
+          color: "#123456",
+        },
+      },
+    }));
+  });
+
+  it("rejects outgoing transitions on terminal states", () => {
+    assert.throws(() => parseResolvedWorkflowConfig({
+      initial: "done",
+      states: {
+        done: {
+          type: "terminal",
+          label: "Done",
+          color: "#123456",
+          on: {
+            COMPLETE: { target: "done" },
           },
         },
       },

@@ -7,7 +7,7 @@
  * - `false` for a role: marks it as disabled
  * - Primitives: override
  */
-import type { DevClawConfig, RoleOverride } from "./types.js";
+import type { DevClawConfig, RoleOverride, StateOverride } from "./types.js";
 
 /**
  * Merge a config overlay on top of a base config.
@@ -51,10 +51,10 @@ export function mergeConfig(
       testPolicy: overlay.workflow?.testPolicy ?? base.workflow?.testPolicy,
       roleExecution: overlay.workflow?.roleExecution ?? base.workflow?.roleExecution,
       maxWorkersPerLevel: overlay.workflow?.maxWorkersPerLevel ?? base.workflow?.maxWorkersPerLevel,
-      states: {
-        ...base.workflow?.states,
-        ...overlay.workflow?.states,
-      },
+      states: mergeWorkflowStates(
+        base.workflow?.states,
+        overlay.workflow?.states,
+      ),
     };
     // Clean up undefined initial
     if (merged.workflow.initial === undefined) {
@@ -68,6 +68,29 @@ export function mergeConfig(
   }
 
   return merged;
+}
+
+function mergeWorkflowStates(
+  base: Readonly<Record<string, StateOverride>> | undefined,
+  overlay: Readonly<Record<string, StateOverride>> | undefined,
+): Record<string, StateOverride> | undefined {
+  if (!base && !overlay) return undefined;
+
+  const states: Record<string, StateOverride> = { ...base };
+
+  for (const [stateKey, override] of Object.entries(overlay ?? {})) {
+    const baseState = states[stateKey];
+
+    states[stateKey] = {
+      ...baseState,
+      ...override,
+      on: baseState?.on || override.on
+        ? { ...baseState?.on, ...override.on }
+        : undefined,
+    };
+  }
+
+  return states;
 }
 
 function mergeRoleOverride(

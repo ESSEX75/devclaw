@@ -64,7 +64,7 @@ export function createHealthTool(ctx: PluginContext) {
         const project = data.projects[slug];
 
         if (!project) continue;
-        const { provider } = await resolveProvider(project, ctx.runCommand);
+      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
         const resolvedConfig = await loadConfig(workspaceDir, project.name);
 
         for (const role of getConfiguredRoleIds(resolvedConfig)) {

@@ -33,7 +33,7 @@ export async function editTaskBody(input: EditTaskBodyInput) {
   }
 
   const { project } = await resolveProject(workspaceDir, channelId);
-  const { provider, type: providerType } = await resolveProvider(project, runCommand);
+  const { provider, type: providerType } = await resolveProvider(workspaceDir, project, runCommand);
 
   const resolvedConfig = await loadConfig(workspaceDir, project.name);
   const initialStateLabel = getInitialStateLabel(resolvedConfig.workflow);

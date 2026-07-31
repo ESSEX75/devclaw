@@ -124,7 +124,7 @@ Use cases:
         const { detectMime } = await import("openclaw/plugin-sdk/media-mime");
         const mimeType = await detectMime({ filePath: resolvedPath, buffer }) ?? "application/octet-stream";
 
-        const { provider } = await resolveProvider(project, ctx.runCommand);
+      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
 
         const meta = await saveAttachment(workspaceDir, project.slug, issueId, {
           buffer,

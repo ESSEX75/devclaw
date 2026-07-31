@@ -85,6 +85,7 @@ export function createSyncLabelsTool(ctx: PluginContext) {
             repo: project.repo,
             provider: project.provider,
             runCommand: ctx.runCommand,
+            workflow: resolvedConfig.workflow,
           });
 
           // State labels from the resolved workflow (not DEFAULT_WORKFLOW)

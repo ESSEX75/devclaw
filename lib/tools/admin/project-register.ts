@@ -192,9 +192,14 @@ export function createProjectRegisterTool(ctx: PluginContext) {
 
       // 2. Resolve repo path
       const repoPath = resolveRepoPath(repo);
+      const resolvedConfig = await loadConfig(workspaceDir, name);
 
       // 3. Create provider and verify it works
-      const { provider, type: providerType } = await createProvider({ repo, runCommand: ctx.runCommand });
+      const { provider, type: providerType } = await createProvider({
+        repo,
+        runCommand: ctx.runCommand,
+        workflow: resolvedConfig.workflow,
+      });
 
       const healthy = await provider.healthCheck();
 
@@ -217,7 +222,6 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       await provider.ensureAllStateLabels();
 
       // 4b. Create role:level + step routing labels (e.g. developer:junior, review:human, test:skip)
-      const resolvedConfig = await loadConfig(workspaceDir, name);
       const roleLabels = getRoleLabels(resolvedConfig.roles);
 
       for (const { name: labelName, color } of roleLabels) {

@@ -70,8 +70,19 @@ export async function resolveProject(
  * Create an issue provider for a project.
  * Uses stored provider type from project config if available, otherwise auto-detects.
  */
-export async function resolveProvider(project: Project, runCommand: RunCommand): Promise<ProviderWithType> {
-  return createProvider({ repo: project.repo, provider: project.provider, runCommand });
+export async function resolveProvider(
+  workspaceDir: string,
+  project: Project,
+  runCommand: RunCommand,
+): Promise<ProviderWithType> {
+  const config = await loadConfig(workspaceDir, project.name);
+
+  return createProvider({
+    repo: project.repo,
+    provider: project.provider,
+    runCommand,
+    workflow: config.workflow,
+  });
 }
 
 /**

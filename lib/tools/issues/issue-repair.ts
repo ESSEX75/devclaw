@@ -148,7 +148,12 @@ export async function repairIssueFromLocalState(opts: {
   if (!project) throw new Error(`Project "${opts.projectSlug}" not found.`);
 
   const config = await loadConfig(opts.workspaceDir, project.name);
-  const provider = opts.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: opts.runCommand })).provider;
+  const provider = opts.provider ?? (await createProvider({
+    repo: project.repo,
+    provider: project.provider,
+    runCommand: opts.runCommand,
+    workflow: config.workflow,
+  })).provider;
 
   return repairIssueProjection({
     workspaceDir: opts.workspaceDir,
@@ -229,7 +234,12 @@ export async function migrateIssuePolicies(opts: {
   });
 
   if (!opts.dryRun && changed.length > 0) {
-    const provider = opts.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: opts.runCommand })).provider;
+  const provider = opts.provider ?? (await createProvider({
+    repo: project.repo,
+    provider: project.provider,
+    runCommand: opts.runCommand,
+    workflow: config.workflow,
+  })).provider;
 
     for (const change of changed) {
       change.projection = await repairIssueProjection({

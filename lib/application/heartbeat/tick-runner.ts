@@ -89,12 +89,13 @@ export async function tick(opts: {
 
       if (!project) continue;
 
+      const resolvedConfig = await loadConfig(workspaceDir, project.name);
       const { provider } = await createProvider({
         repo: project.repo,
         provider: project.provider,
         runCommand,
+        workflow: resolvedConfig.workflow,
       });
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
 
       await performProjectionIntegrityPass(
         workspaceDir,

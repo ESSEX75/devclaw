@@ -103,7 +103,7 @@ Example:
       if (!description) throw new Error("description is required — provide detailed background context for the architect");
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider } = await resolveProvider(project, ctx.runCommand);
+      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const pluginConfig = ctx.pluginConfig;
       const role = "architect";
 

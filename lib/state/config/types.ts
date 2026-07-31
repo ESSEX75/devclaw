@@ -6,8 +6,10 @@
  */
 import type {
   CompletionEventMap,
+  ReviewCheckType,
+  TransitionTarget,
   WorkflowConfig,
-  WorkflowStateConfig,
+  WorkflowEvent,
 } from "../../domain/index.js";
 
 /**
@@ -26,8 +28,19 @@ export type RoleOverride = {
   completion?: CompletionEventMap;
 };
 
+export type StateOverride = {
+  type?: WorkflowConfig["states"][string]["type"];
+  role?: string;
+  label?: string;
+  color?: string;
+  description?: string;
+  check?: ReviewCheckType;
+  priority?: number;
+  on?: Partial<Record<WorkflowEvent, TransitionTarget<string>>>;
+};
+
 type WorkflowOverride = Omit<Partial<WorkflowConfig>, "states"> & {
-  states?: Partial<Record<string, WorkflowStateConfig>>;
+  states?: Record<string, StateOverride>;
 };
 
 /**

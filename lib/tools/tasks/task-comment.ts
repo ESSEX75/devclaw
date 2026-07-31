@@ -75,7 +75,7 @@ Examples:
         throw new Error(`Unknown comment author role "${authorRole}".`);
       }
 
-      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
+      const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
 
       const issue = await provider.getIssue(issueId);
 

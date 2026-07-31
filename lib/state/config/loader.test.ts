@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 
+import { getLabelColors, getStateLabels } from "../../domain/index.js";
 import { getConfiguredRoleIds, getResolvedRole, isConfiguredRoleId, loadConfig } from "./index.js";
 
 const temporaryWorkspaces: string[] = [];
@@ -23,6 +24,106 @@ afterEach(async () => {
   await Promise.all(temporaryWorkspaces.splice(0).map(
     (workspaceDir) => fs.rm(workspaceDir, { recursive: true, force: true }),
   ));
+});
+
+describe("custom workflow state resolution", () => {
+  it("merges custom states and sparse built-in overrides into the complete workflow", async () => {
+    const workspaceDir = await createWorkspace(`
+roles:
+  security_auditor:
+    levels: [standard]
+    defaultLevel: standard
+    models:
+      standard: model/security
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
+workflow:
+  initial: securityQueue
+  states:
+    securityQueue:
+      type: queue
+      role: security_auditor
+      label: Security Queue
+      color: "#123456"
+      on:
+        PICKUP:
+          target: securityActive
+    securityActive:
+      type: active
+      role: security_auditor
+      label: Security Active
+      color: "#654321"
+      on:
+        COMPLETE:
+          target: todo
+        BLOCKED:
+          target: refining
+    todo:
+      label: Ready for Development
+      color: "#abcdef"
+`);
+
+    const config = await loadConfig(workspaceDir);
+    const labels = getStateLabels(config.workflow);
+    const colors = getLabelColors(config.workflow);
+
+    assert.equal(config.workflow.initial, "securityQueue");
+    assert.equal(config.workflow.states.securityQueue?.role, "security_auditor");
+    assert.equal(config.workflow.states.securityActive?.on?.COMPLETE?.target, "todo");
+    assert.equal(config.workflow.states.todo?.type, "queue");
+    assert.equal(config.workflow.states.todo?.role, "developer");
+    assert.equal(config.workflow.states.todo?.label, "Ready for Development");
+    assert.ok(labels.includes("Security Queue"));
+    assert.ok(labels.includes("Security Active"));
+    assert.ok(labels.includes("Done"));
+    assert.equal(colors.get("Ready for Development"), "#abcdef");
+  });
+
+  it("deep-merges project state overrides over workspace custom states", async () => {
+    const workspaceDir = await createWorkspace(`
+workflow:
+  states:
+    designQueue:
+      type: queue
+      role: developer
+      label: Design Queue
+      color: "#112233"
+      on:
+        PICKUP:
+          target: designing
+    designing:
+      type: active
+      role: developer
+      label: Designing
+      color: "#223344"
+      on:
+        COMPLETE:
+          target: todo
+`);
+    const projectDir = path.join(workspaceDir, "devclaw", "projects", "design-app");
+
+    await fs.mkdir(projectDir, { recursive: true });
+    await fs.writeFile(path.join(projectDir, "workflow.yaml"), `
+workflow:
+  states:
+    designing:
+      label: Product Designing
+      on:
+        COMPLETE:
+          target: toReview
+`, "utf8");
+
+    const config = await loadConfig(workspaceDir, "design-app");
+    const state = config.workflow.states.designing;
+
+    assert.equal(state?.type, "active");
+    assert.equal(state?.role, "developer");
+    assert.equal(state?.color, "#223344");
+    assert.equal(state?.label, "Product Designing");
+    assert.equal(state?.on?.COMPLETE?.target, "toReview");
+  });
+
 });
 
 describe("custom role resolution", () => {

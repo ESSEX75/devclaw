@@ -11,14 +11,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import YAML from "yaml";
+import { ZodError } from "zod";
 
-import type { WorkflowConfig } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW, isRoleId } from "../../domain/index.js";
 import { getAllRoleIds, ROLE_REGISTRY } from "../../roles/index.js";
 import { DATA_DIR } from "../setup/paths.js";
 import { mergeConfig } from "./merge.js";
-import { validateConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
-import type { DevClawConfig, ModelEntry, RawConfig, ResolvedConfig, ResolvedRoleConfig, ResolvedTimeouts, RoleOverride } from "./types.js";
+import { parseConfig, parseResolvedWorkflowConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
+import type { DevClawConfig, ModelEntry, ResolvedConfig, ResolvedRoleConfig, ResolvedTimeouts, RoleOverride } from "./types.js";
 
 /**
  * Load and resolve the full DevClaw config for a project.
@@ -218,13 +218,14 @@ function resolve(config: DevClawConfig): ResolvedConfig {
     }
   }
 
-  const workflow: WorkflowConfig = {
+  const workflow = parseResolvedWorkflowConfig({
     initial: config.workflow?.initial ?? DEFAULT_WORKFLOW.initial,
     reviewPolicy: config.workflow?.reviewPolicy ?? DEFAULT_WORKFLOW.reviewPolicy,
     testPolicy: config.workflow?.testPolicy ?? DEFAULT_WORKFLOW.testPolicy,
     roleExecution: config.workflow?.roleExecution ?? DEFAULT_WORKFLOW.roleExecution,
-    states: { ...DEFAULT_WORKFLOW.states, ...config.workflow?.states },
-  };
+    maxWorkersPerLevel: globalMaxWorkers,
+    states: config.workflow?.states ?? DEFAULT_WORKFLOW.states,
+  });
 
   // Validate structural integrity (cross-references between states)
   const integrityErrors = validateWorkflowIntegrity(workflow, new Set(Object.keys(roles)));
@@ -257,20 +258,24 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 async function readWorkflowFile(dir: string): Promise<DevClawConfig | null> {
   try {
     const content = await fs.readFile(path.join(dir, "workflow.yaml"), "utf-8");
-    const parsed = YAML.parse(content) as RawConfig | null;
+    const parsed: unknown = YAML.parse(content);
 
-    if (parsed) validateConfig(parsed);
+    if (parsed === null || parsed === undefined) return null;
 
-    return parsed;
+    return parseConfig(parsed);
   } catch (err) {
-    const error = err as NodeJS.ErrnoException | { name?: string; message?: string };
-
-    if ('code' in error && error.code === "ENOENT") return null;
+    if (isErrnoException(err) && err.code === "ENOENT") return null;
     // Re-throw validation errors with file context
-    if ('name' in error && error.name === "ZodError") {
-      throw new Error(`Invalid workflow.yaml in ${dir}: ${error.message}`, { cause: err });
+    if (err instanceof ZodError) {
+      throw new Error(`Invalid workflow.yaml in ${dir}: ${err.message}`, { cause: err });
     }
 
-    throw new Error(`Cannot read workflow.yaml in ${dir}: ${error.message ?? String(err)}`, { cause: err });
+    const message = err instanceof Error ? err.message : String(err);
+
+    throw new Error(`Cannot read workflow.yaml in ${dir}: ${message}`, { cause: err });
   }
+}
+
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }

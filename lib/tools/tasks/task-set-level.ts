@@ -69,7 +69,7 @@ Examples:
       }
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
+      const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
 
       const issue = await provider.getIssue(issueId);
