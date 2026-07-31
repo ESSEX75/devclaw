@@ -2,9 +2,12 @@
  * issues/types.ts — Runtime state for DevClaw-managed provider issues.
  */
 import type { SoftUnion } from "../../types.js";
-import type { IssueProviderType, NotificationChannel } from "../shared/types.js";
+import type { NotifyTarget } from "../notifications/types.js";
 import type { ReviewPolicy, TestPolicy } from "../workflow/types.js";
-import { ISSUE_INTEGRITY_STATUS } from "./const.js";
+import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER } from "./const.js";
+
+/** Supported issue tracking provider identifier. */
+export type IssueProviderId = SoftUnion<typeof ISSUE_PROVIDER>;
 
 /** Status of the issue's local state relative to the provider. */
 export type IssueIntegrityStatus = SoftUnion<typeof ISSUE_INTEGRITY_STATUS>;
@@ -17,14 +20,6 @@ export type IssueProjectionState = {
   integrityErrors: string[];
   /** Version of the provider-side projection format. */
   projectionVersion: number;
-};
-
-/** Target endpoint details for issue notifications. */
-export type NotifyTarget = {
-  /** Notification channel type (e.g. telegram, slack). */
-  channel: NotificationChannel;
-  /** Channel target name/identifier. */
-  name: string;
 };
 
 /** Git branches and pull request metadata associated with the issue. */
@@ -58,7 +53,7 @@ export type IssueRuntimeState = IssueProjectionState & {
   /** Unique numeric identifier for the issue on the provider. */
   issueId: number;
   /** Provider host name. */
-  provider: IssueProviderType;
+  provider: IssueProviderId;
   /** Current state key in the workflow statechart. */
   workflowState: string;
   /** Current display state label matching the provider label. */

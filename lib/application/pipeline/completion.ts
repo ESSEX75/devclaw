@@ -9,7 +9,6 @@ import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import {
   ACTION,
-  type Channel,
   COMPLETION_RESULT,
   type CompletionEventMap,
   type CompletionRule,
@@ -20,6 +19,7 @@ import {
   getCompletionRule,
   getNextStateDescription,
   NOTIFICATION_CHANNEL,
+  type NotificationEndpoint,
   resolveNotifyChannel,
   WORKFLOW_EVENT,
   type WorkflowConfig,
@@ -73,7 +73,7 @@ export async function executeCompletion(opts: {
   provider: IssueProvider;
   repoPath: string;
   projectName: string;
-  channels: Channel[];
+  channels: NotificationEndpoint[];
   pluginConfig?: Record<string, unknown>;
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
   runtime?: PluginRuntime;

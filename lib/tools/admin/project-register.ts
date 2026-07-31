@@ -14,12 +14,12 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import {
-  type Channel,
   emptyRoleWorkerState,
   getRoleLabels,
   isNotificationChannel,
   ISSUE_PROVIDER,
   NOTIFICATION_CHANNEL,
+  type NotificationEndpoint,
   type RoleWorkerState,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
@@ -245,7 +245,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       // 6. Add or update project in projects.json
       if (existing) {
         // Add channel to existing project
-        const newChannel: Channel = {
+      const newChannel: NotificationEndpoint = {
           channelId,
           channel,
           name: `channel-${existing.channels.length + 1}`,
@@ -266,7 +266,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           workers[role] = emptyRoleWorkerState(levelMaxWorkers);
         }
 
-        const newChannel: Channel = {
+    const newChannel: NotificationEndpoint = {
           channelId,
           channel,
           name: "primary",

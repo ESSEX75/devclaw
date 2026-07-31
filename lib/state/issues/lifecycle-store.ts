@@ -10,7 +10,7 @@ import {
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   type IssueIntegrityStatus,
-  type IssueProviderType,
+  type IssueProviderId,
   type IssueRuntimeState,
   NOTIFY_LABEL_PREFIX,
   type NotifyTarget,
@@ -28,7 +28,7 @@ export type IssueStateWriteInput = {
   workspaceDir: string;
   project: Pick<Project, "slug" | "channels">;
   issue: Pick<Issue, "iid" | "labels" | "state">;
-  providerType: IssueProviderType;
+  providerType: IssueProviderId;
   workflow: WorkflowConfig;
   workflowLabel?: string;
   workflowState?: string;
@@ -152,7 +152,7 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
   return written;
 }
 
-export function providerKindFromProject(project: Pick<Project, "provider">): IssueProviderType {
+export function providerKindFromProject(project: Pick<Project, "provider">): IssueProviderId {
   return project.provider === ISSUE_PROVIDER.GITHUB ? ISSUE_PROVIDER.GITHUB : ISSUE_PROVIDER.GITLAB;
 }
 

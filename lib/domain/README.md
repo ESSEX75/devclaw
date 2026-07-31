@@ -7,6 +7,11 @@ policies, IDs, and deterministic helper functions. Code here should be safe to
 execute without filesystem access, provider clients, OpenClaw runtime context, or
 CLI state.
 
+Package ownership is explicit: `notifications` owns messaging endpoints and
+notification routing labels, `issues` owns provider IDs and issue ownership,
+`projects` owns project and worker-slot structures, and `workflow` owns state
+machine semantics and workflow routing.
+
 ## Boundary Rules
 
 - Do not import from `lib/application`, `lib/state`, `lib/integrations`,

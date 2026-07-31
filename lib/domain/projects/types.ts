@@ -1,7 +1,8 @@
 /**
  * projects/types.ts — Domain types for projects, worker slots, and notification channels.
  */
-import type { IssueProviderType, NotificationChannel } from "../shared/types.js";
+import type { IssueProviderId } from "../issues/types.js";
+import type { NotificationEndpoint } from "../notifications/types.js";
 
 /** Slot state. Level is structural (implied by position in the levels map). */
 export type SlotState = {
@@ -35,20 +36,6 @@ export type SlotLocation = {
   slotIndex: number;
 };
 
-/** Channel registration mapping a channel ID to a messaging endpoint. */
-export type Channel = {
-  /** Unique channel identifier. */
-  channelId: string;
-  /** Messaging platform type (e.g. telegram, slack). */
-  channel: NotificationChannel;
-  /** Channel display name (e.g. "primary", "dev-chat"). */
-  name: string;
-  /** Optional account ID for multi-account setups. */
-  accountId?: string;
-  /** Optional thread or topic ID for forum-style channels. */
-  threadId?: string;
-};
-
 /** Project configuration schema. */
 export type Project = {
   /** Unique project slug. */
@@ -68,9 +55,9 @@ export type Project = {
   /** Target branch for deployment releases. */
   deployBranch: string;
   /** Channels registered for this project (notification endpoints). */
-  channels: Channel[];
+  channels: NotificationEndpoint[];
   /** Issue tracker provider type (github or gitlab). Auto-detected at registration, stored for reuse. */
-  provider?: IssueProviderType;
+  provider?: IssueProviderId;
   /** Worker state per role (developer, tester, architect, etc.). Shared across all channels. */
   workers: Record<string, RoleWorkerState>;
 };

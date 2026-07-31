@@ -1,5 +1,5 @@
 import {
-  type IssueProviderType,
+  type IssueProviderId,
   NOTIFY_LABEL_COLOR,
   NOTIFY_LABEL_PREFIX,
   type NotifyTarget,
@@ -28,7 +28,7 @@ export type CreatedManagedTask = {
 export async function createManagedTaskIssue(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug" | "channels">;
-  providerType: IssueProviderType;
+  providerType: IssueProviderId;
   provider: Pick<IssueWriter, "createIssue" | "editIssue"> & Pick<LabelProjector, "addLabel" | "ensureLabel">;
   workflow: WorkflowConfig;
   title: string;

@@ -255,18 +255,6 @@ export const ROLE_LABEL_COLORS = {
 /** Color used for workflow step routing labels. */
 export const STEP_ROUTING_COLOR = "#d93f0b";
 
-/** Prefix used for notification routing labels. */
-export const NOTIFY_LABEL_PREFIX = "notify:";
-
-/** Color used for notification routing labels. */
-export const NOTIFY_LABEL_COLOR = "#e4e4e4";
-
-/** Prefix used for instance ownership labels. */
-export const OWNER_LABEL_PREFIX = "owner:";
-
-/** Color used for instance ownership labels. */
-export const OWNER_LABEL_COLOR = "#e4e4e4";
-
 /** Default fallback color for unknown roles. */
 export const DEFAULT_ROLE_LABEL_COLOR = "#cccccc";
 

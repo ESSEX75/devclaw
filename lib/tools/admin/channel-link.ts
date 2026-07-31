@@ -10,9 +10,9 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 
 import { log as auditLog } from "../../audit.js";
 import {
-  type Channel,
   isNotificationChannel,
   NOTIFICATION_CHANNEL,
+  type NotificationEndpoint,
 } from "../../domain/index.js";
 import { readProjects, writeProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
@@ -131,7 +131,7 @@ export function createChannelLinkTool() {
       }
 
       // Attach to target project
-      const newChannel: Channel = {
+    const newChannel: NotificationEndpoint = {
         channelId,
         channel: channelType,
         name: channelName ?? `channel-${target.channels.length + 1}`,

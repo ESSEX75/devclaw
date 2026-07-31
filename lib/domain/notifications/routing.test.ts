@@ -5,7 +5,7 @@
  * - getNotifyLabel / NOTIFY_LABEL_PREFIX / NOTIFY_LABEL_COLOR
  * - resolveNotifyChannel
  *
- * Run with: npx tsx --test lib/tools/worker/group-isolation.test.ts
+ * Run with: npx tsx --test lib/domain/notifications/routing.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
@@ -15,8 +15,8 @@ import {
   NOTIFY_LABEL_PREFIX,
   NOTIFY_LABEL_COLOR,
   resolveNotifyChannel,
-  type Channel,
-} from "../../domain/index.js";
+  type NotificationEndpoint,
+} from "../index.js";
 
 // ---------------------------------------------------------------------------
 // getNotifyLabel / constants
@@ -60,7 +60,7 @@ describe("notify label helpers", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveNotifyChannel (new format)", () => {
-  const channels: Array<Omit<Channel, "events">> = [
+  const channels: NotificationEndpoint[] = [
       { channelId: "-111", channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
       { channelId: "-222", channel: NOTIFICATION_CHANNEL.WHATSAPP, name: "dev-chat" },
   ];
