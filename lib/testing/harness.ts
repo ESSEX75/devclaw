@@ -16,7 +16,6 @@ import type { PluginContext, RunCommand } from "../context.js";
 import {
   DEFAULT_WORKFLOW,
   ISSUE_PROVIDER,
-  type LevelId,
   NOTIFICATION_CHANNEL,
   type Project,
   type ProjectsData,
@@ -211,7 +210,7 @@ export type HarnessOptions = {
   workflow?: WorkflowConfig;
   /** Initial worker state overrides (level + slot fields). */
   workers?: Record<string, {
-    level?: LevelId;
+    level?: string;
     active?: boolean;
     issueId?: string | null;
     sessionKey?: string | null;

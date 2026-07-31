@@ -4,8 +4,7 @@
  * Uses an LLM to intelligently analyze and assign models to DevClaw roles.
  */
 import type { RunCommand } from "../context.js";
-import { getAllRoleIds, getLevelsForRole } from "./index.js";
-import { ROLE_REGISTRY } from "./index.js";
+import { getAllRoleIds, getLevelsForRole, ROLE_REGISTRY } from "./index.js";
 
 /** Model assignment: role → level → model ID. Derived from registry structure. */
 export type ModelAssignment = Record<string, Record<string, string>>;
@@ -16,7 +15,9 @@ export type ModelAssignment = Record<string, Record<string, string>>;
 function singleModelAssignment(model: string): ModelAssignment {
   const result: ModelAssignment = {};
 
-  for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
+  for (const roleId of getAllRoleIds()) {
+    const config = ROLE_REGISTRY[roleId];
+
     result[roleId] = {};
     for (const level of config.levels) {
       result[roleId][level] = model;
@@ -68,7 +69,9 @@ export async function assignModels(
   const result: ModelAssignment = {};
   const fallback = authenticated[0].model;
 
-  for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
+  for (const roleId of getAllRoleIds()) {
+    const config = ROLE_REGISTRY[roleId];
+
     result[roleId] = {};
     for (const level of config.levels) {
       const registryDefault = config.models[level];

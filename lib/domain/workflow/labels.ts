@@ -65,9 +65,7 @@ export function getRoleLabels(
 ): Array<{ name: string; color: string }> {
   const labels: Array<{ name: string; color: string }> = [];
 
-  for (const roleId of Object.values(DEFAULT_ROLES)) {
-    const role = roles[roleId];
-
+  for (const [roleId, role] of Object.entries(roles)) {
     if (!role) continue;
     if (role.enabled === false) continue;
     for (const level of role.levels) {

@@ -180,7 +180,8 @@ describe("session key pattern", () => {
 
 describe("registry consistency", () => {
   it("every role should have all required fields", () => {
-    for (const [id, config] of Object.entries(ROLE_REGISTRY)) {
+    for (const id of getAllRoleIds()) {
+      const config = ROLE_REGISTRY[id];
       assert.strictEqual(config.id, id, `${id}: id mismatch`);
       assert.ok(config.displayName, `${id}: missing displayName`);
       assert.ok(config.levels.length > 0, `${id}: empty levels`);
