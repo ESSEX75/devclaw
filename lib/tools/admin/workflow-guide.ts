@@ -267,6 +267,19 @@ roles:
 \`\`\`
 Then add states that use \`role: security_auditor\`.
 
+Declaring the role is not enough: place it in the workflow graph.
+
+1. An earlier state's transition must target the custom role's queue state.
+2. That queue state must use \`role: security_auditor\` and route \`PICKUP\` to
+   an active state for the same role.
+3. The active state's completion events must target the states that run next.
+
+Example order:
+\`architect active state -> security_auditor queue -> security_auditor active state -> developer queue\`.
+
+Without an incoming transition the role is unreachable. Without an outgoing
+transition the workflow stops after the role finishes.
+
 ## Prompts per role
 
 Each role can have a system prompt file:

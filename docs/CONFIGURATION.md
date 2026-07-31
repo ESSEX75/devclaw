@@ -87,6 +87,71 @@ Every configured level must have a model, `defaultLevel` must be listed in
 worker slots, persisted issue state, and projected `role:level` labels all use
 the resolved role definition rather than the built-in registry.
 
+#### Place a custom role in the workflow
+
+Defining `roles.<role>` only configures the worker's levels, models, and
+completion results. It does not determine when that worker runs. A custom role
+must also be placed in the workflow state graph:
+
+1. A transition from an earlier state must target the custom role's queue state.
+2. The queue state must declare `role: <role>` and transition on `PICKUP` to an
+   active state for the same role.
+3. The active state's events must lead to the states that should run next.
+4. The role needs a matching prompt at `devclaw/prompts/<role>.md` or
+   `devclaw/projects/<project>/prompts/<role>.md` describing its responsibilities.
+
+For example, this places `designer` between `architect` and `developer`:
+
+```yaml
+roles:
+  designer:
+    levels: [standard, expert]
+    defaultLevel: standard
+    models:
+      standard: model/design-standard
+      expert: model/design-expert
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
+
+workflow:
+  states:
+    researching:
+      type: active
+      role: architect
+      label: Researching
+      color: "#7057ff"
+      on:
+        COMPLETE:
+          target: toDesign
+
+    toDesign:
+      type: queue
+      role: designer
+      label: To Design
+      color: "#a855f7"
+      on:
+        PICKUP:
+          target: designing
+
+    designing:
+      type: active
+      role: designer
+      label: Designing
+      color: "#7e22ce"
+      on:
+        COMPLETE:
+          target: todo
+        BLOCKED:
+          target: blocked
+```
+
+In this example, `architect:done` produces `COMPLETE`, which moves the issue to
+`toDesign`. The heartbeat then dispatches `designer`. When `designer` returns
+`done`, its `COMPLETE` transition moves the issue to `todo`, where the developer
+can pick it up. Without the incoming transition, the custom role is unreachable;
+without the outgoing transition, work cannot continue after it finishes.
+
 **Default models:**
 
 | Role | Level | Default Model |
