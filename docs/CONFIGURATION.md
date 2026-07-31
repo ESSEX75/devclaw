@@ -143,7 +143,7 @@ workflow:
         COMPLETE:
           target: todo
         BLOCKED:
-          target: blocked
+          target: refining
 ```
 
 In this example, `architect:done` produces `COMPLETE`, which moves the issue to
@@ -189,6 +189,48 @@ workflow:
 ```
 
 `maxWorkersPerLevel` creates that many slots for each level of each enabled role. With the default developer levels (`junior`, `medior`, `senior`) and `maxWorkersPerLevel: 2`, a project can have up to six developer slots, subject to queue state and `roleExecution`.
+
+State keys are extensible identifiers. They must start with a letter and contain
+only letters, numbers, underscores, or hyphens. Built-in states can be changed
+with sparse overrides, while every newly added state must resolve to a complete
+definition containing `type`, `label`, and `color`; `queue` and `active` states
+also require a configured `role`.
+
+Every transition uses object form, even when it only selects a target:
+
+```yaml
+workflow:
+  initial: designQueue
+  states:
+    designQueue:
+      type: queue
+      role: designer
+      label: Design Queue
+      color: "#a855f7"
+      on:
+        PICKUP:
+          target: designing
+```
+
+Transition targets and `workflow.initial` are checked after all three layers
+have merged. Labels must be unique, at most 50 characters, and cannot use the
+reserved `owner:`, `notify:`, or `role:level` routing formats. Events, actions,
+review checks, state types, review policies, and test policies are closed sets;
+unknown values and unknown object properties are rejected.
+
+Completion behavior is configured exclusively through
+`roles.<role>.completion`, which maps a worker-facing result to a workflow event:
+
+```yaml
+roles:
+  designer:
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
+```
+
+Each emitted event needs a matching transition on the role's active state.
+There is no implicit uppercase conversion or positional result list.
 
 See **[Workflow Reference](WORKFLOW.md)** for the full state machine documentation, including state types, built-in actions, review policy options, and how to enable the test phase.
 

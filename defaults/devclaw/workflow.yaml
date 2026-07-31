@@ -6,6 +6,18 @@
 #
 # To see what changed in a new version: config({ action: "diff" })
 # To reset to package defaults:         config({ action: "reset", scope: "workflow" })
+#
+# Role, level, and state identifiers may be extended. Identifiers must start
+# with a letter and contain only letters, numbers, underscores, or hyphens.
+# A custom role requires levels, defaultLevel, a model for every level, at
+# least one completion mapping, a role prompt, and queue/active states that
+# place it at the intended position in the workflow graph.
+#
+# State overrides are sparse and merge by state key. New states must provide a
+# complete state definition. Transition values always use object form:
+# EVENT: { target: stateKey, actions: [...] }. String targets are invalid.
+# State labels must be unique and cannot use owner:, notify:, or role:level
+# routing formats. Run sync_labels after changing labels or adding states.
 
 roles:
   developer:

@@ -223,7 +223,7 @@ The `reviewPolicy` field controls how PRs are reviewed after a developer complet
 
 ```yaml
 workflow:
-  reviewPolicy: human  # Options: human, agent, auto
+  reviewPolicy: human  # Options: human, agent, skip
 ```
 
 | Policy | Behavior |
@@ -430,7 +430,7 @@ Edit `workflow.yaml` (workspace-level or per-project). Each state needs:
 - `type` — one of `queue`, `active`, `hold`, `terminal`
 - `label` — display name (used for issue labels)
 - `color` — hex color for issue labels
-- `on` — transition map: event name → target state (or `{ target, actions }`)
+- `on` — transition map: event name → `{ target, actions?, description? }`
 
 Queue states also need:
 - `role` — which role picks up work
@@ -440,10 +440,13 @@ Queue states also need:
 
 Config is validated at load time with Zod schemas. Integrity checks verify:
 
+- The initial state exists after all config layers merge
 - All transition targets reference existing states
-- Queue states have roles assigned
+- Queue and active states reference configured roles
 - Terminal states have no outgoing transitions
 - Review checks reference valid check types
+- State labels are unique and do not use reserved routing prefixes
+- Unknown fields, events, actions, and string-form transition targets are rejected
 
 **Source:** [`lib/state/config/schema.ts`](../lib/state/config/schema.ts)
 

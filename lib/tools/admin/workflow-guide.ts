@@ -13,6 +13,30 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import { DATA_DIR } from "../../state/setup/paths.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
+type WorkflowGuideTopic =
+  | "overview"
+  | "states"
+  | "roles"
+  | "review"
+  | "testing"
+  | "timeouts"
+  | "overrides";
+
+const WORKFLOW_GUIDE_TOPICS: readonly WorkflowGuideTopic[] = [
+  "overview",
+  "states",
+  "roles",
+  "review",
+  "testing",
+  "timeouts",
+  "overrides",
+];
+
+function isWorkflowGuideTopic(value: unknown): value is WorkflowGuideTopic {
+  return typeof value === "string"
+    && WORKFLOW_GUIDE_TOPICS.some((topic) => topic === value);
+}
+
 export function createWorkflowGuideTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "workflow_guide",
@@ -32,7 +56,7 @@ export function createWorkflowGuideTool() {
             "Optional: narrow to a specific topic. " +
             'Options: "overview", "states", "roles", "review", "testing", "timeouts", "overrides". ' +
             "Omit for the full guide.",
-          enum: ["overview", "states", "roles", "review", "testing", "timeouts", "overrides"],
+          enum: WORKFLOW_GUIDE_TOPICS,
         },
       },
     },
@@ -40,9 +64,9 @@ export function createWorkflowGuideTool() {
     async execute(_id: string, params: Record<string, unknown>) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
       const dataDir = `${workspaceDir}/${DATA_DIR}`;
-      const topic = params.topic as string | undefined;
+      const topic = params.topic;
 
-      const sections: Record<string, string> = {
+      const sections: Record<WorkflowGuideTopic, string> = {
         overview: buildOverview(dataDir),
         states: buildStatesSection(),
         roles: buildRolesSection(),
@@ -52,7 +76,7 @@ export function createWorkflowGuideTool() {
         overrides: buildOverridesSection(dataDir),
       };
 
-      if (topic && sections[topic]) {
+      if (isWorkflowGuideTopic(topic)) {
         return jsonResult({ guide: sections[topic] });
       }
 
@@ -114,7 +138,7 @@ function buildStatesSection(): string {
 
 | Type       | Meaning                                        |
 |------------|------------------------------------------------|
-| \`queue\`    | Waiting for pickup. Must have a \`role\`. Has \`priority\` (lower = higher priority). |
+| \`queue\`    | Waiting for pickup. Must have a \`role\`. Has \`priority\` (higher = picked first). |
 | \`active\`   | Work in progress. Must have a \`role\`.          |
 | \`hold\`     | Paused, waiting for human input. No role needed. |
 | \`terminal\` | End state. No outgoing transitions allowed.     |
@@ -127,15 +151,15 @@ function buildStatesSection(): string {
 | \`role\`      | string   | for queue/active | Must match a role key from \`roles:\` section | e.g. \`developer\`, \`reviewer\`, \`tester\` |
 | \`label\`     | string   | yes      | FREE — any text | Becomes a GitHub/GitLab label. Must be unique across states. |
 | \`color\`     | string   | yes      | FREE — any hex color | Format: \`"#rrggbb"\`. Used for the issue label color. |
-| \`priority\`  | number   | no       | FREE — any positive integer | Lower = higher priority. Only meaningful on \`queue\` states. |
+| \`priority\`  | number   | no       | FREE — any integer | Higher values are picked first. Only meaningful on \`queue\` states. |
 | \`description\`| string  | no       | FREE — any text | Optional description for documentation. |
 | \`check\`     | string   | no       | FIXED enum: \`prApproved\`, \`prMerged\` | Triggers PR status check during heartbeat. |
 | \`on\`        | object   | no       | Keys are events (see below), values are transitions | |
 
 ## State names (the YAML keys)
-**FREE-FORM** — you choose the key names. They must be:
+**EXTENSIBLE** — you choose the key names. They must:
 - Unique within the workflow
-- Valid YAML keys (no spaces — use camelCase)
+- Start with a letter and contain only letters, numbers, underscores, or hyphens
 - Referenced consistently in transition targets
 
 Examples: \`planning\`, \`todo\`, \`doing\`, \`toReview\`, \`reviewing\`, \`done\`, \`toImprove\`, \`refining\`
@@ -172,7 +196,7 @@ APPROVED:
     - closeIssue
 \`\`\`
 
-## Built-in actions (FIXED set — custom strings are ignored)
+## Built-in actions (FIXED set — unknown values are rejected)
 
 | Action         | What it does                              |
 |----------------|-------------------------------------------|
@@ -224,10 +248,9 @@ function buildRolesSection(): string {
 
 | Field              | Constrained?  | Notes |
 |-------------------|---------------|-------|
-| \`maxWorkers\`      | Must be positive integer | Maximum concurrent workers for this role. Default: 1. |
 | \`levels\`          | FREE — array of strings | Define your own level names. Default model routing uses these as keys. |
 | \`defaultLevel\`    | Must be one of \`levels\` | Used when no level specified on issue. |
-| \`models\`          | FREE — map of level→model ID | Model IDs are free-form strings. Format: \`provider/model-name\`. |
+| \`models\`          | FREE — map of level→model ID or \`{ model, maxWorkers }\` | Model IDs are free-form; object form sets positive per-level capacity. |
 | \`emoji\`           | FREE — map of level→emoji | Used in announcements. Any emoji string. |
 | \`completion\` | Result-to-event mapping | Maps worker results to explicit events; each event needs a transition in the role's active states. |
 
@@ -300,7 +323,7 @@ Set in \`workflow.reviewPolicy\`:
 |---------|----------|
 | \`human\` | **(default)** All PRs wait for human approval on GitHub/GitLab. The heartbeat polls PR status and auto-merges when approved. |
 | \`agent\` | Every PR is reviewed by an agent (reviewer role) before merge. Agent can approve or reject. |
-| \`auto\`  | Hybrid: junior/medior developers → agent review, senior developers → human review. |
+| \`skip\`  | Skip the review worker; configured workflow transitions continue automatically. |
 
 ## How review routing works
 
