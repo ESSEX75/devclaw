@@ -40,8 +40,6 @@ Imports must target the current owner package directly. Do not add compatibility
 
 `WORK_STATE.md` is local-only coordination state. It must not be committed or pushed. If it exists, read it after this file. If it does not exist, create it only when a long-running branch needs local coordination state.
 
-Refactor plans, task execution reports, and temporary agent analysis do not belong under `docs/`. Keep them in the operator vault under `vault/generated`.
-
 ## Coding Style
 
 - **Separation of concerns** — Each module, function, and class should have a single, clear responsibility. Don't mix I/O with business logic, or UI with data processing.
