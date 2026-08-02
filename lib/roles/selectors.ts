@@ -4,7 +4,7 @@
  * All role-related lookups go through these functions.
  * No other file should access ROLE_REGISTRY directly for role logic.
  */
-import { isLevelId, isRoleId, type LevelId, type RoleId, type WorkflowEvent } from "../domain/index.js";
+import { isBuiltInLevelId, isBuiltInRoleId, type LevelId, type RoleId, type WorkflowEvent } from "../domain/index.js";
 import type { ResolvedRoleConfig } from "../state/config/types.js";
 import { ROLE_REGISTRY } from "./registry.js";
 import type { RoleConfig } from "./types.js";
@@ -23,7 +23,7 @@ export type WorkerRole = keyof typeof ROLE_REGISTRY;
 
 /** Check if a string is a valid role ID. */
 export function isValidRole(role: string): role is RoleId {
-  return isRoleId(role);
+  return isBuiltInRoleId(role);
 }
 
 /** Get role config by ID. Returns undefined if not found. */
@@ -56,12 +56,12 @@ export function getAllLevels(): LevelId[] {
 
 /** Check if a level belongs to a specific role. */
 export function isLevelForRole(level: string, role: string): boolean {
-  return isLevelId(level) && getLevelsForRole(role).includes(level);
+  return isBuiltInLevelId(level) && getLevelsForRole(role).includes(level);
 }
 
 /** Determine which role a level belongs to. Returns undefined if no match. */
 export function roleForLevel(level: string): RoleId | undefined {
-  if (!isLevelId(level)) return undefined;
+  if (!isBuiltInLevelId(level)) return undefined;
 
   for (const roleId of getAllRoleIds()) {
     if (ROLE_REGISTRY[roleId].levels.includes(level)) return roleId;
@@ -75,7 +75,7 @@ export function canonicalRole(role: string): RoleId | undefined {
 }
 
 export function canonicalLevel(_role: string, level: string): LevelId | undefined {
-  return isLevelId(level) ? level : undefined;
+  return isBuiltInLevelId(level) ? level : undefined;
 }
 
 /** Get the default level for a role. */
@@ -89,7 +89,7 @@ export function getDefaultLevel(role: string): LevelId | undefined {
 
 /** Get default model for a role + level. */
 export function getDefaultModel(role: string, level: string): string | undefined {
-  return isLevelId(level) ? getRole(role)?.models[level] : undefined;
+  return isBuiltInLevelId(level) ? getRole(role)?.models[level] : undefined;
 }
 
 /** Get all default models, nested by role (for config schema). */
@@ -133,7 +133,7 @@ export function resolveModel(
 
 /** Get emoji for a role + level. */
 export function getEmoji(role: string, level: string): string | undefined {
-  return isLevelId(level) ? getRole(role)?.emoji[level] : undefined;
+  return isBuiltInLevelId(level) ? getRole(role)?.emoji[level] : undefined;
 }
 
 /** Get fallback emoji for a role. */

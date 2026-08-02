@@ -15,7 +15,7 @@ import {
   EXECUTION_MODE,
   findFreeSlot,
   getActiveLabel,
-  isRoleId,
+  isBuiltInRoleId,
   reconcileSlots,
   REVIEW_POLICY,
   TEST_POLICY,
@@ -282,7 +282,7 @@ function resolveLevelForIssue(
   }
 
   // Heuristic fallback
-  return isRoleId(role)
+  return isBuiltInRoleId(role)
     ? selectLevel(issue.title, issue.description ?? "", role).level
     : resolvedRole.defaultLevel;
 }

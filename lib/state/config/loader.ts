@@ -13,7 +13,7 @@ import path from "node:path";
 import YAML from "yaml";
 import { ZodError } from "zod";
 
-import { DEFAULT_WORKFLOW, isRoleId } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW, isBuiltInRoleId } from "../../domain/index.js";
 import { getAllRoleIds, ROLE_REGISTRY } from "../../roles/index.js";
 import { DATA_DIR } from "../setup/paths.js";
 import { mergeConfig } from "./merge.js";
@@ -144,7 +144,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 
   if (config.roles) {
     for (const [id, override] of Object.entries(config.roles)) {
-      if (isRoleId(id) && override === false) {
+      if (isBuiltInRoleId(id) && override === false) {
         const reg = ROLE_REGISTRY[id];
         // Disabled role — include with enabled: false for visibility
         const models: Partial<Record<string, ModelEntry>> = { ...reg.models };
@@ -163,7 +163,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 
       if (override === false) continue;
 
-      if (isRoleId(id)) {
+      if (isBuiltInRoleId(id)) {
         const reg = ROLE_REGISTRY[id];
         const mergedModels = {
           ...reg.models,
