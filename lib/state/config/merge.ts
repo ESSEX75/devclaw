@@ -80,13 +80,14 @@ function mergeWorkflowStates(
 
   for (const [stateKey, override] of Object.entries(overlay ?? {})) {
     const baseState = states[stateKey];
+    const transitions = baseState?.on || override.on
+      ? { ...baseState?.on, ...override.on }
+      : undefined;
 
     states[stateKey] = {
       ...baseState,
       ...override,
-      on: baseState?.on || override.on
-        ? { ...baseState?.on, ...override.on }
-        : undefined,
+      ...(transitions ? { on: transitions } : {}),
     };
   }
 

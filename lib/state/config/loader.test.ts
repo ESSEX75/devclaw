@@ -27,6 +27,26 @@ afterEach(async () => {
 });
 
 describe("custom workflow state resolution", () => {
+  it("does not add transitions to terminal states during merge", async () => {
+    const workspaceDir = await createWorkspace(`
+workflow:
+  states:
+    done:
+      type: terminal
+      label: Done
+      color: "#5cb85c"
+    rejected:
+      type: terminal
+      label: Rejected
+      color: "#e11d48"
+`);
+
+    const config = await loadConfig(workspaceDir);
+
+    assert.equal(Object.hasOwn(config.workflow.states.done ?? {}, "on"), false);
+    assert.equal(Object.hasOwn(config.workflow.states.rejected ?? {}, "on"), false);
+  });
+
   it("merges custom states and sparse built-in overrides into the complete workflow", async () => {
     const workspaceDir = await createWorkspace(`
 roles:
