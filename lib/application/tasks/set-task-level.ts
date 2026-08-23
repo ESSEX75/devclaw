@@ -7,7 +7,11 @@ import {
   ISSUE_INTEGRITY_STATUS,
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
+import {
+  resolveIssueRuntimeState,
+  withIssueOrchestrationLock,
+  writeIssueRuntimeState,
+} from "../../state/issues/index.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { resolveHoldQueueTarget, validateRoleLevel } from "./lifecycle-decision.js";
 
@@ -32,6 +36,17 @@ export type SetTaskLevelResult = {
 };
 
 export async function setTaskLevel(input: SetTaskLevelInput): Promise<SetTaskLevelResult> {
+  const { project } = await resolveProject(input.workspaceDir, input.channelId);
+
+  return withIssueOrchestrationLock(
+    input.workspaceDir,
+    project.slug,
+    input.issueId,
+    () => setTaskLevelLocked(input),
+  );
+}
+
+async function setTaskLevelLocked(input: SetTaskLevelInput): Promise<SetTaskLevelResult> {
   const { workspaceDir, channelId, issueId, level, runCommand } = input;
   const { project } = await resolveProject(workspaceDir, channelId);
   const { provider, type: providerType } = await resolveProvider(workspaceDir, project, runCommand);

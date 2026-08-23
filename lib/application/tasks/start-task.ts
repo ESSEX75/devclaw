@@ -7,7 +7,11 @@ import {
   ISSUE_INTEGRITY_STATUS,
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
+import {
+  resolveIssueRuntimeState,
+  withIssueOrchestrationLock,
+  writeIssueRuntimeState,
+} from "../../state/issues/index.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { resolveStartTaskDecision } from "./lifecycle-decision.js";
 
@@ -32,6 +36,13 @@ export type StartTaskResult = {
 };
 
 export async function startTask(input: StartTaskInput): Promise<StartTaskResult> {
+  const { workspaceDir, channelId, issueId } = input;
+  const { project } = await resolveProject(workspaceDir, channelId);
+
+  return withIssueOrchestrationLock(workspaceDir, project.slug, issueId, () => startTaskLocked(input));
+}
+
+async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> {
   const { workspaceDir, channelId, issueId, runCommand } = input;
 
   const { project } = await resolveProject(workspaceDir, channelId);
