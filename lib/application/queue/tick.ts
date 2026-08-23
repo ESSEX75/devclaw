@@ -1,9 +1,6 @@
 /**
  * tick.ts — Project-level queue scan + dispatch.
  *
-/**
- * tick.ts — Project-level queue scan + dispatch.
- *
  * Core function: projectTick() scans one project's queue and fills free worker slots.
  * Called by: work_finish (next pipeline step), heartbeat service (sweep).
  */
@@ -15,21 +12,19 @@ import {
   EXECUTION_MODE,
   findFreeSlot,
   getActiveLabel,
-  isBuiltInRoleId,
   reconcileSlots,
   REVIEW_POLICY,
   TEST_POLICY,
   type WorkflowConfig,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
-import { selectLevel } from "../../roles/model-selector.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
-import type { ResolvedRoleConfig } from "../../state/config/types.js";
-import { withIssueOrchestrationLock } from "../../state/issues/index.js";
+import { withIssueOrchestrationLock, writeIssueRoleLevel } from "../../state/issues/index.js";
 import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
+import { resolveRoleLevel } from "../tasks/lifecycle-decision.js";
 import { dispatchTask } from "../workers/dispatch-task.js";
-import { detectRoleLevelFromLabels, findNextIssueForRole } from "./scan.js";
+import { findNextIssueForRole } from "./scan.js";
 
 // ---------------------------------------------------------------------------
 // projectTick
@@ -204,13 +199,13 @@ export async function projectTick(opts: {
 
           if (!resolvedRole) return { action: null, reason: "Role is not configured" };
 
-          const selectedLevel = resolveLevelForIssue(
-            lockedNext.issue,
-            role,
-            resolvedRole,
-            resolvedConfig.roles,
-            lockedNext.localState,
-          );
+          const selectedLevel = resolveRoleLevel({
+            runtimeState: lockedNext.localState,
+            targetRole: role,
+            roleConfig: resolvedRole,
+            issueTitle: lockedNext.issue.title,
+            issueDescription: lockedNext.issue.description ?? "",
+          });
           const freeSlot = findFreeSlot(lockedRoleWorker, selectedLevel);
 
           if (freeSlot === null) return { action: null, reason: `${selectedLevel} slots full` };
@@ -234,6 +229,14 @@ export async function projectTick(opts: {
           }
 
           if (!runCommand) throw new Error("runCommand is required for queue dispatch.");
+
+          await writeIssueRoleLevel(
+            workspaceDir,
+            projectSlug,
+            lockedNext.issue.iid,
+            role,
+            selectedLevel,
+          );
 
           const targetLabel = getActiveLabel(workflow, role);
           const dispatch = await dispatchTask({
@@ -289,48 +292,4 @@ export async function projectTick(opts: {
   }
 
   return { pickups, skipped };
-}
-
-// ---------------------------------------------------------------------------
-// Private helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Determine the level for an issue based on labels and heuristic fallback.
- *
- * Priority:
- * 1. This role's own label (e.g. tester:medior from a previous dispatch)
- * 2. Inherit from another role's label (e.g. developer:medior → tester uses medior)
- * 3. Heuristic fallback (first dispatch, no labels yet)
- */
-function resolveLevelForIssue(
-  issue: Issue,
-  role: string,
-  resolvedRole: ResolvedRoleConfig,
-  roles: Readonly<Record<string, ResolvedRoleConfig>>,
-  localState?: { assignedRole?: string | null; assignedLevel?: string | null },
-): string {
-  if (localState?.assignedLevel) {
-    if (localState.assignedRole === role) return localState.assignedLevel;
-    const levels = resolvedRole.levels;
-
-    if (levels.includes(localState.assignedLevel)) return localState.assignedLevel;
-  }
-
-  const roleLevel = detectRoleLevelFromLabels(issue.labels, roles);
-
-  // Own role label
-  if (roleLevel && roleLevel.role === role) return roleLevel.level;
-
-  // Inherit from another role's label if level is valid for this role
-  if (roleLevel) {
-    const levels = resolvedRole.levels;
-
-    if (levels.includes(roleLevel.level)) return roleLevel.level;
-  }
-
-  // Heuristic fallback
-  return isBuiltInRoleId(role)
-    ? selectLevel(issue.title, issue.description ?? "", role).level
-    : resolvedRole.defaultLevel;
 }

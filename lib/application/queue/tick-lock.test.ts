@@ -15,6 +15,41 @@ import { createTestHarness } from "../../testing/index.js";
 import { projectTick } from "./tick.js";
 
 describe("projectTick issue orchestration lock", () => {
+  it("selects a managed level from local role state instead of provider labels", async () => {
+    const harness = await createTestHarness();
+    const issueId = 80;
+    const store = emptyIssueStateStore(harness.project.slug);
+
+    store.issues[String(issueId)] = issueState(harness.project.slug, issueId, {
+      assignedRole: "tester",
+      assignedLevel: "senior",
+    });
+    await writeIssueStateStore(harness.workspaceDir, harness.project.slug, store);
+    harness.provider.seedIssue({
+      iid: issueId,
+      title: "Build button",
+      description: "Small UI component",
+      labels: ["To Do", "developer:senior"],
+    });
+
+    try {
+      const result = await projectTick({
+        workspaceDir: harness.workspaceDir,
+        projectSlug: harness.project.slug,
+        provider: harness.provider,
+        workflow: harness.workflow,
+        runCommand: harness.runCommand,
+        dryRun: true,
+      });
+
+      assert.equal(result.pickups.length, 1);
+      assert.equal(result.pickups[0]?.role, "developer");
+      assert.equal(result.pickups[0]?.level, "junior");
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   it("rechecks a queued candidate after waiting for its issue lock", async () => {
     const harness = await createTestHarness();
     const issueId = 79;

@@ -13,6 +13,7 @@ import {
   issueStatePath,
   readIssueStateStore,
   updateIssueStateStore,
+  writeIssueRoleLevel,
   writeIssueStateStore,
 } from "./index.js";
 
@@ -109,6 +110,37 @@ describe("issue state store", () => {
 
       assert.strictEqual(returned, "todo");
       assert.strictEqual(loaded.issues["123"]!.issueId, 123);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("updates the managed role and level together", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
+    try {
+      const store = emptyIssueStateStore("devclaw");
+      store.issues["123"] = issue({ assignedRole: "developer", assignedLevel: "senior" });
+      await writeIssueStateStore(tmpDir, "devclaw", store);
+
+      const updated = await writeIssueRoleLevel(tmpDir, "devclaw", 123, "tester", "junior");
+      const loaded = await readIssueStateStore(tmpDir, "devclaw");
+
+      assert.strictEqual(updated.assignedRole, "tester");
+      assert.strictEqual(updated.assignedLevel, "junior");
+      assert.strictEqual(loaded.issues["123"]!.assignedRole, "tester");
+      assert.strictEqual(loaded.issues["123"]!.assignedLevel, "junior");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("rejects role-level writes for an uninitialized issue", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
+    try {
+      await assert.rejects(
+        writeIssueRoleLevel(tmpDir, "devclaw", 404, "developer", "junior"),
+        /Issue #404 has no initialized local runtime state/,
+      );
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }

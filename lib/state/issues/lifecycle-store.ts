@@ -152,6 +152,29 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
   return written;
 }
 
+/** Persist the role-specific level selected for an initialized managed issue. */
+export async function writeIssueRoleLevel(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+  role: string,
+  level: string,
+): Promise<IssueRuntimeState> {
+  return updateIssueStateStore(workspaceDir, projectSlug, (store) => {
+    const state = store.issues[String(issueId)];
+
+    if (!state) {
+      throw new Error(`Issue #${issueId} has no initialized local runtime state.`);
+    }
+
+    state.assignedRole = role;
+    state.assignedLevel = level;
+    state.updatedAt = new Date().toISOString();
+
+    return state;
+  });
+}
+
 export function providerKindFromProject(project: Pick<Project, "provider">): IssueProviderId {
   return project.provider === ISSUE_PROVIDER.GITHUB ? ISSUE_PROVIDER.GITHUB : ISSUE_PROVIDER.GITLAB;
 }
