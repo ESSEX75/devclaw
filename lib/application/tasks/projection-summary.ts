@@ -1,13 +1,11 @@
 /**
  * projection-summary.ts — Shared task output enrichment for local state and provider projection.
  */
-import { readIssueStateStore } from "../../state/issues/index.js";
-import type { IssueRuntimeState } from "../../domain/issues/types.js";
-import type { Issue } from "../../integrations/providers/provider.js";
+import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
+import type { Issue } from "../../integrations/providers/provider.js";
 import { diffIssueProjection } from "../../projection/index.js";
-import type { WorkflowConfig } from "../../domain/workflow/types.js";
-import { getStateLabels } from "../../domain/workflow/queries.js";
+import { readIssueStateStore } from "../../state/issues/index.js";
 
 export type TaskIssueProjectionView = {
   providerLabels: string[];
@@ -44,6 +42,7 @@ export async function loadProjectionViewContext(opts: {
   roles: string[];
 }): Promise<ProjectionViewContext> {
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
+
   return {
     states: store.issues,
     workflow: opts.workflow,
@@ -53,6 +52,7 @@ export async function loadProjectionViewContext(opts: {
 
 export function summarizeTaskIssue(issue: Issue, ctx: ProjectionViewContext): TaskIssueSummary {
   const state = ctx.states[String(issue.iid)];
+
   return {
     id: issue.iid,
     title: issue.title,
@@ -69,6 +69,7 @@ export async function summarizeLocalIssueStates(
   projectionCtx: ProjectionViewContext,
 ): Promise<TaskIssueSummary[]> {
   const result: TaskIssueSummary[] = [];
+
   for (const state of states.sort((a, b) => a.issueId - b.issueId)) {
     const issue = await provider.getIssue(state.issueId).catch(() => ({
       iid: state.issueId,
@@ -78,8 +79,10 @@ export async function summarizeLocalIssueStates(
       state: "unknown",
       web_url: "",
     }));
+
     result.push(summarizeTaskIssue(issue, projectionCtx));
   }
+
   return result;
 }
 
@@ -96,7 +99,7 @@ function summarizeManagedProjection(
       roles: ctx.roles,
     },
   });
-  const needsRepair = state.integrityStatus !== "ok"
+  const needsRepair = state.integrityStatus !== ISSUE_INTEGRITY_STATUS.OK
     || diff.missingManagedLabels.length > 0
     || diff.unexpectedManagedLabels.length > 0;
 
@@ -120,7 +123,7 @@ function summarizeUninitializedProjection(issue: Issue): TaskIssueProjectionView
   return {
     providerLabels: [...issue.labels].sort(),
     localState: null,
-    integrityStatus: "projection_uninitialized",
+    integrityStatus: ISSUE_INTEGRITY_STATUS.PROJECTION_UNINITIALIZED,
     missingManagedLabels: [],
     unexpectedManagedLabels: [],
     unmanagedLabels: [...issue.labels].sort(),

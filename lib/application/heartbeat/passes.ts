@@ -2,21 +2,24 @@
  * Heartbeat passes — health, review, review-skip, and test-skip passes.
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+
 import type { RunCommand } from "../../context.js";
-import { type Project } from "../../state/projects/index.js";
+import { NOTIFICATION_CHANNEL, resolveNotifyChannel } from "../../domain/index.js";
+import { type Project } from "../../domain/index.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
+import { getConfiguredRoleIds } from "../../state/config/index.js";
+import type { ResolvedConfig } from "../../state/config/types.js";
+import { getNotificationConfig, notify } from "../notifications/notify.js";
 import {
   checkWorkerHealth,
   scanOrphanedLabels,
   scanStatelessIssues,
   type SessionLookup,
 } from "./health.js";
+import { projectionIntegrityPass } from "./projection.js";
 import { reviewPass } from "./review.js";
 import { reviewSkipPass } from "./review-skip.js";
 import { testSkipPass } from "./test-skip.js";
-import { projectionIntegrityPass } from "./projection.js";
-import type { ResolvedConfig } from "../../state/config/types.js";
-import { resolveNotifyChannel } from "../../domain/workflow/index.js";
-import { notify, getNotificationConfig } from "../notifications/notify.js";
 
 // ---------------------------------------------------------------------------
 // Passes
@@ -30,7 +33,8 @@ export async function performHealthPass(
   projectSlug: string,
   project: Project,
   sessions: SessionLookup | null,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
+  resolvedConfig: ResolvedConfig,
   staleWorkerHours?: number,
   instanceName?: string,
   runCommand?: RunCommand,
@@ -39,7 +43,7 @@ export async function performHealthPass(
 ): Promise<number> {
   let fixedCount = 0;
 
-  for (const role of Object.keys(project.workers)) {
+  for (const role of getConfiguredRoleIds(resolvedConfig)) {
     // Check worker health (session liveness, label consistency, etc)
     const healthFixes = await checkWorkerHealth({
       workspaceDir,
@@ -54,6 +58,7 @@ export async function performHealthPass(
       runCommand: runCommand!,
       agentId,
     });
+
     fixedCount += healthFixes.filter((f) => f.fixed).length;
 
     // Scan for orphaned labels (active labels with no tracking worker)
@@ -66,6 +71,7 @@ export async function performHealthPass(
       provider,
       instanceName,
     });
+
     fixedCount += orphanFixes.filter((f) => f.fixed).length;
   }
 
@@ -78,6 +84,7 @@ export async function performHealthPass(
     autoFix: true,
     instanceName,
   });
+
   fixedCount += statelessFixes.filter((f) => f.fixed).length;
 
   return fixedCount;
@@ -89,7 +96,7 @@ export async function performHealthPass(
 export async function performProjectionIntegrityPass(
   workspaceDir: string,
   project: Project,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
 ): Promise<number> {
   const result = await projectionIntegrityPass({
@@ -99,6 +106,7 @@ export async function performProjectionIntegrityPass(
     workflow: resolvedConfig.workflow,
     roles: Object.keys(resolvedConfig.roles),
   });
+
   return result.repaired + result.removed + result.errors;
 }
 
@@ -109,7 +117,7 @@ export async function performReviewPass(
   workspaceDir: string,
   projectSlug: string,
   project: Project,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
   pluginConfig: Record<string, unknown> | undefined,
   runtime?: PluginRuntime,
@@ -135,6 +143,7 @@ export async function performReviewPass(
             issue.labels,
             project.channels,
           );
+
           notify(
             {
               type: "prMerged",
@@ -152,15 +161,15 @@ export async function performReviewPass(
               workspaceDir,
               config: notifyConfig,
               channelId: target?.channelId,
-              channel: target?.channel ?? "telegram",
+              channel: target?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
               threadId: target?.threadId,
               runtime,
               accountId: target?.accountId,
               runCommand,
             },
-          ).catch(() => {});
+          ).catch(() => { });
         })
-        .catch(() => {});
+        .catch(() => { });
     },
     onFeedback: (issueId, reason, prUrl, issueTitle, issueUrl) => {
       const type =
@@ -169,6 +178,7 @@ export async function performReviewPass(
           : ("mergeConflict" as const);
       // No issue labels available in this callback — fall back to primary channel
       const target = project.channels[0];
+
       notify(
         {
           type,
@@ -182,17 +192,18 @@ export async function performReviewPass(
           workspaceDir,
           config: notifyConfig,
           channelId: target?.channelId,
-          channel: target?.channel ?? "telegram",
+          channel: target?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
           threadId: target?.threadId,
           runtime,
           accountId: target?.accountId,
           runCommand,
         },
-      ).catch(() => {});
+      ).catch(() => { });
     },
     onPrClosed: (issueId, prUrl, issueTitle, issueUrl) => {
       // No issue labels available in this callback — fall back to primary channel
       const target = project.channels[0];
+
       notify(
         {
           type: "prClosed",
@@ -206,13 +217,13 @@ export async function performReviewPass(
           workspaceDir,
           config: notifyConfig,
           channelId: target?.channelId,
-          channel: target?.channel ?? "telegram",
+          channel: target?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
           threadId: target?.threadId,
           runtime,
           accountId: target?.accountId,
           runCommand,
         },
-      ).catch(() => {});
+      ).catch(() => { });
     },
   });
 }
@@ -224,7 +235,7 @@ export async function performReviewSkipPass(
   workspaceDir: string,
   projectSlug: string,
   project: Project,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
   pluginConfig: Record<string, unknown> | undefined,
   runtime?: PluginRuntime,
@@ -249,6 +260,7 @@ export async function performReviewSkipPass(
             issue.labels,
             project.channels,
           );
+
           notify(
             {
               type: "prMerged",
@@ -266,15 +278,15 @@ export async function performReviewSkipPass(
               workspaceDir,
               config: notifyConfig,
               channelId: target?.channelId,
-              channel: target?.channel ?? "telegram",
+              channel: target?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
               threadId: target?.threadId,
               runtime,
               accountId: target?.accountId,
               runCommand,
             },
-          ).catch(() => {});
+          ).catch(() => { });
         })
-        .catch(() => {});
+        .catch(() => { });
     },
   });
 }
@@ -286,7 +298,7 @@ export async function performTestSkipPass(
   workspaceDir: string,
   projectSlug: string,
   project: Project,
-  provider: import("../../integrations/providers/provider.js").IssueProvider,
+  provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
 ): Promise<number> {
   return testSkipPass({

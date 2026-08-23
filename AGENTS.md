@@ -17,6 +17,16 @@ DevClaw is an OpenClaw plugin for multi-project dev/qa pipeline orchestration wi
 
 Layer-specific contracts live in the `README.md` files under each `lib/*` package.
 
+## Domain Package API
+
+- `lib/domain/index.ts` is the public entry point for the complete domain package.
+- Every `lib/domain/*` subpackage has its own `index.ts` and re-exports its public constants, types, guards, queries, and operations there.
+- `lib/domain/index.ts` re-exports every domain subpackage public API.
+- Code outside `lib/domain` imports domain entities from `lib/domain/index.ts`, not from internal domain files.
+- Files within one domain subpackage may import each other directly.
+- Cross-subpackage domain imports target the other subpackage's `index.ts`; domain internals must not import from the root `lib/domain/index.ts` barrel.
+- Keep file-local implementation details private. Export through the subpackage and root barrels only supported API or entities consumed outside their source subpackage.
+
 ## Runtime State Contract
 
 For initialized DevClaw-managed issues, local issue runtime state is the source of truth. Provider labels and issue body metadata are a visible projection of that state. Manual provider label edits do not become authoritative runtime state unless an explicit repair/backfill flow handles them.
@@ -40,8 +50,6 @@ Imports must target the current owner package directly. Do not add compatibility
 
 `WORK_STATE.md` is local-only coordination state. It must not be committed or pushed. If it exists, read it after this file. If it does not exist, create it only when a long-running branch needs local coordination state.
 
-Refactor plans, task execution reports, and temporary agent analysis do not belong under `docs/`. Keep them in the operator vault under `vault/generated`.
-
 ## Coding Style
 
 - **Separation of concerns** — Each module, function, and class should have a single, clear responsibility. Don't mix I/O with business logic, or UI with data processing.
@@ -50,11 +58,28 @@ Refactor plans, task execution reports, and temporary agent analysis do not belo
 - **No dead code** — Remove unused imports, variables, and unreachable code paths.
 - **Favor readability over cleverness** — Straightforward code beats compact one-liners. The next reader (human or agent) should understand the intent without re-reading.
 
+## TypeScript Contracts
+
+- Do not use type assertions (`as SomeType`) to bypass type errors. Fix the source type or validate unknown input with a type guard or schema.
+- Do not introduce `any`. Keep untrusted boundary values as `unknown` until validated.
+- Do not use inline type imports such as `import("./types.js").Type`; use top-level `import type` declarations.
+- Do not modify `SoftUnion<T> = T[keyof T]` or replace domain types derived through it with primitive aliases.
+- Keep built-in identifiers distinct from identifiers validated from resolved runtime configuration. Built-in guards must be named accordingly and must not reject valid custom configuration in runtime paths.
+- Put shared domain constants in `const.ts`, domain types in `types.ts`, and runtime type guards in `guards.ts`.
+- A boolean predicate belongs in `guards.ts` only when it narrows a TypeScript type or validates membership in a domain value set.
+
 ## Conventions
 
 - Never import `child_process` directly — the OpenClaw security scanner flags it. Use `runCommand` from `PluginContext` (`lib/context.ts`), which wraps `api.runtime.system.runCommandWithTimeout`.
 - Functions that call `runCommand()` must be async.
 - Run `npm run arch:check:strict` after changing layer boundaries, imports, tool registration, or legacy cleanup behavior.
+- Use `getAllRoleIds()` for role registry iteration instead of `Object.entries(ROLE_REGISTRY)`.
+
+## Git Safety
+
+- Do not commit unrelated user changes.
+- Do not push unless the user explicitly requests it.
+- Run the required verification before creating a commit and stage only files belonging to the requested change.
 
 ## Verification
 

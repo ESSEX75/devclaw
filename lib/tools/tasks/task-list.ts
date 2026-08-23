@@ -5,24 +5,29 @@
  * specific label, or text search. Supports terminal (closed) issues.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import { loadConfig } from "../../state/config/index.js";
+
 import { listManagedTasks } from "../../application/tasks/index.js";
+import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
+import { loadConfig } from "../../state/config/index.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskListTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_list",
     label: "Task List",
-    description: `Browse issues for a project by workflow state. Shows issues grouped by state label. Use \`tasks_status\` for a quick issue dashboard, this tool for filtered browsing.`,
+    description:
+      `Browse issues for a project by workflow state. Shows issues grouped by state label. ` +
+      `Use \`tasks_status\` for a quick issue dashboard, this tool for filtered browsing.`,
     parameters: {
       type: "object",
       required: ["channelId"],
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
         stateType: {
           type: "string",
@@ -53,7 +58,7 @@ export function createTaskListTool(ctx: PluginContext) {
       const limit = (params.limit as number) ?? 20;
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider } = await resolveProvider(project, ctx.runCommand);
+      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const projectConfig = await loadConfig(workspaceDir, project.name);
       const result = await listManagedTasks({
         workspaceDir,

@@ -4,8 +4,8 @@
  * Handles detection of existing channel bindings, channel availability,
  * and safe migration of bindings between agents.
  */
-import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 
 export type ChannelType = string;
 
@@ -69,12 +69,17 @@ export async function analyzeChannelBindings(
 
   // Generate recommendation
   let recommendation: string;
+
   if (!channelConfigured) {
     recommendation = `⚠️ ${channel} is not configured in OpenClaw. Configure it first via the wizard or openclaw.json, then restart OpenClaw.`;
   } else if (!channelEnabled) {
     recommendation = `⚠️ ${channel} is configured but disabled. Enable it in openclaw.json (channels.${channel}.enabled: true) and restart OpenClaw.`;
   } else if (existingChannelWideBinding) {
-    recommendation = `⚠️ Agent "${existingChannelWideBinding.agentName}" is already bound to all ${channel} messages. Options:\n  1. Migrate binding to the new agent (recommended if replacing)\n  2. Use group-specific binding instead (if you want both agents active)\n  3. Skip binding for now`;
+    recommendation =
+      `⚠️ Agent "${existingChannelWideBinding.agentName}" is already bound to all ${channel} messages. Options:\n` +
+      `  1. Migrate binding to the new agent (recommended if replacing)\n` +
+      `  2. Use group-specific binding instead (if you want both agents active)\n` +
+      `  3. Skip binding for now`;
   } else if (groupSpecificBindings.length > 0) {
     recommendation = `✅ ${groupSpecificBindings.length} group-specific binding(s) exist. No conflicts - safe to add channel-wide binding.`;
   } else {
@@ -142,6 +147,7 @@ export async function ensureChannelBinding(
 ): Promise<void> {
   const runtime = "runtime" in api ? api.runtime : api;
   const cfg = structuredClone(runtime.config.current()) as OpenClawConfig;
+
   cfg.bindings ??= [];
   const normalizedAccountId = normalizeBindingAccountId(accountId);
   const normalizedPeerId = normalizeBindingPeerId(peerId);
@@ -163,6 +169,7 @@ export async function ensureChannelBinding(
         normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
         normalizeBindingPeerId(binding.match.peer?.id) === normalizedPeerId,
     );
+
     if (occupied?.agentId) {
       throw new Error(
         `${channel}/${normalizedAccountId}/${normalizedPeerId} is already bound to agent "${occupied.agentId}"`,
@@ -181,11 +188,11 @@ export async function ensureChannelBinding(
 
   const insertAt = normalizedPeerId
     ? cfg.bindings.findIndex(
-        (binding) =>
-          binding.match?.channel === channel &&
-          normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
-          !binding.match.peer,
-      )
+      (binding) =>
+        binding.match?.channel === channel &&
+        normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
+        !binding.match.peer,
+    )
     : -1;
 
   if (insertAt === -1) {
@@ -206,6 +213,7 @@ function normalizeBindingAccountId(accountId: string | undefined | null): string
 
 function normalizeBindingPeerId(peerId: string | undefined | null): string | undefined {
   const normalized = peerId?.trim();
+
   return normalized || undefined;
 }
 

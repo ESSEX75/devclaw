@@ -2,16 +2,14 @@
  * Tests for architect role, research_task tool, and workflow integration.
  * Run with: npx tsx --test lib/tools/tasks/research-task.test.ts
  */
-import { describe, it } from "node:test";
 import assert from "node:assert";
+import { describe, it } from "node:test";
+
+import { DEFAULT_WORKFLOW, getActiveLabel, getCompletionEmoji, getCompletionRule, getQueueLabels, getStateLabels, hasWorkflowStates, WORKFLOW_EVENT } from "../../domain/index.js";
 import { parseDevClawSessionKey } from "../../integrations/openclaw/bootstrap-hook.js";
-import { isLevelForRole, roleForLevel, resolveModel, getDefaultModel, getEmoji } from "../../roles/index.js";
+import { getDefaultModel, getEmoji, isLevelForRole, resolveModel, roleForLevel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
-import {
-  DEFAULT_WORKFLOW, getQueueLabels, getCompletionRule,
-  getCompletionEmoji, getStateLabels, hasWorkflowStates,
-  getActiveLabel,
-} from "../../domain/workflow/index.js";
+import type { ResolvedRoleConfig } from "../../state/config/index.js";
 
 describe("architect tiers", () => {
   it("should recognize architect levels", () => {
@@ -33,7 +31,8 @@ describe("architect tiers", () => {
   });
 
   it("should resolve architect model from resolved role config", () => {
-    const resolvedRole = { levelMaxWorkers: { junior: 2, senior: 2 }, models: { senior: "custom/model" }, levels: ["junior", "senior"], defaultLevel: "junior", emoji: {}, completionResults: [] as string[], enabled: true };
+    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, senior: 2 }, models: { senior: "custom/model" }, levels: ["junior", "senior"], defaultLevel: "junior", emoji: {}, completion: {}, enabled: true };
+
     assert.strictEqual(resolveModel("architect", "senior", resolvedRole), "custom/model");
   });
 
@@ -46,16 +45,19 @@ describe("architect tiers", () => {
 describe("architect workflow — To Research / Researching states", () => {
   it("should have To Research in state labels", () => {
     const labels = getStateLabels(DEFAULT_WORKFLOW);
+
     assert.ok(labels.includes("To Research"), "To Research should exist");
   });
 
   it("should have Researching in state labels", () => {
     const labels = getStateLabels(DEFAULT_WORKFLOW);
+
     assert.ok(labels.includes("Researching"), "Researching should exist");
   });
 
   it("should have 'To Research' as architect queue label", () => {
     const queues = getQueueLabels(DEFAULT_WORKFLOW, "architect");
+
     assert.ok(queues.includes("To Research"), "architect queue should include To Research");
   });
 
@@ -73,11 +75,13 @@ describe("architect workflow — To Research / Researching states", () => {
 
   it("should have 'Researching' as architect active state", () => {
     const active = getActiveLabel(DEFAULT_WORKFLOW, "architect");
+
     assert.strictEqual(active, "Researching");
   });
 
   it("should have completion rule for architect:done → Done", () => {
-    const rule = getCompletionRule(DEFAULT_WORKFLOW, "architect", "done");
+    const rule = getCompletionRule(DEFAULT_WORKFLOW, "architect", WORKFLOW_EVENT.COMPLETE);
+
     assert.ok(rule !== null, "architect:done rule should exist");
     assert.strictEqual(rule.from, "Researching");
     assert.strictEqual(rule.to, "Done");
@@ -85,32 +89,36 @@ describe("architect workflow — To Research / Researching states", () => {
   });
 
   it("should have completion rule for architect:blocked → Refining", () => {
-    const rule = getCompletionRule(DEFAULT_WORKFLOW, "architect", "blocked");
+    const rule = getCompletionRule(DEFAULT_WORKFLOW, "architect", WORKFLOW_EVENT.BLOCKED);
+
     assert.ok(rule !== null, "architect:blocked rule should exist");
     assert.strictEqual(rule.from, "Researching");
     assert.strictEqual(rule.to, "Refining");
   });
 
   it("should still have completion emoji for architect results", () => {
-    assert.strictEqual(getCompletionEmoji("architect", "done"), "\u2705");
-    assert.strictEqual(getCompletionEmoji("architect", "blocked"), "\u{1f6ab}");
+    assert.strictEqual(getCompletionEmoji("done"), "\u2705");
+    assert.strictEqual(getCompletionEmoji("blocked"), "\u{1f6ab}");
   });
 
   it("should NOT have To Design or Designing in state labels", () => {
-    const labels = getStateLabels(DEFAULT_WORKFLOW);
-    assert.ok(!labels.includes("To Design"), "To Design should not exist");
-    assert.ok(!labels.includes("Designing"), "Designing should not exist");
+    const labels = new Set<string>(getStateLabels(DEFAULT_WORKFLOW));
+
+    assert.ok(!labels.has("To Design"), "To Design should not exist");
+    assert.ok(!labels.has("Designing"), "Designing should not exist");
   });
 });
 
 describe("architect model selection", () => {
   it("should select junior for standard design tasks", () => {
     const result = selectLevel("Design: Add caching layer", "Simple caching strategy", "architect");
+
     assert.strictEqual(result.level, "junior");
   });
 
   it("should select senior for complex design tasks", () => {
     const result = selectLevel("Design: System-wide refactor", "Major migration and redesign of the architecture", "architect");
+
     assert.strictEqual(result.level, "senior");
   });
 });
@@ -118,11 +126,13 @@ describe("architect model selection", () => {
 describe("architect session key parsing", () => {
   it("should parse architect session key", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:my-project-architect-senior");
+
     assert.deepStrictEqual(result, { projectName: "my-project", role: "architect" });
   });
 
   it("should parse architect junior session key", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:webapp-architect-junior");
+
     assert.deepStrictEqual(result, { projectName: "webapp", role: "architect" });
   });
 });

@@ -4,13 +4,22 @@
  * Eliminates repeated boilerplate across tools: workspace validation,
  * project resolution, provider creation.
  */
+import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
 import type { RunCommand } from "../context.js";
-import { readProjects, getProject, type Project, type ProjectsData } from "../state/projects/index.js";
+import {
+  getNotifyLabel,
+  getOwnerLabel,
+  NOTIFY_LABEL_COLOR,
+  NOTIFY_LABEL_PREFIX,
+  OWNER_LABEL_COLOR,
+  type Project,
+  type ProjectsData,
+} from "../domain/index.js";
+import { loadInstanceName } from "../instance.js";
 import { createProvider, type ProviderWithType } from "../integrations/providers/index.js";
 import { loadConfig } from "../state/config/index.js";
-import { loadInstanceName } from "../instance.js";
-import { getOwnerLabel, OWNER_LABEL_COLOR, getNotifyLabel, NOTIFY_LABEL_PREFIX, NOTIFY_LABEL_COLOR } from "../domain/workflow/index.js";
-import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { getProject,readProjects } from "../state/projects/index.js";
 
 /**
  * Require workspaceDir from context or throw a clear error.
@@ -19,6 +28,7 @@ export function requireWorkspaceDir(ctx: OpenClawPluginToolContext): string {
   if (!ctx.workspaceDir) {
     throw new Error("No workspace directory available in tool context");
   }
+
   return ctx.workspaceDir;
 }
 
@@ -31,6 +41,7 @@ export function resolveChannelId(_ctx: OpenClawPluginToolContext, explicitChanne
       "channelId is required. Pass YOUR chat/group ID (the numeric ID of the chat you are in right now).",
     );
   }
+
   return explicitChannelId;
 }
 
@@ -44,12 +55,14 @@ export async function resolveProject(
 ): Promise<{ data: ProjectsData; project: Project }> {
   const data = await readProjects(workspaceDir);
   const project = getProject(data, channelId);
+
   if (!project) {
     throw new Error(
       `No project found for "${channelId}". ` +
       `Register a new project with project_register, or link this channel to an existing project.`,
     );
   }
+
   return { data, project };
 }
 
@@ -57,8 +70,19 @@ export async function resolveProject(
  * Create an issue provider for a project.
  * Uses stored provider type from project config if available, otherwise auto-detects.
  */
-export async function resolveProvider(project: Project, runCommand: RunCommand): Promise<ProviderWithType> {
-  return createProvider({ repo: project.repo, provider: project.provider, runCommand });
+export async function resolveProvider(
+  workspaceDir: string,
+  project: Project,
+  runCommand: RunCommand,
+): Promise<ProviderWithType> {
+  const config = await loadConfig(workspaceDir, project.name);
+
+  return createProvider({
+    repo: project.repo,
+    provider: project.provider,
+    runCommand,
+    workflow: config.workflow,
+  });
 }
 
 /**
@@ -88,6 +112,7 @@ export function applyNotifyLabel(
   const sourceChannel =
     (sourceChannelId ? project.channels.find(ch => ch.channelId === sourceChannelId) : undefined) ??
     project.channels[0];
+
   if (!sourceChannel) return;
 
   const notifyLabel = getNotifyLabel(sourceChannel.channel, sourceChannel.name ?? "0");
@@ -101,11 +126,13 @@ export function applyNotifyLabel(
     if (staleLabels.length > 0) {
       await provider.removeLabels(issueId, staleLabels);
     }
+
     if (!hasCorrectLabel) {
       await provider.ensureLabel(notifyLabel, NOTIFY_LABEL_COLOR);
       await provider.addLabel(issueId, notifyLabel);
     }
   };
+
   apply().catch(() => {});
 }
 

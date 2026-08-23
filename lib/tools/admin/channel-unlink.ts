@@ -6,12 +6,12 @@
  * have at least one notification endpoint).
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { readProjects, writeProjects } from "../../state/projects/index.js";
+
 import { log as auditLog } from "../../audit.js";
+import { readProjects, writeProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createChannelUnlinkTool(_ctx: PluginContext) {
+export function createChannelUnlinkTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_unlink",
     label: "Channel Unlink",
@@ -68,6 +68,7 @@ export function createChannelUnlinkTool(_ctx: PluginContext) {
         const available = Object.values(data.projects)
           .map((p) => p.name)
           .join(", ");
+
         throw new Error(
           `Project "${projectRef}" not found. Available projects: ${available || "none"}.`,
         );
@@ -75,8 +76,10 @@ export function createChannelUnlinkTool(_ctx: PluginContext) {
 
       // Find the channel
       const idx = target.channels.findIndex((ch) => ch.channelId === channelId && ch.threadId === threadId);
+
       if (idx === -1) {
         const threadNote = threadId ? ` thread ${threadId}` : "";
+
         throw new Error(
           `Channel ${channelId}${threadNote} not found in project "${target.name}".`,
         );

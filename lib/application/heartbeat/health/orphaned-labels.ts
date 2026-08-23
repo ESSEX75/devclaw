@@ -1,27 +1,24 @@
-import type { IssueProvider } from "../../../integrations/providers/provider.js";
-import {
-  getRoleWorker,
-  getProject,
-} from "../../../state/projects/index.js";
-import type { Project } from "../../../state/projects/index.js";
-import { readProjects } from "../../../state/projects/index.js";
+import type { WorkflowConfig } from "../../../domain/index.js";
+import type { Project } from "../../../domain/index.js";
 import {
   DEFAULT_WORKFLOW,
-} from "../../../domain/workflow/defaults.js";
+} from "../../../domain/index.js";
+import {
+  isOwnedByOrUnclaimed,
+} from "../../../domain/index.js";
 import {
   getActiveLabel,
   getRevertLabel,
   hasWorkflowStates,
-} from "../../../domain/workflow/queries.js";
+} from "../../../domain/index.js";
+import type { IssueProvider } from "../../../integrations/providers/provider.js";
 import {
-  isOwnedByOrUnclaimed,
-} from "../../../domain/workflow/labels.js";
-import type {
-  WorkflowConfig,
-  Role,
-} from "../../../domain/workflow/types.js";
-import type { HealthFix } from "./types.js";
+  getProject,
+  getRoleWorker,
+} from "../../../state/projects/index.js";
+import { readProjects } from "../../../state/projects/index.js";
 import { resolveOrphanRevertLabel } from "./issue-utils.js";
+import type { HealthFix } from "./types.js";
 
 /**
  * Scan for issues with active labels (Doing, Testing) that are NOT tracked
@@ -31,7 +28,7 @@ export async function scanOrphanedLabels(opts: {
   workspaceDir: string;
   projectSlug: string;
   project: Project;
-  role: Role;
+  role: string;
   autoFix: boolean;
   provider: IssueProvider;
   workflow?: WorkflowConfig;
@@ -44,11 +41,14 @@ export async function scanOrphanedLabels(opts: {
   } = opts;
 
   const fixes: HealthFix[] = [];
+
   if (!hasWorkflowStates(workflow, role)) return fixes;
 
   let freshProject: Project;
+
   try {
     const data = await readProjects(workspaceDir);
+
     freshProject = getProject(data, projectSlug) ?? project;
   } catch {
     freshProject = project;
@@ -59,6 +59,7 @@ export async function scanOrphanedLabels(opts: {
   const queueLabel = getRevertLabel(workflow, role);
 
   let issuesWithLabel;
+
   try {
     issuesWithLabel = await provider.listIssuesByLabel(activeLabel);
   } catch {
@@ -73,7 +74,10 @@ export async function scanOrphanedLabels(opts: {
     const issueIdStr = String(issue.iid);
 
     let isTracked = false;
+
     for (const slots of Object.values(roleWorker.levels)) {
+      if (slots === undefined) continue;
+
       if (slots.some(slot => slot.active && slot.issueId === issueIdStr)) {
         isTracked = true;
         break;
@@ -101,6 +105,7 @@ export async function scanOrphanedLabels(opts: {
           const revertTarget = await resolveOrphanRevertLabel(
             provider, issue.iid, role, queueLabel, workflow,
           );
+
           await provider.transitionLabel(issue.iid, activeLabel, revertTarget);
           fix.fixed = true;
           fix.labelReverted = `${activeLabel} → ${revertTarget}`;

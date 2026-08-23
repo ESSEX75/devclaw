@@ -1,8 +1,11 @@
-import { readIssueStateStore } from "../../state/issues/index.js";
-import type { IssueRuntimeState } from "../../domain/issues/types.js";
+import type { IssueRuntimeState } from "../../domain/index.js";
+import {
+  findStateByLabel,
+  STATE_TYPE,
+  type WorkflowConfig,
+} from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
-import { StateType, type WorkflowConfig } from "../../domain/workflow/types.js";
-import { findStateByLabel } from "../../domain/workflow/queries.js";
+import { readIssueStateStore } from "../../state/issues/index.js";
 import {
   loadProjectionViewContext,
   summarizeLocalIssueStates,
@@ -45,7 +48,7 @@ export async function listManagedTasks(opts: {
   });
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
   const localStates = Object.values(store.issues)
-    .filter((state) => state.managed && state.archivedAt == null);
+    .filter((state) => state.archivedAt == null);
   const labelsToFetch = resolveTaskListLabels(opts.workflow, opts.stateType, opts.label);
   const searchLower = opts.search?.toLowerCase();
   const results: TaskListStateGroup[] = [];
@@ -55,17 +58,21 @@ export async function listManagedTasks(opts: {
 
     if (searchLower) {
       const filtered: IssueRuntimeState[] = [];
+
       for (const state of states) {
         const issue = await opts.provider.getIssue(state.issueId).catch(() => null);
+
         if ((issue?.title ?? `Issue #${state.issueId}`).toLowerCase().includes(searchLower)) {
           filtered.push(state);
         }
       }
+
       states = filtered;
     }
 
     const total = states.length;
     const limited = states.slice(0, limit);
+
     results.push({
       label: entry.label,
       type: entry.type,
@@ -85,26 +92,30 @@ export async function listManagedTasks(opts: {
 function resolveTaskListLabels(workflow: WorkflowConfig, stateType?: string, label?: string): FetchEntry[] {
   if (label) {
     const stateConfig = findStateByLabel(workflow, label);
+
     if (!stateConfig) throw new Error(`Unknown state label "${label}". Check workflow_guide for valid states.`);
+
     return [{
       label: stateConfig.label,
       type: stateConfig.type,
       role: stateConfig.role,
-      issueState: stateConfig.type === StateType.TERMINAL ? "closed" : "open",
+      issueState: stateConfig.type === STATE_TYPE.TERMINAL ? "closed" : "open",
     }];
   }
 
   const includeTerminal = stateType === "terminal" || stateType === "all";
   const entries: FetchEntry[] = [];
+
   for (const state of Object.values(workflow.states)) {
-    if (state.type === StateType.TERMINAL && !includeTerminal) continue;
+    if (state.type === STATE_TYPE.TERMINAL && !includeTerminal) continue;
     if (stateType && stateType !== "all" && state.type !== stateType) continue;
     entries.push({
       label: state.label,
       type: state.type,
       role: state.role,
-      issueState: state.type === StateType.TERMINAL ? "closed" : "open",
+      issueState: state.type === STATE_TYPE.TERMINAL ? "closed" : "open",
     });
   }
+
   return entries;
 }

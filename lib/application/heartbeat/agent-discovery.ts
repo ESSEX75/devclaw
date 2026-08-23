@@ -3,6 +3,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+
 import { DATA_DIR } from "../../state/setup/paths.js";
 
 // ---------------------------------------------------------------------------
@@ -47,6 +48,7 @@ export function discoverAgents(config: {
 
   // Check default workspace (used when no explicit agents are registered)
   const defaultWorkspace = config.agents?.defaults?.workspace;
+
   if (defaultWorkspace && !seen.has(defaultWorkspace)) {
     try {
       if (hasProjects(defaultWorkspace)) {

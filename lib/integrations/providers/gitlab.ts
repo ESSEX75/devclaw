@@ -1,23 +1,11 @@
 /**
  * GitLabProvider — IssueProvider implementation using glab CLI.
  */
-import {
-  type Issue,
-  type StateLabel,
-  type IssueComment,
-  type PrStatus,
-  type PrReviewComment,
-  PrState,
-} from "./types.js";
-import type { IssueProvider } from "./provider.js";
 import type { RunCommand } from "../../context.js";
+import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
+import type { IssueProvider } from "./provider.js";
 import { withResilience } from "./resilience.js";
-import {
-  DEFAULT_WORKFLOW,
-  getStateLabels,
-  getLabelColors,
-  type WorkflowConfig,
-} from "../../domain/workflow/index.js";
+import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
 
 type GitLabMR = {
   iid: number;
@@ -45,6 +33,7 @@ export class GitLabProvider implements IssueProvider {
   private async glab(args: string[]): Promise<string> {
     return withResilience(async () => {
       const result = await this.runCommand(["glab", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
+
       return result.stdout.trim();
     });
   }
@@ -53,7 +42,9 @@ export class GitLabProvider implements IssueProvider {
   private async getRelatedMRs(issueId: number): Promise<GitLabMR[]> {
     try {
       const raw = await this.glab(["api", `projects/:id/issues/${issueId}/related_merge_requests`, "--paginate"]);
+
       if (!raw) return [];
+
       return JSON.parse(raw) as GitLabMR[];
     } catch { return []; }
   }
@@ -80,8 +71,12 @@ export class GitLabProvider implements IssueProvider {
   async ensureAllStateLabels(): Promise<void> {
     const labels = getStateLabels(this.workflow);
     const colors = getLabelColors(this.workflow);
+
     for (const label of labels) {
-      await this.ensureLabel(label, colors[label]);
+      const color = colors.get(label);
+
+      if (!color) throw new Error(`No color configured for workflow label "${label}".`);
+      await this.ensureLabel(label, color);
     }
   }
 
@@ -89,17 +84,21 @@ export class GitLabProvider implements IssueProvider {
     // Pass description directly as argv — runCommand uses spawn (no shell),
     // so no escaping issues with special characters.
     const args = ["issue", "create", "--title", title, "--description", description, "--label", label];
+
     if (assignees?.length) args.push("--assignee", assignees.join(","));
     const stdout = await this.glab(args);
     // glab issue create returns the issue URL
     const match = stdout.match(/\/issues\/(\d+)/);
+
     if (!match) throw new Error(`Failed to parse issue URL: ${stdout}`);
+
     return this.getIssue(parseInt(match[1], 10));
   }
 
   async listIssuesByLabel(label: StateLabel): Promise<Issue[]> {
     try {
       const raw = await this.glab(["issue", "list", "--label", label, "--output", "json"]);
+
       return JSON.parse(raw) as Issue[];
     } catch { return []; }
   }
@@ -107,17 +106,20 @@ export class GitLabProvider implements IssueProvider {
   async listIssues(opts?: { label?: string; state?: "open" | "closed" | "all" }): Promise<Issue[]> {
     try {
       const args = ["issue", "list", "--output", "json"];
+
       if (opts?.label) args.push("--label", opts.label);
       if (opts?.state === "closed") args.push("--closed");
       else if (opts?.state === "all") args.push("--all");
       else args.push("--opened");
       const raw = await this.glab(args);
+
       return JSON.parse(raw) as Issue[];
     } catch { return []; }
   }
 
   async getIssue(issueId: number): Promise<Issue> {
     const raw = await this.glab(["issue", "view", String(issueId), "--output", "json"]);
+
     return JSON.parse(raw) as Issue;
   }
 
@@ -125,6 +127,7 @@ export class GitLabProvider implements IssueProvider {
     try {
       const raw = await this.glab(["api", `projects/:id/issues/${issueId}/notes`, "--paginate"]);
       const notes = JSON.parse(raw) as Array<{ id: number; author: { username: string }; body: string; created_at: string; system: boolean }>;
+
       // Filter out system notes (e.g. "changed label", "closed issue")
       return notes
         .filter((note) => !note.system)
@@ -144,11 +147,12 @@ export class GitLabProvider implements IssueProvider {
     await this.glab(["issue", "update", String(issueId), "--label", to]);
 
     const issue = await this.getIssue(issueId);
-    const stateLabels = getStateLabels(this.workflow);
-    const currentStateLabels = issue.labels.filter((l) => stateLabels.includes(l) && l !== to);
+    const stateLabels = new Set<string>(getStateLabels(this.workflow));
+    const currentStateLabels = issue.labels.filter((label) => stateLabels.has(label) && label !== to);
 
     if (currentStateLabels.length > 0) {
       const args = ["issue", "update", String(issueId)];
+
       for (const l of currentStateLabels) args.push("--unlabel", l);
       await this.glab(args);
     }
@@ -156,7 +160,8 @@ export class GitLabProvider implements IssueProvider {
     // Post-transition validation: verify exactly one state label remains (#473)
     try {
       const postIssue = await this.getIssue(issueId);
-      const postStateLabels = postIssue.labels.filter((l) => stateLabels.includes(l));
+      const postStateLabels = postIssue.labels.filter((label) => stateLabels.has(label));
+
       if (postStateLabels.length !== 1 || !postStateLabels.includes(to)) {
         console.error(
           `[state_transition_anomaly] Issue #${issueId}: expected state "${to}", ` +
@@ -176,6 +181,7 @@ export class GitLabProvider implements IssueProvider {
   async removeLabels(issueId: number, labels: string[]): Promise<void> {
     if (labels.length === 0) return;
     const args = ["issue", "update", String(issueId)];
+
     for (const l of labels) args.push("--unlabel", l);
     await this.glab(args);
   }
@@ -188,6 +194,7 @@ export class GitLabProvider implements IssueProvider {
     const merged = mrs
       .filter((mr) => mr.state === "merged" && mr.merged_at)
       .sort((a, b) => new Date(b.merged_at!).getTime() - new Date(a.merged_at!).getTime());
+
     return merged[0]?.web_url ?? null;
   }
 
@@ -195,20 +202,24 @@ export class GitLabProvider implements IssueProvider {
     const mrs = await this.getRelatedMRs(issueId);
     // Check open MRs first
     const open = mrs.find((mr) => mr.state === "opened");
+
     if (open) {
       const approved = await this.isMrApproved(open.iid);
 
       // Detect changes requested via unresolved discussion threads
       let state: PrState;
+
       if (approved) {
         state = PrState.APPROVED;
       } else {
         const hasUnresolved = await this.hasUnresolvedDiscussions(open.iid);
+
         if (hasUnresolved) {
           state = PrState.CHANGES_REQUESTED;
         } else {
           // Check for top-level conversation comments from non-author users
           const hasComments = await this.hasConversationComments(open.iid);
+
           state = hasComments ? PrState.HAS_COMMENTS : PrState.OPEN;
         }
       }
@@ -218,13 +229,17 @@ export class GitLabProvider implements IssueProvider {
 
       return { state, url: open.web_url, title: open.title, sourceBranch: open.source_branch, mergeable };
     }
+
     // Check merged MRs
     const merged = mrs.find((mr) => mr.state === "merged");
+
     if (merged) return { state: PrState.MERGED, url: merged.web_url, title: merged.title, sourceBranch: merged.source_branch };
     // Check for closed-without-merge MRs. url: non-null = MR was explicitly closed;
     // url: null = no MR has ever been created for this issue.
     const closed = mrs.find((mr) => mr.state === "closed");
+
     if (closed) return { state: PrState.CLOSED, url: closed.web_url, title: closed.title, sourceBranch: closed.source_branch };
+
     return { state: PrState.CLOSED, url: null };
   }
 
@@ -233,6 +248,7 @@ export class GitLabProvider implements IssueProvider {
     try {
       const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/discussions`]);
       const discussions = JSON.parse(raw) as Array<{ notes: Array<{ resolvable: boolean; resolved: boolean; system: boolean }> }>;
+
       return discussions.some((d) =>
         d.notes.some((n) => n.resolvable && !n.resolved && !n.system),
       );
@@ -249,9 +265,11 @@ export class GitLabProvider implements IssueProvider {
       const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/notes`]);
       const notes = JSON.parse(raw) as Array<{ id: number; system: boolean; body: string }>;
       const candidates = notes.filter((n) => !n.system && n.body.trim().length > 0);
+
       for (const note of candidates) {
         if (!(await this.noteHasEyesEmoji(mrIid, note.id))) return true;
       }
+
       return false;
     } catch { return false; }
   }
@@ -261,6 +279,7 @@ export class GitLabProvider implements IssueProvider {
     try {
       const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/notes/${noteId}/award_emoji`]);
       const emojis = JSON.parse(raw) as Array<{ name: string }>;
+
       return emojis.some((e) => e.name === "eyes");
     } catch { return false; }
   }
@@ -275,6 +294,7 @@ export class GitLabProvider implements IssueProvider {
     try {
       const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/notes`]);
       const all = JSON.parse(raw) as Array<{ id: number; author: { username: string }; system: boolean; body: string; created_at: string }>;
+
       return all.filter(
         (n) => !n.system && n.body.trim().length > 0,
       );
@@ -286,9 +306,11 @@ export class GitLabProvider implements IssueProvider {
     try {
       const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}?include_rebase_in_progress=true`]);
       const mr = JSON.parse(raw) as { has_conflicts?: boolean; detailed_merge_status?: string };
+
       if (mr.has_conflicts === true) return false;
       if (mr.detailed_merge_status === "conflict") return false;
       if (mr.detailed_merge_status === "mergeable" || mr.detailed_merge_status === "ci_must_pass") return true;
+
       return undefined; // Unknown
     } catch { return undefined; }
   }
@@ -306,7 +328,9 @@ export class GitLabProvider implements IssueProvider {
       // When a project has zero approval rules, GitLab returns approved:true
       // even though nobody has actually reviewed, causing false positives.
       const hasExplicitApproval = Array.isArray(data.approved_by) && data.approved_by.length > 0;
+
       if (!hasExplicitApproval) return false;
+
       // All required approvals satisfied
       return (data.approvals_left ?? 1) <= 0;
     } catch { return false; }
@@ -315,6 +339,7 @@ export class GitLabProvider implements IssueProvider {
   async mergePr(issueId: number): Promise<void> {
     const mrs = await this.getRelatedMRs(issueId);
     const open = mrs.find((mr) => mr.state === "opened");
+
     if (!open) throw new Error(`No open MR found for issue #${issueId}`);
     await this.glab(["mr", "merge", String(open.iid)]);
   }
@@ -322,6 +347,7 @@ export class GitLabProvider implements IssueProvider {
   async getPrDiff(issueId: number): Promise<string | null> {
     const mrs = await this.getRelatedMRs(issueId);
     const open = mrs.find((mr) => mr.state === "opened");
+
     if (!open) return null;
     try {
       return await this.glab(["mr", "diff", String(open.iid)]);
@@ -331,6 +357,7 @@ export class GitLabProvider implements IssueProvider {
   async getPrReviewComments(issueId: number): Promise<PrReviewComment[]> {
     const mrs = await this.getRelatedMRs(issueId);
     const open = mrs.find((mr) => mr.state === "opened");
+
     if (!open) return [];
     const comments: PrReviewComment[] = [];
 
@@ -362,6 +389,7 @@ export class GitLabProvider implements IssueProvider {
 
     // Also include top-level conversation notes (regular MR comments, not threaded)
     const conversationNotes = await this.fetchConversationComments(open.iid);
+
     for (const n of conversationNotes) {
       // Avoid duplicates: discussions endpoint may already include these
       if (!comments.some((c) => c.id === n.id)) {
@@ -376,6 +404,7 @@ export class GitLabProvider implements IssueProvider {
     }
 
     comments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
     return comments;
   }
 
@@ -386,6 +415,7 @@ export class GitLabProvider implements IssueProvider {
       "--field", `body=${body}`,
     ]);
     const parsed = JSON.parse(raw) as { id: number };
+
     return parsed.id;
   }
 
@@ -411,6 +441,7 @@ export class GitLabProvider implements IssueProvider {
     try {
       const raw = await this.glab(["api", `projects/:id/issues/${issueId}/award_emoji`]);
       const emojis = JSON.parse(raw) as Array<{ name: string }>;
+
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
   }
@@ -419,6 +450,7 @@ export class GitLabProvider implements IssueProvider {
     try {
       const mrs = await this.getRelatedMRs(issueId);
       const open = mrs.find((mr) => mr.state === "opened");
+
       if (!open) return;
       await this.glab([
         "api", `projects/:id/merge_requests/${open.iid}/award_emoji`,
@@ -432,9 +464,11 @@ export class GitLabProvider implements IssueProvider {
     try {
       const mrs = await this.getRelatedMRs(issueId);
       const open = mrs.find((mr) => mr.state === "opened");
+
       if (!open) return false;
       const raw = await this.glab(["api", `projects/:id/merge_requests/${open.iid}/award_emoji`]);
       const emojis = JSON.parse(raw) as Array<{ name: string }>;
+
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
   }
@@ -453,6 +487,7 @@ export class GitLabProvider implements IssueProvider {
     try {
       const mrs = await this.getRelatedMRs(issueId);
       const open = mrs.find((mr) => mr.state === "opened");
+
       if (!open) return;
       await this.glab([
         "api", `projects/:id/merge_requests/${open.iid}/notes/${commentId}/award_emoji`,
@@ -471,6 +506,7 @@ export class GitLabProvider implements IssueProvider {
     try {
       const raw = await this.glab(["api", `projects/:id/issues/${issueId}/notes/${commentId}/award_emoji`]);
       const emojis = JSON.parse(raw) as Array<{ name: string }>;
+
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
   }
@@ -479,11 +515,13 @@ export class GitLabProvider implements IssueProvider {
     try {
       const mrs = await this.getRelatedMRs(issueId);
       const open = mrs.find((mr) => mr.state === "opened");
+
       if (!open) return false;
       const raw = await this.glab([
         "api", `projects/:id/merge_requests/${open.iid}/notes/${commentId}/award_emoji`,
       ]);
       const emojis = JSON.parse(raw) as Array<{ name: string }>;
+
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
   }
@@ -495,9 +533,11 @@ export class GitLabProvider implements IssueProvider {
 
   async editIssue(issueId: number, updates: { title?: string; body?: string }): Promise<Issue> {
     const args = ["issue", "update", String(issueId)];
+
     if (updates.title !== undefined) args.push("--title", updates.title);
     if (updates.body !== undefined) args.push("--description", updates.body);
     await this.glab(args);
+
     return this.getIssue(issueId);
   }
 
@@ -510,13 +550,16 @@ export class GitLabProvider implements IssueProvider {
     try {
       // Search for issue references: #N (issue) or !N (MR) in commit messages
       const patterns = [`#${issueId}`, `!${issueId}`];
+
       for (const pattern of patterns) {
         const result = await this.runCommand(
           ["git", "log", `origin/${baseBranch}`, "--oneline", "-200", "--grep", pattern],
           { timeoutMs: 15_000, cwd: this.repoPath },
         );
+
         if (result.stdout.trim().length > 0) return true;
       }
+
       return false;
     } catch { return false; }
   }
@@ -537,6 +580,7 @@ export class GitLabProvider implements IssueProvider {
         { timeoutMs: 10_000, cwd: this.repoPath },
       );
       const token = tokenRaw.stdout.trim();
+
       if (!token) return null;
 
       // Write to temp file for curl multipart upload
@@ -545,6 +589,7 @@ export class GitLabProvider implements IssueProvider {
       const path = await import("node:path");
       const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-upload-"));
       const tmpFile = path.join(tmpDir, file.filename);
+
       await fs.writeFile(tmpFile, file.buffer);
 
       try {
@@ -557,12 +602,14 @@ export class GitLabProvider implements IssueProvider {
           { timeoutMs: 30_000, cwd: this.repoPath },
         );
         const parsed = JSON.parse(result.stdout);
+
         if (parsed.full_path) return `${webUrl}${parsed.full_path}`;
         if (parsed.url) return `${webUrl}${parsed.url}`;
+
         return null;
       } finally {
-        await fs.unlink(tmpFile).catch(() => {});
-        await fs.rmdir(tmpDir).catch(() => {});
+        await fs.unlink(tmpFile).catch(() => { });
+        await fs.rmdir(tmpDir).catch(() => { });
       }
     } catch {
       return null;
@@ -570,6 +617,10 @@ export class GitLabProvider implements IssueProvider {
   }
 
   async healthCheck(): Promise<boolean> {
-    try { await this.glab(["auth", "status"]); return true; } catch { return false; }
+    try {
+      await this.glab(["auth", "status"]);
+
+      return true;
+    } catch { return false; }
   }
 }

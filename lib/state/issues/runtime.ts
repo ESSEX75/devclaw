@@ -1,35 +1,35 @@
 /**
  * issues/runtime.ts — Local-state-first runtime helpers for managed issues.
  */
-import type { Issue } from "../../integrations/providers/provider.js";
-import type { Project } from "../../domain/projects/index.js";
 import {
   findStateByLabel,
   findStateKeyByLabel,
   getCurrentStateLabel,
-} from "../../domain/workflow/queries.js";
-import type { WorkflowConfig, StateConfig } from "../../domain/workflow/types.js";
+  type IssueRuntimeState,
+  type Project,
+  type WorkflowConfig,
+  type WorkflowStateConfig,
+} from "../../domain/index.js";
+import type { Issue } from "../../integrations/providers/provider.js";
 import { readIssueStateStore } from "./store.js";
-import type { WorkflowLabel, WorkflowStateKey } from "../../domain/ids.js";
-import type { IssueRuntimeState } from "../../domain/issues/types.js";
 
 export type IssueRuntimeResolution =
   | {
-      kind: "managed";
-      state: IssueRuntimeState;
-      workflowLabel: WorkflowLabel;
-      workflowState: WorkflowStateKey;
-      stateConfig: StateConfig | null;
-      providerIssue: Issue;
-    }
+    kind: "managed";
+    state: IssueRuntimeState;
+    workflowLabel: string;
+    workflowState: string;
+    stateConfig: WorkflowStateConfig | null;
+    providerIssue: Issue;
+  }
   | {
-      kind: "uninitialized";
-      state: null;
-      workflowLabel: WorkflowLabel | null;
-      workflowState: WorkflowStateKey | null;
-      stateConfig: StateConfig | null;
-      providerIssue: Issue;
-    };
+    kind: "uninitialized";
+    state: null;
+    workflowLabel: string | null;
+    workflowState: string | null;
+    stateConfig: WorkflowStateConfig | null;
+    providerIssue: Issue;
+  };
 
 export async function resolveIssueRuntimeState(opts: {
   workspaceDir: string;
@@ -39,8 +39,10 @@ export async function resolveIssueRuntimeState(opts: {
 }): Promise<IssueRuntimeResolution> {
   const store = await readIssueStateStore(opts.workspaceDir, opts.project.slug);
   const state = store.issues[String(opts.issue.iid)];
-  if (state?.managed) {
+
+  if (state) {
     const stateConfig = findStateByLabel(opts.workflow, state.workflowLabel) ?? null;
+
     return {
       kind: "managed",
       state,
@@ -52,11 +54,12 @@ export async function resolveIssueRuntimeState(opts: {
   }
 
   const workflowLabel = getCurrentStateLabel(opts.issue.labels, opts.workflow);
+
   return {
     kind: "uninitialized",
     state: null,
     workflowLabel,
-    workflowState: workflowLabel ? findStateKeyByLabel(opts.workflow, workflowLabel) ?? workflowLabel : null,
+    workflowState: workflowLabel ? findStateKeyByLabel(opts.workflow, workflowLabel) : null,
     stateConfig: workflowLabel ? findStateByLabel(opts.workflow, workflowLabel) ?? null : null,
     providerIssue: opts.issue,
   };

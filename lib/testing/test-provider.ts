@@ -4,15 +4,16 @@
  * Tracks all method calls for assertion. Issues are stored in a simple map.
  * No external dependencies — pure TypeScript.
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { DEFAULT_WORKFLOW, getStateLabels, type WorkflowConfig } from "../domain/index.js";
 import type {
-  IssueProvider,
   Issue,
-  StateLabel,
   IssueComment,
+  IssueProvider,
+  PrReviewComment,
   PrStatus,
+  StateLabel,
 } from "../integrations/providers/provider.js";
-import { getStateLabels } from "../domain/workflow/index.js";
-import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
 
 // ---------------------------------------------------------------------------
 // Call tracking
@@ -20,24 +21,24 @@ import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.
 
 export type ProviderCall =
   | { method: "ensureLabel"; args: { name: string; color: string } }
-  | { method: "ensureAllStateLabels"; args: {} }
+  | { method: "ensureAllStateLabels"; args: Record<string, never> }
   | {
-      method: "createIssue";
-      args: {
-        title: string;
-        description: string;
-        label: StateLabel;
-        assignees?: string[];
-      };
-    }
+    method: "createIssue";
+    args: {
+      title: string;
+      description: string;
+      label: StateLabel;
+      assignees?: string[];
+    };
+  }
   | { method: "listIssuesByLabel"; args: { label: StateLabel } }
   | { method: "listIssues"; args: { label?: string; state?: string } }
   | { method: "getIssue"; args: { issueId: number } }
   | { method: "listComments"; args: { issueId: number } }
   | {
-      method: "transitionLabel";
-      args: { issueId: number; from: StateLabel; to: StateLabel };
-    }
+    method: "transitionLabel";
+    args: { issueId: number; from: StateLabel; to: StateLabel };
+  }
   | { method: "addLabel"; args: { issueId: number; label: string } }
   | { method: "removeLabels"; args: { issueId: number; labels: string[] } }
   | { method: "closeIssue"; args: { issueId: number } }
@@ -49,7 +50,7 @@ export type ProviderCall =
   | { method: "getPrReviewComments"; args: { issueId: number } }
   | { method: "addComment"; args: { issueId: number; body: string } }
   | { method: "editIssue"; args: { issueId: number; updates: { title?: string; body?: string } } }
-  | { method: "healthCheck"; args: {} };
+  | { method: "healthCheck"; args: Record<string, never> };
 
 // ---------------------------------------------------------------------------
 // TestProvider
@@ -95,8 +96,10 @@ export class TestProvider implements IssueProvider {
       web_url:
         overrides.web_url ?? `https://example.com/issues/${overrides.iid}`,
     };
+
     this.issues.set(issue.iid, issue);
     if (issue.iid >= this.nextIssueId) this.nextIssueId = issue.iid + 1;
+
     return issue;
   }
 
@@ -109,7 +112,7 @@ export class TestProvider implements IssueProvider {
   callsTo<M extends ProviderCall["method"]>(
     method: M,
   ): Extract<ProviderCall, { method: M }>[] {
-    return this.calls.filter((c) => c.method === method) as any;
+    return this.calls.filter((c) => c.method === method) as unknown as Extract<ProviderCall, { method: M }>[];
   }
 
   /** Reset call tracking (keeps issue state). */
@@ -142,6 +145,7 @@ export class TestProvider implements IssueProvider {
   async ensureAllStateLabels(): Promise<void> {
     this.calls.push({ method: "ensureAllStateLabels", args: {} });
     const stateLabels = getStateLabels(this.workflow);
+
     for (const label of stateLabels) {
       this.labels.set(label, "#000000");
     }
@@ -166,33 +170,41 @@ export class TestProvider implements IssueProvider {
       state: "opened",
       web_url: `https://example.com/issues/${iid}`,
     };
+
     this.issues.set(iid, issue);
+
     return issue;
   }
 
   async listIssuesByLabel(label: StateLabel): Promise<Issue[]> {
     this.calls.push({ method: "listIssuesByLabel", args: { label } });
+
     return [...this.issues.values()].filter((i) => i.labels.includes(label));
   }
 
   async listIssues(opts?: { label?: string; state?: "open" | "closed" | "all" }): Promise<Issue[]> {
     this.calls.push({ method: "listIssues", args: { label: opts?.label, state: opts?.state } });
     let issues = [...this.issues.values()];
+
     if (opts?.label) issues = issues.filter((i) => i.labels.includes(opts.label!));
     if (opts?.state === "open") issues = issues.filter((i) => i.state === "opened" || i.state === "OPEN");
     else if (opts?.state === "closed") issues = issues.filter((i) => i.state === "closed" || i.state === "CLOSED");
+
     return issues;
   }
 
   async getIssue(issueId: number): Promise<Issue> {
     this.calls.push({ method: "getIssue", args: { issueId } });
     const issue = this.issues.get(issueId);
+
     if (!issue) throw new Error(`Issue #${issueId} not found in TestProvider`);
+
     return issue;
   }
 
   async listComments(issueId: number): Promise<IssueComment[]> {
     this.calls.push({ method: "listComments", args: { issueId } });
+
     return this.comments.get(issueId) ?? [];
   }
 
@@ -203,16 +215,19 @@ export class TestProvider implements IssueProvider {
   ): Promise<void> {
     this.calls.push({ method: "transitionLabel", args: { issueId, from, to } });
     const issue = this.issues.get(issueId);
+
     if (!issue) throw new Error(`Issue #${issueId} not found in TestProvider`);
     // Remove all state labels, add the new one
-    const stateLabels = getStateLabels(this.workflow);
-    issue.labels = issue.labels.filter((l) => !stateLabels.includes(l));
+    const stateLabels = new Set<string>(getStateLabels(this.workflow));
+
+    issue.labels = issue.labels.filter((label) => !stateLabels.has(label));
     issue.labels.push(to);
   }
 
   async addLabel(issueId: number, label: string): Promise<void> {
     this.calls.push({ method: "addLabel", args: { issueId, label } });
     const issue = this.issues.get(issueId);
+
     if (issue && !issue.labels.includes(label)) {
       issue.labels.push(label);
     }
@@ -221,6 +236,7 @@ export class TestProvider implements IssueProvider {
   async removeLabels(issueId: number, labels: string[]): Promise<void> {
     this.calls.push({ method: "removeLabels", args: { issueId, labels } });
     const issue = this.issues.get(issueId);
+
     if (issue) {
       issue.labels = issue.labels.filter((l) => !labels.includes(l));
     }
@@ -229,22 +245,26 @@ export class TestProvider implements IssueProvider {
   async closeIssue(issueId: number): Promise<void> {
     this.calls.push({ method: "closeIssue", args: { issueId } });
     const issue = this.issues.get(issueId);
+
     if (issue) issue.state = "closed";
   }
 
   async reopenIssue(issueId: number): Promise<void> {
     this.calls.push({ method: "reopenIssue", args: { issueId } });
     const issue = this.issues.get(issueId);
+
     if (issue) issue.state = "opened";
   }
 
   async getMergedMRUrl(issueId: number): Promise<string | null> {
     this.calls.push({ method: "getMergedMRUrl", args: { issueId } });
+
     return this.mergedMrUrls.get(issueId) ?? null;
   }
 
   async getPrStatus(issueId: number): Promise<PrStatus> {
     this.calls.push({ method: "getPrStatus", args: { issueId } });
+
     return this.prStatuses.get(issueId) ?? { state: "closed", url: null };
   }
 
@@ -253,8 +273,10 @@ export class TestProvider implements IssueProvider {
     if (this.mergePrFailures.has(issueId)) {
       throw new Error(`Merge conflict: cannot merge PR for issue #${issueId}`);
     }
+
     // Simulate successful merge — update PR status to merged
     const existing = this.prStatuses.get(issueId);
+
     if (existing) {
       this.prStatuses.set(issueId, { state: "merged", url: existing.url });
     }
@@ -262,10 +284,11 @@ export class TestProvider implements IssueProvider {
 
   async getPrDiff(issueId: number): Promise<string | null> {
     this.calls.push({ method: "getPrDiff", args: { issueId } });
+
     return this.prDiffs.get(issueId) ?? null;
   }
 
-  async getPrReviewComments(_issueId: number): Promise<import("../integrations/providers/provider.js").PrReviewComment[]> {
+  async getPrReviewComments(_issueId: number): Promise<PrReviewComment[]> {
     return [];
   }
 
@@ -317,6 +340,7 @@ export class TestProvider implements IssueProvider {
     this.calls.push({ method: "addComment", args: { issueId, body } });
     const commentId = Date.now();
     const existing = this.comments.get(issueId) ?? [];
+
     existing.push({
       id: commentId,
       author: "test",
@@ -324,15 +348,18 @@ export class TestProvider implements IssueProvider {
       created_at: new Date().toISOString(),
     });
     this.comments.set(issueId, existing);
+
     return commentId;
   }
 
   async editIssue(issueId: number, updates: { title?: string; body?: string }): Promise<Issue> {
     this.calls.push({ method: "editIssue", args: { issueId, updates } });
     const issue = this.issues.get(issueId);
+
     if (!issue) throw new Error(`Issue #${issueId} not found in TestProvider`);
     if (updates.title !== undefined) issue.title = updates.title;
     if (updates.body !== undefined) issue.description = updates.body;
+
     return issue;
   }
 
@@ -345,6 +372,7 @@ export class TestProvider implements IssueProvider {
 
   async healthCheck(): Promise<boolean> {
     this.calls.push({ method: "healthCheck", args: {} });
+
     return true;
   }
 }

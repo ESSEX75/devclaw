@@ -1,12 +1,12 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
-import { createPluginContext } from "./lib/context.js";
-import { toolRegistry } from "./lib/tools/registry.js";
 
+import { registerHeartbeatService } from "./lib/application/heartbeat/index.js";
+import { registerAttachmentHook } from "./lib/application/tasks/attachment-hook.js";
 // Infrastructure
 import { registerCli } from "./lib/cli/register.js";
-import { registerHeartbeatService } from "./lib/application/heartbeat/index.js";
+import { createPluginContext } from "./lib/context.js";
 import { registerBootstrapHook } from "./lib/integrations/openclaw/bootstrap-hook.js";
-import { registerAttachmentHook } from "./lib/application/tasks/attachment-hook.js";
+import { toolRegistry } from "./lib/tools/registry.js";
 
 const plugin = {
   id: "devclaw",
@@ -35,7 +35,8 @@ const plugin = {
       work_heartbeat: {
         type: "object",
         description:
-          "Token-free interval-based heartbeat service. Runs health checks + queue dispatch automatically. Discovers all DevClaw agents from openclaw.json and processes each independently.",
+          "Token-free interval-based heartbeat service. Runs health checks + queue dispatch automatically. " +
+          "Discovers all DevClaw agents from openclaw.json and processes each independently.",
         properties: {
           enabled: {
             type: "boolean",
@@ -65,7 +66,7 @@ const plugin = {
     }
 
     // CLI, services & hooks
-    api.registerCli(({ program }: { program: any }) => registerCli(program, ctx), {
+    api.registerCli(({ program }) => registerCli(program, ctx), {
       commands: ["devclaw"],
       descriptors: [
         {

@@ -7,12 +7,18 @@
  * controls.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { readProjects, writeProjects, type Channel } from "../../state/projects/index.js";
+
 import { log as auditLog } from "../../audit.js";
+import {
+  isNotificationChannel,
+  NOTIFICATION_CHANNEL,
+  type NotificationEndpoint,
+} from "../../domain/index.js";
+import { readProjects, writeProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createChannelLinkTool(_ctx: PluginContext) {
+export function createChannelLinkTool() {
+
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_link",
     label: "Channel Link",
@@ -36,7 +42,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
         },
         channel: {
           type: "string",
-          enum: ["telegram", "whatsapp", "discord", "slack"],
+          enum: Object.values(NOTIFICATION_CHANNEL),
           description: "Channel type. Defaults to 'telegram'.",
         },
         threadId: {
@@ -55,7 +61,13 @@ export function createChannelLinkTool(_ctx: PluginContext) {
     async execute(_id: string, params: Record<string, unknown>) {
       const channelId = params.channelId as string;
       const projectRef = params.project as string;
-      const channelType = (params.channel as Channel["channel"]) ?? "telegram";
+      const channelTypeInput = params.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;
+
+      if (!isNotificationChannel(channelTypeInput)) {
+        throw new Error(`Unsupported notification channel: ${String(channelTypeInput)}.`);
+      }
+
+      const channelType = channelTypeInput;
       const threadId = typeof params.threadId === "string" && params.threadId.trim()
         ? params.threadId.trim()
         : undefined;
@@ -79,9 +91,10 @@ export function createChannelLinkTool(_ctx: PluginContext) {
         const available = Object.values(data.projects)
           .map((p) => p.name)
           .join(", ");
+
         throw new Error(
           `Project "${projectRef}" not found. Available projects: ${available || "none"}. ` +
-            `Register a project first with project_register.`,
+          `Register a project first with project_register.`,
         );
       }
 
@@ -89,6 +102,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
       const alreadyLinked = target.channels.some(
         (ch) => ch.channelId === channelId && ch.threadId === threadId,
       );
+
       if (alreadyLinked) {
         return jsonResult({
           success: true,
@@ -103,10 +117,12 @@ export function createChannelLinkTool(_ctx: PluginContext) {
 
       // Auto-detach from any other project that has this channelId
       let detachedFrom: string | null = null;
+
       for (const project of Object.values(data.projects)) {
         const idx = project.channels.findIndex(
           (ch) => ch.channelId === channelId && ch.threadId === threadId,
         );
+
         if (idx !== -1) {
           detachedFrom = project.name;
           project.channels.splice(idx, 1);
@@ -115,13 +131,13 @@ export function createChannelLinkTool(_ctx: PluginContext) {
       }
 
       // Attach to target project
-      const newChannel: Channel = {
+    const newChannel: NotificationEndpoint = {
         channelId,
         channel: channelType,
         name: channelName ?? `channel-${target.channels.length + 1}`,
-        events: ["*"],
         ...(threadId ? { threadId } : {}),
       };
+
       target.channels.push(newChannel);
 
       await writeProjects(workspaceDir, data);
@@ -139,6 +155,7 @@ export function createChannelLinkTool(_ctx: PluginContext) {
       const detachNote = detachedFrom
         ? ` (detached from "${detachedFrom}")`
         : "";
+
       return jsonResult({
         success: true,
         changed: true,

@@ -2,20 +2,19 @@
  * Tick runner — main heartbeat loop that processes each project.
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { RunCommand } from "../../context.js";
-import path from "node:path";
-import { readProjects, getProject, type Project } from "../../state/projects/index.js";
+
 import { log as auditLog } from "../../audit.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
+import type { RunCommand } from "../../context.js";
+import { EXECUTION_MODE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
+import { createProvider } from "../../integrations/providers/index.js";
+import { loadConfig } from "../../state/config/index.js";
+import { getProject, readProjects } from "../../state/projects/index.js";
+import { projectTick } from "../queue/tick.js";
+import type { HeartbeatConfig } from "./config.js";
 import {
   type SessionLookup,
 } from "./health.js";
-import { projectTick } from "../queue/tick.js";
-import { createProvider } from "../../integrations/providers/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { ExecutionMode } from "../../domain/workflow/index.js";
-import type { HeartbeatConfig } from "./config.js";
 import {
   performHealthPass,
   performProjectionIntegrityPass,
@@ -28,7 +27,7 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-export type TickResult = {
+export type HeartbeatTickResult = {
   totalPickups: number;
   totalHealthFixes: number;
   totalSkipped: number;
@@ -50,7 +49,7 @@ export async function tick(opts: {
   logger: { info(msg: string): void; warn(msg: string): void };
   runtime?: PluginRuntime;
   runCommand: RunCommand;
-}): Promise<TickResult> {
+}): Promise<HeartbeatTickResult> {
   const { workspaceDir, agentId, config, pluginConfig, sessions, runtime, runCommand } = opts;
 
   // Load instance name for ownership filtering and auto-claiming
@@ -71,7 +70,7 @@ export async function tick(opts: {
     };
   }
 
-  const result: TickResult = {
+  const result: HeartbeatTickResult = {
     totalPickups: 0,
     totalHealthFixes: 0,
     totalSkipped: 0,
@@ -81,20 +80,22 @@ export async function tick(opts: {
   };
 
   const projectExecution =
-    (pluginConfig?.projectExecution as string) ?? ExecutionMode.PARALLEL;
+    (pluginConfig?.projectExecution as string) ?? EXECUTION_MODE.PARALLEL;
   let activeProjects = 0;
 
   for (const slug of slugs) {
     try {
       const project = data.projects[slug];
+
       if (!project) continue;
 
+      const resolvedConfig = await loadConfig(workspaceDir, project.name);
       const { provider } = await createProvider({
         repo: project.repo,
         provider: project.provider,
         runCommand,
+        workflow: resolvedConfig.workflow,
       });
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
 
       await performProjectionIntegrityPass(
         workspaceDir,
@@ -110,6 +111,7 @@ export async function tick(opts: {
         project,
         sessions,
         provider,
+        resolvedConfig,
         resolvedConfig.timeouts.staleWorkerHours,
         instanceName,
         runCommand,
@@ -134,12 +136,14 @@ export async function tick(opts: {
 
       // Budget check: stop if we've hit the limit
       const remaining = config.maxPickupsPerTick - result.totalPickups;
+
       if (remaining <= 0) break;
 
       // Sequential project guard: don't start new projects if one is active
       const isProjectActive = await checkProjectActive(workspaceDir, slug);
+
       if (
-        projectExecution === ExecutionMode.SEQUENTIAL &&
+        projectExecution === EXECUTION_MODE.SEQUENTIAL &&
         !isProjectActive &&
         activeProjects >= 1
       ) {
@@ -195,8 +199,10 @@ export async function checkProjectActive(
 ): Promise<boolean> {
   const data = await readProjects(workspaceDir);
   const project = getProject(data, slug);
+
   if (!project) return false;
+
   return Object.values(project.workers).some((w) =>
-    Object.values(w.levels).some(slots => slots.some(s => s.active)),
+    Object.values(w.levels).some(slots => slots?.some(s => s.active) ?? false),
   );
 }

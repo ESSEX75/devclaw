@@ -6,8 +6,8 @@
  * These files serve as both documentation and the runtime source of truth.
  */
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 // ---------------------------------------------------------------------------
 // File loader — reads from defaults/ (single source of truth)
 // ---------------------------------------------------------------------------
@@ -24,10 +24,11 @@ const DEFAULTS_DIR = [
 
 function loadDefault(filename: string): string {
   const filePath = path.join(DEFAULTS_DIR, filename);
+
   try {
     return fs.readFileSync(filePath, "utf-8");
   } catch (err) {
-    throw new Error(`Failed to load default file: ${filePath} (${(err as Error).message})`);
+    throw new Error(`Failed to load default file: ${filePath} (${(err as Error).message})`, { cause: err });
   }
 }
 

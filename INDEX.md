@@ -48,6 +48,4 @@ Layer-specific contracts live in the `README.md` files under each `lib/*` packag
 
 ## Documentation Policy
 
-Temporary refactor plans, task execution reports, and agent analysis do not belong under `docs/`. Keep them in the operator vault under `vault/generated`.
-
 `WORK_STATE.md` is local-only coordination state. It is ignored by git and should be created only when a long-running branch needs it.

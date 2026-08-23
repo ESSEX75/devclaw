@@ -8,6 +8,7 @@
  * which triggers false-positive "data exfiltration" warnings in plugin scanners.
  */
 import fs from "node:fs/promises";
+
 import type { RunCommand } from "../../context.js";
 
 export type GatewaySession = {
@@ -54,6 +55,7 @@ export async function fetchGatewaySessions(gatewayTimeoutMs = 15_000, runCommand
       try {
         const raw = await fs.readFile(filePath, "utf-8");
         const fileData = JSON.parse(raw) as Record<string, { updatedAt?: number; percentUsed?: number; abortedLastRun?: boolean; totalTokens?: number; contextTokens?: number }>;
+
         for (const [key, entry] of Object.entries(fileData)) {
           if (key && !lookup.has(key)) {
             lookup.set(key, {
@@ -69,6 +71,7 @@ export async function fetchGatewaySessions(gatewayTimeoutMs = 15_000, runCommand
             });
           }
         }
+
         readFromFiles = true;
       } catch {
         // File unreadable — skip and fall back to recent
@@ -78,6 +81,7 @@ export async function fetchGatewaySessions(gatewayTimeoutMs = 15_000, runCommand
     // Fallback: if file reads all failed, use `sessions.recent` (may be capped)
     if (!readFromFiles) {
       const recentSessions: GatewaySession[] = data?.sessions?.recent ?? [];
+
       for (const session of recentSessions) {
         if (session.key) {
           lookup.set(session.key, session);

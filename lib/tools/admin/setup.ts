@@ -5,22 +5,30 @@
  * Thin wrapper around application setup orchestration.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { runSetup, type SetupOpts } from "../../application/setup/index.js";
+
+import {
+  isSetupNotificationChannel,
+  runSetup,
+  SETUP_NOTIFICATION_CHANNELS,
+  type SetupOpts,
+} from "../../application/setup/index.js";
 import {
   ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
 } from "../../application/setup/scopes.js";
+import type { PluginContext } from "../../context.js";
+import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
 import { writeAllDefaults } from "../../state/setup/workspace-files.js";
-import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
-import { ExecutionMode } from "../../domain/workflow/index.js";
 
 export function createSetupTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "setup",
     label: "Setup",
-    description: `Execute DevClaw setup. Creates AGENTS.md, HEARTBEAT.md, TOOLS.md, devclaw/projects.json, devclaw/prompts/, and model level config. Optionally creates a new agent with channel binding. Called after onboard collects configuration.`,
+    description:
+      `Execute DevClaw setup. Creates AGENTS.md, HEARTBEAT.md, TOOLS.md, devclaw/projects.json, ` +
+      `devclaw/prompts/, and model level config. Optionally creates a new agent with channel binding. ` +
+      `Called after onboard collects configuration.`,
     parameters: {
       type: "object",
       properties: {
@@ -31,7 +39,7 @@ export function createSetupTool(ctx: PluginContext) {
         },
         channelBinding: {
           type: "string",
-          enum: ["telegram", "whatsapp"],
+          enum: SETUP_NOTIFICATION_CHANNELS,
           description: "Channel to bind to the selected or newly-created agent.",
         },
         channelAccountId: {
@@ -49,23 +57,17 @@ export function createSetupTool(ctx: PluginContext) {
         },
         models: {
           type: "object",
-          description: "Model overrides per role and level.",
-          properties: Object.fromEntries(
-            getAllRoleIds().map((role) => [role, {
-              type: "object",
-              description: `${role.toUpperCase()} level models`,
-              properties: Object.fromEntries(
-                getLevelsForRole(role).map((level) => [level, {
-                  type: "string",
-                  description: `Default: ${getAllDefaultModels()[role]?.[level] ?? "auto"}`,
-                }]),
-              ),
-            }]),
-          ),
+          description: "Model overrides keyed by configured role and level.",
+          additionalProperties: {
+            type: "object",
+            additionalProperties: {
+              type: "string",
+            },
+          },
         },
         projectExecution: {
           type: "string",
-          enum: Object.values(ExecutionMode),
+          enum: Object.values(EXECUTION_MODE),
           description: "Project execution mode. Default: parallel.",
         },
         ejectDefaults: {
@@ -83,10 +85,12 @@ export function createSetupTool(ctx: PluginContext) {
       // Handle --eject-defaults and --reset-defaults (standalone operations)
       if (params.ejectDefaults || params.resetDefaults) {
         const workspacePath = toolCtx.workspaceDir;
+
         if (!workspacePath) throw new Error("No workspace directory available");
         const force = !!params.resetDefaults;
         const written = await writeAllDefaults(workspacePath, force);
         const action = force ? "Reset (force-wrote)" : "Ejected (wrote missing)";
+
         return jsonResult({
           success: true,
           action: force ? "reset-defaults" : "eject-defaults",
@@ -99,13 +103,21 @@ export function createSetupTool(ctx: PluginContext) {
 
       let scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>>;
       let result: Awaited<ReturnType<typeof runSetup>>;
+      const channelBindingInput = params.channelBinding;
+
+      if (
+        channelBindingInput !== undefined
+        && !isSetupNotificationChannel(channelBindingInput)
+      ) {
+        throw new Error(`Unsupported setup channel: ${String(channelBindingInput)}.`);
+      }
+
       try {
         scopePreflight = await ensureRequiredOpenClawScopes(ctx.runCommand);
         result = await runSetup({
           runtime: ctx.runtime,
           newAgentName: params.newAgentName as string | undefined,
-          channelBinding:
-            (params.channelBinding as "telegram" | "whatsapp") ?? null,
+          channelBinding: channelBindingInput ?? null,
           channelAccountId:
             typeof params.channelAccountId === "string" ? params.channelAccountId : undefined,
           channelPeerId:
@@ -150,18 +162,21 @@ export function createSetupTool(ctx: PluginContext) {
           : `Configured "${result.agentId}"`,
         "",
       ];
+
       if (result.bindingMigrated) {
         lines.push(
           `✅ Binding migrated: ${result.bindingMigrated.channel} (${result.bindingMigrated.from} → ${result.agentId})`,
           "",
         );
       }
+
       lines.push("Models:");
       for (const [role, levels] of Object.entries(result.models)) {
         for (const [level, model] of Object.entries(levels)) {
           lines.push(`  ${role}.${level}: ${model}`);
         }
       }
+
       lines.push("");
 
       lines.push("Files:", ...result.filesWritten.map((f) => `  ${f}`));
@@ -169,9 +184,11 @@ export function createSetupTool(ctx: PluginContext) {
       if (scopePreflight.status === "approved") {
         lines.push("", "OpenClaw scopes: approved");
       }
+
       if (scopePreflight.warning) {
         lines.push("", "OpenClaw scopes warning:", `  ${scopePreflight.warning}`);
       }
+
       if (result.warnings.length > 0)
         lines.push("", "Warnings:", ...result.warnings.map((w) => `  ${w}`));
       lines.push(

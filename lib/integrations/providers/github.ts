@@ -1,23 +1,11 @@
 /**
  * GitHubProvider — IssueProvider implementation using gh CLI.
  */
-import {
-  type Issue,
-  type StateLabel,
-  type IssueComment,
-  type PrStatus,
-  type PrReviewComment,
-  PrState,
-} from "./types.js";
-import type { IssueProvider } from "./provider.js";
 import type { RunCommand } from "../../context.js";
+import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
+import type { IssueProvider } from "./provider.js";
 import { withResilience } from "./resilience.js";
-import {
-  DEFAULT_WORKFLOW,
-  getStateLabels,
-  getLabelColors,
-  type WorkflowConfig,
-} from "../../domain/workflow/index.js";
+import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
 
 type GhIssue = {
   number: number;
@@ -49,9 +37,11 @@ export class GitHubProvider implements IssueProvider {
   private async gh(args: string[]): Promise<string> {
     return withResilience(async () => {
       const result = await this.runCommand(["gh", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
+
       if (result.code != null && result.code !== 0) {
         throw new Error(result.stderr?.trim() || `gh command failed with exit code ${result.code}`);
       }
+
       return result.stdout.trim();
     });
   }
@@ -68,10 +58,12 @@ export class GitHubProvider implements IssueProvider {
     try {
       const raw = await this.gh(["repo", "view", "--json", "owner,name"]);
       const data = JSON.parse(raw);
+
       this.repoInfo = { owner: data.owner.login, name: data.name };
     } catch {
       this.repoInfo = null;
     }
+
     return this.repoInfo;
   }
 
@@ -83,8 +75,19 @@ export class GitHubProvider implements IssueProvider {
   private async findPrsViaTimeline(
     issueId: number,
     state: "open" | "merged" | "all",
-  ): Promise<Array<{ number: number; title: string; body: string; headRefName: string; url: string; mergedAt: string | null; reviewDecision: string | null; state: string; mergeable: string | null }> | null> {
+  ): Promise<Array<{
+    number: number;
+    title: string;
+    body: string;
+    headRefName: string;
+    url: string;
+    mergedAt: string | null;
+    reviewDecision: string | null;
+    state: string;
+    mergeable: string | null;
+  }> | null> {
     const repo = await this.getRepoInfo();
+
     if (!repo) return null;
 
     try {
@@ -112,10 +115,21 @@ export class GitHubProvider implements IssueProvider {
 
       // Extract PR data from both event types
       const seen = new Set<number>();
-      const prs: Array<{ number: number; title: string; body: string; headRefName: string; url: string; mergedAt: string | null; reviewDecision: string | null; state: string; mergeable: string | null }> = [];
+      const prs: Array<{
+        number: number;
+        title: string;
+        body: string;
+        headRefName: string;
+        url: string;
+        mergedAt: string | null;
+        reviewDecision: string | null;
+        state: string;
+        mergeable: string | null;
+      }> = [];
 
       for (const node of nodes) {
         const pr = node.subject ?? node.source;
+
         if (!pr?.number || !pr?.url) continue; // Not a PR or empty source
         if (seen.has(pr.number)) continue;
         seen.add(pr.number);
@@ -135,6 +149,7 @@ export class GitHubProvider implements IssueProvider {
       // Filter by state
       if (state === "open") return prs.filter((pr) => pr.state === "OPEN");
       if (state === "merged") return prs.filter((pr) => pr.state === "MERGED");
+
       return prs;
     } catch {
       return null; // GraphQL failed — caller should fall back
@@ -161,6 +176,7 @@ export class GitHubProvider implements IssueProvider {
   ): Promise<T[]> {
     // Try timeline API first (returns all linked PRs regardless of naming convention)
     const timelinePrs = await this.findPrsViaTimeline(issueId, state);
+
     if (timelinePrs && timelinePrs.length > 0) {
       // Map timeline results to the expected shape (T includes the requested fields)
       // The timeline query now provides: number, title, body, headRefName, state, url, mergedAt, reviewDecision, mergeable
@@ -170,8 +186,10 @@ export class GitHubProvider implements IssueProvider {
     // Fallback: regex-based matching on branch name / title / body
     try {
       const args = ["pr", "list", "--json", fields, "--limit", "50"];
+
       if (state !== "all") args.push("--state", state);
       const raw = await this.gh(args);
+
       if (!raw) return [];
       const prs = JSON.parse(raw) as T[];
       const branchPat = new RegExp(`^(?:fix|feat|feature|chore|bugfix|hotfix|refactor|docs|test)/${issueId}-`);
@@ -179,6 +197,7 @@ export class GitHubProvider implements IssueProvider {
 
       // Primary: match by branch name
       const byBranch = prs.filter((pr) => pr.headRefName && branchPat.test(pr.headRefName));
+
       if (byBranch.length > 0) return byBranch;
 
       // Fallback: word-boundary match in title/body
@@ -193,23 +212,31 @@ export class GitHubProvider implements IssueProvider {
   async ensureAllStateLabels(): Promise<void> {
     const labels = getStateLabels(this.workflow);
     const colors = getLabelColors(this.workflow);
+
     for (const label of labels) {
-      await this.ensureLabel(label, colors[label]);
+      const color = colors.get(label);
+
+      if (!color) throw new Error(`No color configured for workflow label "${label}".`);
+      await this.ensureLabel(label, color);
     }
   }
 
   async createIssue(title: string, description: string, label: StateLabel, assignees?: string[]): Promise<Issue> {
     const args = ["issue", "create", "--title", title, "--body", description, "--label", label];
+
     if (assignees?.length) args.push("--assignee", assignees.join(","));
     const url = await this.gh(args);
     const match = url.match(/\/issues\/(\d+)$/);
+
     if (!match) throw new Error(`Failed to parse issue URL: ${url}`);
+
     return this.getIssue(parseInt(match[1], 10));
   }
 
   async listIssuesByLabel(label: StateLabel): Promise<Issue[]> {
     try {
       const raw = await this.gh(["issue", "list", "--label", label, "--state", "open", "--json", "number,title,body,labels,state,url"]);
+
       return (JSON.parse(raw) as GhIssue[]).map(toIssue);
     } catch { return []; }
   }
@@ -217,21 +244,26 @@ export class GitHubProvider implements IssueProvider {
   async listIssues(opts?: { label?: string; state?: "open" | "closed" | "all" }): Promise<Issue[]> {
     try {
       const args = ["issue", "list", "--state", opts?.state ?? "open", "--json", "number,title,body,labels,state,url"];
+
       if (opts?.label) args.push("--label", opts.label);
       const raw = await this.gh(args);
+
       return (JSON.parse(raw) as GhIssue[]).map(toIssue);
     } catch { return []; }
   }
 
   async getIssue(issueId: number): Promise<Issue> {
     const raw = await this.gh(["issue", "view", String(issueId), "--json", "number,title,body,labels,state,url"]);
+
     return toIssue(JSON.parse(raw) as GhIssue);
   }
 
   async listComments(issueId: number): Promise<IssueComment[]> {
     try {
       const raw = await this.gh(["api", `repos/:owner/:repo/issues/${issueId}/comments`, "--jq", ".[] | {id: .id, author: .user.login, body: .body, created_at: .created_at}"]);
+
       if (!raw) return [];
+
       return raw.split("\n").filter(Boolean).map((line) => JSON.parse(line));
     } catch { return []; }
   }
@@ -242,16 +274,17 @@ export class GitHubProvider implements IssueProvider {
     // Phase 2: Remove old state labels
     // This way, if phase 2 fails, the issue still has the new label (issue is correctly transitioned)
     // instead of having no state label at all.
-    
+
     await this.gh(["issue", "edit", String(issueId), "--add-label", to]);
-    
+
     // Remove old state labels (best-effort if there are multiple old labels)
     const issue = await this.getIssue(issueId);
-    const stateLabels = getStateLabels(this.workflow);
-    const currentStateLabels = issue.labels.filter((l) => stateLabels.includes(l) && l !== to);
-    
+    const stateLabels = new Set<string>(getStateLabels(this.workflow));
+    const currentStateLabels = issue.labels.filter((label) => stateLabels.has(label) && label !== to);
+
     if (currentStateLabels.length > 0) {
       const args = ["issue", "edit", String(issueId)];
+
       for (const l of currentStateLabels) args.push("--remove-label", l);
       await this.gh(args);
     }
@@ -259,7 +292,8 @@ export class GitHubProvider implements IssueProvider {
     // Post-transition validation: verify exactly one state label remains (#473)
     try {
       const postIssue = await this.getIssue(issueId);
-      const postStateLabels = postIssue.labels.filter((l) => stateLabels.includes(l));
+      const postStateLabels = postIssue.labels.filter((label) => stateLabels.has(label));
+
       if (postStateLabels.length !== 1 || !postStateLabels.includes(to)) {
         // Log anomaly but don't throw — transition is already committed
         console.error(
@@ -280,6 +314,7 @@ export class GitHubProvider implements IssueProvider {
   async removeLabels(issueId: number, labels: string[]): Promise<void> {
     if (labels.length === 0) return;
     const args = ["issue", "edit", String(issueId)];
+
     for (const l of labels) args.push("--remove-label", l);
     await this.gh(args);
   }
@@ -290,8 +325,10 @@ export class GitHubProvider implements IssueProvider {
   async getMergedMRUrl(issueId: number): Promise<string | null> {
     type MergedPr = { title: string; body: string; headRefName: string; url: string; mergedAt: string };
     const prs = await this.findPrsForIssue<MergedPr>(issueId, "merged", "title,body,headRefName,url,mergedAt");
+
     if (prs.length === 0) return null;
     prs.sort((a, b) => new Date(b.mergedAt).getTime() - new Date(a.mergedAt).getTime());
+
     return prs[0].url;
   }
 
@@ -299,9 +336,11 @@ export class GitHubProvider implements IssueProvider {
     // Check open PRs first — include mergeable for conflict detection
     type OpenPr = { title: string; body: string; headRefName: string; url: string; number: number; reviewDecision: string; mergeable: string };
     const open = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,url,number,reviewDecision,mergeable");
+
     if (open.length > 0) {
       const pr = open[0];
       let state: PrState;
+
       if (pr.reviewDecision === "APPROVED") {
         state = PrState.APPROVED;
       } else if (pr.reviewDecision === "CHANGES_REQUESTED") {
@@ -309,16 +348,19 @@ export class GitHubProvider implements IssueProvider {
       } else {
         // No branch protection → reviewDecision may be empty. Check individual reviews.
         const hasChangesRequested = await this.hasChangesRequestedReview(pr.number);
+
         if (hasChangesRequested) {
           state = PrState.CHANGES_REQUESTED;
         } else {
           // Check for unacknowledged COMMENTED reviews (feedback without formal "Request changes")
           const hasReviewFeedback = await this.hasUnacknowledgedReviews(pr.number);
+
           if (hasReviewFeedback) {
             state = PrState.HAS_COMMENTS;
           } else {
             // Fall through to conversation comment detection
             const hasComments = await this.hasConversationComments(pr.number);
+
             state = hasComments ? PrState.HAS_COMMENTS : PrState.OPEN;
           }
         }
@@ -327,25 +369,31 @@ export class GitHubProvider implements IssueProvider {
       // Conflict detection: "CONFLICTING" means merge conflicts, "UNKNOWN" means still computing
       const mergeable = pr.mergeable === "CONFLICTING" ? false
         : pr.mergeable === "MERGEABLE" ? true
-        : undefined; // UNKNOWN or missing — don't assume
+          : undefined; // UNKNOWN or missing — don't assume
 
       return { state, url: pr.url, title: pr.title, sourceBranch: pr.headRefName, mergeable };
     }
+
     // Check merged PRs — also fetch reviewDecision to detect approved-then-merged vs self-merged.
     type MergedPr = { title: string; body: string; headRefName: string; url: string; reviewDecision: string | null };
     const merged = await this.findPrsForIssue<MergedPr>(issueId, "merged", "title,body,headRefName,url,reviewDecision");
+
     if (merged.length > 0) {
       const pr = merged[0];
       const state = pr.reviewDecision === "APPROVED" ? PrState.APPROVED : PrState.MERGED;
+
       return { state, url: pr.url, title: pr.title, sourceBranch: pr.headRefName };
     }
+
     // Check for closed-without-merge PRs. url: non-null = PR was explicitly closed;
     // url: null = no PR has ever been created for this issue.
     const allPrs = await this.findPrsViaTimeline(issueId, "all");
     const closedPr = allPrs?.find((pr) => pr.state === "CLOSED");
+
     if (closedPr) {
       return { state: PrState.CLOSED, url: closedPr.url, title: closedPr.title, sourceBranch: closedPr.headRefName };
     }
+
     return { state: PrState.CLOSED, url: null };
   }
 
@@ -355,8 +403,14 @@ export class GitHubProvider implements IssueProvider {
    */
   private async hasChangesRequestedReview(prNumber: number): Promise<boolean> {
     try {
-      const raw = await this.gh(["api", `repos/:owner/:repo/pulls/${prNumber}/reviews`, "--jq",
-        "[.[] | select(.state == \"CHANGES_REQUESTED\" or .state == \"APPROVED\") | {user: .user.login, state}] | group_by(.user) | map(sort_by(.state) | last) | .[] | select(.state == \"CHANGES_REQUESTED\") | .user"]);
+      const raw = await this.gh([
+        "api",
+        `repos/:owner/:repo/pulls/${prNumber}/reviews`,
+        "--jq",
+        `[.[] | select(.state == "CHANGES_REQUESTED" or .state == "APPROVED") | {user: .user.login, state}] | ` +
+        `group_by(.user) | map(sort_by(.state) | last) | .[] | select(.state == "CHANGES_REQUESTED") | .user`,
+      ]);
+
       return raw.trim().length > 0;
     } catch { return false; }
   }
@@ -393,6 +447,7 @@ export class GitHubProvider implements IssueProvider {
           ]);
           const reactions = JSON.parse(reactionsRaw) as Array<{ content: string }>;
           const hasEyes = reactions.some((r) => r.content === "eyes");
+
           if (!hasEyes) return true; // Found unacknowledged review
         } catch {
           // Can't check reactions — treat as unacknowledged to be safe
@@ -413,6 +468,7 @@ export class GitHubProvider implements IssueProvider {
     try {
       const raw = await this.gh(["api", `repos/:owner/:repo/issues/${prNumber}/comments`]);
       const comments = JSON.parse(raw) as Array<{ user: { login: string }; body: string; reactions: { eyes: number } }>;
+
       return comments.some(
         (c) => !c.user.login.endsWith("[bot]") && c.body.trim().length > 0 && !(c.reactions?.eyes > 0),
       );
@@ -430,6 +486,7 @@ export class GitHubProvider implements IssueProvider {
     try {
       const raw = await this.gh(["api", `repos/:owner/:repo/issues/${prNumber}/comments`]);
       const all = JSON.parse(raw) as Array<{ id: number; user: { login: string }; body: string; created_at: string }>;
+
       return all.filter(
         (c) => !c.user.login.endsWith("[bot]") && c.body.trim().length > 0,
       );
@@ -439,6 +496,7 @@ export class GitHubProvider implements IssueProvider {
   async mergePr(issueId: number): Promise<void> {
     type OpenPr = { title: string; body: string; headRefName: string; url: string };
     const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,url");
+
     if (prs.length === 0) throw new Error(`No open PR found for issue #${issueId}`);
     await this.gh(["pr", "merge", prs[0].url, "--merge"]);
   }
@@ -446,6 +504,7 @@ export class GitHubProvider implements IssueProvider {
   async getPrDiff(issueId: number): Promise<string | null> {
     type OpenPr = { title: string; body: string; headRefName: string; number: number };
     const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
+
     if (prs.length === 0) return null;
     try {
       return await this.gh(["pr", "diff", String(prs[0].number)]);
@@ -455,6 +514,7 @@ export class GitHubProvider implements IssueProvider {
   async getPrReviewComments(issueId: number): Promise<PrReviewComment[]> {
     type OpenPr = { title: string; body: string; headRefName: string; number: number };
     const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
+
     if (prs.length === 0) return [];
     const prNumber = prs[0].number;
     const comments: PrReviewComment[] = [];
@@ -465,6 +525,7 @@ export class GitHubProvider implements IssueProvider {
       const reviews = JSON.parse(reviewsRaw) as Array<{
         id: number; user: { login: string }; body: string; state: string; submitted_at: string;
       }>;
+
       for (const r of reviews) {
         if (r.state === "DISMISSED") continue; // Skip dismissed
         if (!r.body && r.state === "COMMENTED") continue; // Skip empty COMMENTED reviews
@@ -484,6 +545,7 @@ export class GitHubProvider implements IssueProvider {
       const inlines = JSON.parse(inlineRaw) as Array<{
         id: number; user: { login: string }; body: string; path: string; line: number | null; created_at: string;
       }>;
+
       for (const c of inlines) {
         comments.push({
           id: c.id,
@@ -499,6 +561,7 @@ export class GitHubProvider implements IssueProvider {
 
     // Top-level conversation comments (regular PR comments via Issues API)
     const conversationComments = await this.fetchConversationComments(prNumber);
+
     for (const c of conversationComments) {
       comments.push({
         id: c.id,
@@ -511,6 +574,7 @@ export class GitHubProvider implements IssueProvider {
 
     // Sort by date
     comments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
     return comments;
   }
 
@@ -521,6 +585,7 @@ export class GitHubProvider implements IssueProvider {
       "--field", `body=${body}`,
     ]);
     const parsed = JSON.parse(raw) as { id: number };
+
     return parsed.id;
   }
 
@@ -538,6 +603,7 @@ export class GitHubProvider implements IssueProvider {
     try {
       const raw = await this.gh(["api", `repos/:owner/:repo/issues/${issueId}/reactions`]);
       const reactions = JSON.parse(raw) as Array<{ content: string }>;
+
       return reactions.some((r) => r.content === emoji);
     } catch { return false; }
   }
@@ -547,6 +613,7 @@ export class GitHubProvider implements IssueProvider {
       // GitHub PRs are also issues — use the same reactions API with the PR number
       type OpenPr = { title: string; body: string; headRefName: string; number: number };
       const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
+
       if (prs.length === 0) return;
       await this.gh([
         "api", `repos/:owner/:repo/issues/${prs[0].number}/reactions`,
@@ -560,9 +627,11 @@ export class GitHubProvider implements IssueProvider {
     try {
       type OpenPr = { title: string; body: string; headRefName: string; number: number };
       const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
+
       if (prs.length === 0) return false;
       const raw = await this.gh(["api", `repos/:owner/:repo/issues/${prs[0].number}/reactions`]);
       const reactions = JSON.parse(raw) as Array<{ content: string }>;
+
       return reactions.some((r) => r.content === emoji);
     } catch { return false; }
   }
@@ -601,6 +670,7 @@ export class GitHubProvider implements IssueProvider {
       // We need the PR number, not the issue ID. Find the PR first.
       type OpenPr = { title: string; body: string; headRefName: string; number: number };
       const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
+
       if (prs.length === 0) return;
       await this.gh([
         "api", `repos/:owner/:repo/pulls/${prs[0].number}/reviews/${reviewId}/reactions`,
@@ -614,6 +684,7 @@ export class GitHubProvider implements IssueProvider {
     try {
       const raw = await this.gh(["api", `repos/:owner/:repo/issues/comments/${commentId}/reactions`]);
       const reactions = JSON.parse(raw) as Array<{ content: string }>;
+
       return reactions.some((r) => r.content === emoji);
     } catch { return false; }
   }
@@ -622,6 +693,7 @@ export class GitHubProvider implements IssueProvider {
     try {
       const raw = await this.gh(["api", `repos/:owner/:repo/issues/comments/${commentId}/reactions`]);
       const reactions = JSON.parse(raw) as Array<{ content: string }>;
+
       return reactions.some((r) => r.content === emoji);
     } catch { return false; }
   }
@@ -630,20 +702,24 @@ export class GitHubProvider implements IssueProvider {
     try {
       type OpenPr = { title: string; body: string; headRefName: string; number: number };
       const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
+
       if (prs.length === 0) return false;
       const raw = await this.gh([
         "api", `repos/:owner/:repo/pulls/${prs[0].number}/reviews/${reviewId}/reactions`,
       ]);
       const reactions = JSON.parse(raw) as Array<{ content: string }>;
+
       return reactions.some((r) => r.content === emoji);
     } catch { return false; }
   }
 
   async editIssue(issueId: number, updates: { title?: string; body?: string }): Promise<Issue> {
     const args = ["issue", "edit", String(issueId)];
+
     if (updates.title !== undefined) args.push("--title", updates.title);
     if (updates.body !== undefined) args.push("--body", updates.body);
     await this.gh(args);
+
     return this.getIssue(issueId);
   }
 
@@ -658,6 +734,7 @@ export class GitHubProvider implements IssueProvider {
         ["git", "log", `origin/${baseBranch}`, "--oneline", "-200", "--grep", `#${issueId}`],
         { timeoutMs: 15_000, cwd: this.repoPath },
       );
+
       return result.stdout.trim().length > 0;
     } catch { return false; }
   }
@@ -674,10 +751,12 @@ export class GitHubProvider implements IssueProvider {
 
       // Get repo owner/name
       const repo = await this.getRepoInfo();
+
       if (!repo) return null;
 
       // Ensure branch exists
       let branchExists = false;
+
       try {
         await this.gh(["api", `repos/${repo.owner}/${repo.name}/git/ref/heads/${branch}`]);
         branchExists = true;
@@ -692,6 +771,7 @@ export class GitHubProvider implements IssueProvider {
           "api", `repos/${repo.owner}/${repo.name}/git/ref/heads/${defaultBranch}`,
           "--jq", ".object.sha",
         ]);
+
         await this.gh([
           "api", `repos/${repo.owner}/${repo.name}/git/refs`,
           "--method", "POST",
@@ -716,6 +796,10 @@ export class GitHubProvider implements IssueProvider {
   }
 
   async healthCheck(): Promise<boolean> {
-    try { await this.gh(["auth", "status"]); return true; } catch { return false; }
+    try {
+      await this.gh(["auth", "status"]);
+
+      return true;
+    } catch { return false; }
   }
 }

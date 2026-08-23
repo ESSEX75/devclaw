@@ -1,4 +1,4 @@
-import type { IssueRuntimeState } from "../state/issues/index.js";
+import type { IssueRuntimeState } from "../domain/index.js";
 
 export type ProjectionMetadata = {
   projectSlug: string;
@@ -26,4 +26,3 @@ export type ProjectionInput = {
   actualLabels: string[];
   options: ManagedLabelOptions;
 };
-

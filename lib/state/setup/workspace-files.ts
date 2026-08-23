@@ -13,19 +13,20 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+
+import { log as auditLog } from "../../audit.js";
+import { getAllRoleIds } from "../../roles/index.js";
+import { DATA_DIR } from "./paths.js";
 import {
   AGENTS_MD_TEMPLATE,
+  DEFAULT_ROLE_INSTRUCTIONS,
   HEARTBEAT_MD_TEMPLATE,
   IDENTITY_MD_TEMPLATE,
   SOUL_MD_TEMPLATE,
   TOOLS_MD_TEMPLATE,
   WORKFLOW_YAML_TEMPLATE,
-  DEFAULT_ROLE_INSTRUCTIONS,
 } from "./templates.js";
-import { getAllRoleIds } from "../../roles/index.js";
-import { DATA_DIR } from "./paths.js";
-import { writeVersionFile, detectUpgrade } from "./version.js";
-import { log as auditLog } from "../../audit.js";
+import { detectUpgrade,writeVersionFile } from "./version.js";
 
 /** Sentinel file indicating the workspace has been initialized. */
 const INITIALIZED_SENTINEL = ".initialized";
@@ -42,6 +43,7 @@ const INITIALIZED_SENTINEL = ".initialized";
  */
 export async function ensureDefaultFiles(workspacePath: string): Promise<void> {
   const dataDir = path.join(workspacePath, DATA_DIR);
+
   await fs.mkdir(dataDir, { recursive: true });
 
   // Ensure directories exist
@@ -58,6 +60,7 @@ export async function ensureDefaultFiles(workspacePath: string): Promise<void> {
 
   // IDENTITY.md
   const identityPath = path.join(workspacePath, "IDENTITY.md");
+
   if (!await fileExists(identityPath)) {
     await fs.writeFile(identityPath, IDENTITY_MD_TEMPLATE, "utf-8");
   }
@@ -67,21 +70,25 @@ export async function ensureDefaultFiles(workspacePath: string): Promise<void> {
 
   // devclaw/workflow.yaml — create-only (three-layer merge handles defaults for missing keys)
   const workflowPath = path.join(dataDir, "workflow.yaml");
+
   await writeIfMissing(workflowPath, WORKFLOW_YAML_TEMPLATE);
 
   // devclaw/projects.json — create-only
   const projectsJsonPath = path.join(dataDir, "projects.json");
+
   await writeIfMissing(projectsJsonPath, JSON.stringify({ projects: {} }, null, 2) + "\n");
 
   // devclaw/prompts/ — create-only per role (user customizations are preserved)
   for (const role of getAllRoleIds()) {
     const rolePath = path.join(dataDir, "prompts", `${role}.md`);
     const content = DEFAULT_ROLE_INSTRUCTIONS[role];
+
     if (content) await writeIfMissing(rolePath, content);
   }
 
   // Version tracking
   const upgrade = await detectUpgrade(dataDir);
+
   await writeVersionFile(dataDir);
   if (upgrade) {
     await auditLog(workspacePath, "version_upgrade", {
@@ -92,6 +99,7 @@ export async function ensureDefaultFiles(workspacePath: string): Promise<void> {
 
   // Mark workspace as initialized
   const sentinelPath = path.join(dataDir, INITIALIZED_SENTINEL);
+
   await writeIfMissing(sentinelPath, new Date().toISOString() + "\n");
 }
 
@@ -122,6 +130,7 @@ export async function writeAllDefaults(workspacePath: string, force = false): Pr
 
   for (const role of getAllRoleIds()) {
     const content = DEFAULT_ROLE_INSTRUCTIONS[role];
+
     if (content) files.push([path.join(dataDir, "prompts", `${role}.md`), content]);
   }
 
@@ -138,6 +147,7 @@ export async function writeAllDefaults(workspacePath: string, force = false): Pr
 
   // Version tracking
   const upgrade = await detectUpgrade(dataDir);
+
   await writeVersionFile(dataDir);
   if (upgrade) {
     await auditLog(workspacePath, "version_upgrade", {
@@ -158,14 +168,17 @@ export async function writeAllDefaults(workspacePath: string, force = false): Pr
 export async function scaffoldWorkspace(workspacePath: string, defaultWorkspacePath?: string): Promise<string[]> {
   // SOUL.md (create-only — never overwrite user customizations)
   const soulPath = path.join(workspacePath, "SOUL.md");
+
   if (!await fileExists(soulPath)) {
     await fs.writeFile(soulPath, SOUL_MD_TEMPLATE, "utf-8");
   }
 
   // USER.md — copy from default workspace if available (create-only)
   const userPath = path.join(workspacePath, "USER.md");
+
   if (!await fileExists(userPath) && defaultWorkspacePath) {
     const sourceUser = path.join(defaultWorkspacePath, "USER.md");
+
     if (await fileExists(sourceUser)) {
       await fs.copyFile(sourceUser, userPath);
     }
@@ -188,6 +201,7 @@ export async function backupAndWrite(filePath: string, content: string): Promise
   } catch {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
   }
+
   await fs.writeFile(filePath, content, "utf-8");
 }
 
@@ -198,12 +212,14 @@ async function writeIfMissing(filePath: string, content: string): Promise<boolea
   if (await fileExists(filePath)) return false;
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, content, "utf-8");
+
   return true;
 }
 
 export async function fileExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
+
     return true;
   } catch {
     return false;

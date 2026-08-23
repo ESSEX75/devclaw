@@ -8,14 +8,15 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { writeAllDefaults, backupAndWrite, fileExists } from "../../state/setup/workspace-files.js";
-import { WORKFLOW_YAML_TEMPLATE, DEFAULT_ROLE_INSTRUCTIONS } from "../../state/setup/templates.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
-import { getCurrentVersion, readVersionFile } from "../../state/setup/version.js";
 
-export function createConfigTool(ctx: PluginContext) {
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
+import { DATA_DIR } from "../../state/setup/paths.js";
+import { DEFAULT_ROLE_INSTRUCTIONS, WORKFLOW_YAML_TEMPLATE } from "../../state/setup/templates.js";
+import { getCurrentVersion, readVersionFile } from "../../state/setup/version.js";
+import { backupAndWrite, fileExists, writeAllDefaults } from "../../state/setup/workspace-files.js";
+
+export function createConfigTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "config",
     label: "Config",
@@ -52,6 +53,7 @@ Examples:
     async execute(_id: string, params: Record<string, unknown>) {
       const action = params.action as string;
       const workspacePath = toolCtx.workspaceDir;
+
       if (!workspacePath) throw new Error("No workspace directory available");
 
       switch (action) {
@@ -78,16 +80,20 @@ async function handleReset(workspacePath: string, scope: string) {
 
   if (scope === "all") {
     const files = await writeAllDefaults(workspacePath, true);
+
     written.push(...files);
   } else if (scope === "workflow") {
     const workflowPath = path.join(dataDir, "workflow.yaml");
+
     await backupAndWrite(workflowPath, WORKFLOW_YAML_TEMPLATE);
     written.push("devclaw/workflow.yaml");
   } else if (scope === "prompts") {
     const promptsDir = path.join(dataDir, "prompts");
+
     for (const [role, content] of Object.entries(DEFAULT_ROLE_INSTRUCTIONS)) {
       if (!content) continue;
       const rolePath = path.join(promptsDir, `${role}.md`);
+
       await backupAndWrite(rolePath, content);
       written.push(`devclaw/prompts/${role}.md`);
     }
@@ -134,9 +140,11 @@ async function handleDiff(workspacePath: string) {
   const diffs: string[] = [];
 
   const maxLen = Math.max(currentLines.length, templateLines.length);
+
   for (let i = 0; i < maxLen; i++) {
     const cl = currentLines[i] ?? "";
     const tl = templateLines[i] ?? "";
+
     if (cl !== tl) {
       if (tl && !cl) diffs.push(`+${i + 1}: ${tl}`);
       else if (cl && !tl) diffs.push(`-${i + 1}: ${cl}`);
@@ -151,7 +159,9 @@ async function handleDiff(workspacePath: string) {
     success: true,
     action: "diff",
     differences: diffs.length,
-    summary: `workflow.yaml differs from package default (${diffs.length} line(s)):\n\`\`\`diff\n${diffs.join("\n")}\n\`\`\`\n\nUse \`config({ action: "reset", scope: "workflow" })\` to reset to defaults.`,
+    summary:
+      `workflow.yaml differs from package default (${diffs.length} line(s)):\n\`\`\`diff\n${diffs.join("\n")}\n\`\`\`\n\n` +
+      `Use \`config({ action: "reset", scope: "workflow" })\` to reset to defaults.`,
   });
 }
 

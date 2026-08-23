@@ -6,11 +6,12 @@
  * Use `tasks_status` for live issue counts.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
 import type { PluginContext } from "../../context.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject } from "../helpers.js";
-import { ExecutionMode, StateType } from "../../domain/workflow/index.js";
-import { loadConfig } from "../../state/config/index.js";
+import { EXECUTION_MODE, STATE_TYPE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
+import { loadConfig } from "../../state/config/index.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject } from "../helpers.js";
 
 export function createProjectStatusTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -25,7 +26,9 @@ export function createProjectStatusTool(ctx: PluginContext) {
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
       },
     },
@@ -37,7 +40,7 @@ export function createProjectStatusTool(ctx: PluginContext) {
       const { project } = await resolveProject(workspaceDir, channelId);
 
       const pluginConfig = ctx.pluginConfig;
-      const projectExecution = (pluginConfig?.projectExecution as string) ?? ExecutionMode.PARALLEL;
+      const projectExecution = (pluginConfig?.projectExecution as string) ?? EXECUTION_MODE.PARALLEL;
 
       const projectConfig = await loadConfig(workspaceDir, project.name);
       const workflow = projectConfig.workflow;
@@ -45,15 +48,19 @@ export function createProjectStatusTool(ctx: PluginContext) {
 
       // Workers summary - per-level slot utilization
       const workers: Record<string, {
-        levelMaxWorkers: Record<string, number>;
+        levelMaxWorkers: Partial<Record<string, number>>;
         activeSlots: number;
         levels: Record<string, Array<{ active: boolean; issueId: string | null; startTime: string | null }>>;
       }> = {};
+
       for (const [role, rw] of Object.entries(project.workers)) {
         const levelMaxWorkers = projectConfig.roles[role]?.levelMaxWorkers ?? {};
         let activeSlots = 0;
         const levels: Record<string, Array<{ active: boolean; issueId: string | null; startTime: string | null }>> = {};
+
         for (const [level, slots] of Object.entries(rw.levels)) {
+          if (slots === undefined) continue;
+
           levels[level] = slots.map(slot => ({
             active: slot.active,
             issueId: slot.issueId,
@@ -61,16 +68,16 @@ export function createProjectStatusTool(ctx: PluginContext) {
           }));
           activeSlots += slots.filter(s => s.active).length;
         }
+
         workers[role] = { levelMaxWorkers, activeSlots, levels };
       }
 
-      // Workflow summary
       const hasTestPhase = Object.values(workflow.states).some(
-        (s) => s.role === "tester" && (s.type === StateType.QUEUE || s.type === StateType.ACTIVE),
+        (s) => s.role === "tester" && (s.type === STATE_TYPE.QUEUE || s.type === STATE_TYPE.ACTIVE),
       );
       const workflowSummary = {
         reviewPolicy: workflow.reviewPolicy ?? "human",
-        roleExecution: workflow.roleExecution ?? ExecutionMode.PARALLEL,
+        roleExecution: workflow.roleExecution ?? EXECUTION_MODE.PARALLEL,
         testPhase: hasTestPhase,
         stateFlow: Object.entries(workflow.states)
           .map(([, s]) => s.label)

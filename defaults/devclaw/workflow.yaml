@@ -6,6 +6,18 @@
 #
 # To see what changed in a new version: config({ action: "diff" })
 # To reset to package defaults:         config({ action: "reset", scope: "workflow" })
+#
+# Role, level, and state identifiers may be extended. Identifiers must start
+# with a letter and contain only letters, numbers, underscores, or hyphens.
+# A custom role requires levels, defaultLevel, a model for every level, at
+# least one completion mapping, a role prompt, and queue/active states that
+# place it at the intended position in the workflow graph.
+#
+# State overrides are sparse and merge by state key. New states must provide a
+# complete state definition. Transition values always use object form:
+# EVENT: { target: stateKey, actions: [...] }. String targets are invalid.
+# State labels must be unique and cannot use owner:, notify:, or role:level
+# routing formats. Run sync_labels after changing labels or adding states.
 
 roles:
   developer:
@@ -13,19 +25,34 @@ roles:
       junior: anthropic/claude-haiku-4-5
       medior: anthropic/claude-sonnet-4-5
       senior: anthropic/claude-opus-4-6
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
   tester:
     models:
       junior: anthropic/claude-haiku-4-5
       medior: anthropic/claude-sonnet-4-5
       senior: anthropic/claude-opus-4-6
+    completion:
+      pass: PASS
+      fail: FAIL
+      refine: REFINE
+      blocked: BLOCKED
   architect:
     models:
       junior: anthropic/claude-sonnet-4-5
       senior: anthropic/claude-opus-4-6
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
   reviewer:
     models:
       junior: anthropic/claude-haiku-4-5
       senior: anthropic/claude-sonnet-4-5
+    completion:
+      approve: APPROVE
+      reject: REJECT
+      blocked: BLOCKED
 
 workflow:
   initial: planning
@@ -53,7 +80,8 @@ workflow:
       label: Planning
       color: "#95a5a6"
       on:
-        APPROVE: todo
+        APPROVE:
+          target: todo
     toResearch:
       type: queue
       role: architect
@@ -61,7 +89,8 @@ workflow:
       color: "#0075ca"
       priority: 1
       on:
-        PICKUP: researching
+        PICKUP:
+          target: researching
     researching:
       type: active
       role: architect
@@ -72,7 +101,8 @@ workflow:
           target: done
           actions:
             - closeIssue
-        BLOCKED: refining
+        BLOCKED:
+          target: refining
     todo:
       type: queue
       role: developer
@@ -80,7 +110,8 @@ workflow:
       color: "#428bca"
       priority: 1
       on:
-        PICKUP: doing
+        PICKUP:
+          target: doing
     doing:
       type: active
       role: developer
@@ -91,7 +122,8 @@ workflow:
           target: toReview
           actions:
             - detectPr
-        BLOCKED: refining
+        BLOCKED:
+          target: refining
     toReview:
       type: queue
       role: reviewer
@@ -100,7 +132,8 @@ workflow:
       priority: 2
       check: prApproved
       on:
-        PICKUP: reviewing
+        PICKUP:
+          target: reviewing
         SKIP:
           target: toTest
           actions:
@@ -111,9 +144,12 @@ workflow:
           actions:
             - mergePr
             - gitPull
-        MERGE_FAILED: toImprove
-        CHANGES_REQUESTED: toImprove
-        MERGE_CONFLICT: toImprove
+        MERGE_FAILED:
+          target: toImprove
+        CHANGES_REQUESTED:
+          target: toImprove
+        MERGE_CONFLICT:
+          target: toImprove
         PR_CLOSED:
           target: rejected
           actions:
@@ -129,8 +165,10 @@ workflow:
           actions:
             - mergePr
             - gitPull
-        REJECT: toImprove
-        BLOCKED: refining
+        REJECT:
+          target: toImprove
+        BLOCKED:
+          target: refining
     # --- Test phase (skipped by default via testPolicy: skip) -----------------
     # Issues arrive here after review. With testPolicy: skip (default), the
     # heartbeat auto-transitions them to done. To enable testing per-issue,
@@ -143,7 +181,8 @@ workflow:
       color: "#5bc0de"
       priority: 2
       on:
-        PICKUP: testing
+        PICKUP:
+          target: testing
         SKIP:
           target: done
           actions:
@@ -162,8 +201,10 @@ workflow:
           target: toImprove
           actions:
             - reopenIssue
-        REFINE: refining
-        BLOCKED: refining
+        REFINE:
+          target: refining
+        BLOCKED:
+          target: refining
     done:
       type: terminal
       label: Done
@@ -179,10 +220,12 @@ workflow:
       color: "#d9534f"
       priority: 3
       on:
-        PICKUP: doing
+        PICKUP:
+          target: doing
     refining:
       type: hold
       label: Refining
       color: "#f39c12"
       on:
-        APPROVE: todo
+        APPROVE:
+          target: todo

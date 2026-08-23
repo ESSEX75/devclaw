@@ -1,20 +1,20 @@
 /**
  * channel_list — List channels for a project or all projects.
  *
- * Shows registered channels with their type, ID, name, and event subscriptions.
+ * Shows registered channels with their type, ID, and name.
  * Can list channels for a specific project or all projects.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
+
 import { readProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createChannelListTool(_ctx: PluginContext) {
+export function createChannelListTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_list",
     label: "Channel List",
     description:
-      "List channels for a project or all projects. Shows channel type, ID, name, and event subscriptions.",
+      "List channels for a project or all projects. Shows channel type, ID, and name.",
     parameters: {
       type: "object",
       properties: {
@@ -45,6 +45,7 @@ export function createChannelListTool(_ctx: PluginContext) {
           const available = Object.values(data.projects)
             .map((p) => p.name)
             .join(", ");
+
           throw new Error(
             `Project "${projectRef}" not found. Available projects: ${available || "none"}.`,
           );
@@ -54,7 +55,6 @@ export function createChannelListTool(_ctx: PluginContext) {
           channelId: ch.channelId,
           type: ch.channel,
           name: ch.name,
-          events: ch.events,
           accountId: ch.accountId,
           threadId: ch.threadId,
         }));
@@ -64,15 +64,13 @@ export function createChannelListTool(_ctx: PluginContext) {
           (channels.length === 0
             ? "_(none)_"
             : channels
-                .map(
-                  (ch) =>
-                    `• **${ch.name}** (${ch.type})\n  ID: \`${ch.channelId}\`\n  Events: ${ch.events.join(", ")}${
-                      ch.accountId ? `\n  Account: ${ch.accountId}` : ""
-                    }${
-                      ch.threadId ? `\n  Thread: ${ch.threadId}` : ""
-                    }`,
-                )
-                .join("\n\n"));
+              .map(
+                (ch) =>
+                  `• **${ch.name}** (${ch.type})\n  ID: \`${ch.channelId}\`${ch.accountId ? `\n  Account: ${ch.accountId}` : ""
+                  }${ch.threadId ? `\n  Thread: ${ch.threadId}` : ""
+                  }`,
+              )
+              .join("\n\n"));
 
         return jsonResult({
           success: true,
@@ -100,7 +98,6 @@ export function createChannelListTool(_ctx: PluginContext) {
             channelId: ch.channelId,
             type: ch.channel,
             name: ch.name,
-            events: ch.events,
             accountId: ch.accountId,
             threadId: ch.threadId,
           })),
@@ -114,11 +111,12 @@ export function createChannelListTool(_ctx: PluginContext) {
                 p.channels.length === 0
                   ? "  _(no channels)_"
                   : p.channels
-                      .map(
-                        (ch) =>
-                          `  • **${ch.name}** (${ch.type}) — \`${ch.channelId}\`${ch.threadId ? ` / thread ${ch.threadId}` : ""}`,
-                      )
-                      .join("\n");
+                    .map(
+                      (ch) =>
+                        `  • **${ch.name}** (${ch.type}) — \`${ch.channelId}\`${ch.threadId ? ` / thread ${ch.threadId}` : ""}`,
+                    )
+                    .join("\n");
+
               return `**${p.project}** (${p.projectSlug}):\n${channelList}`;
             })
             .join("\n\n");

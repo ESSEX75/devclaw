@@ -1,19 +1,16 @@
-import type { IssueProvider } from "../../../integrations/providers/provider.js";
-import type { Project } from "../../../state/projects/index.js";
 import { log as auditLog } from "../../../audit.js";
+import type { WorkflowConfig } from "../../../domain/index.js";
+import type { Project } from "../../../domain/index.js";
 import {
   DEFAULT_WORKFLOW,
-} from "../../../domain/workflow/defaults.js";
-import {
-  getStateLabels,
-} from "../../../domain/workflow/queries.js";
+} from "../../../domain/index.js";
 import {
   isOwnedByOrUnclaimed,
-} from "../../../domain/workflow/labels.js";
-import type {
-  WorkflowConfig,
-  Role,
-} from "../../../domain/workflow/types.js";
+} from "../../../domain/index.js";
+import {
+  getStateLabels,
+} from "../../../domain/index.js";
+import type { IssueProvider } from "../../../integrations/providers/provider.js";
 import type { HealthFix } from "./types.js";
 
 /**
@@ -28,19 +25,17 @@ export async function scanStatelessIssues(opts: {
   autoFix: boolean;
   instanceName?: string;
 }): Promise<HealthFix[]> {
-  const {
-    workspaceDir, projectSlug, project, provider,
-    workflow = DEFAULT_WORKFLOW,
-    autoFix,
-    instanceName,
-  } = opts;
+  const { workspaceDir, projectSlug, project, provider, autoFix, instanceName } = opts;
+  const workflow: WorkflowConfig = opts.workflow ?? DEFAULT_WORKFLOW;
 
   const fixes: HealthFix[] = [];
-  const stateLabels = getStateLabels(workflow);
+  const stateLabels = new Set<string>(getStateLabels(workflow));
   const initialLabel = workflow.states[workflow.initial]?.label;
+
   if (!initialLabel) return fixes;
 
   let allOpenIssues;
+
   try {
     allOpenIssues = await provider.listIssues({ state: "open" });
   } catch {
@@ -48,7 +43,8 @@ export async function scanStatelessIssues(opts: {
   }
 
   for (const issue of allOpenIssues) {
-    const hasStateLabel = issue.labels.some((l) => stateLabels.includes(l));
+    const hasStateLabel = issue.labels.some((label) => stateLabels.has(label));
+
     if (hasStateLabel) continue;
 
     const hasWorkflowLabels = issue.labels.some((l) =>
@@ -56,6 +52,7 @@ export async function scanStatelessIssues(opts: {
       l.startsWith("architect:") || l.startsWith("review:") || l.startsWith("test:") ||
       l.startsWith("owner:") || l.startsWith("notify:"),
     );
+
     if (!hasWorkflowLabels) continue;
     if (instanceName && !isOwnedByOrUnclaimed(issue.labels, instanceName)) continue;
 
@@ -65,7 +62,7 @@ export async function scanStatelessIssues(opts: {
         severity: "critical",
         project: project.name,
         projectSlug,
-        role: "developer" as Role,
+        role: "developer",
         issueId: String(issue.iid),
         expectedLabel: initialLabel,
         actualLabel: null,

@@ -56,9 +56,101 @@ roles:
 | `defaultLevel` | string | Default level when not specified |
 | `models` | Record<string, string \| object> | Model ID per level, or `{ model, maxWorkers }` for per-level concurrency |
 | `emoji` | Record<string, string> | Emoji per level for announcements |
-| `completionResults` | string[] | Valid completion results |
+| `completion` | Record<string, WorkflowEvent> | Maps completion results to workflow events |
 
 Per-level worker capacity is resolved from `roles.<role>.models.<level>.maxWorkers`, then `workflow.maxWorkersPerLevel`, then the built-in default.
+
+Role and level identifiers are extensible. A custom role must provide a complete
+definition after workspace and project layers are merged. Custom levels can also
+replace the built-in levels of an existing role:
+
+```yaml
+roles:
+  security_auditor:
+    levels: [apprentice, principal]
+    defaultLevel: apprentice
+    models:
+      apprentice: model/audit-fast
+      principal:
+        model: model/audit-deep
+        maxWorkers: 1
+    emoji:
+      apprentice: "🔎"
+      principal: "🔐"
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
+```
+
+Every configured level must have a model, `defaultLevel` must be listed in
+`levels`, and model or emoji keys outside `levels` are rejected. Runtime routing,
+worker slots, persisted issue state, and projected `role:level` labels all use
+the resolved role definition rather than the built-in registry.
+
+#### Place a custom role in the workflow
+
+Defining `roles.<role>` only configures the worker's levels, models, and
+completion results. It does not determine when that worker runs. A custom role
+must also be placed in the workflow state graph:
+
+1. A transition from an earlier state must target the custom role's queue state.
+2. The queue state must declare `role: <role>` and transition on `PICKUP` to an
+   active state for the same role.
+3. The active state's events must lead to the states that should run next.
+4. The role needs a matching prompt at `devclaw/prompts/<role>.md` or
+   `devclaw/projects/<project>/prompts/<role>.md` describing its responsibilities.
+
+For example, this places `designer` between `architect` and `developer`:
+
+```yaml
+roles:
+  designer:
+    levels: [standard, expert]
+    defaultLevel: standard
+    models:
+      standard: model/design-standard
+      expert: model/design-expert
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
+
+workflow:
+  states:
+    researching:
+      type: active
+      role: architect
+      label: Researching
+      color: "#7057ff"
+      on:
+        COMPLETE:
+          target: toDesign
+
+    toDesign:
+      type: queue
+      role: designer
+      label: To Design
+      color: "#a855f7"
+      on:
+        PICKUP:
+          target: designing
+
+    designing:
+      type: active
+      role: designer
+      label: Designing
+      color: "#7e22ce"
+      on:
+        COMPLETE:
+          target: todo
+        BLOCKED:
+          target: refining
+```
+
+In this example, `architect:done` produces `COMPLETE`, which moves the issue to
+`toDesign`. The heartbeat then dispatches `designer`. When `designer` returns
+`done`, its `COMPLETE` transition moves the issue to `todo`, where the developer
+can pick it up. Without the incoming transition, the custom role is unreachable;
+without the outgoing transition, work cannot continue after it finishes.
 
 **Default models:**
 
@@ -97,6 +189,48 @@ workflow:
 ```
 
 `maxWorkersPerLevel` creates that many slots for each level of each enabled role. With the default developer levels (`junior`, `medior`, `senior`) and `maxWorkersPerLevel: 2`, a project can have up to six developer slots, subject to queue state and `roleExecution`.
+
+State keys are extensible identifiers. They must start with a letter and contain
+only letters, numbers, underscores, or hyphens. Built-in states can be changed
+with sparse overrides, while every newly added state must resolve to a complete
+definition containing `type`, `label`, and `color`; `queue` and `active` states
+also require a configured `role`.
+
+Every transition uses object form, even when it only selects a target:
+
+```yaml
+workflow:
+  initial: designQueue
+  states:
+    designQueue:
+      type: queue
+      role: designer
+      label: Design Queue
+      color: "#a855f7"
+      on:
+        PICKUP:
+          target: designing
+```
+
+Transition targets and `workflow.initial` are checked after all three layers
+have merged. Labels must be unique, at most 50 characters, and cannot use the
+reserved `owner:`, `notify:`, or `role:level` routing formats. Events, actions,
+review checks, state types, review policies, and test policies are closed sets;
+unknown values and unknown object properties are rejected.
+
+Completion behavior is configured exclusively through
+`roles.<role>.completion`, which maps a worker-facing result to a workflow event:
+
+```yaml
+roles:
+  designer:
+    completion:
+      done: COMPLETE
+      blocked: BLOCKED
+```
+
+Each emitted event needs a matching transition on the role's active state.
+There is no implicit uppercase conversion or positional result list.
 
 See **[Workflow Reference](WORKFLOW.md)** for the full state machine documentation, including state types, built-in actions, review policy options, and how to enable the test phase.
 

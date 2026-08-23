@@ -6,18 +6,21 @@
  * issue is later advanced via task_start.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
+
 import { log as auditLog } from "../../audit.js";
-import { StateType, findStateByLabel, getRoleLabelColor } from "../../domain/workflow/index.js";
+import type { PluginContext } from "../../context.js";
+import { findStateByLabel, getRoleLabelColor, STATE_TYPE } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
 import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { applyNotifyLabel, autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskSetLevelTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_set_level",
     label: "Task Set Level",
-    description: `Set the developer level hint on a HOLD-state issue (Planning, Refining). The level is applied as a role:level label and respected by the heartbeat when the issue is advanced via task_start.
+    description:
+      `Set the developer level hint on a HOLD-state issue (Planning, Refining). ` +
+      `The level is applied as a role:level label and respected by the heartbeat when the issue is advanced via task_start.
 
 Examples:
 - { issueId: 42, level: "senior" }
@@ -28,7 +31,9 @@ Examples:
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
         issueId: {
           type: "number",
@@ -46,30 +51,40 @@ Examples:
     },
 
     async execute(_id: string, params: Record<string, unknown>) {
-      const channelId = resolveChannelId(toolCtx, params.channelId as string | undefined);
-      const issueId = params.issueId as number;
-      const newLevel = (params.level as string) ?? undefined;
-      const reason = (params.reason as string) ?? undefined;
+      const channelId = resolveChannelId(
+        toolCtx,
+        typeof params.channelId === "string" ? params.channelId : undefined,
+      );
+      const issueId = params.issueId;
+      const newLevel = params.level;
+      const reason = typeof params.reason === "string" ? params.reason : undefined;
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
-      if (!newLevel) {
+      if (typeof issueId !== "number") {
+        throw new Error("'issueId' is required and must be a number.");
+      }
+
+      if (typeof newLevel !== "string") {
         throw new Error("'level' is required.");
       }
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
+      const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
 
       const issue = await provider.getIssue(issueId);
       const runtimeState = await resolveIssueRuntimeState({ workspaceDir, project, issue, workflow: resolvedConfig.workflow });
+
       if (runtimeState.kind !== "managed") {
         throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_set_level.`);
       }
+
       const currentState = runtimeState.workflowLabel;
 
       // Restrict to HOLD states only — use task_start for queue/active transitions
       const currentStateConfig = runtimeState.stateConfig ?? findStateByLabel(resolvedConfig.workflow, currentState);
-      if (currentStateConfig?.type !== StateType.HOLD) {
+
+      if (currentStateConfig?.type !== STATE_TYPE.HOLD) {
         throw new Error(`task_set_level only works on HOLD states (Planning, Refining). Issue #${issueId} is in "${currentState}". Use task_start to advance issues.`);
       }
 
@@ -77,24 +92,32 @@ Examples:
       // Level is applied as a role:level label. Since HOLD states have no role, we look at the
       // APPROVE transition target to determine which role will handle this issue.
       const approveTarget = currentStateConfig.on?.["APPROVE"];
-      const targetKey = typeof approveTarget === "string" ? approveTarget : approveTarget?.target;
-      const targetState = targetKey ? resolvedConfig.workflow.states[targetKey] : undefined;
+      const targetKey = approveTarget?.target;
+      const targetState = targetKey
+        ? Object.entries(resolvedConfig.workflow.states)
+          .find(([stateKey]) => stateKey === targetKey)?.[1]
+        : undefined;
       const role = targetState?.role;
+
       if (!role) {
         throw new Error(`Cannot determine target role from "${currentState}". No APPROVE transition found.`);
       }
 
       const roleConfig = resolvedConfig.roles[role];
+
       if (!roleConfig || !roleConfig.levels.includes(newLevel)) {
         throw new Error(`Invalid level "${newLevel}" for role "${role}". Valid: ${roleConfig?.levels.join(", ") ?? "none"}`);
       }
 
       const oldRoleLabels = issue.labels.filter((l) => l.startsWith(`${role}:`));
       const fromLevel = oldRoleLabels[0]?.split(":")[1];
+
       if (oldRoleLabels.length > 0) {
         await provider.removeLabels(issueId, oldRoleLabels);
       }
+
       const newRoleLabel = `${role}:${newLevel}`;
+
       await provider.ensureLabel(newRoleLabel, getRoleLabelColor(role));
       await provider.addLabel(issueId, newRoleLabel);
       const levelChanged = fromLevel !== newLevel;
@@ -106,7 +129,7 @@ Examples:
       applyNotifyLabel(provider, issueId, project, channelId, issue.labels);
 
       // Auto-assign owner label to this instance (best-effort).
-      autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => {});
+      autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => { });
 
       await writeIssueRuntimeState({
         workspaceDir,

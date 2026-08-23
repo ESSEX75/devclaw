@@ -5,7 +5,8 @@ import path from "node:path";
 import os from "node:os";
 import { createManagedTaskIssue, getManagedTaskStatus, listManagedTasks } from "./index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
+import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 
 describe("task query use cases", () => {
   it("lists initialized managed issues from local state", async () => {
@@ -16,9 +17,13 @@ describe("task query use cases", () => {
         workspaceDir: tmpDir,
         project: {
           slug: "devclaw",
-          channels: [{ channelId: "telegram:1", channel: "telegram", name: "primary", events: ["*"] }],
+        channels: [{
+          channelId: "telegram:1",
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          name: "primary",
+        }],
         },
-        providerType: "github",
+        providerType: ISSUE_PROVIDER.GITHUB,
         provider,
         workflow: DEFAULT_WORKFLOW,
         title: "Implement search",
@@ -52,9 +57,13 @@ describe("task query use cases", () => {
         workspaceDir: tmpDir,
         project: {
           slug: "devclaw",
-          channels: [{ channelId: "telegram:1", channel: "telegram", name: "primary", events: ["*"] }],
+        channels: [{
+          channelId: "telegram:1",
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          name: "primary",
+        }],
         },
-        providerType: "github",
+        providerType: ISSUE_PROVIDER.GITHUB,
         provider,
         workflow: DEFAULT_WORKFLOW,
         title: "Implement queue",

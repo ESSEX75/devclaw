@@ -13,16 +13,17 @@
  *   → heartbeat dispatches queued implementation tasks
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import type { StateLabel } from "../../integrations/providers/provider.js";
-import { getRoleWorker, countActiveSlots } from "../../state/projects/index.js";
+
 import { dispatchTask } from "../../application/workers/dispatch-task.js";
 import { log as auditLog } from "../../audit.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
-import { loadConfig } from "../../state/config/index.js";
-import { getActiveLabel } from "../../domain/workflow/index.js";
-import { selectLevel } from "../../roles/model-selector.js";
+import type { PluginContext } from "../../context.js";
+import { countActiveSlots, getActiveLabel } from "../../domain/index.js";
+import type { StateLabel } from "../../integrations/providers/provider.js";
 import { resolveModel } from "../../roles/index.js";
+import { selectLevel } from "../../roles/model-selector.js";
+import { loadConfig } from "../../state/config/index.js";
+import { getRoleWorker } from "../../state/projects/index.js";
+import { applyNotifyLabel,autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 /** Queue label for research tasks. */
 const TO_RESEARCH_LABEL = "To Research";
@@ -47,7 +48,8 @@ The architect will:
 Example:
   research_task({
     title: "Research: Session persistence strategy",
-    description: "Sessions are lost on restart. Current impl uses in-memory Map in session-store.ts. Constraints: must work with SQLite (already a dep), max 50ms latency on read. Prior discussion in #42 ruled out Redis.",
+    description: "Sessions are lost on restart. Current impl uses in-memory Map in session-store.ts. " +
+      "Constraints: must work with SQLite (already a dep), max 50ms latency on read. Prior discussion in #42 ruled out Redis.",
     focusAreas: ["SQLite vs file-based", "migration path", "cache invalidation"],
     complexity: "complex"
   })`,
@@ -57,7 +59,9 @@ Example:
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
         title: {
           type: "string",
@@ -65,7 +69,9 @@ Example:
         },
         description: {
           type: "string",
-          description: "Detailed background context: what exists today, why this needs investigation, constraints, relevant code paths, prior decisions. Must be detailed enough for the architect to produce development-ready findings.",
+          description:
+            "Detailed background context: what exists today, why this needs investigation, constraints, " +
+            "relevant code paths, prior decisions. Must be detailed enough for the architect to produce development-ready findings.",
         },
         focusAreas: {
           type: "array",
@@ -97,15 +103,17 @@ Example:
       if (!description) throw new Error("description is required — provide detailed background context for the architect");
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider } = await resolveProvider(project, ctx.runCommand);
+      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const pluginConfig = ctx.pluginConfig;
       const role = "architect";
 
       // Build issue body with rich context for the architect to start from
       const bodyParts = ["## Background", "", description];
+
       if (focusAreas.length > 0) {
         bodyParts.push("", "## Focus Areas", ...focusAreas.map((a) => `- ${a}`));
       }
+
       const issueBody = bodyParts.join("\n");
 
       await auditLog(workspaceDir, "research_task", {
@@ -144,12 +152,14 @@ Example:
 
       // Check worker availability across all levels
       const roleWorker = getRoleWorker(project, role);
+
       if (countActiveSlots(roleWorker) > 0) {
         // Architect is busy — issue created in queue, heartbeat will pick it up when free
         // Find any active slot's issueId for the message
         const activeIssueId = Object.values(roleWorker.levels)
-          .flat()
+          .flatMap((slots) => slots ?? [])
           .find((s) => s.active)?.issueId;
+
         return jsonResult({
           success: true,
           issue: { id: issue.iid, title: issue.title, url: issue.web_url, label: TO_RESEARCH_LABEL },

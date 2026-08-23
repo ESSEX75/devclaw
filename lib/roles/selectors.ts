@@ -4,36 +4,39 @@
  * All role-related lookups go through these functions.
  * No other file should access ROLE_REGISTRY directly for role logic.
  */
+import { isBuiltInLevelId, isBuiltInRoleId, type LevelId, type RoleId, type WorkflowEvent } from "../domain/index.js";
+import type { ResolvedRoleConfig } from "../state/config/types.js";
 import { ROLE_REGISTRY } from "./registry.js";
 import type { RoleConfig } from "./types.js";
-import type { ResolvedRoleConfig } from "../state/config/types.js";
 
 // ---------------------------------------------------------------------------
 // Role IDs
 // ---------------------------------------------------------------------------
 
 /** All registered role IDs. */
-export function getAllRoleIds(): string[] {
-  return Object.keys(ROLE_REGISTRY);
+export function getAllRoleIds(): RoleId[] {
+  return Object.values(ROLE_REGISTRY).map((config) => config.id);
 }
 
 /** The role ID union type, derived from registry. */
 export type WorkerRole = keyof typeof ROLE_REGISTRY;
 
 /** Check if a string is a valid role ID. */
-export function isValidRole(role: string): boolean {
-  return role in ROLE_REGISTRY;
+export function isValidRole(role: string): role is RoleId {
+  return isBuiltInRoleId(role);
 }
 
 /** Get role config by ID. Returns undefined if not found. */
 export function getRole(role: string): RoleConfig | undefined {
-  return ROLE_REGISTRY[role];
+  return isValidRole(role) ? ROLE_REGISTRY[role] : undefined;
 }
 
 /** Get role config by ID. Throws if not found. */
 export function requireRole(role: string): RoleConfig {
-  const config = ROLE_REGISTRY[role];
+  const config = getRole(role);
+
   if (!config) throw new Error(`Unknown role: "${role}". Valid roles: ${getAllRoleIds().join(", ")}`);
+
   return config;
 }
 
@@ -42,38 +45,41 @@ export function requireRole(role: string): RoleConfig {
 // ---------------------------------------------------------------------------
 
 /** Get valid levels for a role. */
-export function getLevelsForRole(role: string): readonly string[] {
+export function getLevelsForRole(role: string): readonly LevelId[] {
   return getRole(role)?.levels ?? [];
 }
 
 /** Get all levels across all roles. */
-export function getAllLevels(): string[] {
+export function getAllLevels(): LevelId[] {
   return Object.values(ROLE_REGISTRY).flatMap(r => [...r.levels]);
 }
 
 /** Check if a level belongs to a specific role. */
 export function isLevelForRole(level: string, role: string): boolean {
-  return getLevelsForRole(role).includes(level);
+  return isBuiltInLevelId(level) && getLevelsForRole(role).includes(level);
 }
 
 /** Determine which role a level belongs to. Returns undefined if no match. */
-export function roleForLevel(level: string): string | undefined {
-  for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
-    if (config.levels.includes(level)) return roleId;
+export function roleForLevel(level: string): RoleId | undefined {
+  if (!isBuiltInLevelId(level)) return undefined;
+
+  for (const roleId of getAllRoleIds()) {
+    if (ROLE_REGISTRY[roleId].levels.includes(level)) return roleId;
   }
+
   return undefined;
 }
 
-export function canonicalRole(role: string): string {
-  return role;
+export function canonicalRole(role: string): RoleId | undefined {
+  return isValidRole(role) ? role : undefined;
 }
 
-export function canonicalLevel(_role: string, level: string): string {
-  return level;
+export function canonicalLevel(_role: string, level: string): LevelId | undefined {
+  return isBuiltInLevelId(level) ? level : undefined;
 }
 
 /** Get the default level for a role. */
-export function getDefaultLevel(role: string): string | undefined {
+export function getDefaultLevel(role: string): LevelId | undefined {
   return getRole(role)?.defaultLevel;
 }
 
@@ -83,15 +89,19 @@ export function getDefaultLevel(role: string): string | undefined {
 
 /** Get default model for a role + level. */
 export function getDefaultModel(role: string, level: string): string | undefined {
-  return getRole(role)?.models[level];
+  return isBuiltInLevelId(level) ? getRole(role)?.models[level] : undefined;
 }
 
 /** Get all default models, nested by role (for config schema). */
 export function getAllDefaultModels(): Record<string, Record<string, string>> {
   const result: Record<string, Record<string, string>> = {};
-  for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
+
+  for (const roleId of getAllRoleIds()) {
+    const config = ROLE_REGISTRY[roleId];
+
     result[roleId] = { ...config.models };
   }
+
   return result;
 }
 
@@ -111,10 +121,10 @@ export function resolveModel(
   const canonical = canonicalLevel(role, level);
 
   // 1. Resolved config (workflow.yaml — includes workspace + project overrides)
-  if (resolvedRole?.models[canonical]) return resolvedRole.models[canonical];
+  if (canonical && resolvedRole?.models[canonical]) return resolvedRole.models[canonical];
 
   // 2. Built-in registry default
-  return getDefaultModel(role, canonical) ?? canonical;
+  return canonical ? getDefaultModel(role, canonical) ?? canonical : level;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +133,7 @@ export function resolveModel(
 
 /** Get emoji for a role + level. */
 export function getEmoji(role: string, level: string): string | undefined {
-  return getRole(role)?.emoji[level];
+  return isBuiltInLevelId(level) ? getRole(role)?.emoji[level] : undefined;
 }
 
 /** Get fallback emoji for a role. */
@@ -137,12 +147,19 @@ export function getFallbackEmoji(role: string): string {
 
 /** Get valid completion results for a role. */
 export function getCompletionResults(role: string): readonly string[] {
-  return getRole(role)?.completionResults ?? [];
+  const completion = getRole(role)?.completion;
+
+  return completion ? Object.keys(completion) : [];
+}
+
+/** Resolve a configured completion result to its workflow event. */
+export function getCompletionEvent(role: string, result: string): WorkflowEvent | undefined {
+  return getRole(role)?.completion[result];
 }
 
 /** Check if a result is valid for a role. */
 export function isValidResult(role: string, result: string): boolean {
-  return getCompletionResults(role).includes(result);
+  return getCompletionEvent(role, result) !== undefined;
 }
 
 // ---------------------------------------------------------------------------

@@ -2,23 +2,32 @@
  * work_finish — Complete active worker work through the worker application use case.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
+
 import { finishWork } from "../../application/workers/finish-work.js";
-import { getAllRoleIds } from "../../roles/index.js";
+import type { PluginContext } from "../../context.js";
+import { COMPLETION_RESULT } from "../../domain/index.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 export function createWorkFinishTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "work_finish",
     label: "Work Finish",
-    description: `Complete a task: Developer done (PR created, goes to review) or blocked. Tester pass/fail/refine/blocked. Reviewer approve/reject/blocked. Architect done/blocked. Handles label transition, state update, issue close/reopen, notifications, and audit logging.`,
+    description:
+      `Complete a task: Developer done (PR created, goes to review) or blocked. ` +
+      `Tester pass/fail/refine/blocked. Reviewer approve/reject/blocked. Architect done/blocked. ` +
+      `Handles label transition, state update, issue close/reopen, notifications, and audit logging.`,
     parameters: {
       type: "object",
       required: ["channelId", "role", "result"],
       properties: {
-        channelId: { type: "string", description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from." },
-        role: { type: "string", enum: getAllRoleIds(), description: "Worker role" },
-        result: { type: "string", enum: ["done", "pass", "fail", "refine", "blocked", "approve", "reject"], description: "Completion result" },
+        channelId: {
+          type: "string",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+        },
+        role: { type: "string", description: "Configured worker role" },
+        result: { type: "string", enum: Object.values(COMPLETION_RESULT), description: "Completion result" },
         summary: { type: "string", description: "Brief summary" },
         prUrl: { type: "string", description: "PR/MR URL (auto-detected if omitted)" },
         createdTasks: {

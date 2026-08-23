@@ -8,8 +8,9 @@
  * Can be overridden via `instance.name` in workflow.yaml.
  */
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
+
 import { nameFromSeed } from "./names.js";
 import { DATA_DIR } from "./state/setup/paths.js";
 
@@ -37,9 +38,11 @@ export async function loadInstanceName(
   if (configOverride) return configOverride;
 
   const filePath = instancePath(workspaceDir);
+
   try {
     const raw = await fs.readFile(filePath, "utf-8");
     const identity = JSON.parse(raw) as InstanceIdentity;
+
     if (identity.name) return identity.name;
   } catch {
     // File doesn't exist or is corrupt — generate below

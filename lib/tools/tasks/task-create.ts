@@ -10,26 +10,31 @@
  * - Breaking down an epic into smaller tasks
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
-import { loadConfig } from "../../state/config/index.js";
-import { loadInstanceName } from "../../instance.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import type { NotifyTarget } from "../../state/issues/index.js";
+
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
+import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
+import type { NotifyTarget } from "../../domain/index.js";
+import { loadInstanceName } from "../../instance.js";
+import { loadConfig } from "../../state/config/index.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskCreateTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_create",
     label: "Task Create",
-    description: "Create a new task (issue) in the project's issue tracker. Use this to file bugs, features, or tasks from chat. Issues are queued immediately in the workflow's first developer queue for heartbeat dispatch.",
+    description:
+      "Create a new task (issue) in the project's issue tracker. Use this to file bugs, features, or tasks from chat. " +
+      "Issues are queued immediately in the workflow's first developer queue for heartbeat dispatch.",
     parameters: {
       type: "object",
       required: ["channelId", "title"],
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
         title: {
           type: "string",
@@ -60,7 +65,7 @@ export function createTaskCreateTool(ctx: PluginContext) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
+      const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
       const instanceName = await loadInstanceName(workspaceDir, resolvedConfig.instanceName);
       const sourceChannel = project.channels.find((ch) => ch.channelId === channelId) ?? project.channels[0];
@@ -91,6 +96,7 @@ export function createTaskCreateTool(ctx: PluginContext) {
 
       const hasBody = description && description.trim().length > 0;
       let announcement = `📋 Created #${created.issue.iid}: "${title}" (${created.label})`;
+
       if (hasBody) announcement += "\nWith detailed description.";
       announcement += `\n🔗 [Issue #${created.issue.iid}](${created.issue.web_url})`;
       announcement += created.announcementSuffix;

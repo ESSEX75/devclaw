@@ -1,17 +1,20 @@
 /**
- * projects/types.ts — Type definitions for the projects module.
+ * projects/types.ts — Domain types for projects, worker slots, and notification channels.
  */
-
-// ---------------------------------------------------------------------------
-// Per-level worker model — each level gets its own slot array
-// ---------------------------------------------------------------------------
+import type { IssueProviderId } from "../issues/types.js";
+import type { NotificationEndpoint } from "../notifications/types.js";
 
 /** Slot state. Level is structural (implied by position in the levels map). */
 export type SlotState = {
+  /** Whether the slot is currently active and assigned to an issue. */
   active: boolean;
+  /** Unique identifier of the currently assigned issue. */
   issueId: string | null;
+  /** Unique session key of the active worker run. */
   sessionKey: string | null;
+  /** ISO timestamp when work started in this slot. */
   startTime: string | null;
+  /** Previous workflow label before assignment. */
   previousLabel?: string | null;
   /** Deterministic fun name for this slot (e.g. "Ada", "Grace"). */
   name?: string;
@@ -21,41 +24,46 @@ export type SlotState = {
 
 /** Per-level worker state: levels map instead of flat slots array. */
 export type RoleWorkerState = {
-  levels: Record<string, SlotState[]>;
+  /** Map of level IDs to arrays of slot states. */
+  levels: Partial<Record<string, SlotState[]>>;
 };
 
-/**
- * Channel registration: maps a channelId to messaging endpoint with event filters.
- */
-export type Channel = {
-  channelId: string;
-  channel: "telegram" | "whatsapp" | "discord" | "slack";
-  name: string; // e.g. "primary", "dev-chat"
-  events: string[]; // e.g. ["*"] for all, ["workerComplete"] for filtered
-  accountId?: string; // Optional account ID for multi-account setups
-  threadId?: string; // Optional thread/topic ID for forum-style channels
+/** Location of a worker slot within a role's level map. */
+export type SlotLocation = {
+  /** Level containing the slot. */
+  level: string;
+  /** Zero-based slot index within the level. */
+  slotIndex: number;
 };
 
-/**
- * Project configuration in the new project-first schema.
- */
+/** Project configuration schema. */
 export type Project = {
+  /** Unique project slug. */
   slug: string;
+  /** Human-readable project name. */
   name: string;
+  /** Repository name or local path. */
   repo: string;
-  repoRemote?: string; // Git remote URL (e.g., https://github.com/.../repo.git)
+  /** Git remote URL (e.g. https://github.com/.../repo.git). */
+  repoRemote?: string;
+  /** Group or organization name owning the project. */
   groupName: string;
+  /** Deployment environment target URL. */
   deployUrl: string;
+  /** Target base branch for development (e.g. main/master). */
   baseBranch: string;
+  /** Target branch for deployment releases. */
   deployBranch: string;
   /** Channels registered for this project (notification endpoints). */
-  channels: Channel[];
+  channels: NotificationEndpoint[];
   /** Issue tracker provider type (github or gitlab). Auto-detected at registration, stored for reuse. */
-  provider?: "github" | "gitlab";
-  /** Worker state per role (developer, tester, architect, or custom roles). Shared across all channels. */
+  provider?: IssueProviderId;
+  /** Worker state per role (developer, tester, architect, etc.). Shared across all channels. */
   workers: Record<string, RoleWorkerState>;
 };
 
+/** Data structure for the projects registry store. */
 export type ProjectsData = {
-  projects: Record<string, Project>; // Keyed by slug
+  /** Map of project slugs to project configurations. */
+  projects: Record<string, Project>;
 };

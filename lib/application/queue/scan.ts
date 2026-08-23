@@ -4,34 +4,36 @@
  * Shared by: tick (projectTick), work-start (auto-pickup), and other consumers
  * that need to find queued issues or detect roles/levels from labels.
  */
-import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
-import type { IssueReader } from "../../integrations/providers/capabilities.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
-import type { IssueRuntimeState } from "../../domain/issues/types.js";
-import { getLevelsForRole, getAllLevels } from "../../roles/index.js";
+import type { IssueRuntimeState } from "../../domain/index.js";
+import type { WorkflowConfig } from "../../domain/index.js";
+import { ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
+import { isOwnedByOrUnclaimed } from "../../domain/index.js";
 import {
+  detectRoleFromLabel,
   getQueueLabels,
-  detectRoleFromLabel as workflowDetectRole,
-} from "../../domain/workflow/queries.js";
-import { isOwnedByOrUnclaimed } from "../../domain/workflow/labels.js";
-import type { WorkflowConfig, Role } from "../../domain/workflow/types.js";
+} from "../../domain/index.js";
+import type { IssueReader } from "../../integrations/providers/capabilities.js";
+import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
+import { ROLE_REGISTRY } from "../../roles/index.js";
+import { readIssueStateStore } from "../../state/issues/index.js";
 
 // ---------------------------------------------------------------------------
 // Label detection
 // ---------------------------------------------------------------------------
 
-export function detectLevelFromLabels(labels: string[]): string | null {
-  const lower = labels.map((l) => l.toLowerCase());
-
+export function detectLevelFromLabels(
+  labels: string[],
+  roles: Readonly<Record<string, { levels: readonly string[] }>> = ROLE_REGISTRY,
+): string | null {
   // Match projected role:level labels (e.g., "developer:senior").
   // Managed dispatch uses issues.json first; labels are only a compatibility fallback.
-  for (const l of lower) {
-    const parts = l.split(":");
+  for (const label of labels) {
+    const parts = label.split(":");
+
     if (parts.length !== 2) continue;
-    const level = parts[1]!;
-    const all = getAllLevels();
-    if (all.includes(level)) return level;
+    const [role, level] = parts;
+
+    if (role && level && roles[role]?.levels.includes(level)) return level;
   }
 
   return null;
@@ -45,28 +47,31 @@ export function detectLevelFromLabels(labels: string[]): string | null {
  */
 export function detectRoleLevelFromLabels(
   labels: string[],
+  roles: Readonly<Record<string, { levels: readonly string[] }>> = ROLE_REGISTRY,
 ): { role: string; level: string } | null {
   for (const label of labels) {
     const parts = label.split(":");
+
     if (parts.length !== 2) continue;
-    const role = parts[0]!.toLowerCase();
-    const level = parts[1]!.toLowerCase();
-    const roleLevels = getLevelsForRole(role);
-    if (roleLevels.includes(level)) {
+    const role = parts[0]!;
+    const level = parts[1]!;
+
+    if (roles[role]?.levels.includes(level)) {
       return { role, level };
     }
   }
+
   return null;
 }
 
 /**
  * Detect role from a label using workflow config.
  */
-export function detectRoleFromLabel(
+export function detectRoleFromStateLabel(
   label: StateLabel,
   workflow: WorkflowConfig,
-): Role | null {
-  return workflowDetectRole(workflow, label);
+): string | null {
+  return detectRoleFromLabel(workflow, label);
 }
 
 // ---------------------------------------------------------------------------
@@ -75,11 +80,11 @@ export function detectRoleFromLabel(
 
 export async function findNextIssueForRole(
   provider: Pick<IssueReader, "getIssue">,
-  role: Role,
+  role: string,
   workflow: WorkflowConfig,
   instanceName: string | undefined,
   localState: { workspaceDir: string; projectSlug: string },
-): Promise<{ issue: Issue; label: StateLabel; localState: IssueRuntimeState } | null> {
+): Promise<{ issue: Issue; label: string; localState: IssueRuntimeState } | null> {
   const labels = getQueueLabels(workflow, role);
 
   return findNextIssueForRoleFromLocalState(
@@ -93,17 +98,16 @@ export async function findNextIssueForRole(
 
 async function findNextIssueForRoleFromLocalState(
   provider: Pick<IssueReader, "getIssue">,
-  queueLabels: StateLabel[],
+  queueLabels: string[],
   instanceName: string | undefined,
   workspaceDir: string,
   projectSlug: string,
-): Promise<{ issue: Issue; label: StateLabel; localState: IssueRuntimeState } | null> {
+): Promise<{ issue: Issue; label: string; localState: IssueRuntimeState } | null> {
   const store = await readIssueStateStore(workspaceDir, projectSlug);
   const localCandidates = Object.values(store.issues)
     .filter((state) =>
-      state.managed
-      && state.archivedAt == null
-      && state.integrityStatus !== "integrity_error"
+      state.archivedAt == null
+      && state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
       && queueLabels.includes(state.workflowLabel),
     )
     .sort((a, b) => a.issueId - b.issueId);
@@ -111,8 +115,10 @@ async function findNextIssueForRoleFromLocalState(
   for (const state of localCandidates) {
     try {
       const issue = await provider.getIssue(state.issueId);
+
       if (issue.state === "closed" || issue.state === "CLOSED") continue;
       if (instanceName && !isOwnedByOrUnclaimed(issue.labels, instanceName)) continue;
+
       return { issue, label: state.workflowLabel, localState: state };
     } catch {
       continue;

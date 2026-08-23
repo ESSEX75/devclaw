@@ -1,8 +1,9 @@
 /**
  * session.ts — Session management helpers for dispatch.
  */
-import type { RunCommand } from "../../context.js";
 import { log as auditLog } from "../../audit.js";
+import type { RunCommand } from "../../context.js";
+import type { ResolvedTimeouts } from "../../state/config/types.js";
 import { fetchGatewaySessions } from "./gateway-sessions.js";
 
 // ---------------------------------------------------------------------------
@@ -20,7 +21,7 @@ export async function shouldClearSession(
   sessionKey: string,
   slotIssueId: string | null,
   newIssueId: number,
-  timeouts: import("../../state/config/types.js").ResolvedTimeouts,
+  timeouts: ResolvedTimeouts,
   workspaceDir: string,
   projectName: string,
   runCommand: RunCommand,
@@ -33,12 +34,15 @@ export async function shouldClearSession(
   // Check context budget via gateway session data
   try {
     const sessions = await fetchGatewaySessions(undefined, runCommand);
+
     if (!sessions) return false; // Gateway unavailable — don't clear
 
     const session = sessions.get(sessionKey);
+
     if (!session) return false; // Session not found — will be spawned fresh anyway
 
     const ratio = session.percentUsed / 100;
+
     if (ratio > timeouts.sessionContextBudget) {
       await auditLog(workspaceDir, "session_budget_reset", {
         project: projectName,
@@ -49,6 +53,7 @@ export async function shouldClearSession(
         totalTokens: session.totalTokens,
         contextTokens: session.contextTokens,
       });
+
       return true;
     }
   } catch {
@@ -70,6 +75,7 @@ export async function shouldClearSession(
 export function ensureSessionFireAndForget(sessionKey: string, model: string, workspaceDir: string, runCommand: RunCommand, timeoutMs = 30_000, label?: string): void {
   const rc = runCommand;
   const params: Record<string, unknown> = { key: sessionKey, model };
+
   if (label) params.label = label;
   rc(
     ["openclaw", "gateway", "call", "sessions.patch", "--params", JSON.stringify(params)],
@@ -78,13 +84,26 @@ export function ensureSessionFireAndForget(sessionKey: string, model: string, wo
     auditLog(workspaceDir, "dispatch_warning", {
       step: "ensureSession", sessionKey,
       error: (err as Error).message ?? String(err),
-    }).catch(() => {});
+    }).catch(() => { });
   });
 }
 
 export function sendToAgent(
   sessionKey: string, taskMessage: string,
-  opts: { agentId?: string; projectName: string; issueId: number; role: string; level?: string; slotIndex?: number; fromLabel?: string; orchestratorSessionKey?: string; workspaceDir: string; dispatchTimeoutMs?: number; extraSystemPrompt?: string; runCommand: RunCommand },
+  opts: {
+    agentId?: string;
+    projectName: string;
+    issueId: number;
+    role: string;
+    level?: string;
+    slotIndex?: number;
+    fromLabel?: string;
+    orchestratorSessionKey?: string;
+    workspaceDir: string;
+    dispatchTimeoutMs?: number;
+    extraSystemPrompt?: string;
+    runCommand: RunCommand;
+  },
 ): void {
   const rc = opts.runCommand;
   const gatewayParams = JSON.stringify({
@@ -97,6 +116,7 @@ export function sendToAgent(
     ...(opts.orchestratorSessionKey ? { spawnedBy: opts.orchestratorSessionKey } : {}),
     ...(opts.extraSystemPrompt ? { extraSystemPrompt: opts.extraSystemPrompt } : {}),
   });
+
   // Fire-and-forget: long-running agent turn, don't await
   rc(
     ["openclaw", "gateway", "call", "agent", "--params", gatewayParams, "--expect-final", "--json"],
@@ -106,6 +126,6 @@ export function sendToAgent(
       step: "sendToAgent", sessionKey,
       issue: opts.issueId, role: opts.role,
       error: (err as Error).message ?? String(err),
-    }).catch(() => {});
+    }).catch(() => { });
   });
 }

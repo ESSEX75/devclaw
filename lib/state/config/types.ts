@@ -4,7 +4,13 @@
  * A single workflow.yaml combines roles, models, and workflow.
  * Three-layer resolution: built-in → workspace → per-project.
  */
-import type { WorkflowConfig } from "../../domain/workflow/types.js";
+import type {
+  CompletionEventMap,
+  ReviewCheckType,
+  TransitionTarget,
+  WorkflowConfig,
+  WorkflowEvent,
+} from "../../domain/index.js";
 
 /**
  * Role override in workflow.yaml. All fields optional — only override what you need.
@@ -14,11 +20,27 @@ import type { WorkflowConfig } from "../../domain/workflow/types.js";
 export type ModelEntry = string | { model: string; maxWorkers?: number };
 
 export type RoleOverride = {
+  enabled?: boolean;
   levels?: string[];
   defaultLevel?: string;
   models?: Record<string, ModelEntry>;
   emoji?: Record<string, string>;
-  completionResults?: string[];
+  completion?: CompletionEventMap;
+};
+
+export type StateOverride = {
+  type?: WorkflowConfig["states"][string]["type"];
+  role?: string;
+  label?: string;
+  color?: string;
+  description?: string;
+  check?: ReviewCheckType;
+  priority?: number;
+  on?: Partial<Record<WorkflowEvent, TransitionTarget<string>>>;
+};
+
+type WorkflowOverride = Omit<Partial<WorkflowConfig>, "states"> & {
+  states?: Record<string, StateOverride>;
 };
 
 /**
@@ -40,7 +62,7 @@ export type TimeoutConfig = {
 /**
  * Instance identity config. Optional — auto-generated if not set.
  */
-export type InstanceConfig = {
+type InstanceConfig = {
   /** Override the auto-generated instance name (CS pioneer name). */
   name?: string;
 };
@@ -51,12 +73,12 @@ export type InstanceConfig = {
  */
 export type RawConfig = {
   roles?: Record<string, RoleOverride | false>;
-  workflow?: Partial<WorkflowConfig>;
+  workflow?: WorkflowOverride;
   timeouts?: TimeoutConfig;
   instance?: InstanceConfig;
 };
 
-export type ValidatedConfig = RawConfig;
+type ValidatedConfig = RawConfig;
 export type DevClawConfig = ValidatedConfig;
 
 /**
@@ -91,12 +113,12 @@ export type ResolvedConfig = {
  */
 export type ResolvedRoleConfig = {
   /** Per-level max workers. Resolved from: per-model maxWorkers → workflow maxWorkersPerLevel → default 2. */
-  levelMaxWorkers: Record<string, number>;
+  levelMaxWorkers: Partial<Record<string, number>>;
   levels: string[];
   defaultLevel: string;
   /** Flattened model map (string IDs only, for existing consumers). */
-  models: Record<string, string>;
-  emoji: Record<string, string>;
-  completionResults: string[];
+  models: Partial<Record<string, string>>;
+  emoji: Partial<Record<string, string>>;
+  completion: CompletionEventMap;
   enabled: boolean;
 };

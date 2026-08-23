@@ -4,10 +4,11 @@
  * Handles: tool restrictions, subagent cleanup, heartbeat defaults.
  * Models are stored in workflow.yaml (not openclaw.json).
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import { HEARTBEAT_DEFAULTS } from "../heartbeat/config.js";
-import type { ExecutionMode } from "../../domain/workflow/index.js";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+
+import type { ExecutionMode } from "../../domain/index.js";
+import { HEARTBEAT_DEFAULTS } from "../heartbeat/config.js";
 
 export const DEVCLAW_AGENT_TOOLS = [
   "task_start",
@@ -113,13 +114,16 @@ function configureSubagentCleanup(config: OpenClawConfig): void {
 
 function configureDevClawAgentTools(config: OpenClawConfig, agentId: string): void {
   const agent = config.agents?.list?.find((a) => a.id === agentId);
+
   if (agent) {
     if (!agent.tools) agent.tools = {};
 
     const currentAlsoAllow = Array.isArray(agent.tools.alsoAllow) ? agent.tools.alsoAllow : [];
+
     agent.tools.alsoAllow = [...new Set([...currentAlsoAllow, ...DEVCLAW_AGENT_TOOLS])];
 
     const currentDeny = Array.isArray(agent.tools.deny) ? agent.tools.deny : [];
+
     agent.tools.deny = [...new Set([...currentDeny, ...DEVCLAW_DENIED_TOOLS])];
 
     delete agent.tools.allow;
@@ -130,10 +134,12 @@ function allowActiveMemoryForAgent(config: OpenClawConfig, agentId: string): voi
   const activeMemoryConfig = config.plugins?.entries?.["active-memory"]?.config as
     | { agents?: unknown }
     | undefined;
+
   if (!activeMemoryConfig) return;
 
   if (!Array.isArray(activeMemoryConfig.agents)) {
     activeMemoryConfig.agents = [agentId];
+
     return;
   }
 
@@ -150,6 +156,7 @@ function ensureInternalHooks(config: OpenClawConfig): void {
 
 function ensureHeartbeatDefaults(config: OpenClawConfig): void {
   const devclaw = config.plugins?.entries?.devclaw?.config;
+
   if (devclaw && !devclaw.work_heartbeat) {
     devclaw.work_heartbeat = { ...HEARTBEAT_DEFAULTS };
   }
@@ -162,8 +169,10 @@ function ensureHeartbeatDefaults(config: OpenClawConfig): void {
  */
 function ensureTelegramLinkPreviewDisabled(config: OpenClawConfig): void {
   const channels = config.channels;
+
   if (!channels) return;
   const telegram = channels.telegram;
+
   if (!telegram) return;
   if (telegram.linkPreview === undefined) {
     telegram.linkPreview = false;

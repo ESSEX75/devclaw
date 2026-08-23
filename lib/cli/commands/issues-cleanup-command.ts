@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+
 import type { PluginContext } from "../../context.js";
 import { cleanupIssueState } from "../../tools/issues/issues-cleanup.js";
 import { getDefaultWorkspaceDir } from "../options/setup-options.js";
@@ -16,12 +17,14 @@ export function registerIssuesCleanupCommand(parent: Command, ctx: PluginContext
     .option("--workspace <path>", "Workspace path")
     .action(async (opts: { project: string; olderThan: string; workspace?: string }) => {
       const workspaceDir = opts.workspace ?? getDefaultWorkspaceDir(ctx.runtime);
+
       if (!workspaceDir) throw new Error("Workspace path is required. Pass --workspace or configure an agent default workspace.");
       const result = await cleanupIssueState({
         workspaceDir,
         projectSlug: opts.project,
         olderThan: opts.olderThan,
       });
+
       console.log(JSON.stringify(result, null, 2));
     });
 }

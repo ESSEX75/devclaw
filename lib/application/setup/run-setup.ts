@@ -6,17 +6,37 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import YAML from "yaml";
+
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+import YAML from "yaml";
+
+import {
+  type ExecutionMode,
+  NOTIFICATION_CHANNEL,
+  type NotificationChannel,
+} from "../../domain/index.js";
 import { getAllDefaultModels } from "../../roles/index.js";
-import { ensureChannelBinding, migrateChannelBinding } from "./binding-manager.js";
-import { createAgent, resolveWorkspacePath } from "./agent-config.js";
-import { writePluginConfig } from "./plugin-config.js";
-import { scaffoldWorkspace, writeAllDefaults } from "../../state/setup/workspace-files.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
-import type { ExecutionMode } from "../../domain/workflow/index.js";
+import { scaffoldWorkspace, writeAllDefaults } from "../../state/setup/workspace-files.js";
+import { createAgent, resolveWorkspacePath } from "./agent-config.js";
+import { ensureChannelBinding, migrateChannelBinding } from "./binding-manager.js";
+import { writePluginConfig } from "./plugin-config.js";
 
 export type ModelConfig = Record<string, Record<string, string>>;
+
+export type SetupNotificationChannel = Extract<
+  NotificationChannel,
+  typeof NOTIFICATION_CHANNEL.TELEGRAM | typeof NOTIFICATION_CHANNEL.WHATSAPP
+>;
+
+export const SETUP_NOTIFICATION_CHANNELS: readonly SetupNotificationChannel[] = [
+  NOTIFICATION_CHANNEL.TELEGRAM,
+  NOTIFICATION_CHANNEL.WHATSAPP,
+];
+
+export function isSetupNotificationChannel(value: unknown): value is SetupNotificationChannel {
+  return SETUP_NOTIFICATION_CHANNELS.some((channel) => channel === value);
+}
 
 export type SetupOpts = {
   /** OpenClaw plugin runtime for config access. */
@@ -24,7 +44,7 @@ export type SetupOpts = {
   /** Create a new agent with this name. Mutually exclusive with agentId. */
   newAgentName?: string;
   /** Channel binding for the selected or newly-created agent. */
-  channelBinding?: "telegram" | "whatsapp" | null;
+  channelBinding?: SetupNotificationChannel | null;
   /** Optional account id for channel-wide bindings in multi-account channel setups. */
   channelAccountId?: string;
   /** Optional peer id for group/topic-scoped bindings, e.g. "-100123:topic:331". */
@@ -52,9 +72,9 @@ export type SetupResult = {
   warnings: string[];
   bindingMigrated?: {
     from: string;
-    channel: "telegram" | "whatsapp";
+    channel: SetupNotificationChannel;
   };
-  channelBinding?: "telegram" | "whatsapp" | null;
+  channelBinding?: SetupNotificationChannel | null;
   channelAccountId?: string;
   channelPeerId?: string;
   defaultsEjected?: boolean;
@@ -78,11 +98,13 @@ export async function runSetup(opts: SetupOpts): Promise<SetupResult> {
 
   const defaultWorkspacePath = getDefaultWorkspacePath(opts.runtime);
   const filesWritten = await scaffoldWorkspace(workspacePath, defaultWorkspacePath);
+
   if (opts.ejectDefaults) {
     filesWritten.push(...await writeAllDefaults(workspacePath, false));
   }
 
   const models = buildModelConfig(opts.models);
+
   await writeModelsToWorkflow(workspacePath, models);
 
   return {
@@ -118,21 +140,26 @@ async function resolveOrCreateAgent(
       opts.runtime,
       opts.newAgentName,
     );
+
     if (opts.channelBinding && (!opts.migrateFrom || opts.channelPeerId)) {
       await ensureChannelBinding(opts.runtime, opts.channelBinding, agentId, opts.channelAccountId, opts.channelPeerId);
     }
+
     const bindingMigrated = await tryMigrateBinding(opts, agentId, warnings);
+
     return { agentId, workspacePath, agentCreated: true, bindingMigrated };
   }
 
   if (opts.agentId) {
     const workspacePath = opts.workspacePath ?? resolveWorkspacePath(opts.runtime, opts.agentId);
     let bindingMigrated: SetupResult["bindingMigrated"];
+
     if (opts.channelBinding && opts.migrateFrom && !opts.channelPeerId) {
       bindingMigrated = await tryMigrateBinding(opts, opts.agentId, warnings);
     } else if (opts.channelBinding) {
       await ensureChannelBinding(opts.runtime, opts.channelBinding, opts.agentId, opts.channelAccountId, opts.channelPeerId);
     }
+
     return { agentId: opts.agentId, workspacePath, agentCreated: false, bindingMigrated };
   }
 
@@ -140,6 +167,7 @@ async function resolveOrCreateAgent(
     if (opts.channelBinding) {
       throw new Error("Channel binding requires an agent target. Use --agent or --new-agent, not --workspace.");
     }
+
     return { agentId: "unknown", workspacePath: opts.workspacePath, agentCreated: false };
   }
 
@@ -154,8 +182,10 @@ async function tryMigrateBinding(
   if (!opts.migrateFrom || !opts.channelBinding) return undefined;
   if (opts.channelPeerId) {
     warnings.push("Skipping migrateFrom: migration is only supported for channel-wide bindings, not peer-scoped bindings.");
+
     return undefined;
   }
+
   try {
     await migrateChannelBinding(
       opts.runtime,
@@ -164,9 +194,11 @@ async function tryMigrateBinding(
       agentId,
       opts.channelAccountId,
     );
+
     return { from: opts.migrateFrom, channel: opts.channelBinding };
   } catch (err) {
     warnings.push(`Failed to migrate binding from "${opts.migrateFrom}": ${(err as Error).message}`);
+
     return undefined;
   }
 }
@@ -194,6 +226,7 @@ function buildModelConfig(overrides?: SetupOpts["models"]): ModelConfig {
 function getDefaultWorkspacePath(runtime: PluginRuntime): string | undefined {
   try {
     const config = runtime.config.current();
+
     return config.agents?.defaults?.workspace ?? undefined;
   } catch {
     return undefined;
@@ -208,6 +241,7 @@ async function writeModelsToWorkflow(workspacePath: string, models: ModelConfig)
   const workflowPath = path.join(workspacePath, DATA_DIR, "workflow.yaml");
 
   let content = "";
+
   try {
     content = await fs.readFile(workflowPath, "utf-8");
   } catch { /* file doesn't exist yet */ }
@@ -219,6 +253,7 @@ async function writeModelsToWorkflow(workspacePath: string, models: ModelConfig)
   if (!doc.has("roles")) {
     doc.set("roles", {});
   }
+
   const roles = doc.getIn(["roles"], true) as unknown as YAML.YAMLMap;
 
   // Merge models into roles section
@@ -227,6 +262,7 @@ async function writeModelsToWorkflow(workspacePath: string, models: ModelConfig)
       roles.set(role, doc.createNode({ models: levels }));
     } else {
       const roleNode = roles.get(role, true) as unknown as YAML.YAMLMap;
+
       roleNode.set("models", doc.createNode(levels));
     }
   }

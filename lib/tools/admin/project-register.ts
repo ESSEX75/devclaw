@@ -6,34 +6,51 @@
  *
  * Replaces the manual steps of running glab/gh label create + editing projects.json.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { readProjects, writeProjects, emptyRoleWorkerState } from "../../state/projects/index.js";
-import { resolveRepoPath } from "../../state/projects/index.js";
-import { createProvider } from "../../integrations/providers/index.js";
+
+import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
 import { log as auditLog } from "../../audit.js";
-import { getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
-import { getRoleLabels } from "../../domain/workflow/index.js";
-import { loadConfig } from "../../state/config/index.js";
+import type { PluginContext } from "../../context.js";
+import {
+  emptyRoleWorkerState,
+  getRoleLabels,
+  isNotificationChannel,
+  ISSUE_PROVIDER,
+  NOTIFICATION_CHANNEL,
+  type NotificationEndpoint,
+  type RoleWorkerState,
+} from "../../domain/index.js";
+import { createProvider } from "../../integrations/providers/index.js";
+import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
+import { readProjects, writeProjects } from "../../state/projects/index.js";
+import { resolveRepoPath } from "../../state/projects/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
 
 /**
  * Scaffold project directory with prompts/ folder and a README explaining overrides.
  * Returns true if files were created, false if they already existed.
  */
-async function scaffoldPromptFiles(workspaceDir: string, projectName: string): Promise<boolean> {
+async function scaffoldPromptFiles(
+  workspaceDir: string,
+  projectName: string,
+  roleIds: readonly string[],
+): Promise<boolean> {
   const projectDir = path.join(workspaceDir, DATA_DIR, "projects", projectName);
   const promptsDir = path.join(projectDir, "prompts");
+
   await fs.mkdir(promptsDir, { recursive: true });
 
   const readmePath = path.join(projectDir, "README.md");
+
   try {
     await fs.access(readmePath);
+
     return false;
   } catch {
-    const roles = getAllRoleIds().join(", ");
+    const roles = roleIds.join(", ");
+
     await fs.writeFile(readmePath, `# Project Overrides
 
 This directory holds project-specific configuration that overrides the workspace defaults.
@@ -75,6 +92,7 @@ roles:
 
 Call \`workflow_guide\` for the full config reference.
 `, "utf-8");
+
     return true;
   }
 }
@@ -102,6 +120,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         },
         channel: {
           type: "string",
+          enum: Object.values(NOTIFICATION_CHANNEL),
           description: "Channel type (e.g. 'telegram', 'whatsapp'). Defaults to 'telegram'.",
         },
         threadId: {
@@ -132,7 +151,13 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       const channelId = params.channelId as string;
       const name = params.name as string;
       const repo = params.repo as string;
-      const channel = (params.channel as string) ?? "telegram";
+      const channelInput = params.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;
+
+      if (!isNotificationChannel(channelInput)) {
+        throw new Error(`Unsupported notification channel: ${String(channelInput)}.`);
+      }
+
+      const channel = channelInput;
       const threadId = typeof params.threadId === "string" && params.threadId.trim()
         ? params.threadId.trim()
         : undefined;
@@ -156,6 +181,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       // If project exists, check if this channelId is already registered
       if (existing) {
         const channelExists = existing.channels.some(ch => ch.channelId === channelId && ch.threadId === threadId);
+
         if (channelExists) {
           throw new Error(
             `Channel ${channelId}${threadId ? ` thread ${threadId}` : ""} is already registered for project "${name}". Each channel/thread can only register once per project.`,
@@ -166,16 +192,23 @@ export function createProjectRegisterTool(ctx: PluginContext) {
 
       // 2. Resolve repo path
       const repoPath = resolveRepoPath(repo);
+      const resolvedConfig = await loadConfig(workspaceDir, name);
 
       // 3. Create provider and verify it works
-      const { provider, type: providerType } = await createProvider({ repo, runCommand: ctx.runCommand });
+      const { provider, type: providerType } = await createProvider({
+        repo,
+        runCommand: ctx.runCommand,
+        workflow: resolvedConfig.workflow,
+      });
 
       const healthy = await provider.healthCheck();
+
       if (!healthy) {
-        const cliName = providerType === "github" ? "gh" : "glab";
-        const cliInstallUrl = providerType === "github"
+        const cliName = providerType === ISSUE_PROVIDER.GITHUB ? "gh" : "glab";
+        const cliInstallUrl = providerType === ISSUE_PROVIDER.GITHUB
           ? "https://cli.github.com"
           : "https://gitlab.com/gitlab-org/cli";
+
         throw new Error(
           `${providerType.toUpperCase()} health check failed for ${repoPath}. ` +
           `Detected provider: ${providerType}. ` +
@@ -189,19 +222,21 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       await provider.ensureAllStateLabels();
 
       // 4b. Create role:level + step routing labels (e.g. developer:junior, review:human, test:skip)
-      const resolvedConfig = await loadConfig(workspaceDir, name);
       const roleLabels = getRoleLabels(resolvedConfig.roles);
+
       for (const { name: labelName, color } of roleLabels) {
         await provider.ensureLabel(labelName, color);
       }
 
       // 5. Auto-detect repoRemote from git
       let repoRemote: string | undefined;
+
       try {
         const result = await ctx.runCommand(["git", "remote", "get-url", "origin"], {
           timeoutMs: 5_000,
           cwd: repoPath,
         });
+
         repoRemote = result.stdout.trim() || undefined;
       } catch {
         repoRemote = undefined;
@@ -210,30 +245,31 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       // 6. Add or update project in projects.json
       if (existing) {
         // Add channel to existing project
-        const newChannel: import("../../state/projects/index.js").Channel = {
+      const newChannel: NotificationEndpoint = {
           channelId,
-          channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
+          channel,
           name: `channel-${existing.channels.length + 1}`,
-          events: ["*"],
           ...(threadId ? { threadId } : {}),
         };
+
         existing.channels.push(newChannel);
         if (repoRemote && !existing.repoRemote) {
           existing.repoRemote = repoRemote;
         }
       } else {
         // Create new project - get levelMaxWorkers from resolved config (already loaded above)
-        const workers: Record<string, import("../../state/projects/index.js").RoleWorkerState> = {};
-        for (const role of getAllRoleIds()) {
+  const workers: Record<string, RoleWorkerState> = {};
+
+        for (const role of getConfiguredRoleIds(resolvedConfig)) {
           const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
+
           workers[role] = emptyRoleWorkerState(levelMaxWorkers);
         }
 
-        const newChannel: import("../../state/projects/index.js").Channel = {
+    const newChannel: NotificationEndpoint = {
           channelId,
-          channel: channel as "telegram" | "whatsapp" | "discord" | "slack",
+          channel,
           name: "primary",
-          events: ["*"],
           ...(threadId ? { threadId } : {}),
         };
 
@@ -255,7 +291,11 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       await writeProjects(workspaceDir, data);
 
       // 7. Scaffold prompt files
-      const promptsCreated = await scaffoldPromptFiles(workspaceDir, name);
+      const promptsCreated = await scaffoldPromptFiles(
+        workspaceDir,
+        name,
+        getConfiguredRoleIds(resolvedConfig),
+      );
 
       // 8. Audit log
       await auditLog(workspaceDir, "project_register", {

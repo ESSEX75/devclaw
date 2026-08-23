@@ -9,9 +9,11 @@
  * - reviewNeeded: Issue needs review — human or agent (→ project group)
  * - prMerged: PR/MR was merged into the base branch (→ project group)
  */
-import { log as auditLog } from "../../audit.js";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+
+import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
+import { getCompletionEmoji, NOTIFICATION_CHANNEL, type NotificationChannel } from "../../domain/index.js";
 
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;
@@ -36,7 +38,7 @@ export type NotifyEvent =
       role: string;
       level?: string;
       name?: string;
-      result: "done" | "pass" | "fail" | "refine" | "blocked";
+      result: string;
       summary?: string;
       nextState?: string;
       prUrl?: string;
@@ -124,6 +126,7 @@ function formatWorkerString(
  */
 function extractPrNumber(url: string): number | null {
   const m = url.match(/\/(?:pull|merge_requests)\/(\d+)/);
+
   return m ? Number(m[1]) : null;
 }
 
@@ -137,6 +140,7 @@ function prLink(url: string): string {
   const label = isGitLab
     ? `Merge Request${num != null ? ` #${num}` : ""}`
     : `Pull Request${num != null ? ` #${num}` : ""}`;
+
   return `[${label}](${url})`;
 }
 
@@ -151,18 +155,12 @@ function buildMessage(event: NotifyEvent): string {
         name: event.name,
         level: event.level,
       });
+
       return `${action} ${worker} on #${event.issueId}: ${event.issueTitle}\n🔗 [Issue #${event.issueId}](${event.issueUrl})`;
     }
 
     case "workerComplete": {
-      const icons: Record<string, string> = {
-        done: "✅",
-        pass: "🎉",
-        fail: "❌",
-        refine: "🤔",
-        blocked: "🚫",
-      };
-      const icon = icons[event.result] ?? "📋";
+      const icon = getCompletionEmoji(event.result);
       const resultText: Record<string, string> = {
         done: "completed",
         pass: "PASSED",
@@ -177,10 +175,12 @@ function buildMessage(event: NotifyEvent): string {
         level: event.level,
       });
       let msg = `${icon} ${worker} ${text} #${event.issueId}`;
+
       // Summary: on its own line for readability
       if (event.summary) {
         msg += `\n${event.summary}`;
       }
+
       // Links: PR and issue on separate lines
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
       msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
@@ -190,12 +190,15 @@ function buildMessage(event: NotifyEvent): string {
         for (const t of event.createdTasks) {
           msg += `\n  · [#${t.id}: ${t.title}](${t.url})`;
         }
+
         msg += `\nReply to start working on them.`;
       }
+
       // Workflow transition: at the end
       if (event.nextState) {
         msg += `\n→ ${event.nextState}`;
       }
+
       return msg;
     }
 
@@ -203,8 +206,10 @@ function buildMessage(event: NotifyEvent): string {
       const icon = event.routing === "human" ? "👀" : "🤖";
       const who = event.routing === "human" ? "Human review needed" : "Agent review queued";
       let msg = `${icon} ${who} for #${event.issueId}: ${event.issueTitle}`;
+
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
       msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
+
       return msg;
     }
 
@@ -215,39 +220,48 @@ function buildMessage(event: NotifyEvent): string {
         pipeline: "merged by reviewer",
       };
       let msg = `🔀 PR merged for #${event.issueId}: ${event.issueTitle}`;
+
       if (event.prTitle) msg += `\n📝 ${event.prTitle}`;
       if (event.sourceBranch && event.targetBranch) {
         msg += `\n🌿 ${event.sourceBranch} → ${event.targetBranch}`;
       } else if (event.sourceBranch) {
         msg += `\n🌿 ${event.sourceBranch}`;
       }
+
       msg += `\n⚡ ${via[event.mergedBy] ?? event.mergedBy}`;
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
       msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
+
       return msg;
     }
 
     case "changesRequested": {
       let msg = `⚠️ Changes requested on PR for #${event.issueId}: ${event.issueTitle}`;
+
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
       msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
       msg += `\n→ Moving to To Improve for developer re-dispatch`;
+
       return msg;
     }
 
     case "mergeConflict": {
       let msg = `⚠️ Merge conflicts detected on PR for #${event.issueId}: ${event.issueTitle}`;
+
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
       msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
       msg += `\n→ Moving to To Improve — developer will rebase and resolve`;
+
       return msg;
     }
 
     case "prClosed": {
       let msg = `🚫 PR closed without merging for #${event.issueId}: ${event.issueTitle}`;
+
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
       msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
       msg += `\n→ Moving to To Improve for developer attention`;
+
       return msg;
     }
   }
@@ -262,7 +276,7 @@ function buildMessage(event: NotifyEvent): string {
 async function sendMessage(
   target: string,
   message: string,
-  channel: string,
+  channel: NotificationChannel,
   workspaceDir: string,
   runtime?: PluginRuntime,
   accountId?: string,
@@ -271,11 +285,13 @@ async function sendMessage(
 ): Promise<boolean> {
   let runtimeError: unknown;
   let fallbackAttempted = false;
+
   try {
     // Use runtime API when available (avoids CLI subprocess timeouts)
     const sendText = runtime
       ? (await runtime.channel.outbound.loadAdapter(channel))?.sendText
       : undefined;
+
     if (sendText) {
       try {
         await sendText({
@@ -286,6 +302,7 @@ async function sendMessage(
           accountId,
           threadId,
         } as never);
+
         return true;
       } catch (err) {
         runtimeError = err;
@@ -318,6 +335,7 @@ async function sendMessage(
 
     fallbackAttempted = true;
     await runCommand(["openclaw", ...args], { timeoutMs: 30_000 });
+
     return true;
   } catch (err) {
     // Log but don't throw — notifications shouldn't break the main flow
@@ -328,6 +346,7 @@ async function sendMessage(
       error: (err as Error).message,
       runtimeError: runtimeError instanceof Error ? runtimeError.message : String(runtimeError ?? ""),
     });
+
     return false;
   }
 }
@@ -345,7 +364,7 @@ export async function notify(
     /** Target for project-scoped notifications (channelId) */
     channelId?: string;
     /** Channel type for routing (e.g. "telegram", "whatsapp", "discord", "slack") */
-    channel?: string;
+    channel?: NotificationChannel;
     /** Optional thread/topic ID for forum-style channels */
     threadId?: string;
     /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
@@ -358,7 +377,7 @@ export async function notify(
 ): Promise<boolean> {
   if (opts.config?.[event.type] === false) return true;
 
-  const channel = opts.channel ?? "telegram";
+  const channel = opts.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;
   const message = buildMessage(event);
   const target = opts.channelId;
 
@@ -367,6 +386,7 @@ export async function notify(
       eventType: event.type,
       reason: "no target",
     });
+
     return true; // Not an error, just nothing to do
   }
 

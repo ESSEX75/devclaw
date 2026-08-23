@@ -28,5 +28,6 @@ export function resolveHeartbeatConfig(
   const raw = pluginConfig?.work_heartbeat as
     | Partial<HeartbeatConfig>
     | undefined;
+
   return { ...HEARTBEAT_DEFAULTS, ...raw };
 }

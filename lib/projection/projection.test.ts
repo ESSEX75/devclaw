@@ -1,6 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import type { IssueRuntimeState } from "../state/issues/index.js";
+import {
+  ISSUE_INTEGRITY_STATUS,
+  ISSUE_PROVIDER,
+  NOTIFICATION_CHANNEL,
+  type IssueRuntimeState,
+} from "../domain/index.js";
 import {
   diffIssueProjection,
   expectedManagedLabels,
@@ -14,8 +19,7 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug: "devclaw",
     issueId: 123,
-    provider: "github",
-    managed: true,
+    provider: ISSUE_PROVIDER.GITHUB,
     workflowState: "todo",
     workflowLabel: "To Do",
     assignedRole: "developer",
@@ -23,10 +27,10 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     owner: "main",
     reviewPolicy: "human",
     testPolicy: "skip",
-    notifyTarget: { channel: "telegram", name: "primary" },
+    notifyTarget: { channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
     branchContract: null,
     activeWorker: null,
-    integrityStatus: "ok",
+    integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
     projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",

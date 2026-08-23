@@ -2,143 +2,147 @@
  * workflow/defaults.ts — Default workflow configuration.
  */
 import {
-  type WorkflowConfig,
-  StateType,
-  ExecutionMode,
-  ReviewPolicy,
-  TestPolicy,
-  Action,
-  WorkflowEvent,
-  ReviewCheck,
-} from "./types.js";
+  ACTION,
+  DEFAULT_ROLES,
+  EXECUTION_MODE,
+  REVIEW_CHECK,
+  REVIEW_POLICY,
+  STATE_TYPE,
+  TEST_POLICY,
+  WORKFLOW_EVENT,
+  WORKFLOW_STATE_COLORS,
+  WORKFLOW_STATE_KEYS,
+  WORKFLOW_STATE_LABELS,
+} from "./const.js";
+import type { BuiltInWorkflowConfig } from "./types.js";
 
-export const DEFAULT_WORKFLOW: WorkflowConfig = {
-  initial: "planning",
-  reviewPolicy: ReviewPolicy.HUMAN,
-  testPolicy: TestPolicy.SKIP,
-  roleExecution: ExecutionMode.PARALLEL,
+export const DEFAULT_WORKFLOW: BuiltInWorkflowConfig = {
+  initial: WORKFLOW_STATE_KEYS.PLANNING,
+  reviewPolicy: REVIEW_POLICY.HUMAN,
+  testPolicy: TEST_POLICY.SKIP,
+  roleExecution: EXECUTION_MODE.PARALLEL,
   states: {
     // ── Main pipeline (happy path) ──────────────────────────────
-    planning: {
-      type: StateType.HOLD,
-      label: "Planning",
-      color: "#95a5a6",
-      on: { [WorkflowEvent.APPROVE]: "todo" },
+    [WORKFLOW_STATE_KEYS.PLANNING]: {
+      type: STATE_TYPE.HOLD,
+      label: WORKFLOW_STATE_LABELS.PLANNING,
+      color: WORKFLOW_STATE_COLORS.PLANNING,
+      on: { [WORKFLOW_EVENT.APPROVE]: { target: WORKFLOW_STATE_KEYS.TODO } },
     },
-    todo: {
-      type: StateType.QUEUE,
-      role: "developer",
-      label: "To Do",
-      color: "#0366d6",
+    [WORKFLOW_STATE_KEYS.TODO]: {
+      type: STATE_TYPE.QUEUE,
+      role: DEFAULT_ROLES.DEVELOPER,
+      label: WORKFLOW_STATE_LABELS.TODO,
+      color: WORKFLOW_STATE_COLORS.TODO,
       priority: 1,
-      on: { [WorkflowEvent.PICKUP]: "doing" },
+      on: { [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.DOING } },
     },
-    doing: {
-      type: StateType.ACTIVE,
-      role: "developer",
-      label: "Doing",
-      color: "#f0ad4e",
+    [WORKFLOW_STATE_KEYS.DOING]: {
+      type: STATE_TYPE.ACTIVE,
+      role: DEFAULT_ROLES.DEVELOPER,
+      label: WORKFLOW_STATE_LABELS.DOING,
+      color: WORKFLOW_STATE_COLORS.DOING,
       on: {
-        [WorkflowEvent.COMPLETE]: { target: "toReview", actions: [Action.DETECT_PR] },
-        [WorkflowEvent.BLOCKED]: "refining",
+        [WORKFLOW_EVENT.COMPLETE]: { target: WORKFLOW_STATE_KEYS.TO_REVIEW, actions: [ACTION.DETECT_PR] },
+        [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },
     },
-    toReview: {
-      type: StateType.QUEUE,
-      role: "reviewer",
-      label: "To Review",
-      color: "#7057ff",
+    [WORKFLOW_STATE_KEYS.TO_REVIEW]: {
+      type: STATE_TYPE.QUEUE,
+      role: DEFAULT_ROLES.REVIEWER,
+      label: WORKFLOW_STATE_LABELS.TO_REVIEW,
+      color: WORKFLOW_STATE_COLORS.TO_REVIEW,
       priority: 2,
-      check: ReviewCheck.PR_APPROVED,
+      check: REVIEW_CHECK.PR_APPROVED,
       on: {
-        [WorkflowEvent.PICKUP]: "reviewing",
-        [WorkflowEvent.APPROVED]: { target: "toTest", actions: [Action.MERGE_PR, Action.GIT_PULL] },
-        [WorkflowEvent.SKIP]: { target: "toTest", actions: [Action.MERGE_PR, Action.GIT_PULL] },
-        [WorkflowEvent.MERGE_FAILED]: "toImprove",
-        [WorkflowEvent.CHANGES_REQUESTED]: "toImprove",
-        [WorkflowEvent.MERGE_CONFLICT]: "toImprove",
-        [WorkflowEvent.PR_CLOSED]: { target: "rejected", actions: [Action.CLOSE_ISSUE] },
+        [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.REVIEWING },
+        [WORKFLOW_EVENT.APPROVED]: { target: WORKFLOW_STATE_KEYS.TO_TEST, actions: [ACTION.MERGE_PR, ACTION.GIT_PULL] },
+        [WORKFLOW_EVENT.SKIP]: { target: WORKFLOW_STATE_KEYS.TO_TEST, actions: [ACTION.MERGE_PR, ACTION.GIT_PULL] },
+        [WORKFLOW_EVENT.MERGE_FAILED]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
+        [WORKFLOW_EVENT.CHANGES_REQUESTED]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
+        [WORKFLOW_EVENT.MERGE_CONFLICT]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
+        [WORKFLOW_EVENT.PR_CLOSED]: { target: WORKFLOW_STATE_KEYS.REJECTED, actions: [ACTION.CLOSE_ISSUE] },
       },
     },
-    reviewing: {
-      type: StateType.ACTIVE,
-      role: "reviewer",
-      label: "Reviewing",
-      color: "#c5def5",
+    [WORKFLOW_STATE_KEYS.REVIEWING]: {
+      type: STATE_TYPE.ACTIVE,
+      role: DEFAULT_ROLES.REVIEWER,
+      label: WORKFLOW_STATE_LABELS.REVIEWING,
+      color: WORKFLOW_STATE_COLORS.REVIEWING,
       on: {
-        [WorkflowEvent.APPROVE]: { target: "toTest", actions: [Action.MERGE_PR, Action.GIT_PULL] },
-        [WorkflowEvent.REJECT]: "toImprove",
-        [WorkflowEvent.BLOCKED]: "refining",
+        [WORKFLOW_EVENT.APPROVE]: { target: WORKFLOW_STATE_KEYS.TO_TEST, actions: [ACTION.MERGE_PR, ACTION.GIT_PULL] },
+        [WORKFLOW_EVENT.REJECT]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
+        [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },
     },
     // ── Test phase (skipped by default via testPolicy: skip) ────
-    toTest: {
-      type: StateType.QUEUE,
-      role: "tester",
-      label: "To Test",
-      color: "#5bc0de",
+    [WORKFLOW_STATE_KEYS.TO_TEST]: {
+      type: STATE_TYPE.QUEUE,
+      role: DEFAULT_ROLES.TESTER,
+      label: WORKFLOW_STATE_LABELS.TO_TEST,
+      color: WORKFLOW_STATE_COLORS.TO_TEST,
       priority: 2,
       on: {
-        [WorkflowEvent.PICKUP]: "testing",
-        [WorkflowEvent.SKIP]: { target: "done", actions: [Action.CLOSE_ISSUE] },
+        [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.TESTING },
+        [WORKFLOW_EVENT.SKIP]: { target: WORKFLOW_STATE_KEYS.DONE, actions: [ACTION.CLOSE_ISSUE] },
       },
     },
-    testing: {
-      type: StateType.ACTIVE,
-      role: "tester",
-      label: "Testing",
-      color: "#9b59b6",
+    [WORKFLOW_STATE_KEYS.TESTING]: {
+      type: STATE_TYPE.ACTIVE,
+      role: DEFAULT_ROLES.TESTER,
+      label: WORKFLOW_STATE_LABELS.TESTING,
+      color: WORKFLOW_STATE_COLORS.TESTING,
       on: {
-        [WorkflowEvent.PASS]: { target: "done", actions: [Action.CLOSE_ISSUE] },
-        [WorkflowEvent.FAIL]: { target: "toImprove", actions: [Action.REOPEN_ISSUE] },
-        [WorkflowEvent.REFINE]: "refining",
-        [WorkflowEvent.BLOCKED]: "refining",
+        [WORKFLOW_EVENT.PASS]: { target: WORKFLOW_STATE_KEYS.DONE, actions: [ACTION.CLOSE_ISSUE] },
+        [WORKFLOW_EVENT.FAIL]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE, actions: [ACTION.REOPEN_ISSUE] },
+        [WORKFLOW_EVENT.REFINE]: { target: WORKFLOW_STATE_KEYS.REFINING },
+        [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },
     },
-    done: {
-      type: StateType.TERMINAL,
-      label: "Done",
-      color: "#5cb85c",
+    [WORKFLOW_STATE_KEYS.DONE]: {
+      type: STATE_TYPE.TERMINAL,
+      label: WORKFLOW_STATE_LABELS.DONE,
+      color: WORKFLOW_STATE_COLORS.DONE,
     },
-    rejected: {
-      type: StateType.TERMINAL,
-      label: "Rejected",
-      color: "#e11d48",
+    [WORKFLOW_STATE_KEYS.REJECTED]: {
+      type: STATE_TYPE.TERMINAL,
+      label: WORKFLOW_STATE_LABELS.REJECTED,
+      color: WORKFLOW_STATE_COLORS.REJECTED,
     },
 
     // ── Side paths (loops back into main pipeline) ──────────────
-    toImprove: {
-      type: StateType.QUEUE,
-      role: "developer",
-      label: "To Improve",
-      color: "#d9534f",
+    [WORKFLOW_STATE_KEYS.TO_IMPROVE]: {
+      type: STATE_TYPE.QUEUE,
+      role: DEFAULT_ROLES.DEVELOPER,
+      label: WORKFLOW_STATE_LABELS.TO_IMPROVE,
+      color: WORKFLOW_STATE_COLORS.TO_IMPROVE,
       priority: 3,
-      on: { [WorkflowEvent.PICKUP]: "doing" },
+      on: { [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.DOING } },
     },
-    refining: {
-      type: StateType.HOLD,
-      label: "Refining",
-      color: "#f39c12",
-      on: { [WorkflowEvent.APPROVE]: "todo" },
+    [WORKFLOW_STATE_KEYS.REFINING]: {
+      type: STATE_TYPE.HOLD,
+      label: WORKFLOW_STATE_LABELS.REFINING,
+      color: WORKFLOW_STATE_COLORS.REFINING,
+      on: { [WORKFLOW_EVENT.APPROVE]: { target: WORKFLOW_STATE_KEYS.TODO } },
     },
 
     // ── Architect research pipeline ──────────────────────────────
-    toResearch: {
-      type: StateType.QUEUE,
-      role: "architect",
-      label: "To Research",
-      color: "#0075ca",
+    [WORKFLOW_STATE_KEYS.TO_RESEARCH]: {
+      type: STATE_TYPE.QUEUE,
+      role: DEFAULT_ROLES.ARCHITECT,
+      label: WORKFLOW_STATE_LABELS.TO_RESEARCH,
+      color: WORKFLOW_STATE_COLORS.TO_RESEARCH,
       priority: 1,
-      on: { [WorkflowEvent.PICKUP]: "researching" },
+      on: { [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.RESEARCHING } },
     },
-    researching: {
-      type: StateType.ACTIVE,
-      role: "architect",
-      label: "Researching",
-      color: "#4a90e2",
+    [WORKFLOW_STATE_KEYS.RESEARCHING]: {
+      type: STATE_TYPE.ACTIVE,
+      role: DEFAULT_ROLES.ARCHITECT,
+      label: WORKFLOW_STATE_LABELS.RESEARCHING,
+      color: WORKFLOW_STATE_COLORS.RESEARCHING,
       on: {
-        [WorkflowEvent.COMPLETE]: { target: "done", actions: [Action.CLOSE_ISSUE] },
-        [WorkflowEvent.BLOCKED]: "refining",
+        [WORKFLOW_EVENT.COMPLETE]: { target: WORKFLOW_STATE_KEYS.DONE, actions: [ACTION.CLOSE_ISSUE] },
+        [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },
     },
 

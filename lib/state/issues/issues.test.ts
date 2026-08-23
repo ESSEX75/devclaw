@@ -7,21 +7,20 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
 import {
   emptyIssueStateStore,
   issueStatePath,
   readIssueStateStore,
   updateIssueStateStore,
   writeIssueStateStore,
-  type IssueRuntimeState,
 } from "./index.js";
 
 function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug: "devclaw",
     issueId: 123,
-    provider: "github",
-    managed: true,
+    provider: ISSUE_PROVIDER.GITHUB,
     workflowState: "todo",
     workflowLabel: "To Do",
     assignedRole: "developer",
@@ -32,7 +31,7 @@ function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     notifyTarget: null,
     branchContract: null,
     activeWorker: null,
-    integrityStatus: "ok",
+    integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
     projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
@@ -124,7 +123,7 @@ describe("issue state store", () => {
         finalWorkflowState: "done",
         closedAt: "2026-06-01T00:00:00.000Z",
         archivedAt: "2026-06-22T00:00:00.000Z",
-        lastIntegrityStatus: "ok",
+        lastIntegrityStatus: ISSUE_INTEGRITY_STATUS.OK,
       };
 
       await writeIssueStateStore(tmpDir, "devclaw", store);

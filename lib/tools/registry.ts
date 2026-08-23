@@ -1,40 +1,36 @@
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+
 import type { PluginContext } from "../context.js";
-
-// Worker lifecycle
-import { createTaskStartTool } from "./tasks/task-start.js";
-import { createWorkFinishTool } from "./worker/work-finish.js";
-
+import { createAutoConfigureModelsTool } from "./admin/autoconfigure-models.js";
+import { createChannelLinkTool } from "./admin/channel-link.js";
+import { createChannelListTool } from "./admin/channel-list.js";
+import { createChannelUnlinkTool } from "./admin/channel-unlink.js";
+import { createConfigTool } from "./admin/config.js";
+import { createHealthTool } from "./admin/health.js";
+import { createOnboardTool } from "./admin/onboard.js";
+import { createProjectRegisterTool } from "./admin/project-register.js";
+// Project admin
+import { createProjectStatusTool } from "./admin/project-status.js";
+// Setup & onboarding
+import { createSetupTool } from "./admin/setup.js";
+import { createSyncLabelsTool } from "./admin/sync-labels.js";
+import { createWorkflowGuideTool } from "./admin/workflow-guide.js";
+import { createIssuePolicyMigrationTool, createIssueRepairTool } from "./issues/issue-repair.js";
+import { createIssuesCleanupTool } from "./issues/issues-cleanup.js";
+import { createResearchTaskTool } from "./tasks/research-task.js";
+import { createTaskAttachTool } from "./tasks/task-attach.js";
+import { createTaskCommentTool } from "./tasks/task-comment.js";
 // Task management
 import { createTaskCreateTool } from "./tasks/task-create.js";
 import { createTaskEditBodyTool } from "./tasks/task-edit-body.js";
-import { createTaskCommentTool } from "./tasks/task-comment.js";
-import { createTaskAttachTool } from "./tasks/task-attach.js";
-import { createTaskSetLevelTool } from "./tasks/task-set-level.js";
-import { createTaskOwnerTool } from "./tasks/task-owner.js";
-import { createResearchTaskTool } from "./tasks/research-task.js";
-import { createIssuePolicyMigrationTool, createIssueRepairTool } from "./issues/issue-repair.js";
-import { createIssuesCleanupTool } from "./issues/issues-cleanup.js";
-
 // Task queries
 import { createTaskListTool } from "./tasks/task-list.js";
+import { createTaskOwnerTool } from "./tasks/task-owner.js";
+import { createTaskSetLevelTool } from "./tasks/task-set-level.js";
+// Worker lifecycle
+import { createTaskStartTool } from "./tasks/task-start.js";
 import { createTasksStatusTool } from "./tasks/tasks-status.js";
-
-// Project admin
-import { createProjectStatusTool } from "./admin/project-status.js";
-import { createProjectRegisterTool } from "./admin/project-register.js";
-import { createHealthTool } from "./admin/health.js";
-import { createSyncLabelsTool } from "./admin/sync-labels.js";
-import { createChannelLinkTool } from "./admin/channel-link.js";
-import { createChannelUnlinkTool } from "./admin/channel-unlink.js";
-import { createChannelListTool } from "./admin/channel-list.js";
-
-// Setup & onboarding
-import { createSetupTool } from "./admin/setup.js";
-import { createOnboardTool } from "./admin/onboard.js";
-import { createAutoConfigureModelsTool } from "./admin/autoconfigure-models.js";
-import { createWorkflowGuideTool } from "./admin/workflow-guide.js";
-import { createConfigTool } from "./admin/config.js";
+import { createWorkFinishTool } from "./worker/work-finish.js";
 
 type ToolInstanceFactory = (toolCtx: OpenClawPluginToolContext) => unknown;
 

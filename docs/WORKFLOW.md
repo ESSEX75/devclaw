@@ -60,7 +60,8 @@ workflow:
       label: Planning
       color: "#95a5a6"
       on:
-        APPROVE: todo
+        APPROVE:
+          target: todo
     toResearch:
       type: queue
       role: architect
@@ -68,15 +69,18 @@ workflow:
       color: "#0075ca"
       priority: 1
       on:
-        PICKUP: researching
+        PICKUP:
+          target: researching
     researching:
       type: active
       role: architect
       label: Researching
       color: "#4a90e2"
       on:
-        COMPLETE: planning
-        BLOCKED: refining
+        COMPLETE:
+          target: planning
+        BLOCKED:
+          target: refining
     todo:
       type: queue
       role: developer
@@ -84,7 +88,8 @@ workflow:
       color: "#428bca"
       priority: 1
       on:
-        PICKUP: doing
+        PICKUP:
+          target: doing
     doing:
       type: active
       role: developer
@@ -94,7 +99,8 @@ workflow:
         COMPLETE:
           target: toReview
           actions: [detectPr]
-        BLOCKED: refining
+        BLOCKED:
+          target: refining
     toReview:
       type: queue
       role: reviewer
@@ -103,13 +109,17 @@ workflow:
       priority: 2
       check: prApproved
       on:
-        PICKUP: reviewing
+        PICKUP:
+          target: reviewing
         APPROVED:
           target: done
           actions: [mergePr, gitPull, closeIssue]
-        MERGE_FAILED: toImprove
-        CHANGES_REQUESTED: toImprove
-        MERGE_CONFLICT: toImprove
+        MERGE_FAILED:
+          target: toImprove
+        CHANGES_REQUESTED:
+          target: toImprove
+        MERGE_CONFLICT:
+          target: toImprove
     reviewing:
       type: active
       role: reviewer
@@ -119,8 +129,10 @@ workflow:
         APPROVE:
           target: done
           actions: [mergePr, gitPull, closeIssue]
-        REJECT: toImprove
-        BLOCKED: refining
+        REJECT:
+          target: toImprove
+        BLOCKED:
+          target: refining
     done:
       type: terminal
       label: Done
@@ -132,14 +144,20 @@ workflow:
       color: "#d9534f"
       priority: 3
       on:
-        PICKUP: doing
+        PICKUP:
+          target: doing
     refining:
       type: hold
       label: Refining
       color: "#f39c12"
       on:
-        APPROVE: todo
+        APPROVE:
+          target: todo
 ```
+
+Every entry under `on` must use an object with a required `target`. Optional
+`actions` and `description` fields extend the same shape. String shorthand such
+as `PICKUP: doing` is invalid.
 
 The architect role has dedicated `To Research` and `Researching` states. Design tasks are triggered via the `research_task` tool, which creates an issue and transitions it through `To Research` → `Researching`. The architect posts findings as comments, creates implementation tasks in Planning, and completes with `work_finish`.
 
@@ -205,7 +223,7 @@ The `reviewPolicy` field controls how PRs are reviewed after a developer complet
 
 ```yaml
 workflow:
-  reviewPolicy: human  # Options: human, agent, auto
+  reviewPolicy: human  # Options: human, agent, skip
 ```
 
 | Policy | Behavior |
@@ -246,7 +264,8 @@ By default, approved PRs go straight to Done. To add automated QA after review, 
       color: "#5bc0de"
       priority: 2
       on:
-        PICKUP: testing
+        PICKUP:
+          target: testing
     testing:
       type: active
       role: tester
@@ -261,8 +280,10 @@ By default, approved PRs go straight to Done. To add automated QA after review, 
           target: toImprove
           actions:
             - reopenIssue
-        REFINE: refining
-        BLOCKED: refining
+        REFINE:
+          target: refining
+        BLOCKED:
+          target: refining
 ```
 
 **Step 2:** Change review targets from `done` to `toTest`:
@@ -409,7 +430,7 @@ Edit `workflow.yaml` (workspace-level or per-project). Each state needs:
 - `type` — one of `queue`, `active`, `hold`, `terminal`
 - `label` — display name (used for issue labels)
 - `color` — hex color for issue labels
-- `on` — transition map: event name → target state (or `{ target, actions }`)
+- `on` — transition map: event name → `{ target, actions?, description? }`
 
 Queue states also need:
 - `role` — which role picks up work
@@ -419,10 +440,13 @@ Queue states also need:
 
 Config is validated at load time with Zod schemas. Integrity checks verify:
 
+- The initial state exists after all config layers merge
 - All transition targets reference existing states
-- Queue states have roles assigned
+- Queue and active states reference configured roles
 - Terminal states have no outgoing transitions
 - Review checks reference valid check types
+- State labels are unique and do not use reserved routing prefixes
+- Unknown fields, events, actions, and string-form transition targets are rejected
 
 **Source:** [`lib/state/config/schema.ts`](../lib/state/config/schema.ts)
 

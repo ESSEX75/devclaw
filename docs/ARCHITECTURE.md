@@ -131,7 +131,11 @@ DevClaw ships with four built-in roles, defined in `lib/roles/registry.ts`. All 
 | Architect | `architect` | junior, senior | junior | done, blocked |
 | Reviewer | `reviewer` | junior, senior | junior | approve, reject, blocked |
 
-Roles are extensible — add a new entry to `ROLE_REGISTRY` and corresponding workflow states to get a new role. The `workflow.yaml` config can also override levels, models, and emoji per role, or disable a role entirely (`tester: false`).
+Roles and their levels are extensible through `workflow.yaml`. A custom role
+provides its levels, default level, models, completion mapping, and corresponding
+workflow states in configuration; it does not need an entry in `ROLE_REGISTRY`.
+Built-in roles remain registry-backed defaults and can be overridden or disabled
+entirely (`tester: false`).
 
 ## System overview
 

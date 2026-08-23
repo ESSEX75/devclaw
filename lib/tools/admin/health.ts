@@ -13,10 +13,12 @@
  * Read-only by default (surfaces issues). Pass fix=true to apply fixes.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { readProjects, getProject } from "../../state/projects/index.js";
+
+import { checkWorkerHealth, fetchGatewaySessions, type HealthFix, scanOrphanedLabels } from "../../application/heartbeat/health.js";
 import { log as auditLog } from "../../audit.js";
-import { checkWorkerHealth, scanOrphanedLabels, fetchGatewaySessions, type HealthFix } from "../../application/heartbeat/health.js";
+import type { PluginContext } from "../../context.js";
+import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
+import { getProject, readProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
 
 export function createHealthTool(ctx: PluginContext) {
@@ -42,12 +44,14 @@ export function createHealthTool(ctx: PluginContext) {
 
       // Resolve slug from slugOrChannelId
       let slugs = Object.keys(data.projects);
+
       if (slugOrChannelId) {
         const project = getProject(data, slugOrChannelId);
         const slug = project ?
           (data.projects[slugOrChannelId] ? slugOrChannelId :
             Object.keys(data.projects).find(s => data.projects[s].channels.some(ch => ch.channelId === slugOrChannelId)))
           : undefined;
+
         slugs = slug ? [slug] : [];
       }
 
@@ -58,9 +62,12 @@ export function createHealthTool(ctx: PluginContext) {
 
       for (const slug of slugs) {
         const project = data.projects[slug];
+
         if (!project) continue;
-        const { provider } = await resolveProvider(project, ctx.runCommand);
-        for (const role of Object.keys(project.workers)) {
+      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
+        const resolvedConfig = await loadConfig(workspaceDir, project.name);
+
+        for (const role of getConfiguredRoleIds(resolvedConfig)) {
           // Worker health check (session liveness, label consistency, etc)
           const healthFixes = await checkWorkerHealth({
             workspaceDir,
@@ -72,6 +79,7 @@ export function createHealthTool(ctx: PluginContext) {
             provider,
             runCommand: ctx.runCommand,
           });
+
           issues.push(...healthFixes.map((f) => ({ ...f, project: project.name, role })));
 
           // Orphaned label scan (active labels with no tracking worker)
@@ -83,6 +91,7 @@ export function createHealthTool(ctx: PluginContext) {
             autoFix: fix,
             provider,
           });
+
           issues.push(...orphanFixes.map((f) => ({ ...f, project: project.name, role })));
         }
       }

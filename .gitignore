@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.js
+!eslint.config.js
 *.js.map
 *.d.ts
 !openclaw.plugin.json

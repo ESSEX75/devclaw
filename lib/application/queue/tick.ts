@@ -1,26 +1,33 @@
 /**
  * tick.ts — Project-level queue scan + dispatch.
  *
+/**
+ * tick.ts — Project-level queue scan + dispatch.
+ *
  * Core function: projectTick() scans one project's queue and fills free worker slots.
  * Called by: work_finish (next pipeline step), heartbeat service (sweep).
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+
 import type { RunCommand } from "../../context.js";
-import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
-import { createProvider } from "../../integrations/providers/index.js";
-import { selectLevel } from "../../roles/model-selector.js";
-import { getRoleWorker, getProject, readProjects, findFreeSlot, countActiveSlots, reconcileSlots } from "../../state/projects/index.js";
-import { dispatchTask } from "../workers/dispatch-task.js";
-import { getLevelsForRole } from "../../roles/index.js";
-import { loadConfig } from "../../state/config/index.js";
 import {
-  ExecutionMode,
-  ReviewPolicy,
-  TestPolicy,
+  countActiveSlots,
+  EXECUTION_MODE,
+  findFreeSlot,
   getActiveLabel,
+  isBuiltInRoleId,
+  reconcileSlots,
+  REVIEW_POLICY,
+  TEST_POLICY,
   type WorkflowConfig,
-  type Role,
-} from "../../domain/workflow/index.js";
+} from "../../domain/index.js";
+import { createProvider } from "../../integrations/providers/index.js";
+import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
+import { selectLevel } from "../../roles/model-selector.js";
+import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
+import type { ResolvedRoleConfig } from "../../state/config/types.js";
+import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
+import { dispatchTask } from "../workers/dispatch-task.js";
 import { detectRoleLevelFromLabels, findNextIssueForRole } from "./scan.js";
 
 // ---------------------------------------------------------------------------
@@ -33,13 +40,13 @@ export type TickAction = {
   issueId: number;
   issueTitle: string;
   issueUrl: string;
-  role: Role;
+  role: string;
   level: string;
   sessionAction: "spawn" | "send";
   announcement: string;
 };
 
-export type TickResult = {
+export type ProjectTickResult = {
   pickups: TickAction[];
   skipped: Array<{ role?: string; reason: string }>;
 };
@@ -59,7 +66,7 @@ export async function projectTick(opts: {
   dryRun?: boolean;
   maxPickups?: number;
   /** Only attempt this role. Used by work_finish to fill the next pipeline step. */
-  targetRole?: Role;
+  targetRole?: string;
   /** Optional provider override (for testing). Uses createProvider if omitted. */
   provider?: IssueProvider;
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
@@ -70,27 +77,31 @@ export async function projectTick(opts: {
   instanceName?: string;
   /** Injected runCommand for dependency injection. */
   runCommand?: RunCommand;
-}): Promise<TickResult> {
+}): Promise<ProjectTickResult> {
   const {
     workspaceDir, projectSlug, agentId, sessionKey, pluginConfig, dryRun,
     maxPickups, targetRole, runtime, instanceName, runCommand,
   } = opts;
 
   const project = getProject(await readProjects(workspaceDir), projectSlug);
+
   if (!project) return { pickups: [], skipped: [{ reason: `Project not found: ${projectSlug}` }] };
 
   const resolvedConfig = await loadConfig(workspaceDir, project.name);
   const workflow = opts.workflow ?? resolvedConfig.workflow;
 
-  const provider = opts.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: runCommand! })).provider;
-  const roleExecution = workflow.roleExecution ?? ExecutionMode.PARALLEL;
-  const enabledRoles = Object.entries(resolvedConfig.roles)
-    .filter(([, r]) => r.enabled)
-    .map(([id]) => id);
-  const roles: Role[] = targetRole ? [targetRole] : enabledRoles;
+  const provider = opts.provider ?? (await createProvider({
+    repo: project.repo,
+    provider: project.provider,
+    runCommand: runCommand!,
+    workflow,
+  })).provider;
+  const roleExecution = workflow.roleExecution ?? EXECUTION_MODE.PARALLEL;
+  const enabledRoles = getConfiguredRoleIds(resolvedConfig);
+  const roles = targetRole ? [targetRole] : enabledRoles;
 
   const pickups: TickAction[] = [];
-  const skipped: TickResult["skipped"] = [];
+  const skipped: ProjectTickResult["skipped"] = [];
   let pickupCount = 0;
 
   for (const role of roles) {
@@ -101,27 +112,32 @@ export async function projectTick(opts: {
 
     // Re-read fresh state (previous dispatch may have changed it)
     const fresh = getProject(await readProjects(workspaceDir), projectSlug);
+
     if (!fresh) break;
 
     const roleWorker = getRoleWorker(fresh, role);
     const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
+
     reconcileSlots(roleWorker, levelMaxWorkers);
 
     // Check sequential role execution: any other role must be inactive
-    const otherRoles = enabledRoles.filter((r: string) => r !== role);
-    if (roleExecution === ExecutionMode.SEQUENTIAL && otherRoles.some((r: string) => countActiveSlots(getRoleWorker(fresh, r)) > 0)) {
+    const otherRoles = enabledRoles.filter((candidate) => candidate !== role);
+
+    if (roleExecution === EXECUTION_MODE.SEQUENTIAL && otherRoles.some((candidate) => countActiveSlots(getRoleWorker(fresh, candidate)) > 0)) {
       skipped.push({ role, reason: "Sequential: other role active" });
       continue;
     }
 
     // Review policy gate: fallback for issues dispatched before step routing labels existed
     if (role === "reviewer") {
-      const policy = workflow.reviewPolicy ?? ReviewPolicy.HUMAN;
-      if (policy === ReviewPolicy.HUMAN) {
+      const policy = workflow.reviewPolicy ?? REVIEW_POLICY.HUMAN;
+
+      if (policy === REVIEW_POLICY.HUMAN) {
         skipped.push({ role, reason: "Review policy: human (heartbeat handles via PR polling)" });
         continue;
       }
-      if (policy === ReviewPolicy.SKIP) {
+
+      if (policy === REVIEW_POLICY.SKIP) {
         skipped.push({ role, reason: "Review policy: skip (heartbeat handles via review-skip pass)" });
         continue;
       }
@@ -129,14 +145,16 @@ export async function projectTick(opts: {
 
     // Test policy gate: fallback for issues dispatched before test routing labels existed
     if (role === "tester") {
-      const policy = workflow.testPolicy ?? TestPolicy.SKIP;
-      if (policy === TestPolicy.SKIP) {
+      const policy = workflow.testPolicy ?? TEST_POLICY.SKIP;
+
+      if (policy === TEST_POLICY.SKIP) {
         skipped.push({ role, reason: "Test policy: skip (heartbeat handles via test-skip pass)" });
         continue;
       }
     }
 
     const next = await findNextIssueForRole(provider, role, workflow, instanceName, { workspaceDir, projectSlug });
+
     if (!next) continue;
 
     const { issue, label: currentLabel } = next;
@@ -145,13 +163,16 @@ export async function projectTick(opts: {
     // Step routing comes from project-local issue state; provider labels are only projection.
     if (role === "reviewer") {
       const routing = next.localState?.reviewPolicy;
+
       if (routing === "human" || routing === "skip") {
         skipped.push({ role, reason: `review:${routing} policy` });
         continue;
       }
     }
+
     if (role === "tester") {
       const routing = next.localState?.testPolicy;
+
       if (routing === "skip") {
         skipped.push({ role, reason: "test:skip policy" });
         continue;
@@ -159,10 +180,24 @@ export async function projectTick(opts: {
     }
 
     // Level selection: label → heuristic (must happen before free slot check)
-    const selectedLevel = resolveLevelForIssue(issue, role, next.localState);
+    const resolvedRole = resolvedConfig.roles[role];
+
+    if (!resolvedRole) {
+      skipped.push({ role, reason: "Role is not configured" });
+      continue;
+    }
+
+    const selectedLevel = resolveLevelForIssue(
+      issue,
+      role,
+      resolvedRole,
+      resolvedConfig.roles,
+      next.localState,
+    );
 
     // Check per-level slot availability
     const freeSlot = findFreeSlot(roleWorker, selectedLevel);
+
     if (freeSlot === null) {
       skipped.push({ role, reason: `${selectedLevel} slots full` });
       continue;
@@ -170,6 +205,7 @@ export async function projectTick(opts: {
 
     if (dryRun) {
       const existingSession = roleWorker.levels[selectedLevel]?.[freeSlot]?.sessionKey;
+
       pickups.push({
         project: project.name, projectSlug, issueId: issue.iid, issueTitle: issue.title, issueUrl: issue.web_url,
         role, level: selectedLevel,
@@ -190,6 +226,7 @@ export async function projectTick(opts: {
           instanceName,
           runCommand: runCommand!,
         });
+
         pickups.push({
           project: project.name, projectSlug, issueId: issue.iid, issueTitle: issue.title, issueUrl: issue.web_url,
           role, level: dr.level, sessionAction: dr.sessionAction, announcement: dr.announcement,
@@ -199,6 +236,7 @@ export async function projectTick(opts: {
         continue;
       }
     }
+
     pickupCount++;
   }
 
@@ -217,24 +255,34 @@ export async function projectTick(opts: {
  * 2. Inherit from another role's label (e.g. developer:medior → tester uses medior)
  * 3. Heuristic fallback (first dispatch, no labels yet)
  */
-function resolveLevelForIssue(issue: Issue, role: Role, localState?: { assignedRole?: string | null; assignedLevel?: string | null }): string {
+function resolveLevelForIssue(
+  issue: Issue,
+  role: string,
+  resolvedRole: ResolvedRoleConfig,
+  roles: Readonly<Record<string, ResolvedRoleConfig>>,
+  localState?: { assignedRole?: string | null; assignedLevel?: string | null },
+): string {
   if (localState?.assignedLevel) {
     if (localState.assignedRole === role) return localState.assignedLevel;
-    const levels = getLevelsForRole(role);
+    const levels = resolvedRole.levels;
+
     if (levels.includes(localState.assignedLevel)) return localState.assignedLevel;
   }
 
-  const roleLevel = detectRoleLevelFromLabels(issue.labels);
+  const roleLevel = detectRoleLevelFromLabels(issue.labels, roles);
 
   // Own role label
-  if (roleLevel?.role === role) return roleLevel.level;
+  if (roleLevel && roleLevel.role === role) return roleLevel.level;
 
   // Inherit from another role's label if level is valid for this role
   if (roleLevel) {
-    const levels = getLevelsForRole(role);
+    const levels = resolvedRole.levels;
+
     if (levels.includes(roleLevel.level)) return roleLevel.level;
   }
 
   // Heuristic fallback
-  return selectLevel(issue.title, issue.description ?? "", role).level;
+  return isBuiltInRoleId(role)
+    ? selectLevel(issue.title, issue.description ?? "", role).level
+    : resolvedRole.defaultLevel;
 }

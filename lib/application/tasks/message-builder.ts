@@ -1,9 +1,9 @@
 /**
  * message-builder.ts — Task message construction for worker sessions.
  */
+import { getFallbackEmoji } from "../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../state/config/index.js";
 import { formatPrContext, formatPrFeedback, type PrContext, type PrFeedback } from "../review/pr-context.js";
-import { getFallbackEmoji } from "../../roles/index.js";
 
 /**
  * Build the task message sent to a worker session.
@@ -34,8 +34,8 @@ export function buildTaskMessage(opts: {
     issueDescription, issueUrl, repo, baseBranch,
   } = opts;
 
-  const results = opts.resolvedRole?.completionResults ?? [];
-  const availableResults = results.map((r: string) => `"${r}"`).join(", ");
+  const results = Object.keys(opts.resolvedRole?.completion ?? {});
+  const availableResults = results.map((result) => `"${result}"`).join(", ");
 
   const isFeedbackCycle = !!opts.prFeedback;
 
@@ -61,8 +61,10 @@ export function buildTaskMessage(opts: {
     parts.push(``, `## Comments`);
     // Limit to last 20 comments to avoid bloating context
     const recentComments = opts.comments.slice(-20);
+
     for (const comment of recentComments) {
       const date = new Date(comment.created_at).toLocaleString();
+
       parts.push(``, `**${comment.author}** (${date}):`, comment.body);
     }
   }
@@ -70,7 +72,7 @@ export function buildTaskMessage(opts: {
   if (opts.prContext) parts.push(...formatPrContext(opts.prContext));
   if (opts.prFeedback) {
     parts.push(...formatPrFeedback(opts.prFeedback, baseBranch));
-    
+
     // Defensive warning if branch name is missing (shouldn't happen in practice)
     if (!opts.prFeedback.branchName && opts.prFeedback.reason === "merge_conflict") {
       parts.push(
@@ -83,6 +85,7 @@ export function buildTaskMessage(opts: {
       );
     }
   }
+
   if (opts.attachmentContext) parts.push(opts.attachmentContext);
 
   parts.push(
@@ -107,7 +110,6 @@ export function buildTaskMessage(opts: {
   );
 
 
-
   return parts.join("\n");
 }
 
@@ -128,12 +130,12 @@ export function buildConflictFixMessage(opts: {
   prFeedback: PrFeedback;
 }): string {
   const {
-    projectName, channelId, role, issueId, issueTitle,
+    projectName, channelId, role, issueId,
     issueUrl, repo, baseBranch, prFeedback,
   } = opts;
 
-  const results = opts.resolvedRole?.completionResults ?? [];
-  const availableResults = results.map((r: string) => `"${r}"`).join(", ");
+  const results = Object.keys(opts.resolvedRole?.completion ?? {});
+  const availableResults = results.map((result) => `"${result}"`).join(", ");
 
   const parts = [
     `${role.toUpperCase()} task for project "${projectName}" — Issue #${issueId}`,
@@ -177,6 +179,7 @@ export function buildAnnouncement(
   const emoji = resolvedRole?.emoji[level] ?? getFallbackEmoji(role);
   const actionVerb = sessionAction === "spawn" ? "Spawning" : "Sending";
   const nameTag = botName ? ` ${botName}` : "";
+
   return `${emoji} ${actionVerb} ${role.toUpperCase()}${nameTag} (${level}) for #${issueId}: ${issueTitle}\n🔗 [Issue #${issueId}](${issueUrl})`;
 }
 
@@ -187,5 +190,6 @@ export function buildAnnouncement(
 export function formatSessionLabel(projectName: string, role: string, level: string, botName?: string): string {
   const titleCase = (s: string) => s.replace(/(^|\s|-)\S/g, (c) => c.toUpperCase()).replace(/-/g, " ");
   const nameLabel = botName ? ` ${botName}` : "";
+
   return `${titleCase(projectName)} — ${titleCase(role)}${nameLabel} (${titleCase(level)})`;
 }

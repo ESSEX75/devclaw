@@ -1,110 +1,214 @@
 /**
- * workflow/types.ts — Type definitions for the XState-style statechart config.
+ * workflow/types.ts — Domain types for workflow statecharts, transitions, and role definitions.
  */
+import type { SoftUnion } from "../../types.js";
+import {
+  ACTION,
+  COMPLETION_RESULT,
+  DEFAULT_LEVELS,
+  DEFAULT_ROLES,
+  EXECUTION_MODE,
+  REVIEW_CHECK,
+  REVIEW_POLICY,
+  ROUTING_LABELS,
+  STATE_TYPE,
+  TEST_POLICY,
+  WORKFLOW_EVENT,
+  WORKFLOW_STATE_KEYS,
+  WORKFLOW_STATE_LABELS,
+} from "./const.js";
 
-/** Built-in state types. */
-export const StateType = {
-  QUEUE: "queue",
-  ACTIVE: "active",
-  HOLD: "hold",
-  TERMINAL: "terminal",
-} as const;
-export type StateType = (typeof StateType)[keyof typeof StateType];
+/** Internal system key for a workflow state (e.g. "planning", "todo"). */
+export type WorkflowStateKey = SoftUnion<typeof WORKFLOW_STATE_KEYS>;
 
-/** Built-in execution modes for role and project parallelism. */
-export const ExecutionMode = {
-  PARALLEL: "parallel",
-  SEQUENTIAL: "sequential",
-} as const;
-export type ExecutionMode = (typeof ExecutionMode)[keyof typeof ExecutionMode];
+/** Display label for a workflow state, often mirrored on the provider (e.g. "To Do"). */
+export type WorkflowLabel = SoftUnion<typeof WORKFLOW_STATE_LABELS>;
 
-/** Review policy for PR review after developer completion. */
-export const ReviewPolicy = {
-  HUMAN: "human",
-  AGENT: "agent",
-  SKIP: "skip",
-} as const;
-export type ReviewPolicy = (typeof ReviewPolicy)[keyof typeof ReviewPolicy];
+/** Unique identifier for a role (e.g. "developer", "tester"). */
+export type RoleId = SoftUnion<typeof DEFAULT_ROLES>;
 
-/** Test policy for automated testing after review. */
-export const TestPolicy = {
-  SKIP: "skip",
-  AGENT: "agent",
-} as const;
-export type TestPolicy = (typeof TestPolicy)[keyof typeof TestPolicy];
+/** Unique identifier for a developer tier/level (e.g. "junior", "senior"). */
+export type LevelId = SoftUnion<typeof DEFAULT_LEVELS>;
 
-/** Role identifier. Built-in: "developer", "tester", "architect". Extensible via config. */
-export type Role = string;
-/** Action identifier. Built-in actions listed in `Action`; custom actions are also valid strings. */
-export type TransitionAction = string;
+/** Union type for built-in state types (e.g. queue, active, hold, terminal). */
+export type StateType = SoftUnion<typeof STATE_TYPE>;
 
-/** Built-in transition actions. Custom actions are also valid — these are just the ones with built-in handlers. */
-export const Action = {
-  GIT_PULL: "gitPull",
-  DETECT_PR: "detectPr",
-  MERGE_PR: "mergePr",
-  CLOSE_ISSUE: "closeIssue",
-  REOPEN_ISSUE: "reopenIssue",
-} as const;
+/** Union type for execution mode (parallel or sequential). */
+export type ExecutionMode = SoftUnion<typeof EXECUTION_MODE>;
 
-/** Built-in review check types for review states. */
-export const ReviewCheck = {
-  PR_APPROVED: "prApproved",
-  PR_MERGED: "prMerged",
-} as const;
-export type ReviewCheckType = (typeof ReviewCheck)[keyof typeof ReviewCheck];
+/** Union type for review policy (human, agent, or skip). */
+export type ReviewPolicy = SoftUnion<typeof REVIEW_POLICY>;
 
-/** Built-in workflow events. */
-export const WorkflowEvent = {
-  PICKUP: "PICKUP",
-  COMPLETE: "COMPLETE",
-  REVIEW: "REVIEW",
-  APPROVED: "APPROVED",
-  MERGE_FAILED: "MERGE_FAILED",
-  CHANGES_REQUESTED: "CHANGES_REQUESTED",
-  MERGE_CONFLICT: "MERGE_CONFLICT",
-  PASS: "PASS",
-  FAIL: "FAIL",
-  SKIP: "SKIP",
-  REFINE: "REFINE",
-  BLOCKED: "BLOCKED",
-  APPROVE: "APPROVE",
-  REJECT: "REJECT",
-  PR_CLOSED: "PR_CLOSED",
-} as const;
+/** Union type for test policy (skip or agent). */
+export type TestPolicy = SoftUnion<typeof TEST_POLICY>;
 
-export type TransitionTarget = string | {
-  target: string;
+/** Union type for workflow transition events (e.g. PICKUP, COMPLETE). */
+export type WorkflowEvent = SoftUnion<typeof WORKFLOW_EVENT>;
+
+/** Built-in worker completion result identifier. */
+export type CompletionResult = SoftUnion<typeof COMPLETION_RESULT>;
+
+/** Explicit mapping from role completion results to workflow events. */
+export type CompletionEventMap<TResult extends string = string> =
+  Readonly<Record<TResult, WorkflowEvent>>;
+
+/** Action identifier executed during transitions (e.g. gitPull, mergePr). */
+export type TransitionAction = SoftUnion<typeof ACTION>;
+
+/** Union of possible PR review check types. */
+export type ReviewCheckType = SoftUnion<typeof REVIEW_CHECK>;
+
+/** Union of possible routing label strings (e.g. review:human, test:agent). */
+export type RoutingLabel = SoftUnion<typeof ROUTING_LABELS>;
+
+/** Configuration for a workflow event transition. */
+export type TransitionTarget<TStateKey extends string> = {
+  /** Target workflow state key to transition to. */
+  target: TStateKey;
+  /** List of actions to execute during transition. */
   actions?: TransitionAction[];
+  /** Optional description of why/when this transition occurs. */
   description?: string;
 };
 
-export type StateConfig = {
-  type: StateType;
-  role?: Role;
-  label: string;
+/** Fields shared by every workflow state. */
+type BaseStateConfig<TLabel extends string> = {
+  /** Provider-side display label matching this state. */
+  label: TLabel;
+  /** Hex color code for the state label. */
   color: string;
-  priority?: number;
+  /** Human-readable explanation of this state's purpose. */
   description?: string;
+  /** Mandatory check condition before transitioning (e.g. prApproved). */
   check?: ReviewCheckType;
-  on?: Record<string, TransitionTarget>;
 };
 
-export type WorkflowConfig = {
-  initial: string;
+/** Outgoing transitions supported by non-terminal workflow states. */
+type StatefulTransitions<TStateKey extends string> = {
+  /** Map of workflow events to their transition targets. */
+  on?: Partial<Record<WorkflowEvent, TransitionTarget<TStateKey>>>;
+};
+
+/** Queue state waiting for a role to pick up work. */
+export type QueueStateConfig<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+> = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
+  /** Queue behavior discriminator. */
+  type: typeof STATE_TYPE.QUEUE;
+  /** Worker role responsible for this queue. */
+  role: TRoleId;
+  /** Priority ordering for processing. */
+  priority?: number;
+};
+
+/** Active state currently processed by a worker role. */
+export type ActiveStateConfig<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+> = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
+  /** Active behavior discriminator. */
+  type: typeof STATE_TYPE.ACTIVE;
+  /** Worker role responsible for active processing. */
+  role: TRoleId;
+  /** Priority is meaningful only for queue states. */
+  priority?: never;
+};
+
+/** Hold state waiting for an external or human decision. */
+export type HoldStateConfig<
+  TStateKey extends string,
+  TLabel extends string,
+> = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
+  /** Hold behavior discriminator. */
+  type: typeof STATE_TYPE.HOLD;
+  /** Hold states are not assigned to worker roles. */
+  role?: never;
+  /** Priority is meaningful only for queue states. */
+  priority?: never;
+};
+
+/** Terminal state concluding the workflow. */
+export type TerminalStateConfig<
+  TLabel extends string,
+> = BaseStateConfig<TLabel> & {
+  /** Terminal behavior discriminator. */
+  type: typeof STATE_TYPE.TERMINAL;
+  /** Terminal states are not assigned to worker roles. */
+  role?: never;
+  /** Priority is meaningful only for queue states. */
+  priority?: never;
+  /** Terminal states cannot have outgoing transitions. */
+  on?: never;
+};
+
+/** Configuration for a single state in the workflow statechart. */
+export type StateDefinition<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+> =
+  | QueueStateConfig<TRoleId, TStateKey, TLabel>
+  | ActiveStateConfig<TRoleId, TStateKey, TLabel>
+  | HoldStateConfig<TStateKey, TLabel>
+  | TerminalStateConfig<TLabel>;
+
+/** Full workflow statechart configuration. */
+export type WorkflowDefinition<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+> = {
+  /** Initial workflow state key for new issues. */
+  initial: TStateKey;
+  /** Default review policy for PRs. */
   reviewPolicy?: ReviewPolicy;
+  /** Default test policy for completed PRs. */
   testPolicy?: TestPolicy;
+  /** Role execution mode (parallel or sequential). */
   roleExecution?: ExecutionMode;
   /** Default max workers per level across all roles. Default: 2. */
   maxWorkersPerLevel?: number;
-  states: Record<string, StateConfig>;
+  /** Map of state keys to their state configurations. */
+  states: Record<TStateKey, StateDefinition<TRoleId, TStateKey, TLabel>>;
 };
 
-export type CompletionRule = {
-  from: string;
-  to: string;
-  actions: string[];
+/** Strict configuration contract for the built-in workflow. */
+export type BuiltInWorkflowConfig = WorkflowDefinition<
+  RoleId,
+  WorkflowStateKey,
+  WorkflowLabel
+>;
+
+/** Strict state contract for the built-in workflow. */
+export type BuiltInWorkflowStateConfig = StateDefinition<
+  RoleId,
+  WorkflowStateKey,
+  WorkflowLabel
+>;
+
+/** Workflow configuration after runtime validation and layer resolution. */
+export type WorkflowConfig = WorkflowDefinition<string, string, string>;
+
+/** State configuration belonging to a validated runtime workflow. */
+export type WorkflowStateConfig = StateDefinition<string, string, string>;
+
+/** Rule mapping a specific completion scenario to the next state and actions. */
+export type CompletionRule<TLabel extends string = WorkflowLabel> = {
+  /** Source workflow label. */
+  from: TLabel;
+  /** Destination workflow label. */
+  to: TLabel;
+  /** Actions to execute upon completing transition. */
+  actions: TransitionAction[];
 };
 
-/** State label type alias used by providers. */
-export type StateLabel = string;
+/** Definition of a role including its active levels. */
+export type RoleDefinition<TLevelId extends string = LevelId> = {
+  /** List of active level identifiers (e.g. ["junior", "senior"]). */
+  levels: readonly TLevelId[];
+  /** Whether the role is enabled in the workflow pipeline. */
+  enabled?: boolean;
+};

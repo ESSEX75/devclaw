@@ -7,14 +7,25 @@
  *   try { ... } finally { await h.cleanup(); }
  */
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
-import { writeProjects, type ProjectsData, type Project, type RoleWorkerState } from "../state/projects/index.js";
-import { DEFAULT_WORKFLOW, type WorkflowConfig } from "../domain/workflow/index.js";
-import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
-import { TestProvider } from "./test-provider.js";
+import path from "node:path";
+
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../context.js";
+
+import type { PluginContext, RunCommand } from "../context.js";
+import {
+  DEFAULT_WORKFLOW,
+  ISSUE_PROVIDER,
+  NOTIFICATION_CHANNEL,
+  type Project,
+  type ProjectsData,
+  type RoleWorkerState,
+  type WorkflowConfig,
+  type WorkflowLabel,
+} from "../domain/index.js";
+import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
+import { writeProjects } from "../state/projects/index.js";
+import { TestProvider } from "./test-provider.js";
 
 // ---------------------------------------------------------------------------
 // Bootstrap result type — represents the agent:bootstrap hook outcome
@@ -61,11 +72,11 @@ export type CommandInterceptor = {
 
 function createCommandInterceptor(): {
   interceptor: CommandInterceptor;
-  handler: (argv: string[], opts: number | { timeoutMs: number; cwd?: string }) => Promise<{ stdout: string; stderr: string; code: number | null; signal: null; killed: false }>;
+  handler: RunCommand;
 } {
   const commands: CapturedCommand[] = [];
 
-  const handler = async (
+  const handler: RunCommand = async (
     argv: string[],
     optsOrTimeout: number | { timeoutMs: number; cwd?: string },
   ) => {
@@ -79,18 +90,22 @@ function createCommandInterceptor(): {
     if (argv[0] === "openclaw" && argv[1] === "gateway" && argv[2] === "call") {
       const rpcMethod = argv[3];
       const paramsIdx = argv.indexOf("--params");
+
       if (paramsIdx !== -1 && argv[paramsIdx + 1]) {
         try {
           const params = JSON.parse(argv[paramsIdx + 1]);
+
           if (rpcMethod === "agent" && params.message) {
             captured.taskMessage = params.message;
             if (params.extraSystemPrompt) {
               captured.extraSystemPrompt = params.extraSystemPrompt;
             }
+
             if (params.model) {
               captured.agentModel = params.model;
             }
           }
+
           if (rpcMethod === "sessions.patch") {
             captured.sessionPatch = { key: params.key, model: params.model, label: params.label };
           }
@@ -100,7 +115,14 @@ function createCommandInterceptor(): {
 
     commands.push(captured);
 
-    return { stdout: "{}", stderr: "", code: 0, signal: null as null, killed: false as const };
+    return {
+      stdout: "{}",
+      stderr: "",
+      code: 0,
+      signal: null,
+      killed: false,
+      termination: "exit",
+    };
   };
 
   const interceptor: CommandInterceptor = {
@@ -148,7 +170,7 @@ export type TestHarness = {
   /** Command interceptor — captures all runCommand calls. */
   commands: CommandInterceptor;
   /** Mock runCommand function for passing to functions that require it. */
-  runCommand: import("../context.js").RunCommand;
+  runCommand: RunCommand;
   /** The project channel ID used for test data. */
   channelId: string;
   /** The project data. */
@@ -187,7 +209,14 @@ export type HarnessOptions = {
   /** Workflow config (default: DEFAULT_WORKFLOW). */
   workflow?: WorkflowConfig;
   /** Initial worker state overrides (level + slot fields). */
-  workers?: Record<string, { level?: string; active?: boolean; issueId?: string | null; sessionKey?: string | null; startTime?: string | null; previousLabel?: string | null }>;
+  workers?: Record<string, {
+    level?: string;
+    active?: boolean;
+    issueId?: string | null;
+    sessionKey?: string | null;
+    startTime?: string | null;
+    previousLabel?: WorkflowLabel | null;
+  }>;
   /** Additional projects to seed. */
   extraProjects?: Record<string, Project>;
 };
@@ -207,6 +236,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
   const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-e2e-"));
   const dataDir = path.join(workspaceDir, "devclaw");
   const logDir = path.join(dataDir, "log");
+
   await fs.mkdir(logDir, { recursive: true });
 
   // Build project — empty per-level workers
@@ -221,8 +251,10 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
   // Apply worker overrides: places override into levels[level][0]
   if (workerOverrides) {
     for (const [role, overrides] of Object.entries(workerOverrides)) {
+
       const level = overrides.level ?? "senior";
       const rw = defaultWorkers[role] ?? emptyRW();
+
       rw.levels[level] = [{
         active: overrides.active ?? false,
         issueId: overrides.issueId ?? null,
@@ -242,8 +274,12 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     deployUrl: "",
     baseBranch,
     deployBranch: baseBranch,
-    channels: [{ channelId, channel: "telegram", name: "primary", events: ["*"] }],
-    provider: "github",
+    channels: [{
+      channelId,
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+    }],
+    provider: ISSUE_PROVIDER.GITHUB,
     workers: defaultWorkers,
   };
 
@@ -266,7 +302,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     workspaceDir,
     provider,
     commands: interceptor,
-    runCommand: handler as unknown as import("../context.js").RunCommand,
+    runCommand: handler,
     channelId,
     project,
     workflow,
@@ -275,27 +311,29 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     },
     async readProjects() {
       const { readProjects } = await import("../state/projects/index.js");
+
       return readProjects(workspaceDir);
     },
     async writePrompt(role: string, content: string, forProject?: string) {
       const dir = forProject
         ? path.join(dataDir, "projects", forProject, "prompts")
         : path.join(dataDir, "prompts");
+
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, `${role}.md`), content, "utf-8");
     },
     async simulateBootstrap(sessionKey: string) {
       // Capture the agent:bootstrap hook callback
-      let internalHookCb: ((event: any) => Promise<void>) | null = null;
+      let internalHookCb: ((event: unknown) => Promise<void>) | null = null;
       const mockApi = {
-        registerHook(_name: string, cb: (event: any) => Promise<void>) {
+        registerHook(_name: string, cb: (event: unknown) => Promise<void>) {
           internalHookCb = cb;
         },
         logger: {
-          debug() {},
-          info() {},
-          warn() {},
-          error() {},
+          debug() { },
+          info() { },
+          warn() { },
+          error() { },
         },
       } as unknown as OpenClawPluginApi;
 
@@ -316,7 +354,8 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
       ];
 
       // Cast needed: TS strict mode doesn't track cross-function mutation of locals
-      const hookCb = internalHookCb as ((event: any) => Promise<void>) | null;
+      const hookCb = internalHookCb as ((event: unknown) => Promise<void>) | null;
+
       if (hookCb) {
         await hookCb({
           sessionKey,

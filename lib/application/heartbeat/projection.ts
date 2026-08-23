@@ -2,10 +2,8 @@
  * projection.ts — Heartbeat projection integrity pass.
  */
 import { log as auditLog } from "../../audit.js";
-import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
-import type { IssueRuntimeState } from "../../domain/issues/types.js";
-import type { Project } from "../../state/projects/index.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
+import type { Project } from "../../domain/index.js";
+import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader, LabelProjector } from "../../integrations/providers/capabilities.js";
 import {
   diffIssueProjection,
@@ -13,8 +11,7 @@ import {
   metadataMatches,
   type ProjectionDiff,
 } from "../../projection/index.js";
-import type { WorkflowConfig } from "../../domain/workflow/types.js";
-import { getStateLabels } from "../../domain/workflow/queries.js";
+import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
 
 export type ProjectionIntegrityAction =
   | "label_repair"
@@ -48,7 +45,7 @@ export async function projectionIntegrityPass(opts: {
   const { workspaceDir, project, provider, workflow, roles } = opts;
   const store = await readIssueStateStore(workspaceDir, project.slug);
   const states = Object.values(store.issues)
-    .filter((state) => state.managed && state.archivedAt == null);
+    .filter((state) => state.archivedAt == null);
   const result: ProjectionIntegrityResult = {
     checked: 0,
     removed: 0,
@@ -61,6 +58,7 @@ export async function projectionIntegrityPass(opts: {
   for (const state of states) {
     result.checked++;
     let issue: Awaited<ReturnType<typeof provider.getIssue>>;
+
     try {
       issue = await provider.getIssue(state.issueId);
     } catch (err) {
@@ -77,6 +75,7 @@ export async function projectionIntegrityPass(opts: {
 
       result.errors++;
       const errors = [`provider issue fetch failed: ${(err as Error).message}`];
+
       result.events.push({ issueId: state.issueId, action: "provider_fetch_error", errors });
       await markIntegrityError(workspaceDir, project.slug, state.issueId, errors);
       await auditLog(workspaceDir, "issue_projection_integrity_error", {
@@ -99,6 +98,7 @@ export async function projectionIntegrityPass(opts: {
       issueId: state.issueId,
       projectionVersion: state.projectionVersion,
     };
+
     if (!metadataMatches(metadata, expectedMetadata)) {
       result.errors++;
       const errors = [
@@ -106,6 +106,7 @@ export async function projectionIntegrityPass(opts: {
           ? "issue metadata does not match local issue state"
           : "issue metadata is missing",
       ];
+
       result.events.push({ issueId: state.issueId, action: "metadata_error", errors });
       await markIntegrityError(workspaceDir, project.slug, state.issueId, errors);
       await auditLog(workspaceDir, "issue_projection_integrity_error", {
@@ -127,22 +128,24 @@ export async function projectionIntegrityPass(opts: {
     });
 
     if (diff.missingManagedLabels.length === 0 && diff.unexpectedManagedLabels.length === 0) {
-      if (state.integrityStatus !== "ok" || state.integrityErrors.length > 0) {
-        await setIntegrityStatus(workspaceDir, project.slug, state.issueId, "ok", []);
+      if (state.integrityStatus !== ISSUE_INTEGRITY_STATUS.OK || state.integrityErrors.length > 0) {
+        await setIntegrityStatus(workspaceDir, project.slug, state.issueId, ISSUE_INTEGRITY_STATUS.OK, []);
       }
+
       continue;
     }
 
     for (const label of diff.missingManagedLabels) {
       await provider.addLabel(state.issueId, label);
     }
+
     if (diff.unexpectedManagedLabels.length > 0) {
       await provider.removeLabels(state.issueId, diff.unexpectedManagedLabels);
     }
 
     result.repaired++;
     result.events.push({ issueId: state.issueId, action: "label_repair", diff });
-    await setIntegrityStatus(workspaceDir, project.slug, state.issueId, "ok", []);
+    await setIntegrityStatus(workspaceDir, project.slug, state.issueId, ISSUE_INTEGRITY_STATUS.OK, []);
     await auditLog(workspaceDir, "issue_projection_label_repair", {
       projectSlug: project.slug,
       issueId: state.issueId,
@@ -157,6 +160,7 @@ export async function projectionIntegrityPass(opts: {
 function isProviderIssueMissingError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
   const normalized = message.toLowerCase();
+
   return normalized.includes("not found")
     || normalized.includes("could not resolve to an issue")
     || normalized.includes("404")
@@ -179,7 +183,7 @@ async function markIntegrityError(
   issueId: number,
   errors: string[],
 ): Promise<void> {
-  await setIntegrityStatus(workspaceDir, projectSlug, issueId, "integrity_error", errors);
+  await setIntegrityStatus(workspaceDir, projectSlug, issueId, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR, errors);
 }
 
 async function setIntegrityStatus(
@@ -191,6 +195,7 @@ async function setIntegrityStatus(
 ): Promise<void> {
   await updateIssueStateStore(workspaceDir, projectSlug, (data) => {
     const issue = data.issues[String(issueId)];
+
     if (!issue) return;
     issue.integrityStatus = integrityStatus;
     issue.integrityErrors = integrityErrors;

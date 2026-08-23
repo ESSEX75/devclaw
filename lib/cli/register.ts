@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+
 import type { PluginContext } from "../context.js";
 import { registerIssuesCleanupCommand } from "./commands/issues-cleanup-command.js";
 import { registerRepairIssueCommand } from "./commands/repair-issue-command.js";

@@ -5,11 +5,12 @@
  * Use `project_status` for instant local info, this tool for live issue data.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-import { loadConfig } from "../../state/config/index.js";
+
 import { getManagedTaskStatus } from "../../application/tasks/index.js";
+import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
+import { loadConfig } from "../../state/config/index.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTasksStatusTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -25,7 +26,9 @@ export function createTasksStatusTool(ctx: PluginContext) {
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
       },
     },
@@ -35,7 +38,7 @@ export function createTasksStatusTool(ctx: PluginContext) {
       const channelId = resolveChannelId(toolCtx, params.channelId as string | undefined);
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider } = await resolveProvider(project, ctx.runCommand);
+      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
 
       const projectConfig = await loadConfig(workspaceDir, project.name);
       const status = await getManagedTaskStatus({

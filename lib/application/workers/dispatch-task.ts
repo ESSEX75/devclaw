@@ -5,28 +5,46 @@
  * state update (activateWorker), and audit logging.
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import type { RunCommand } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
-import {
-  type Project,
-  activateWorker,
-  updateSlot,
-  getRoleWorker,
-  emptySlot,
-} from "../../state/projects/index.js";
-import { resolveModel } from "../../roles/index.js";
-import { notify, getNotificationConfig } from "../notifications/notify.js";
-import { loadConfig, type ResolvedRoleConfig } from "../../state/config/index.js";
-import { ReviewPolicy, TestPolicy, resolveReviewRouting, resolveTestRouting, resolveNotifyChannel, isFeedbackState, hasReviewCheck, producesReviewableWork, hasTestPhase, detectOwner, getOwnerLabel, OWNER_LABEL_COLOR, getRoleLabelColor, STEP_ROUTING_COLOR, getStateLabels } from "../../domain/workflow/index.js";
-import { fetchPrFeedback, fetchPrContext, type PrFeedback, type PrContext } from "../review/pr-context.js";
-import { formatAttachmentsForTask } from "../tasks/attachments.js";
-import { loadRoleInstructions } from "../../integrations/openclaw/bootstrap-hook.js";
-import { slotName } from "../../names.js";
-import { writeIssueRuntimeState } from "../../state/issues/index.js";
 
-import { buildTaskMessage, buildConflictFixMessage, buildAnnouncement, formatSessionLabel } from "../tasks/message-builder.js";
+import { log as auditLog } from "../../audit.js";
+import type { RunCommand } from "../../context.js";
+import { emptySlot, ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type Project } from "../../domain/index.js";
+import {
+  detectOwner,
+  getOwnerLabel,
+  getRoleLabelColor,
+  getStateLabels,
+  hasReviewCheck,
+  hasTestPhase,
+  isFeedbackState,
+  OWNER_LABEL_COLOR,
+  producesReviewableWork,
+  resolveNotifyChannel,
+  resolveReviewRouting,
+  resolveTestRouting,
+  REVIEW_POLICY,
+  type ReviewPolicy,
+  STEP_ROUTING_COLOR,
+  TEST_POLICY,
+  type TestPolicy,
+} from "../../domain/index.js";
+import { loadRoleInstructions } from "../../integrations/openclaw/bootstrap-hook.js";
 import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "../../integrations/openclaw/session.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
+import { slotName } from "../../names.js";
+import { resolveModel } from "../../roles/index.js";
+import { loadConfig } from "../../state/config/index.js";
+import { writeIssueRuntimeState } from "../../state/issues/index.js";
+import {
+  activateWorker,
+  getRoleWorker,
+  updateSlot,
+} from "../../state/projects/index.js";
+import { getNotificationConfig, notify } from "../notifications/notify.js";
 import { acknowledgeComments, EYES_EMOJI } from "../review/acknowledge-comments.js";
+import { fetchPrContext, fetchPrFeedback } from "../review/pr-context.js";
+import { formatAttachmentsForTask } from "../tasks/attachments.js";
+import { buildAnnouncement, buildConflictFixMessage, buildTaskMessage, formatSessionLabel } from "../tasks/message-builder.js";
 
 export type DispatchOpts = {
   workspaceDir: string;
@@ -44,7 +62,7 @@ export type DispatchOpts = {
   /** Label to transition TO (e.g. "Doing", "Testing") */
   toLabel: string;
   /** Issue provider for issue operations and label transitions */
-  provider: import("../../integrations/providers/provider.js").IssueProvider;
+  provider: IssueProvider;
   /** Plugin config for model resolution and notification config */
   pluginConfig?: Record<string, unknown>;
   /** Orchestrator's session key (used as spawnedBy for subagent tracking) */
@@ -105,11 +123,12 @@ export async function dispatchTask(
   // Deactivated slot: preserve session if same issue is returning (feedback cycle)
   if (existingSessionKey && !slot.issueId) {
     const isSameIssueReturn = slot.lastIssueId && String(issueId) === String(slot.lastIssueId);
+
     if (!isSameIssueReturn) {
       await rc(
         ["openclaw", "gateway", "call", "sessions.delete", "--params", JSON.stringify({ key: existingSessionKey })],
         { timeoutMs: 10_000 },
-      ).catch(() => {});
+      ).catch(() => { });
       existingSessionKey = null;
     }
   }
@@ -117,15 +136,17 @@ export async function dispatchTask(
   // Context budget check: clear session if over budget (unless same issue — feedback cycle)
   if (existingSessionKey && timeouts.sessionContextBudget < 1) {
     const shouldClear = await shouldClearSession(existingSessionKey, slot.issueId, issueId, timeouts, workspaceDir, project.name, rc);
+
     if (shouldClear) {
       // Delete the gateway session (await to prevent race with later sessions.patch)
       await rc(
         ["openclaw", "gateway", "call", "sessions.delete", "--params", JSON.stringify({ key: existingSessionKey })],
         { timeoutMs: 10_000 },
-      ).catch(() => {});
-      await updateSlot(workspaceDir, project.slug, role, level, slotIndex, {
+      ).catch(() => { });
+      await updateSlot(workspaceDir, project.slug, role, level, slotIndex, (currentSlot) => ({
+        ...currentSlot,
         sessionKey: null,
-      });
+      }));
       existingSessionKey = null;
     }
   }
@@ -142,7 +163,7 @@ export async function dispatchTask(
     await rc(
       ["openclaw", "gateway", "call", "sessions.delete", "--params", JSON.stringify({ key: existingSessionKey })],
       { timeoutMs: 10_000 },
-    ).catch(() => {});
+    ).catch(() => { });
     existingSessionKey = null;
   }
 
@@ -160,6 +181,7 @@ export async function dispatchTask(
 
   // Fetch attachment context (best-effort — never blocks dispatch)
   let attachmentContext: string | undefined;
+
   try {
     attachmentContext = await formatAttachmentsForTask(workspaceDir, project.slug, issueId) || undefined;
   } catch { /* best-effort */ }
@@ -168,17 +190,17 @@ export async function dispatchTask(
   const isConflictFix = prFeedback?.reason === "merge_conflict";
   const taskMessage = isConflictFix && prFeedback
     ? buildConflictFixMessage({
-        projectName: project.name, channelId: primaryChannelId, role, issueId,
-        issueTitle, issueUrl,
-        repo: project.repo, baseBranch: project.baseBranch,
-        resolvedRole, prFeedback,
-      })
+      projectName: project.name, channelId: primaryChannelId, role, issueId,
+      issueTitle, issueUrl,
+      repo: project.repo, baseBranch: project.baseBranch,
+      resolvedRole, prFeedback,
+    })
     : buildTaskMessage({
-        projectName: project.name, channelId: primaryChannelId, role, issueId,
-        issueTitle, issueDescription, issueUrl,
-        repo: project.repo, baseBranch: project.baseBranch,
-        comments, resolvedRole, prContext, prFeedback, attachmentContext,
-      });
+      projectName: project.name, channelId: primaryChannelId, role, issueId,
+      issueTitle, issueDescription, issueUrl,
+      repo: project.repo, baseBranch: project.baseBranch,
+      comments, resolvedRole, prContext, prFeedback, attachmentContext,
+    });
 
   // Load role-specific instructions to inject into the worker's system prompt
   const roleInstructions = await loadRoleInstructions(workspaceDir, project.name, role);
@@ -187,14 +209,14 @@ export async function dispatchTask(
   await provider.transitionLabel(issueId, fromLabel, toLabel);
 
   // Mark issue + PR as managed and all consumed comments as seen (fire-and-forget)
-  provider.reactToIssue(issueId, EYES_EMOJI).catch(() => {});
-  provider.reactToPr(issueId, EYES_EMOJI).catch(() => {});
+  provider.reactToIssue(issueId, EYES_EMOJI).catch(() => { });
+  provider.reactToPr(issueId, EYES_EMOJI).catch(() => { });
   acknowledgeComments(provider, issueId, comments, prFeedback, workspaceDir).catch((err) => {
     auditLog(workspaceDir, "dispatch_warning", {
       step: "acknowledgeComments",
       issue: issueId,
       error: (err as Error).message ?? String(err),
-    }).catch(() => {});
+    }).catch(() => { });
   });
 
   // Apply role:level label (best-effort — failure must not abort dispatch)
@@ -205,26 +227,32 @@ export async function dispatchTask(
   let reviewPolicyForState: ReviewPolicy | null = null;
   let testPolicyForState: TestPolicy | null = null;
   let ownerForState: string | null = null;
+
   try {
     issue = await provider.getIssue(issueId);
     const stateLabels = getStateLabels(workflow);
 
     const oldRoleLabels = issue.labels.filter((l) => l.startsWith(`${role}:`));
     const safeRoleLabels = filterNonStateLabels(oldRoleLabels, stateLabels);
+
     if (safeRoleLabels.length > 0) {
       await provider.removeLabels(issueId, safeRoleLabels);
     }
+
     const roleLabel = `${role}:${level}`;
+
     await provider.ensureLabel(roleLabel, getRoleLabelColor(role));
     await provider.addLabel(issueId, roleLabel);
 
     // Apply review routing label when role produces reviewable work (best-effort)
     if (producesReviewableWork(workflow, role)) {
-      const reviewPolicy = workflow.reviewPolicy ?? ReviewPolicy.HUMAN;
-      const reviewLabel = resolveReviewRouting(reviewPolicy, level);
+      const reviewPolicy = workflow.reviewPolicy ?? REVIEW_POLICY.HUMAN;
+      const reviewLabel = resolveReviewRouting(reviewPolicy);
+
       reviewPolicyForState = reviewPolicy;
       const oldRouting = issue.labels.filter((l) => l.startsWith("review:"));
       const safeRouting = filterNonStateLabels(oldRouting, stateLabels);
+
       if (safeRouting.length > 0) await provider.removeLabels(issueId, safeRouting);
       await provider.ensureLabel(reviewLabel, STEP_ROUTING_COLOR);
       await provider.addLabel(issueId, reviewLabel);
@@ -232,11 +260,13 @@ export async function dispatchTask(
 
     // Apply test routing label when workflow has a test phase (best-effort)
     if (hasTestPhase(workflow)) {
-      const testPolicy = workflow.testPolicy ?? TestPolicy.SKIP;
-      const testLabel = resolveTestRouting(testPolicy, level);
+      const testPolicy = workflow.testPolicy ?? TEST_POLICY.SKIP;
+      const testLabel = resolveTestRouting(testPolicy);
+
       testPolicyForState = testPolicy;
       const oldTestRouting = issue.labels.filter((l) => l.startsWith("test:"));
       const safeTestRouting = filterNonStateLabels(oldTestRouting, stateLabels);
+
       if (safeTestRouting.length > 0) await provider.removeLabels(issueId, safeTestRouting);
       await provider.ensureLabel(testLabel, STEP_ROUTING_COLOR);
       await provider.addLabel(issueId, testLabel);
@@ -245,6 +275,7 @@ export async function dispatchTask(
     // Apply owner label if issue is unclaimed (auto-claim on pickup)
     if (opts.instanceName && !detectOwner(issue.labels)) {
       const ownerLabel = getOwnerLabel(opts.instanceName);
+
       await provider.ensureLabel(ownerLabel, OWNER_LABEL_COLOR);
       await provider.addLabel(issueId, ownerLabel);
       ownerForState = opts.instanceName;
@@ -259,6 +290,7 @@ export async function dispatchTask(
   // This ensures users see the notification even if gateway is slow
   const notifyConfig = getNotificationConfig(pluginConfig);
   const notifyTarget = resolveNotifyChannel(issue?.labels ?? [], project.channels);
+
   notify(
     {
       type: "workerStart",
@@ -275,7 +307,7 @@ export async function dispatchTask(
       workspaceDir,
       config: notifyConfig,
       channelId: notifyTarget?.channelId,
-      channel: notifyTarget?.channel ?? "telegram",
+      channel: notifyTarget?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
       threadId: notifyTarget?.threadId,
       runtime,
       accountId: notifyTarget?.accountId,
@@ -285,12 +317,13 @@ export async function dispatchTask(
     auditLog(workspaceDir, "dispatch_warning", {
       step: "notify", issue: issueId, role,
       error: (err as Error).message ?? String(err),
-    }).catch(() => {});
+    }).catch(() => { });
   });
 
   // Step 3: Ensure session exists (fire-and-forget — don't wait for gateway)
   // Session key is deterministic, so we can proceed immediately
   const sessionLabel = formatSessionLabel(project.name, role, level, botName);
+
   ensureSessionFireAndForget(sessionKey, model, workspaceDir, rc, timeouts.sessionPatchMs, sessionLabel);
 
   // Step 4: Send task to agent (fire-and-forget)
@@ -319,7 +352,9 @@ export async function dispatchTask(
           .concat(toLabel, `${role}:${level}`),
         state: "open",
       },
-      providerType: project.provider === "github" ? "github" : "gitlab",
+      providerType: project.provider === ISSUE_PROVIDER.GITHUB
+        ? ISSUE_PROVIDER.GITHUB
+        : ISSUE_PROVIDER.GITLAB,
       workflow,
       workflowLabel: toLabel,
       assignedRole: role,

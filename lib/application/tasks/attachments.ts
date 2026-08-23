@@ -12,12 +12,13 @@
  *   devclaw/attachments/<projectSlug>/<issueId>/<uuid>-<filename>
  *   devclaw/attachments/<projectSlug>/<issueId>/metadata.json
  */
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import crypto from "node:crypto";
-import { DATA_DIR } from "../../state/setup/paths.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
+
 import { log as auditLog } from "../../audit.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
+import { DATA_DIR } from "../../state/setup/paths.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,6 +82,7 @@ export function extractMediaAttachments(
   if (typeof metadata.MediaPath === "string" && metadata.MediaPath) {
     paths.push(metadata.MediaPath);
   }
+
   if (Array.isArray(metadata.MediaPaths)) {
     for (const p of metadata.MediaPaths) {
       if (typeof p === "string" && p) paths.push(p);
@@ -90,6 +92,7 @@ export function extractMediaAttachments(
   if (typeof metadata.MediaType === "string" && metadata.MediaType) {
     types.push(metadata.MediaType);
   }
+
   if (Array.isArray(metadata.MediaTypes)) {
     for (const t of metadata.MediaTypes) {
       if (typeof t === "string" && t) types.push(t);
@@ -100,6 +103,7 @@ export function extractMediaAttachments(
     const localPath = paths[i];
     const mimeType = types[i] ?? undefined;
     const filename = path.basename(localPath);
+
     attachments.push({ localPath, mimeType, filename });
   }
 
@@ -117,10 +121,13 @@ export function extractMediaAttachments(
 export function extractIssueReferences(text: string): number[] {
   const matches = text.matchAll(/#(\d+)/g);
   const ids = new Set<number>();
+
   for (const m of matches) {
     const id = parseInt(m[1], 10);
+
     if (id > 0 && id < 100000) ids.add(id);
   }
+
   return [...ids];
 }
 
@@ -139,6 +146,7 @@ function metadataPath(workspaceDir: string, projectSlug: string, issueId: number
 async function readStore(workspaceDir: string, projectSlug: string, issueId: number): Promise<AttachmentStore> {
   try {
     const raw = await fs.readFile(metadataPath(workspaceDir, projectSlug, issueId), "utf-8");
+
     return JSON.parse(raw) as AttachmentStore;
   } catch {
     return { attachments: [] };
@@ -147,6 +155,7 @@ async function readStore(workspaceDir: string, projectSlug: string, issueId: num
 
 async function writeStore(workspaceDir: string, projectSlug: string, issueId: number, store: AttachmentStore): Promise<void> {
   const dir = attachmentsDir(workspaceDir, projectSlug, issueId);
+
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(metadataPath(workspaceDir, projectSlug, issueId), JSON.stringify(store, null, 2));
 }
@@ -169,9 +178,11 @@ export async function saveAttachment(
   const safeFilename = file.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storedName = `${id.slice(0, 8)}-${safeFilename}`;
   const dir = attachmentsDir(workspaceDir, projectSlug, issueId);
+
   await fs.mkdir(dir, { recursive: true });
 
   const filePath = path.join(dir, storedName);
+
   await fs.writeFile(filePath, file.buffer);
 
   const meta: AttachmentMeta = {
@@ -186,6 +197,7 @@ export async function saveAttachment(
   };
 
   const store = await readStore(workspaceDir, projectSlug, issueId);
+
   store.attachments.push(meta);
   await writeStore(workspaceDir, projectSlug, issueId, store);
 
@@ -201,6 +213,7 @@ export async function listAttachments(
   issueId: number,
 ): Promise<AttachmentMeta[]> {
   const store = await readStore(workspaceDir, projectSlug, issueId);
+
   return store.attachments;
 }
 
@@ -227,9 +240,11 @@ export function formatAttachmentComment(attachments: AttachmentMeta[]): string {
   if (attachments.length === 0) return "";
 
   const lines = ["📎 **Attachment(s) added via Telegram:**", ""];
+
   for (const a of attachments) {
     const sizeStr = formatSize(a.size);
     const isImage = a.mimeType.startsWith("image/");
+
     if (isImage && a.publicUrl) {
       lines.push(`![${a.filename}](${a.publicUrl})`);
       lines.push(`*${a.filename}* (${sizeStr}) — uploaded by ${a.uploader}`);
@@ -242,12 +257,14 @@ export function formatAttachmentComment(attachments: AttachmentMeta[]): string {
   }
 
   lines.push("", `_Attached at ${new Date().toISOString()}_`);
+
   return lines.join("\n");
 }
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
@@ -295,6 +312,7 @@ export async function processAttachmentMessage(opts: {
 
       // Upload to GitHub/GitLab via the provider
       let publicUrl: string | null = null;
+
       try {
         publicUrl = await provider.uploadAttachment(issueId, { filename, buffer, mimeType });
       } catch (uploadErr) {
@@ -309,6 +327,7 @@ export async function processAttachmentMessage(opts: {
         // Update store with public URL
         const store = await readStore(workspaceDir, projectSlug, issueId);
         const idx = store.attachments.findIndex((a) => a.id === meta.id);
+
         if (idx >= 0) {
           store.attachments[idx].publicUrl = publicUrl;
           await writeStore(workspaceDir, projectSlug, issueId, store);
@@ -329,6 +348,7 @@ export async function processAttachmentMessage(opts: {
   // Add comment on issue with attachment info
   if (saved.length > 0) {
     const comment = formatAttachmentComment(saved);
+
     try {
       await provider.addComment(issueId, comment);
     } catch (err) {
@@ -365,18 +385,22 @@ export async function formatAttachmentsForTask(
   issueId: number,
 ): Promise<string> {
   const attachments = await listAttachments(workspaceDir, projectSlug, issueId);
+
   if (attachments.length === 0) return "";
 
   const lines = ["", "## Attachments", ""];
+
   for (const a of attachments) {
     const sizeStr = formatSize(a.size);
     const date = new Date(a.uploadedAt).toLocaleString();
+
     if (a.publicUrl) {
       lines.push(`- [${a.filename}](${a.publicUrl}) (${a.mimeType}, ${sizeStr}) — by ${a.uploader} on ${date}`);
     } else {
       const fullPath = path.join(
         workspaceDir, DATA_DIR, "attachments", projectSlug, String(issueId), a.localPath,
       );
+
       lines.push(`- ${a.filename} (${a.mimeType}, ${sizeStr}) — by ${a.uploader} on ${date}`);
       lines.push(`  Local path: ${fullPath}`);
     }

@@ -2,7 +2,8 @@
  * projects/io.ts — File I/O and locking for projects.json.
  */
 import fs from "node:fs/promises";
-import type { ProjectsData, Project } from "../../domain/projects/types.js";
+
+import type { Project,ProjectsData } from "../../domain/index.js";
 import { projectsPath, resolveRepoPath } from "./paths.js";
 
 
@@ -25,17 +26,21 @@ export async function acquireLock(workspaceDir: string): Promise<void> {
   while (Date.now() < deadline) {
     try {
       await fs.writeFile(lock, String(Date.now()), { flag: "wx" });
+
       return;
     } catch (err) {
       const e = err as NodeJS.ErrnoException;
+
       if (e.code !== "EEXIST") throw err;
 
       // Check for stale lock
       try {
         const content = await fs.readFile(lock, "utf-8");
         const lockTime = Number(content);
+
         if (Date.now() - lockTime > LOCK_STALE_MS) {
           try { await fs.unlink(lock); } catch { /* race */ }
+
           continue;
         }
       } catch { /* lock disappeared — retry */ }
@@ -46,6 +51,7 @@ export async function acquireLock(workspaceDir: string): Promise<void> {
 
   // Last resort: force remove potentially stale lock
   try { await fs.unlink(lockPath(workspaceDir)); } catch { /* ignore */ }
+
   await fs.writeFile(lock, String(Date.now()), { flag: "wx" });
 }
 
@@ -59,6 +65,7 @@ export async function releaseLock(workspaceDir: string): Promise<void> {
 
 export async function readProjects(workspaceDir: string): Promise<ProjectsData> {
   const raw = await fs.readFile(projectsPath(workspaceDir), "utf-8");
+
   return JSON.parse(raw) as ProjectsData;
 }
 
@@ -68,6 +75,7 @@ export async function writeProjects(
 ): Promise<void> {
   const filePath = projectsPath(workspaceDir);
   const tmpPath = filePath + ".tmp";
+
   await fs.writeFile(tmpPath, JSON.stringify(data, null, 2) + "\n", "utf-8");
   await fs.rename(tmpPath, filePath);
 }
@@ -100,6 +108,7 @@ export function getProject(
   slugOrChannelId: string,
 ): Project | undefined {
   const slug = resolveProjectSlug(data, slugOrChannelId);
+
   return slug ? data.projects[slug] : undefined;
 }
 
@@ -112,6 +121,7 @@ export async function loadProjectBySlug(
   slug: string,
 ): Promise<Project | undefined> {
   const data = await readProjects(workspaceDir);
+
   return getProject(data, slug);
 }
 

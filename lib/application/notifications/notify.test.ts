@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { notify } from "./notify.js";
 import type { RunCommand } from "../../context.js";
+import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 async function readAuditEvents(workspaceDir: string): Promise<Array<Record<string, unknown>>> {
@@ -54,7 +55,7 @@ describe("notifications", () => {
         {
           workspaceDir: tmpDir,
           channelId: "telegram:123",
-          channel: "telegram",
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
           runCommand,
         },
       );
@@ -92,7 +93,7 @@ describe("notifications", () => {
         {
           workspaceDir: tmpDir,
           channelId: "telegram:123",
-          channel: "telegram",
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
           runtime: runtimeWithSendText(async (payload) => {
             sentPayloads.push(payload);
           }),
@@ -126,7 +127,7 @@ describe("notifications", () => {
         {
           workspaceDir: tmpDir,
           channelId: "telegram:123",
-          channel: "telegram",
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
           runtime: runtimeWithSendText(async () => {
             throw new Error("runtime send failed");
           }),

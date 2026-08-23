@@ -253,7 +253,7 @@ Planning → To Do → Doing → To Review → PR approved → Done (auto-merge 
 ```
 
 You can customize this at any time:
-- **Review policy**: Change to `agent` (AI reviewer) or `auto` (hybrid) in `workflow.yaml`
+- **Review policy**: Change to `agent` (AI reviewer) or `skip` in `workflow.yaml`
 - **Test phase**: Enable automated QA after review — see [Workflow](WORKFLOW.md#test-phase-optional)
 - **Per-project overrides**: Create a project-specific `workflow.yaml` — see [Configuration](CONFIGURATION.md#three-layer-config-resolution)
 

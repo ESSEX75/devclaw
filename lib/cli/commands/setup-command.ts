@@ -1,12 +1,13 @@
 import type { Command } from "commander";
-import type { PluginContext } from "../../context.js";
-import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
+
 import { runSetup } from "../../application/setup/index.js";
 import {
   ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
 } from "../../application/setup/scopes.js";
+import type { PluginContext } from "../../context.js";
+import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import {
   normalizeChannelBinding,
   normalizeProjectExecution,
@@ -33,9 +34,11 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
     .option("--eject-defaults", "Write missing packaged defaults into the workspace");
 
   const defaults = getAllDefaultModels();
+
   for (const role of getAllRoleIds()) {
     for (const level of getLevelsForRole(role)) {
       const flag = `--${role}-${level}`;
+
       setupCmd.option(`${flag} <model>`, `${role.toUpperCase()} ${level} model (default: ${defaults[role]?.[level] ?? "auto"})`);
     }
   }
@@ -46,16 +49,21 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
         await resolveSetupCliOptions(rawOpts, ctx.runtime),
         ctx.runtime,
       );
+
       printSelectedSetupTarget(opts, ctx.runtime);
 
       const models: Record<string, Record<string, string>> = {};
+
       for (const role of getAllRoleIds()) {
         const roleModels: Record<string, string> = {};
+
         for (const level of getLevelsForRole(role)) {
           const key = `${role}${level.charAt(0).toUpperCase()}${level.slice(1)}`;
           const model = opts[key];
+
           if (typeof model === "string" && model) roleModels[level] = model;
         }
+
         if (Object.keys(roleModels).length > 0) models[role] = roleModels;
       }
 
@@ -82,12 +90,14 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
         console.error(`Approval request: ${err.requestId}`);
         console.error("Approve this request in OpenClaw UI or CLI, then rerun: openclaw devclaw setup");
         process.exitCode = 1;
+
         return;
       }
 
       if (isScopeApprovalRejectedError(err)) {
         console.error(err.message);
         process.exitCode = 1;
+
         return;
       }
 
@@ -103,6 +113,7 @@ function printSetupResult(
   if (result.agentCreated) {
     console.log(`Agent "${result.agentId}" created`);
   }
+
   console.log("Setup target:");
   console.log(`  Agent: ${result.agentId}`);
   console.log(`  Workspace: ${result.workspacePath}`);
@@ -112,6 +123,7 @@ function printSetupResult(
   if (result.bindingMigrated) {
     console.log(`  Binding migrated from: ${result.bindingMigrated.from}`);
   }
+
   console.log(`  Workspace defaults: ${result.defaultsEjected ? "ejected packaged defaults" : "safe defaults"}`);
 
   console.log("Models configured:");
@@ -129,6 +141,7 @@ function printSetupResult(
   if (scopePreflight.status === "approved") {
     console.log("\nOpenClaw scopes: approved");
   }
+
   if (scopePreflight.warning) {
     console.log("\nOpenClaw scopes warning:");
     console.log(`  ${scopePreflight.warning}`);
@@ -140,6 +153,7 @@ function printSetupResult(
       console.log(`  ${w}`);
     }
   }
+
   console.log("\nDone!");
   console.log("Next steps are messages/actions, not shell menu choices:");
   console.log("  - Restart the OpenClaw gateway so the new bot/chat binding becomes active.");

@@ -99,6 +99,7 @@ export async function ensureRequiredOpenClawScopes(runCommand: RunCommand): Prom
   }
 
   const missing = normalizeMissing(check.result);
+
   if (isApproved(check.result, missing)) {
     return {
       status: "approved",
@@ -128,6 +129,7 @@ export async function ensureRequiredOpenClawScopes(runCommand: RunCommand): Prom
   }
 
   const status = request.result.status;
+
   if (status === "approved" || request.result.ok === true) {
     return {
       status: "approved",
@@ -165,6 +167,7 @@ function isApproved(result: ScopeCommandResult, missing: string[]): boolean {
 function normalizeMissing(result: ScopeCommandResult): string[] {
   if (Array.isArray(result.missing)) return result.missing;
   const approved = new Set(result.approved ?? []);
+
   return REQUIRED_OPENCLAW_SCOPES.filter((scope) => !approved.has(scope));
 }
 
@@ -190,6 +193,7 @@ async function runScopesCommand(
 
 function isUnsupportedScopesCli(stdout: string, stderr: string): boolean {
   const text = `${stdout}\n${stderr}`.toLowerCase();
+
   return (
     text.includes("unknown command") ||
     text.includes("invalid command") ||

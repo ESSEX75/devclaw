@@ -1,9 +1,14 @@
 /**
  * projects/mutations.ts — State mutations for project worker slots.
  */
-import type { SlotState, RoleWorkerState, Project, ProjectsData } from "../../domain/projects/types.js";
-import { acquireLock, releaseLock, readProjects, writeProjects, resolveProjectSlug } from "./store.js";
-import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/projects/slots.js";
+import type {
+  Project,
+  ProjectsData,
+  RoleWorkerState,
+  SlotState,
+} from "../../domain/index.js";
+import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
+import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjects } from "./store.js";
 
 /**
  * Get the RoleWorkerState for a given role.
@@ -26,18 +31,20 @@ export async function updateSlot(
   role: string,
   level: string,
   slotIndex: number,
-  updates: Partial<SlotState>,
+  updater: (slot: SlotState) => SlotState,
 ): Promise<ProjectsData> {
   await acquireLock(workspaceDir);
   try {
     const data = await readProjects(workspaceDir);
     const slug = resolveProjectSlug(data, slugOrChannelId);
+
     if (!slug) {
       throw new Error(`Project not found for slug or channelId: ${slugOrChannelId}`);
     }
 
     const project = data.projects[slug]!;
     const rw = project.workers[role] ?? { levels: {} };
+
     if (!rw.levels[level]) rw.levels[level] = [];
     const slots = rw.levels[level]!;
 
@@ -46,10 +53,11 @@ export async function updateSlot(
       slots.push(emptySlot());
     }
 
-    slots[slotIndex] = { ...slots[slotIndex]!, ...updates };
+    slots[slotIndex] = updater(slots[slotIndex]!);
     project.workers[role] = rw;
 
     await writeProjects(workspaceDir, data);
+
     return data;
   } finally {
     await releaseLock(workspaceDir);
@@ -82,12 +90,14 @@ export async function activateWorker(
   try {
     const data = await readProjects(workspaceDir);
     const slug = resolveProjectSlug(data, slugOrChannelId);
+
     if (!slug) {
       throw new Error(`Project not found for slug or channelId: ${slugOrChannelId}`);
     }
 
     const project = data.projects[slug]!;
     const rw = project.workers[role] ?? { levels: {} };
+
     if (!rw.levels[params.level]) rw.levels[params.level] = [];
     const slots = rw.levels[params.level]!;
 
@@ -110,6 +120,7 @@ export async function activateWorker(
 
     project.workers[role] = rw;
     await writeProjects(workspaceDir, data);
+
     return data;
   } finally {
     await releaseLock(workspaceDir);
@@ -132,6 +143,7 @@ export async function deactivateWorker(
   try {
     const data = await readProjects(workspaceDir);
     const slug = resolveProjectSlug(data, slugOrChannelId);
+
     if (!slug) {
       throw new Error(`Project not found for slug or channelId: ${slugOrChannelId}`);
     }
@@ -147,6 +159,7 @@ export async function deactivateWorker(
       idx = opts.slotIndex;
     } else if (opts?.issueId) {
       const found = findSlotByIssue(rw, opts.issueId);
+
       if (found) {
         level = found.level;
         idx = found.slotIndex;
@@ -155,8 +168,10 @@ export async function deactivateWorker(
 
     if (level !== undefined && idx !== undefined) {
       const slots = rw.levels[level];
+
       if (slots && idx < slots.length) {
         const slot = slots[idx]!;
+
         slots[idx] = {
           active: false,
           issueId: null,
@@ -171,6 +186,7 @@ export async function deactivateWorker(
 
     project.workers[role] = rw;
     await writeProjects(workspaceDir, data);
+
     return data;
   } finally {
     await releaseLock(workspaceDir);

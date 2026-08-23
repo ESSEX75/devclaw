@@ -6,7 +6,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { DEFAULT_WORKFLOW, getStateLabels, ReviewPolicy, resolveReviewRouting } from "../../domain/workflow/index.js";
+import { DEFAULT_WORKFLOW, getStateLabels, REVIEW_POLICY, type ReviewPolicy, resolveReviewRouting } from "../../domain/index.js";
 import { detectLevelFromLabels, detectRoleLevelFromLabels } from "../../application/queue/scan.js";
 
 describe("task_set_level tool", () => {
@@ -42,7 +42,7 @@ describe("detectLevelFromLabels — colon format", () => {
   it("should detect level from colon-format labels", () => {
     assert.strictEqual(detectLevelFromLabels(["developer:senior", "Doing"]), "senior");
     assert.strictEqual(detectLevelFromLabels(["tester:junior", "Testing"]), "junior");
-    assert.strictEqual(detectLevelFromLabels(["reviewer:medior", "Reviewing"]), "medior");
+    assert.strictEqual(detectLevelFromLabels(["reviewer:senior", "Reviewing"]), "senior");
   });
 
   it("should ignore legacy dot-format labels when colon format is present", () => {
@@ -63,6 +63,19 @@ describe("detectLevelFromLabels — colon format", () => {
 });
 
 describe("detectRoleLevelFromLabels", () => {
+  it("detects a configured custom role and level", () => {
+    const roles = {
+      security_auditor: {
+        levels: ["apprentice", "principal"],
+      },
+    };
+
+    assert.deepStrictEqual(
+      detectRoleLevelFromLabels(["security_auditor:principal"], roles),
+      { role: "security_auditor", level: "principal" },
+    );
+  });
+
   it("should detect role and level from colon-format labels", () => {
     const result = detectRoleLevelFromLabels(["developer:senior", "Doing"]);
     assert.deepStrictEqual(result, { role: "developer", level: "senior" });
@@ -91,18 +104,14 @@ describe("detectRoleLevelFromLabels", () => {
 
 describe("resolveReviewRouting", () => {
   it("should return review:human for HUMAN policy", () => {
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.HUMAN, "junior"), "review:human");
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.HUMAN, "senior"), "review:human");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.HUMAN), "review:human");
   });
 
   it("should return review:agent for AGENT policy", () => {
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.AGENT, "junior"), "review:agent");
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.AGENT, "senior"), "review:agent");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.AGENT), "review:agent");
   });
 
   it("should return review:skip for SKIP policy", () => {
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.SKIP, "junior"), "review:skip");
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.SKIP, "medior"), "review:skip");
-    assert.strictEqual(resolveReviewRouting(ReviewPolicy.SKIP, "senior"), "review:skip");
+    assert.strictEqual(resolveReviewRouting(REVIEW_POLICY.SKIP), "review:skip");
   });
 });

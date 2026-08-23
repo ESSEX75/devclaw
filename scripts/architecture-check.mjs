@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync } from "node:fs";
-import { readFile, readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -44,6 +44,7 @@ const hasBlockingFailures =
   boundaryViolations.length > 0 ||
   legacyDirectoryViolations.length > 0 ||
   unregistered.length > 0;
+
 if (hasBlockingFailures && !warnOnly) {
   process.exitCode = 1;
 }
@@ -51,19 +52,23 @@ if (hasBlockingFailures && !warnOnly) {
 async function collectProductionFiles(repoRoot) {
   const files = [path.join(repoRoot, "index.ts")];
   const libRoot = path.join(repoRoot, "lib");
+
   for await (const file of walk(libRoot)) {
     if (!file.endsWith(".ts")) continue;
     if (file.endsWith(".test.ts") || file.endsWith(".e2e.test.ts")) continue;
     if (file.includes(`${path.sep}testing${path.sep}`)) continue;
     files.push(file);
   }
+
   return files.sort();
 }
 
 async function* walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
+
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
+
     if (entry.isDirectory()) {
       yield* walk(fullPath);
     } else if (entry.isFile()) {
@@ -80,14 +85,18 @@ async function buildImportGraph(files) {
   for (const file of files) {
     const content = stripComments(await readFile(file, "utf8"));
     const edges = [];
+
     for (const match of content.matchAll(importPattern)) {
       const specifier = match[1];
+
       if (!specifier.startsWith(".")) continue;
       const resolved = resolveRelativeTsImport(path.dirname(file), specifier);
+
       if (resolved && normalize(resolved) !== normalize(file) && fileSet.has(normalize(resolved))) {
         edges.push(normalize(resolved));
       }
     }
+
     graph.set(normalize(file), [...new Set(edges)].sort());
   }
 
@@ -101,6 +110,7 @@ async function findBoundaryViolations(files) {
     const content = stripComments(await readFile(file, "utf8"));
     const sourceLayer = layerForFile(file);
     const relativeSource = relative(file);
+
     openClawToolContextImportCache.set(
       file,
       /\bOpenClawPluginToolContext\b/.test(content),
@@ -145,6 +155,7 @@ function parseImportRecords(content) {
   for (const match of content.matchAll(staticImportPattern)) {
     records.push({ specifier: match[1] });
   }
+
   for (const match of content.matchAll(dynamicImportPattern)) {
     records.push({ specifier: match[1] });
   }
@@ -153,7 +164,6 @@ function parseImportRecords(content) {
 }
 
 function checkImportBoundary({ sourceFile, sourceLayer, targetFile, targetLayer, specifier }) {
-  const sourceRelative = relative(sourceFile);
   const targetRelative = targetFile ? relative(targetFile) : specifier;
 
   if (isLegacyRootImport(sourceFile, targetFile, specifier)) {
@@ -176,9 +186,11 @@ function checkImportBoundary({ sourceFile, sourceLayer, targetFile, targetLayer,
     if (specifier === "openclaw/plugin-sdk/core" && importsOpenClawToolContext(sourceFile)) {
       return "application must not import OpenClaw tool context";
     }
+
     if (targetLayer === "cli" && targetRelative.startsWith("lib/cli/commands/")) {
       return "application must not import CLI command adapters";
     }
+
     if (targetRelative === "lib/context.ts" && importsOpenClawToolContext(sourceFile)) {
       return "application must not import OpenClaw tool context";
     }
@@ -213,7 +225,9 @@ function findLegacyDirectoryViolations(repoRoot) {
 function layerForFile(file) {
   const rel = relative(file);
   const parts = rel.split(path.sep);
+
   if (parts[0] !== "lib") return "root";
+
   return parts[1] ?? "root";
 }
 
@@ -223,6 +237,7 @@ function resolveRelativeTsImport(baseDir, specifier) {
     path.resolve(baseDir, `${withoutJs}.ts`),
     path.resolve(baseDir, withoutJs, "index.ts"),
   ];
+
   return candidates.find((candidate) => existsSync(candidate));
 }
 
@@ -245,10 +260,12 @@ function findCycles(graph) {
       const start = stack.indexOf(node);
       const cycle = [...stack.slice(start), node];
       const key = canonicalCycleKey(cycle);
+
       if (!seen.has(key)) {
         seen.add(key);
         cycles.push(cycle);
       }
+
       return;
     }
 
@@ -257,6 +274,7 @@ function findCycles(graph) {
     for (const target of graph.get(node) ?? []) {
       visit(target);
     }
+
     stack.pop();
     visiting.delete(node);
     visited.add(node);
@@ -269,6 +287,7 @@ function canonicalCycleKey(cycle) {
     ...nodes.slice(index),
     ...nodes.slice(0, index),
   ].join(">"));
+
   return rotations.sort()[0];
 }
 
@@ -285,6 +304,7 @@ async function findToolFactories(files) {
   for (const file of files) {
     if (!file.includes(`${path.sep}lib${path.sep}tools${path.sep}`)) continue;
     const content = await readFile(file, "utf8");
+
     for (const match of content.matchAll(factoryPattern)) {
       factories.add(match[1] ?? match[2]);
     }
@@ -300,9 +320,11 @@ async function findRegisteredToolFactories(files) {
 
   for (const file of files) {
     const content = stripComments(await readFile(file, "utf8"));
+
     for (const match of content.matchAll(registerPattern)) {
       registered.add(match[1]);
     }
+
     for (const match of content.matchAll(registryPattern)) {
       registered.add(match[1]);
     }
@@ -328,6 +350,7 @@ function printReport({ cycles, boundaryViolations, legacyDirectoryViolations, to
       console.log(`- ${cycle.map(relative).join(" -> ")}`);
     }
   }
+
   console.log("");
 
   if (boundaryViolations.length === 0) {
@@ -338,6 +361,7 @@ function printReport({ cycles, boundaryViolations, legacyDirectoryViolations, to
       console.log(`- ${violation.file} imports ${violation.import} (${violation.rule})`);
     }
   }
+
   console.log("");
 
   if (legacyDirectoryViolations.length === 0) {
@@ -348,6 +372,7 @@ function printReport({ cycles, boundaryViolations, legacyDirectoryViolations, to
       console.log(`- ${dir}`);
     }
   }
+
   console.log("");
 
   if (unregistered.length === 0) {

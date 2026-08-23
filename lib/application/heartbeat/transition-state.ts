@@ -1,11 +1,15 @@
 /**
  * transition-state.ts — Keep project-local issue runtime state in sync after heartbeat transitions.
  */
-import { writeIssueRuntimeState, type IssueProvider as IssueProviderKind } from "../../state/issues/index.js";
-import type { Project } from "../../state/projects/index.js";
+import {
+  getStateLabels,
+  ISSUE_PROVIDER,
+  type IssueProviderId,
+  type Project,
+  type WorkflowConfig,
+} from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
-import type { WorkflowConfig } from "../../domain/workflow/types.js";
-import { getStateLabels } from "../../domain/workflow/queries.js";
+import { writeIssueRuntimeState } from "../../state/issues/index.js";
 
 export async function writeHeartbeatTransitionState(opts: {
   workspaceDir: string;
@@ -16,7 +20,7 @@ export async function writeHeartbeatTransitionState(opts: {
   workflowLabel: string;
   closedAt?: string | null;
 }): Promise<void> {
-  const stateLabels = new Set(getStateLabels(opts.workflow));
+  const stateLabels = new Set<string>(getStateLabels(opts.workflow));
   const labels = opts.issue.labels
     .filter((label) => !stateLabels.has(label))
     .concat(opts.workflowLabel);
@@ -37,6 +41,6 @@ export async function writeHeartbeatTransitionState(opts: {
   });
 }
 
-function providerType(provider: Project["provider"]): IssueProviderKind {
-  return provider === "gitlab" ? "gitlab" : "github";
+function providerType(provider: Project["provider"]): IssueProviderId {
+  return provider === ISSUE_PROVIDER.GITLAB ? ISSUE_PROVIDER.GITLAB : ISSUE_PROVIDER.GITHUB;
 }

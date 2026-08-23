@@ -4,8 +4,9 @@
  * Eliminates the need for `npm install` at plugin install time.
  * openclaw/plugin-sdk is kept external (peer dependency provided by the host).
  */
-import esbuild from "esbuild";
 import { readFileSync } from "node:fs";
+
+import esbuild from "esbuild";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf-8"));
 

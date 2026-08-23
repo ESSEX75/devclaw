@@ -13,12 +13,15 @@ export function renderIssueMetadata(metadata: ProjectionMetadata): string {
 
 export function extractIssueMetadata(body: string): ProjectionMetadata | null {
   const match = ISSUE_METADATA_RE.exec(body);
+
   if (!match) return null;
   try {
     const data = JSON.parse(match[1]!) as ProjectionMetadata;
+
     if (!data.projectSlug || typeof data.issueId !== "number" || typeof data.projectionVersion !== "number") {
       return null;
     }
+
     return data;
   } catch {
     return null;
@@ -27,16 +30,18 @@ export function extractIssueMetadata(body: string): ProjectionMetadata | null {
 
 export function replaceIssueMetadata(body: string, metadata: ProjectionMetadata): string {
   const rendered = renderIssueMetadata(metadata);
+
   if (ISSUE_METADATA_RE.test(body)) {
     return body.replace(ISSUE_METADATA_RE, rendered);
   }
+
   return body.trim().length > 0 ? `${body.trimEnd()}\n\n${rendered}` : rendered;
 }
 
 export function metadataMatches(metadata: ProjectionMetadata | null, expected: ProjectionMetadata): boolean {
   if (!metadata) return false;
+
   return metadata.projectSlug === expected.projectSlug
     && metadata.issueId === expected.issueId
     && metadata.projectionVersion === expected.projectionVersion;
 }
-

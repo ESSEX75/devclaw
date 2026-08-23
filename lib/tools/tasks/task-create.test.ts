@@ -6,10 +6,64 @@ import os from "node:os";
 import { readIssueStateStore } from "../../state/issues/index.js";
 import { extractIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { DEFAULT_WORKFLOW } from "../../domain/workflow/index.js";
+import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, STATE_TYPE, type WorkflowConfig, WORKFLOW_EVENT } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 
 describe("task_create managed queue flow", () => {
+  it("persists a validated custom initial state key, label, and role", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-task-create-custom-"));
+    const workflow: WorkflowConfig = {
+      initial: "designQueue",
+      states: {
+        designQueue: {
+          type: STATE_TYPE.QUEUE,
+          role: "designer",
+          label: "To Design",
+          color: "#a855f7",
+          on: {
+            [WORKFLOW_EVENT.PICKUP]: {
+              target: "designing",
+            },
+          },
+        },
+        designing: {
+          type: STATE_TYPE.ACTIVE,
+          role: "designer",
+          label: "Designing",
+          color: "#7e22ce",
+        },
+      },
+    };
+
+    try {
+      const provider = new TestProvider({ workflow });
+      const result = await createManagedTaskIssue({
+        workspaceDir: tmpDir,
+        project: {
+          slug: "design-app",
+          channels: [],
+        },
+        providerType: ISSUE_PROVIDER.GITHUB,
+        provider,
+        workflow,
+        title: "Design checkout",
+        description: "Prepare the checkout design",
+      });
+      const store = await readIssueStateStore(tmpDir, "design-app");
+      const state = store.issues[String(result.issue.iid)];
+
+      assert.equal(result.workflowState, "designQueue");
+      assert.equal(result.label, "To Design");
+      assert.equal(result.role, "designer");
+      assert.equal(state?.workflowState, "designQueue");
+      assert.equal(state?.workflowLabel, "To Design");
+      assert.equal(state?.assignedRole, "designer");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("creates ordinary tasks directly in the developer queue with local state projection", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-task-create-"));
     try {
@@ -19,14 +73,18 @@ describe("task_create managed queue flow", () => {
         workspaceDir: tmpDir,
         project: {
           slug: "devclaw",
-          channels: [{ channelId: "telegram:1", channel: "telegram", name: "primary", events: ["*"] }],
+        channels: [{
+          channelId: "telegram:1",
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          name: "primary",
+        }],
         },
-        providerType: "github",
+        providerType: ISSUE_PROVIDER.GITHUB,
         provider,
         workflow: DEFAULT_WORKFLOW,
         title: "Implement login",
         description: "Build the login screen",
-        notifyTarget: { channel: "telegram", name: "primary" },
+        notifyTarget: { channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
         owner: "main",
       });
 
@@ -45,7 +103,10 @@ describe("task_create managed queue flow", () => {
       assert.strictEqual(state.owner, "main");
       assert.strictEqual(state.reviewPolicy, "human");
       assert.strictEqual(state.testPolicy, "skip");
-      assert.deepStrictEqual(state.notifyTarget, { channel: "telegram", name: "primary" });
+      assert.deepStrictEqual(state.notifyTarget, {
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        name: "primary",
+      });
       assert.ok(issue.labels.includes("To Do"));
       assert.ok(issue.labels.includes("owner:main"));
       assert.ok(issue.labels.includes("review:human"));

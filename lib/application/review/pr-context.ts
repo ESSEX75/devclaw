@@ -44,10 +44,13 @@ export async function fetchPrFeedback(
 ): Promise<PrFeedback | undefined> {
   try {
     const prStatus = await provider.getPrStatus(issueId);
+
     if (!prStatus.url || prStatus.state === PrState.MERGED || prStatus.state === PrState.CLOSED) {
       return undefined;
     }
+
     const reviewComments = await provider.getPrReviewComments(issueId);
+
     if (reviewComments.length === 0) return undefined;
 
     const reason = prStatus.mergeable === false ? "merge_conflict" as const
@@ -79,8 +82,10 @@ export async function fetchPrContext(
 ): Promise<PrContext | undefined> {
   try {
     const prStatus = await provider.getPrStatus(issueId);
+
     if (!prStatus.url) return undefined;
     const diff = await provider.getPrDiff(issueId) ?? undefined;
+
     return { url: prStatus.url, diff };
   } catch {
     return undefined;
@@ -96,13 +101,16 @@ export async function fetchPrContext(
  */
 export function formatPrContext(prContext: PrContext): string[] {
   const parts: string[] = [``, `## Pull Request`, `🔗 ${prContext.url}`];
+
   if (prContext.diff) {
     const maxDiffLen = 50_000;
     const diff = prContext.diff.length > maxDiffLen
       ? prContext.diff.slice(0, maxDiffLen) + "\n... (diff truncated, see PR for full changes)"
       : prContext.diff;
+
     parts.push(``, `### Diff`, "```diff", diff, "```");
   }
+
   return parts;
 }
 
@@ -126,6 +134,7 @@ export function formatPrFeedback(prFeedback: PrFeedback, baseBranch: string): st
 
   for (const c of prFeedback.comments) {
     const location = c.path ? ` (${c.path}${c.line ? `:${c.line}` : ""})` : "";
+
     parts.push(``, `**${c.author}** [${c.state}]${location}:`, c.body);
   }
 

@@ -7,13 +7,13 @@
  * - Orchestrator adds summary comments
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
-import type { PluginContext } from "../../context.js";
-import { log as auditLog } from "../../audit.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider, autoAssignOwnerLabel, applyNotifyLabel } from "../helpers.js";
-import { getAllRoleIds, getFallbackEmoji } from "../../roles/index.js";
 
-/** Valid author roles for attribution — all registry roles + orchestrator */
-const AUTHOR_ROLES = [...getAllRoleIds(), "orchestrator"];
+import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
+import { getFallbackEmoji } from "../../roles/index.js";
+import { isConfiguredRoleId, loadConfig } from "../../state/config/index.js";
+import { applyNotifyLabel,autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+
 type AuthorRole = string;
 
 export function createTaskCommentTool(ctx: PluginContext) {
@@ -38,7 +38,9 @@ Examples:
       properties: {
         channelId: {
           type: "string",
-          description: "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
+          description:
+            "YOUR chat/group ID — the numeric ID of the chat you are in right now " +
+            "(e.g. '-1003844794417'). Do NOT guess; use the ID of the conversation this message came from.",
         },
         issueId: {
           type: "number",
@@ -50,8 +52,7 @@ Examples:
         },
         authorRole: {
           type: "string",
-          enum: AUTHOR_ROLES,
-          description: `Optional role attribution for the comment. One of: ${AUTHOR_ROLES.join(", ")}`,
+          description: "Optional configured role attribution, or orchestrator.",
         },
       },
     },
@@ -68,7 +69,13 @@ Examples:
       }
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
+      const config = await loadConfig(workspaceDir, project.name);
+
+      if (authorRole && authorRole !== "orchestrator" && !isConfiguredRoleId(config, authorRole)) {
+        throw new Error(`Unknown comment author role "${authorRole}".`);
+      }
+
+      const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
 
       const issue = await provider.getIssue(issueId);
 
@@ -110,5 +117,6 @@ Examples:
 
 function getRoleEmoji(role: string): string {
   if (role === "orchestrator") return "🎛️";
+
   return getFallbackEmoji(role);
 }
