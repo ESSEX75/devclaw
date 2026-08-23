@@ -10,6 +10,12 @@ export const ISSUE_PROVIDER = {
   GITLAB: "gitlab",
 } as const;
 
+/** Prefix used for instance ownership labels. */
+export const OWNER_LABEL_PREFIX = "owner:";
+
+/** Color used for instance ownership labels. */
+export const OWNER_LABEL_COLOR = "#e4e4e4";
+
 /** Status constants of local issue state integrity relative to the provider. */
 export const ISSUE_INTEGRITY_STATUS = {
   /** Projection is synchronized and valid. */

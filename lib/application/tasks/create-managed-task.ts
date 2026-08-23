@@ -1,5 +1,5 @@
 import {
-  type IssueProviderType,
+  type IssueProviderId,
   NOTIFY_LABEL_COLOR,
   NOTIFY_LABEL_PREFIX,
   type NotifyTarget,
@@ -7,11 +7,10 @@ import {
   type Project,
   REVIEW_POLICY,
   STATE_TYPE,
-  type StateConfig,
   TEST_POLICY,
   WORKFLOW_EVENT,
   type WorkflowConfig,
-  type WorkflowStateKey,
+  type WorkflowStateConfig,
 } from "../../domain/index.js";
 import type { IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
@@ -29,7 +28,7 @@ export type CreatedManagedTask = {
 export async function createManagedTaskIssue(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug" | "channels">;
-  providerType: IssueProviderType;
+  providerType: IssueProviderId;
   provider: Pick<IssueWriter, "createIssue" | "editIssue"> & Pick<LabelProjector, "addLabel" | "ensureLabel">;
   workflow: WorkflowConfig;
   title: string;
@@ -95,8 +94,8 @@ export async function createManagedTaskIssue(opts: {
 
 function resolveInitialQueueTarget(
   workflow: WorkflowConfig,
-  initialState: StateConfig,
-): { targetKey: WorkflowStateKey; targetState: StateConfig } {
+  initialState: WorkflowStateConfig,
+): { targetKey: string; targetState: WorkflowStateConfig } {
   if (initialState.type === STATE_TYPE.QUEUE) {
     return { targetKey: workflow.initial, targetState: initialState };
   }
@@ -111,7 +110,7 @@ function resolveInitialQueueTarget(
     throw new Error(`Initial workflow state "${workflow.initial}" has no APPROVE transition.`);
   }
 
-  const targetKey = typeof approve === "string" ? approve : approve.target;
+  const targetKey = approve.target;
   const targetState = workflow.states[targetKey];
 
   if (!targetState) throw new Error(`Initial workflow transition target "${targetKey}" not found.`);

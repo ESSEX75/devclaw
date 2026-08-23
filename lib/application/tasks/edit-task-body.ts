@@ -33,7 +33,7 @@ export async function editTaskBody(input: EditTaskBodyInput) {
   }
 
   const { project } = await resolveProject(workspaceDir, channelId);
-  const { provider, type: providerType } = await resolveProvider(project, runCommand);
+  const { provider, type: providerType } = await resolveProvider(workspaceDir, project, runCommand);
 
   const resolvedConfig = await loadConfig(workspaceDir, project.name);
   const initialStateLabel = getInitialStateLabel(resolvedConfig.workflow);
@@ -41,6 +41,7 @@ export async function editTaskBody(input: EditTaskBodyInput) {
     .filter((s) => s.type === "active" && s.role === "architect")
     .map((s) => s.label);
   const editableStates = [initialStateLabel, ...architectActiveStates];
+  const editableStateSet: ReadonlySet<string> = new Set(editableStates);
 
   const issue = await provider.getIssue(issueId);
   const runtimeState = await resolveIssueRuntimeState({ workspaceDir, project, issue, workflow: resolvedConfig.workflow });
@@ -51,7 +52,7 @@ export async function editTaskBody(input: EditTaskBodyInput) {
 
   const currentState = runtimeState.workflowLabel;
 
-  if (!currentState || !editableStates.includes(currentState)) {
+  if (!currentState || !editableStateSet.has(currentState)) {
     throw new Error(
       `Cannot edit issue #${issueId}: it is in "${currentState ?? "unknown"}", ` +
       `but edits are only allowed in: ${editableStates.map(s => `"${s}"`).join(", ")}. ` +

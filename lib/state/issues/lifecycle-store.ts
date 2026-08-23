@@ -6,26 +6,20 @@ import {
   detectOwner,
   findStateKeyByLabel,
   getCurrentStateLabel,
-  isLevelId,
   isNotificationChannel,
-  isRoleId,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   type IssueIntegrityStatus,
-  type IssueProviderType,
+  type IssueProviderId,
   type IssueRuntimeState,
-  type LevelId,
   NOTIFY_LABEL_PREFIX,
   type NotifyTarget,
   type Project,
   REVIEW_POLICY,
   type ReviewPolicy,
-  type RoleId,
   TEST_POLICY,
   type TestPolicy,
   type WorkflowConfig,
-  type WorkflowLabel,
-  type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { updateIssueStateStore } from "./store.js";
@@ -34,12 +28,12 @@ export type IssueStateWriteInput = {
   workspaceDir: string;
   project: Pick<Project, "slug" | "channels">;
   issue: Pick<Issue, "iid" | "labels" | "state">;
-  providerType: IssueProviderType;
+  providerType: IssueProviderId;
   workflow: WorkflowConfig;
-  workflowLabel?: WorkflowLabel;
-  workflowState?: WorkflowStateKey;
-  assignedRole?: RoleId | null;
-  assignedLevel?: LevelId | null;
+  workflowLabel?: string;
+  workflowState?: string;
+  assignedRole?: string | null;
+  assignedLevel?: string | null;
   owner?: string | null;
   notifyTarget?: NotifyTarget | null;
   reviewPolicy?: ReviewPolicy | null;
@@ -51,8 +45,8 @@ export type IssueStateWriteInput = {
 };
 
 type RoleLevel = {
-  role: RoleId;
-  level: LevelId;
+  role: string;
+  level: string;
 };
 
 export function detectNotifyTarget(
@@ -88,7 +82,7 @@ export function detectRoleLevel(labels: string[]): RoleLevel | null {
     if (!role || !level) continue;
     if (role === "review" || role === "test" || role === "notify" || role === "owner" || role === "devclaw") continue;
 
-    if (isRoleId(role) && isLevelId(level)) return { role, level };
+    if (isConfiguredIdentifier(role) && isConfiguredIdentifier(level)) return { role, level };
   }
 
   return null;
@@ -158,6 +152,10 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
   return written;
 }
 
-export function providerKindFromProject(project: Pick<Project, "provider">): IssueProviderType {
+export function providerKindFromProject(project: Pick<Project, "provider">): IssueProviderId {
   return project.provider === ISSUE_PROVIDER.GITHUB ? ISSUE_PROVIDER.GITHUB : ISSUE_PROVIDER.GITLAB;
+}
+
+function isConfiguredIdentifier(value: string): boolean {
+  return /^[a-z][a-z0-9_-]*$/.test(value);
 }

@@ -5,8 +5,8 @@
  * that need to find queued issues or detect roles/levels from labels.
  */
 import type { IssueRuntimeState } from "../../domain/index.js";
-import type { WorkflowConfig, WorkflowLabel } from "../../domain/index.js";
-import { isLevelId, ISSUE_INTEGRITY_STATUS, type LevelId, type RoleId } from "../../domain/index.js";
+import type { WorkflowConfig } from "../../domain/index.js";
+import { ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
 import { isOwnedByOrUnclaimed } from "../../domain/index.js";
 import {
   detectRoleFromLabel,
@@ -14,26 +14,26 @@ import {
 } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
-import { getAllLevels, getLevelsForRole, isValidRole } from "../../roles/index.js";
+import { ROLE_REGISTRY } from "../../roles/index.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
 
 // ---------------------------------------------------------------------------
 // Label detection
 // ---------------------------------------------------------------------------
 
-export function detectLevelFromLabels(labels: string[]): LevelId | null {
-  const lower = labels.map((l) => l.toLowerCase());
-
+export function detectLevelFromLabels(
+  labels: string[],
+  roles: Readonly<Record<string, { levels: readonly string[] }>> = ROLE_REGISTRY,
+): string | null {
   // Match projected role:level labels (e.g., "developer:senior").
   // Managed dispatch uses issues.json first; labels are only a compatibility fallback.
-  for (const l of lower) {
-    const parts = l.split(":");
+  for (const label of labels) {
+    const parts = label.split(":");
 
     if (parts.length !== 2) continue;
-    const level = parts[1]!;
-    const all = getAllLevels();
+    const [role, level] = parts;
 
-    if (isLevelId(level) && all.includes(level)) return level;
+    if (role && level && roles[role]?.levels.includes(level)) return level;
   }
 
   return null;
@@ -47,19 +47,16 @@ export function detectLevelFromLabels(labels: string[]): LevelId | null {
  */
 export function detectRoleLevelFromLabels(
   labels: string[],
-): { role: RoleId; level: LevelId } | null {
+  roles: Readonly<Record<string, { levels: readonly string[] }>> = ROLE_REGISTRY,
+): { role: string; level: string } | null {
   for (const label of labels) {
     const parts = label.split(":");
 
     if (parts.length !== 2) continue;
-    const role = parts[0]!.toLowerCase();
-    const level = parts[1]!.toLowerCase();
+    const role = parts[0]!;
+    const level = parts[1]!;
 
-    if (!isValidRole(role) || !isLevelId(level)) continue;
-
-    const roleLevels = getLevelsForRole(role);
-
-    if (roleLevels.includes(level)) {
+    if (roles[role]?.levels.includes(level)) {
       return { role, level };
     }
   }
@@ -73,7 +70,7 @@ export function detectRoleLevelFromLabels(
 export function detectRoleFromStateLabel(
   label: StateLabel,
   workflow: WorkflowConfig,
-): RoleId | null {
+): string | null {
   return detectRoleFromLabel(workflow, label);
 }
 
@@ -83,11 +80,11 @@ export function detectRoleFromStateLabel(
 
 export async function findNextIssueForRole(
   provider: Pick<IssueReader, "getIssue">,
-  role: RoleId,
+  role: string,
   workflow: WorkflowConfig,
   instanceName: string | undefined,
   localState: { workspaceDir: string; projectSlug: string },
-): Promise<{ issue: Issue; label: WorkflowLabel; localState: IssueRuntimeState } | null> {
+): Promise<{ issue: Issue; label: string; localState: IssueRuntimeState } | null> {
   const labels = getQueueLabels(workflow, role);
 
   return findNextIssueForRoleFromLocalState(
@@ -101,11 +98,11 @@ export async function findNextIssueForRole(
 
 async function findNextIssueForRoleFromLocalState(
   provider: Pick<IssueReader, "getIssue">,
-  queueLabels: WorkflowLabel[],
+  queueLabels: string[],
   instanceName: string | undefined,
   workspaceDir: string,
   projectSlug: string,
-): Promise<{ issue: Issue; label: WorkflowLabel; localState: IssueRuntimeState } | null> {
+): Promise<{ issue: Issue; label: string; localState: IssueRuntimeState } | null> {
   const store = await readIssueStateStore(workspaceDir, projectSlug);
   const localCandidates = Object.values(store.issues)
     .filter((state) =>

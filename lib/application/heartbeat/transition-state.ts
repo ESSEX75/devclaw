@@ -4,11 +4,9 @@
 import {
   getStateLabels,
   ISSUE_PROVIDER,
-  type IssueProviderType,
+  type IssueProviderId,
   type Project,
   type WorkflowConfig,
-  type WorkflowLabel,
-  type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
@@ -18,8 +16,8 @@ export async function writeHeartbeatTransitionState(opts: {
   project: Pick<Project, "slug" | "channels" | "provider">;
   issue: Issue;
   workflow: WorkflowConfig;
-  workflowState: WorkflowStateKey;
-  workflowLabel: WorkflowLabel;
+  workflowState: string;
+  workflowLabel: string;
   closedAt?: string | null;
 }): Promise<void> {
   const stateLabels = new Set<string>(getStateLabels(opts.workflow));
@@ -43,6 +41,6 @@ export async function writeHeartbeatTransitionState(opts: {
   });
 }
 
-function providerType(provider: Project["provider"]): IssueProviderType {
+function providerType(provider: Project["provider"]): IssueProviderId {
   return provider === ISSUE_PROVIDER.GITLAB ? ISSUE_PROVIDER.GITLAB : ISSUE_PROVIDER.GITHUB;
 }

@@ -4,6 +4,7 @@
 import type { SoftUnion } from "../../types.js";
 import {
   ACTION,
+  COMPLETION_RESULT,
   DEFAULT_LEVELS,
   DEFAULT_ROLES,
   EXECUTION_MODE,
@@ -44,6 +45,13 @@ export type TestPolicy = SoftUnion<typeof TEST_POLICY>;
 /** Union type for workflow transition events (e.g. PICKUP, COMPLETE). */
 export type WorkflowEvent = SoftUnion<typeof WORKFLOW_EVENT>;
 
+/** Built-in worker completion result identifier. */
+export type CompletionResult = SoftUnion<typeof COMPLETION_RESULT>;
+
+/** Explicit mapping from role completion results to workflow events. */
+export type CompletionEventMap<TResult extends string = string> =
+  Readonly<Record<TResult, WorkflowEvent>>;
+
 /** Action identifier executed during transitions (e.g. gitPull, mergePr). */
 export type TransitionAction = SoftUnion<typeof ACTION>;
 
@@ -53,40 +61,108 @@ export type ReviewCheckType = SoftUnion<typeof REVIEW_CHECK>;
 /** Union of possible routing label strings (e.g. review:human, test:agent). */
 export type RoutingLabel = SoftUnion<typeof ROUTING_LABELS>;
 
-/** Target state name or detailed transition configuration for an event. */
-export type TransitionTarget = WorkflowStateKey | {
+/** Configuration for a workflow event transition. */
+export type TransitionTarget<TStateKey extends string> = {
   /** Target workflow state key to transition to. */
-  target: WorkflowStateKey;
+  target: TStateKey;
   /** List of actions to execute during transition. */
   actions?: TransitionAction[];
   /** Optional description of why/when this transition occurs. */
   description?: string;
 };
 
-/** Configuration for a single state in the workflow statechart. */
-export type StateConfig = {
-  /** Behavior type of the state (queue, active, hold, terminal). */
-  type: StateType;
-  /** Assigned worker role responsible for this state, if any. */
-  role?: RoleId;
+/** Fields shared by every workflow state. */
+type BaseStateConfig<TLabel extends string> = {
   /** Provider-side display label matching this state. */
-  label: WorkflowLabel;
+  label: TLabel;
   /** Hex color code for the state label. */
   color: string;
-  /** Priority ordering for processing. */
-  priority?: number;
   /** Human-readable explanation of this state's purpose. */
   description?: string;
   /** Mandatory check condition before transitioning (e.g. prApproved). */
   check?: ReviewCheckType;
-  /** Map of workflow events to their transition targets. */
-  on?: Partial<Record<WorkflowEvent, TransitionTarget>>;
 };
 
+/** Outgoing transitions supported by non-terminal workflow states. */
+type StatefulTransitions<TStateKey extends string> = {
+  /** Map of workflow events to their transition targets. */
+  on?: Partial<Record<WorkflowEvent, TransitionTarget<TStateKey>>>;
+};
+
+/** Queue state waiting for a role to pick up work. */
+export type QueueStateConfig<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+> = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
+  /** Queue behavior discriminator. */
+  type: typeof STATE_TYPE.QUEUE;
+  /** Worker role responsible for this queue. */
+  role: TRoleId;
+  /** Priority ordering for processing. */
+  priority?: number;
+};
+
+/** Active state currently processed by a worker role. */
+export type ActiveStateConfig<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+> = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
+  /** Active behavior discriminator. */
+  type: typeof STATE_TYPE.ACTIVE;
+  /** Worker role responsible for active processing. */
+  role: TRoleId;
+  /** Priority is meaningful only for queue states. */
+  priority?: never;
+};
+
+/** Hold state waiting for an external or human decision. */
+export type HoldStateConfig<
+  TStateKey extends string,
+  TLabel extends string,
+> = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
+  /** Hold behavior discriminator. */
+  type: typeof STATE_TYPE.HOLD;
+  /** Hold states are not assigned to worker roles. */
+  role?: never;
+  /** Priority is meaningful only for queue states. */
+  priority?: never;
+};
+
+/** Terminal state concluding the workflow. */
+export type TerminalStateConfig<
+  TLabel extends string,
+> = BaseStateConfig<TLabel> & {
+  /** Terminal behavior discriminator. */
+  type: typeof STATE_TYPE.TERMINAL;
+  /** Terminal states are not assigned to worker roles. */
+  role?: never;
+  /** Priority is meaningful only for queue states. */
+  priority?: never;
+  /** Terminal states cannot have outgoing transitions. */
+  on?: never;
+};
+
+/** Configuration for a single state in the workflow statechart. */
+export type StateDefinition<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+> =
+  | QueueStateConfig<TRoleId, TStateKey, TLabel>
+  | ActiveStateConfig<TRoleId, TStateKey, TLabel>
+  | HoldStateConfig<TStateKey, TLabel>
+  | TerminalStateConfig<TLabel>;
+
 /** Full workflow statechart configuration. */
-export type WorkflowConfig = {
+export type WorkflowDefinition<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+> = {
   /** Initial workflow state key for new issues. */
-  initial: WorkflowStateKey;
+  initial: TStateKey;
   /** Default review policy for PRs. */
   reviewPolicy?: ReviewPolicy;
   /** Default test policy for completed PRs. */
@@ -96,23 +172,43 @@ export type WorkflowConfig = {
   /** Default max workers per level across all roles. Default: 2. */
   maxWorkersPerLevel?: number;
   /** Map of state keys to their state configurations. */
-  states: Record<WorkflowStateKey, StateConfig>;
+  states: Record<TStateKey, StateDefinition<TRoleId, TStateKey, TLabel>>;
 };
 
+/** Strict configuration contract for the built-in workflow. */
+export type BuiltInWorkflowConfig = WorkflowDefinition<
+  RoleId,
+  WorkflowStateKey,
+  WorkflowLabel
+>;
+
+/** Strict state contract for the built-in workflow. */
+export type BuiltInWorkflowStateConfig = StateDefinition<
+  RoleId,
+  WorkflowStateKey,
+  WorkflowLabel
+>;
+
+/** Workflow configuration after runtime validation and layer resolution. */
+export type WorkflowConfig = WorkflowDefinition<string, string, string>;
+
+/** State configuration belonging to a validated runtime workflow. */
+export type WorkflowStateConfig = StateDefinition<string, string, string>;
+
 /** Rule mapping a specific completion scenario to the next state and actions. */
-export type CompletionRule = {
+export type CompletionRule<TLabel extends string = WorkflowLabel> = {
   /** Source workflow label. */
-  from: WorkflowLabel;
+  from: TLabel;
   /** Destination workflow label. */
-  to: WorkflowLabel;
+  to: TLabel;
   /** Actions to execute upon completing transition. */
   actions: TransitionAction[];
 };
 
 /** Definition of a role including its active levels. */
-export type RoleDefinition = {
+export type RoleDefinition<TLevelId extends string = LevelId> = {
   /** List of active level identifiers (e.g. ["junior", "senior"]). */
-  levels: readonly LevelId[];
+  levels: readonly TLevelId[];
   /** Whether the role is enabled in the workflow pipeline. */
   enabled?: boolean;
 };

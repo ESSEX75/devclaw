@@ -11,14 +11,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import YAML from "yaml";
+import { ZodError } from "zod";
 
-import type { LevelId, WorkflowConfig } from "../../domain/index.js";
-import { DEFAULT_WORKFLOW, isLevelId, isRoleId } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW, isBuiltInRoleId } from "../../domain/index.js";
 import { getAllRoleIds, ROLE_REGISTRY } from "../../roles/index.js";
 import { DATA_DIR } from "../setup/paths.js";
 import { mergeConfig } from "./merge.js";
-import { validateConfig, validateWorkflowIntegrity } from "./schema.js";
-import type { DevClawConfig, ModelEntry, RawConfig, ResolvedConfig, ResolvedRoleConfig, ResolvedTimeouts, RoleOverride } from "./types.js";
+import { parseConfig, parseResolvedWorkflowConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
+import type { DevClawConfig, ModelEntry, ResolvedConfig, ResolvedRoleConfig, ResolvedTimeouts, RoleOverride } from "./types.js";
 
 /**
  * Load and resolve the full DevClaw config for a project.
@@ -70,7 +70,7 @@ function buildDefaultConfig(): DevClawConfig {
       defaultLevel: reg.defaultLevel,
       models: { ...reg.models },
       emoji: { ...reg.emoji },
-      completionResults: [...reg.completionResults],
+      completion: { ...reg.completion },
     };
   }
 
@@ -85,12 +85,12 @@ const DEFAULT_MAX_WORKERS_PER_LEVEL = 2;
 
 /** Flatten a ModelEntry map to string-only model IDs. */
 function flattenModels(
-  entries: Partial<Record<LevelId, ModelEntry>>,
-): Partial<Record<LevelId, string>> {
-  const flat: Partial<Record<LevelId, string>> = {};
+  entries: Readonly<Partial<Record<string, ModelEntry>>>,
+): Partial<Record<string, string>> {
+  const flat: Partial<Record<string, string>> = {};
 
   for (const [level, entry] of Object.entries(entries)) {
-    if (!isLevelId(level)) continue;
+    if (entry === undefined) continue;
 
     flat[level] = typeof entry === "string" ? entry : entry.model;
   }
@@ -100,13 +100,13 @@ function flattenModels(
 
 /** Resolve per-level maxWorkers from model entries + global default. */
 function resolveLevelMaxWorkers(
-  models: Partial<Record<LevelId, ModelEntry>>,
+  models: Readonly<Partial<Record<string, ModelEntry>>>,
   globalDefault: number,
-): Partial<Record<LevelId, number>> {
-  const result: Partial<Record<LevelId, number>> = {};
+): Partial<Record<string, number>> {
+  const result: Partial<Record<string, number>> = {};
 
   for (const [level, entry] of Object.entries(models)) {
-    if (!isLevelId(level)) continue;
+    if (entry === undefined) continue;
 
     if (typeof entry === "object" && entry.maxWorkers !== undefined) {
       result[level] = entry.maxWorkers;
@@ -118,19 +118,36 @@ function resolveLevelMaxWorkers(
   return result;
 }
 
+function resolveLevels(levels: readonly string[]): string[] {
+  return [...levels];
+}
+
+function resolveDefaultLevel(defaultLevel: string): string {
+  return defaultLevel;
+}
+
+function resolveEmoji(entries: Readonly<Record<string, string>>): Partial<Record<string, string>> {
+  return { ...entries };
+}
+
 function resolve(config: DevClawConfig): ResolvedConfig {
   const roles: Record<string, ResolvedRoleConfig> = {};
   const globalMaxWorkers = config.workflow?.maxWorkersPerLevel ?? DEFAULT_MAX_WORKERS_PER_LEVEL;
+  const roleIntegrityErrors = validateRoleIntegrity(
+    config.roles ?? {},
+    new Set(getAllRoleIds()),
+  );
+
+  if (roleIntegrityErrors.length > 0) {
+    throw new Error(`Role config integrity errors:\n  - ${roleIntegrityErrors.join("\n  - ")}`);
+  }
 
   if (config.roles) {
     for (const [id, override] of Object.entries(config.roles)) {
-      if (!isRoleId(id)) continue;
-
-      const reg = ROLE_REGISTRY[id];
-
-      if (override === false) {
+      if (isBuiltInRoleId(id) && override === false) {
+        const reg = ROLE_REGISTRY[id];
         // Disabled role — include with enabled: false for visibility
-        const models: Partial<Record<LevelId, ModelEntry>> = { ...reg.models };
+        const models: Partial<Record<string, ModelEntry>> = { ...reg.models };
 
         roles[id] = {
           levelMaxWorkers: resolveLevelMaxWorkers(models, globalMaxWorkers),
@@ -138,25 +155,46 @@ function resolve(config: DevClawConfig): ResolvedConfig {
           defaultLevel: reg.defaultLevel,
           models: flattenModels(models),
           emoji: { ...reg.emoji },
-          completionResults: [...reg.completionResults],
+          completion: { ...reg.completion },
           enabled: false,
         };
         continue;
       }
 
-      const mergedModels: Partial<Record<LevelId, ModelEntry>> = {
-        ...reg.models,
-        ...(override.models ?? {}),
-      };
+      if (override === false) continue;
+
+      if (isBuiltInRoleId(id)) {
+        const reg = ROLE_REGISTRY[id];
+        const mergedModels = {
+          ...reg.models,
+          ...(override.models ?? {}),
+        };
+
+        roles[id] = {
+          levelMaxWorkers: resolveLevelMaxWorkers(mergedModels, globalMaxWorkers),
+          levels: resolveLevels(override.levels ?? reg.levels),
+          defaultLevel: resolveDefaultLevel(override.defaultLevel ?? reg.defaultLevel),
+          models: flattenModels(mergedModels),
+          emoji: resolveEmoji({ ...reg.emoji, ...(override.emoji ?? {}) }),
+          completion: {
+            ...reg.completion,
+            ...override.completion,
+          },
+          enabled: override.enabled ?? true,
+        };
+        continue;
+      }
+
+      const customModels = override.models ?? {};
 
       roles[id] = {
-        levelMaxWorkers: resolveLevelMaxWorkers(mergedModels, globalMaxWorkers),
-        levels: override.levels ?? [...reg.levels],
-        defaultLevel: override.defaultLevel ?? reg.defaultLevel,
-        models: flattenModels(mergedModels),
-        emoji: { ...reg.emoji, ...(override.emoji ?? {}) },
-        completionResults: override.completionResults ?? [...reg.completionResults],
-        enabled: true,
+        levelMaxWorkers: resolveLevelMaxWorkers(customModels, globalMaxWorkers),
+        levels: resolveLevels(override.levels ?? []),
+        defaultLevel: resolveDefaultLevel(override.defaultLevel ?? ""),
+        models: flattenModels(customModels),
+        emoji: resolveEmoji(override.emoji ?? {}),
+        completion: { ...override.completion },
+        enabled: override.enabled ?? true,
       };
     }
   }
@@ -166,7 +204,7 @@ function resolve(config: DevClawConfig): ResolvedConfig {
     const reg = ROLE_REGISTRY[id];
 
     if (!roles[id]) {
-      const models: Partial<Record<LevelId, ModelEntry>> = { ...reg.models };
+      const models: Partial<Record<string, ModelEntry>> = { ...reg.models };
 
       roles[id] = {
         levelMaxWorkers: resolveLevelMaxWorkers(models, globalMaxWorkers),
@@ -174,22 +212,23 @@ function resolve(config: DevClawConfig): ResolvedConfig {
         defaultLevel: reg.defaultLevel,
         models: flattenModels(models),
         emoji: { ...reg.emoji },
-        completionResults: [...reg.completionResults],
+        completion: { ...reg.completion },
         enabled: true,
       };
     }
   }
 
-  const workflow: WorkflowConfig = {
+  const workflow = parseResolvedWorkflowConfig({
     initial: config.workflow?.initial ?? DEFAULT_WORKFLOW.initial,
     reviewPolicy: config.workflow?.reviewPolicy ?? DEFAULT_WORKFLOW.reviewPolicy,
     testPolicy: config.workflow?.testPolicy ?? DEFAULT_WORKFLOW.testPolicy,
     roleExecution: config.workflow?.roleExecution ?? DEFAULT_WORKFLOW.roleExecution,
-    states: { ...DEFAULT_WORKFLOW.states, ...config.workflow?.states },
-  };
+    maxWorkersPerLevel: globalMaxWorkers,
+    states: config.workflow?.states ?? DEFAULT_WORKFLOW.states,
+  });
 
   // Validate structural integrity (cross-references between states)
-  const integrityErrors = validateWorkflowIntegrity(workflow);
+  const integrityErrors = validateWorkflowIntegrity(workflow, new Set(Object.keys(roles)));
 
   if (integrityErrors.length > 0) {
     throw new Error(`Workflow config integrity errors:\n  - ${integrityErrors.join("\n  - ")}`);
@@ -219,20 +258,24 @@ function resolve(config: DevClawConfig): ResolvedConfig {
 async function readWorkflowFile(dir: string): Promise<DevClawConfig | null> {
   try {
     const content = await fs.readFile(path.join(dir, "workflow.yaml"), "utf-8");
-    const parsed = YAML.parse(content) as RawConfig | null;
+    const parsed: unknown = YAML.parse(content);
 
-    if (parsed) validateConfig(parsed);
+    if (parsed === null || parsed === undefined) return null;
 
-    return parsed;
+    return parseConfig(parsed);
   } catch (err) {
-    const error = err as NodeJS.ErrnoException | { name?: string; message?: string };
-
-    if ('code' in error && error.code === "ENOENT") return null;
+    if (isErrnoException(err) && err.code === "ENOENT") return null;
     // Re-throw validation errors with file context
-    if ('name' in error && error.name === "ZodError") {
-      throw new Error(`Invalid workflow.yaml in ${dir}: ${error.message}`, { cause: err });
+    if (err instanceof ZodError) {
+      throw new Error(`Invalid workflow.yaml in ${dir}: ${err.message}`, { cause: err });
     }
 
-    return null;
+    const message = err instanceof Error ? err.message : String(err);
+
+    throw new Error(`Cannot read workflow.yaml in ${dir}: ${message}`, { cause: err });
   }
+}
+
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }

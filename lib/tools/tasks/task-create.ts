@@ -65,7 +65,7 @@ export function createTaskCreateTool(ctx: PluginContext) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
+      const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
       const instanceName = await loadInstanceName(workspaceDir, resolvedConfig.instanceName);
       const sourceChannel = project.channels.find((ch) => ch.channelId === channelId) ?? project.channels[0];

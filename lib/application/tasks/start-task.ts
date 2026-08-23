@@ -3,15 +3,11 @@ import type { RunCommand } from "../../context.js";
 import {
   findStateByLabel,
   getRoleLabelColor,
-  isLevelId,
-  type LevelId,
   STATE_TYPE,
-  type StateConfig,
   WORKFLOW_EVENT,
   type WorkflowConfig,
-  type WorkflowLabel,
+  type WorkflowStateConfig,
 } from "../../domain/index.js";
-import { getLevelsForRole } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { detectNotifyTarget, resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { applyNotifyLabel,autoAssignOwnerLabel, resolveProject, resolveProvider } from "../../tools/helpers.js";
@@ -39,10 +35,10 @@ export type StartTaskResult = {
 export async function startTask(input: StartTaskInput): Promise<StartTaskResult> {
   const { workspaceDir, channelId, issueId, runCommand } = input;
   const levelHint = input.level;
-  let assignedLevel: LevelId | undefined;
+  let assignedLevel: string | undefined;
 
   const { project } = await resolveProject(workspaceDir, channelId);
-  const { provider, type: providerType } = await resolveProvider(project, runCommand);
+  const { provider, type: providerType } = await resolveProvider(workspaceDir, project, runCommand);
   const resolvedConfig = await loadConfig(workspaceDir, project.name);
   const workflow = resolvedConfig.workflow;
 
@@ -71,9 +67,9 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
   const targetRole = targetState.role;
 
   if (levelHint && targetRole) {
-    const validLevels = getLevelsForRole(targetRole);
+    const validLevels = resolvedConfig.roles[targetRole]?.levels ?? [];
 
-    if (!isLevelId(levelHint) || !validLevels.includes(levelHint)) {
+    if (!validLevels.includes(levelHint)) {
       throw new Error(`Invalid level "${levelHint}" for role "${targetRole}". Valid: ${validLevels.join(", ")}`);
     }
 
@@ -132,9 +128,9 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
 
 export function resolveStartTarget(
   workflow: WorkflowConfig,
-  currentLabel: WorkflowLabel,
-  currentState: StateConfig,
-): { targetLabel: WorkflowLabel; targetState: StateConfig; transitioned: boolean } {
+  currentLabel: string,
+  currentState: WorkflowStateConfig,
+): { targetLabel: string; targetState: WorkflowStateConfig; transitioned: boolean } {
   switch (currentState.type) {
     case STATE_TYPE.HOLD: {
       const approveTransition = currentState.on?.[WORKFLOW_EVENT.APPROVE];
@@ -143,9 +139,7 @@ export function resolveStartTarget(
         throw new Error(`HOLD state "${currentLabel}" has no APPROVE transition.`);
       }
 
-      const targetKey = typeof approveTransition === "string"
-        ? approveTransition
-        : approveTransition.target;
+      const targetKey = approveTransition.target;
       const targetState = workflow.states[targetKey];
 
       if (!targetState) {

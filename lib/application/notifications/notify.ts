@@ -13,7 +13,7 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
-import { NOTIFICATION_CHANNEL, type NotificationChannel } from "../../domain/index.js";
+import { getCompletionEmoji, NOTIFICATION_CHANNEL, type NotificationChannel } from "../../domain/index.js";
 
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;
@@ -38,7 +38,7 @@ export type NotifyEvent =
       role: string;
       level?: string;
       name?: string;
-      result: "done" | "pass" | "fail" | "refine" | "blocked";
+      result: string;
       summary?: string;
       nextState?: string;
       prUrl?: string;
@@ -160,14 +160,7 @@ function buildMessage(event: NotifyEvent): string {
     }
 
     case "workerComplete": {
-      const icons: Record<string, string> = {
-        done: "✅",
-        pass: "🎉",
-        fail: "❌",
-        refine: "🤔",
-        blocked: "🚫",
-      };
-      const icon = icons[event.result] ?? "📋";
+      const icon = getCompletionEmoji(event.result);
       const resultText: Record<string, string> = {
         done: "completed",
         pass: "PASSED",

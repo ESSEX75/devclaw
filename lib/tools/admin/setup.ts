@@ -19,7 +19,6 @@ import {
 } from "../../application/setup/scopes.js";
 import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
-import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import { writeAllDefaults } from "../../state/setup/workspace-files.js";
 
 export function createSetupTool(ctx: PluginContext) {
@@ -58,19 +57,13 @@ export function createSetupTool(ctx: PluginContext) {
         },
         models: {
           type: "object",
-          description: "Model overrides per role and level.",
-          properties: Object.fromEntries(
-            getAllRoleIds().map((role) => [role, {
-              type: "object",
-              description: `${role.toUpperCase()} level models`,
-              properties: Object.fromEntries(
-                getLevelsForRole(role).map((level) => [level, {
-                  type: "string",
-                  description: `Default: ${getAllDefaultModels()[role]?.[level] ?? "auto"}`,
-                }]),
-              ),
-            }]),
-          ),
+          description: "Model overrides keyed by configured role and level.",
+          additionalProperties: {
+            type: "object",
+            additionalProperties: {
+              type: "string",
+            },
+          },
         },
         projectExecution: {
           type: "string",

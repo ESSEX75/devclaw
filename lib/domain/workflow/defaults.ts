@@ -14,9 +14,9 @@ import {
   WORKFLOW_STATE_KEYS,
   WORKFLOW_STATE_LABELS,
 } from "./const.js";
-import type { WorkflowConfig } from "./types.js";
+import type { BuiltInWorkflowConfig } from "./types.js";
 
-export const DEFAULT_WORKFLOW: WorkflowConfig = {
+export const DEFAULT_WORKFLOW: BuiltInWorkflowConfig = {
   initial: WORKFLOW_STATE_KEYS.PLANNING,
   reviewPolicy: REVIEW_POLICY.HUMAN,
   testPolicy: TEST_POLICY.SKIP,
@@ -27,7 +27,7 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       type: STATE_TYPE.HOLD,
       label: WORKFLOW_STATE_LABELS.PLANNING,
       color: WORKFLOW_STATE_COLORS.PLANNING,
-      on: { [WORKFLOW_EVENT.APPROVE]: WORKFLOW_STATE_KEYS.TODO },
+      on: { [WORKFLOW_EVENT.APPROVE]: { target: WORKFLOW_STATE_KEYS.TODO } },
     },
     [WORKFLOW_STATE_KEYS.TODO]: {
       type: STATE_TYPE.QUEUE,
@@ -35,7 +35,7 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       label: WORKFLOW_STATE_LABELS.TODO,
       color: WORKFLOW_STATE_COLORS.TODO,
       priority: 1,
-      on: { [WORKFLOW_EVENT.PICKUP]: WORKFLOW_STATE_KEYS.DOING },
+      on: { [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.DOING } },
     },
     [WORKFLOW_STATE_KEYS.DOING]: {
       type: STATE_TYPE.ACTIVE,
@@ -44,7 +44,7 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       color: WORKFLOW_STATE_COLORS.DOING,
       on: {
         [WORKFLOW_EVENT.COMPLETE]: { target: WORKFLOW_STATE_KEYS.TO_REVIEW, actions: [ACTION.DETECT_PR] },
-        [WORKFLOW_EVENT.BLOCKED]: WORKFLOW_STATE_KEYS.REFINING,
+        [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },
     },
     [WORKFLOW_STATE_KEYS.TO_REVIEW]: {
@@ -55,12 +55,12 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       priority: 2,
       check: REVIEW_CHECK.PR_APPROVED,
       on: {
-        [WORKFLOW_EVENT.PICKUP]: WORKFLOW_STATE_KEYS.REVIEWING,
+        [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.REVIEWING },
         [WORKFLOW_EVENT.APPROVED]: { target: WORKFLOW_STATE_KEYS.TO_TEST, actions: [ACTION.MERGE_PR, ACTION.GIT_PULL] },
         [WORKFLOW_EVENT.SKIP]: { target: WORKFLOW_STATE_KEYS.TO_TEST, actions: [ACTION.MERGE_PR, ACTION.GIT_PULL] },
-        [WORKFLOW_EVENT.MERGE_FAILED]: WORKFLOW_STATE_KEYS.TO_IMPROVE,
-        [WORKFLOW_EVENT.CHANGES_REQUESTED]: WORKFLOW_STATE_KEYS.TO_IMPROVE,
-        [WORKFLOW_EVENT.MERGE_CONFLICT]: WORKFLOW_STATE_KEYS.TO_IMPROVE,
+        [WORKFLOW_EVENT.MERGE_FAILED]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
+        [WORKFLOW_EVENT.CHANGES_REQUESTED]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
+        [WORKFLOW_EVENT.MERGE_CONFLICT]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
         [WORKFLOW_EVENT.PR_CLOSED]: { target: WORKFLOW_STATE_KEYS.REJECTED, actions: [ACTION.CLOSE_ISSUE] },
       },
     },
@@ -71,8 +71,8 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       color: WORKFLOW_STATE_COLORS.REVIEWING,
       on: {
         [WORKFLOW_EVENT.APPROVE]: { target: WORKFLOW_STATE_KEYS.TO_TEST, actions: [ACTION.MERGE_PR, ACTION.GIT_PULL] },
-        [WORKFLOW_EVENT.REJECT]: WORKFLOW_STATE_KEYS.TO_IMPROVE,
-        [WORKFLOW_EVENT.BLOCKED]: WORKFLOW_STATE_KEYS.REFINING,
+        [WORKFLOW_EVENT.REJECT]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
+        [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },
     },
     // ── Test phase (skipped by default via testPolicy: skip) ────
@@ -83,7 +83,7 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       color: WORKFLOW_STATE_COLORS.TO_TEST,
       priority: 2,
       on: {
-        [WORKFLOW_EVENT.PICKUP]: WORKFLOW_STATE_KEYS.TESTING,
+        [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.TESTING },
         [WORKFLOW_EVENT.SKIP]: { target: WORKFLOW_STATE_KEYS.DONE, actions: [ACTION.CLOSE_ISSUE] },
       },
     },
@@ -95,8 +95,8 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       on: {
         [WORKFLOW_EVENT.PASS]: { target: WORKFLOW_STATE_KEYS.DONE, actions: [ACTION.CLOSE_ISSUE] },
         [WORKFLOW_EVENT.FAIL]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE, actions: [ACTION.REOPEN_ISSUE] },
-        [WORKFLOW_EVENT.REFINE]: WORKFLOW_STATE_KEYS.REFINING,
-        [WORKFLOW_EVENT.BLOCKED]: WORKFLOW_STATE_KEYS.REFINING,
+        [WORKFLOW_EVENT.REFINE]: { target: WORKFLOW_STATE_KEYS.REFINING },
+        [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },
     },
     [WORKFLOW_STATE_KEYS.DONE]: {
@@ -117,13 +117,13 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       label: WORKFLOW_STATE_LABELS.TO_IMPROVE,
       color: WORKFLOW_STATE_COLORS.TO_IMPROVE,
       priority: 3,
-      on: { [WORKFLOW_EVENT.PICKUP]: WORKFLOW_STATE_KEYS.DOING },
+      on: { [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.DOING } },
     },
     [WORKFLOW_STATE_KEYS.REFINING]: {
       type: STATE_TYPE.HOLD,
       label: WORKFLOW_STATE_LABELS.REFINING,
       color: WORKFLOW_STATE_COLORS.REFINING,
-      on: { [WORKFLOW_EVENT.APPROVE]: WORKFLOW_STATE_KEYS.TODO },
+      on: { [WORKFLOW_EVENT.APPROVE]: { target: WORKFLOW_STATE_KEYS.TODO } },
     },
 
     // ── Architect research pipeline ──────────────────────────────
@@ -133,7 +133,7 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       label: WORKFLOW_STATE_LABELS.TO_RESEARCH,
       color: WORKFLOW_STATE_COLORS.TO_RESEARCH,
       priority: 1,
-      on: { [WORKFLOW_EVENT.PICKUP]: WORKFLOW_STATE_KEYS.RESEARCHING },
+      on: { [WORKFLOW_EVENT.PICKUP]: { target: WORKFLOW_STATE_KEYS.RESEARCHING } },
     },
     [WORKFLOW_STATE_KEYS.RESEARCHING]: {
       type: STATE_TYPE.ACTIVE,
@@ -142,7 +142,7 @@ export const DEFAULT_WORKFLOW: WorkflowConfig = {
       color: WORKFLOW_STATE_COLORS.RESEARCHING,
       on: {
         [WORKFLOW_EVENT.COMPLETE]: { target: WORKFLOW_STATE_KEYS.DONE, actions: [ACTION.CLOSE_ISSUE] },
-        [WORKFLOW_EVENT.BLOCKED]: WORKFLOW_STATE_KEYS.REFINING,
+        [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },
     },
 

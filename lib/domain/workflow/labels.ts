@@ -1,13 +1,9 @@
 /**
  * workflow/labels.ts — Label formatting, detection, and routing helpers.
  */
-import type { Channel } from "../projects/types.js";
-import type { NotificationChannel } from "../shared/types.js";
 import {
   DEFAULT_ROLE_LABEL_COLOR,
   DEFAULT_ROLES,
-  NOTIFY_LABEL_PREFIX,
-  OWNER_LABEL_PREFIX,
   REVIEW_POLICY,
   ROLE_LABEL_COLORS,
   ROUTING_LABELS,
@@ -28,66 +24,10 @@ const STEP_ROUTING_LABELS: readonly string[] = Object.values(ROUTING_LABELS);
 // ---------------------------------------------------------------------------
 
 
-/** Build the notify label for a channel endpoint. */
-export function getNotifyLabel(channel: NotificationChannel, nameOrIndex: string): string {
-  return `${NOTIFY_LABEL_PREFIX}${channel}:${nameOrIndex}`;
-}
-
-/**
- * Resolve which channel should receive notifications for an issue.
- * Each issue has at most one notify label. Falls back to the first channel.
- */
-export function resolveNotifyChannel(
-  issueLabels: string[],
-  channels: readonly Channel[],
-): Channel | undefined {
-  const notifyLabel = issueLabels.find((l) => l.startsWith(NOTIFY_LABEL_PREFIX));
-
-  if (notifyLabel) {
-    const value = notifyLabel.slice(NOTIFY_LABEL_PREFIX.length);
-    const colonIdx = value.indexOf(":");
-
-    if (colonIdx !== -1) {
-      const channelType = value.slice(0, colonIdx);
-      const channelName = value.slice(colonIdx + 1);
-
-      return channels.find(
-        (ch) => ch.channel === channelType && (ch.name === channelName || String(channels.indexOf(ch)) === channelName),
-      ) ?? channels[0];
-    }
-
-    return channels[0];
-  }
-
-  return channels[0];
-}
-
 // ---------------------------------------------------------------------------
 // Owner labels — instance identity on issues
 // ---------------------------------------------------------------------------
 
-
-/** Build the owner label for a given instance name. */
-export function getOwnerLabel(instanceName: string): string {
-  return `${OWNER_LABEL_PREFIX}${instanceName}`;
-}
-
-/** Extract the instance name from an issue's labels, or null if unclaimed. */
-export function detectOwner(issueLabels: string[]): string | null {
-  const label = issueLabels.find((l) => l.startsWith(OWNER_LABEL_PREFIX));
-
-  return label ? label.slice(OWNER_LABEL_PREFIX.length) : null;
-}
-
-/** Check if an issue is owned by the given instance or unclaimed. */
-export function isOwnedByOrUnclaimed(
-  issueLabels: string[],
-  instanceName: string,
-): boolean {
-  const owner = detectOwner(issueLabels);
-
-  return owner === null || owner === instanceName;
-}
 
 // ---------------------------------------------------------------------------
 // Review routing
@@ -125,9 +65,7 @@ export function getRoleLabels(
 ): Array<{ name: string; color: string }> {
   const labels: Array<{ name: string; color: string }> = [];
 
-  for (const roleId of Object.values(DEFAULT_ROLES)) {
-    const role = roles[roleId];
-
+  for (const [roleId, role] of Object.entries(roles)) {
     if (!role) continue;
     if (role.enabled === false) continue;
     for (const level of role.levels) {
@@ -146,7 +84,7 @@ export function getRoleLabels(
 }
 
 /** Get the label color for a role. Falls back to gray for unknown roles. */
-export function getRoleLabelColor(role: RoleId): string {
+export function getRoleLabelColor(role: string): string {
   if (role === DEFAULT_ROLES.DEVELOPER) return ROLE_LABEL_COLORS.DEVELOPER;
   if (role === DEFAULT_ROLES.TESTER) return ROLE_LABEL_COLORS.TESTER;
   if (role === DEFAULT_ROLES.ARCHITECT) return ROLE_LABEL_COLORS.ARCHITECT;

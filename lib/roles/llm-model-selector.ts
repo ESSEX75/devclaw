@@ -4,7 +4,7 @@
  * Uses an LLM to understand model capabilities and assign optimal models to DevClaw roles.
  */
 import type { RunCommand } from "../context.js";
-import { ROLE_REGISTRY } from "./index.js";
+import { getAllRoleIds, ROLE_REGISTRY } from "./index.js";
 import type { ModelAssignment } from "./smart-model-selector.js";
 
 /**
@@ -13,7 +13,9 @@ import type { ModelAssignment } from "./smart-model-selector.js";
 function singleModelAssignment(model: string): ModelAssignment {
   const result: ModelAssignment = {};
 
-  for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
+  for (const roleId of getAllRoleIds()) {
+    const config = ROLE_REGISTRY[roleId];
+
     result[roleId] = {};
     for (const level of config.levels) {
       result[roleId][level] = model;
@@ -29,7 +31,9 @@ function singleModelAssignment(model: string): ModelAssignment {
 function buildJsonExample(): string {
   const obj: Record<string, Record<string, string>> = {};
 
-  for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
+  for (const roleId of getAllRoleIds()) {
+    const config = ROLE_REGISTRY[roleId];
+
     obj[roleId] = {};
     for (const level of config.levels) {
       obj[roleId][level] = "provider/model-name";
@@ -48,7 +52,8 @@ function validateAssignment(
 ): ModelAssignment | null {
   const result: ModelAssignment = {};
 
-  for (const [roleId, config] of Object.entries(ROLE_REGISTRY)) {
+  for (const roleId of getAllRoleIds()) {
+    const config = ROLE_REGISTRY[roleId];
     const roleData = assignment[roleId] as Record<string, string> | undefined;
 
     if (!roleData) {

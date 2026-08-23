@@ -1,7 +1,4 @@
-import type {
-  RoleId,
-  WorkflowConfig,
-} from "../../../domain/index.js";
+import type { WorkflowConfig } from "../../../domain/index.js";
 import type { Project } from "../../../domain/index.js";
 import {
   DEFAULT_WORKFLOW,
@@ -31,7 +28,7 @@ export async function scanOrphanedLabels(opts: {
   workspaceDir: string;
   projectSlug: string;
   project: Project;
-  role: RoleId;
+  role: string;
   autoFix: boolean;
   provider: IssueProvider;
   workflow?: WorkflowConfig;
@@ -79,6 +76,8 @@ export async function scanOrphanedLabels(opts: {
     let isTracked = false;
 
     for (const slots of Object.values(roleWorker.levels)) {
+      if (slots === undefined) continue;
+
       if (slots.some(slot => slot.active && slot.issueId === issueIdStr)) {
         isTracked = true;
         break;

@@ -5,9 +5,8 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
-import { getActiveLabel, type LevelId, type RoleId, type WorkflowLabel } from "../../domain/index.js";
-import { getCompletionResults, getLevelsForRole, isValidResult, isValidRole } from "../../roles/index.js";
-import { loadConfig } from "../../state/config/index.js";
+import { getActiveLabel } from "../../domain/index.js";
+import { isConfiguredRoleId, loadConfig } from "../../state/config/index.js";
 import { readIssueStateStore } from "../../state/issues/index.js";
 import { getRoleWorker, resolveRepoPath } from "../../state/projects/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
@@ -171,25 +170,29 @@ export async function finishWork(input: FinishWorkInput) {
     runtime,
   } = input;
 
-  if (!isValidRole(role)) {
+  const { project } = await resolveProject(workspaceDir, channelId);
+  const config = await loadConfig(workspaceDir, project.name);
+
+  if (!isConfiguredRoleId(config, role)) {
     throw new Error(`Unknown worker role "${role}".`);
   }
 
-  if (!isValidResult(role, result)) {
-    const valid = getCompletionResults(role);
+  const roleWorker = getRoleWorker(project, role);
+  const resolvedRole = config.roles[role];
+  const workflow = config.workflow;
+  const completionEvent = resolvedRole?.completion[result];
+
+  if (!completionEvent) {
+    const valid = Object.keys(resolvedRole?.completion ?? {});
 
     throw new Error(`${role.toUpperCase()} cannot complete with "${result}". Valid results: ${valid.join(", ")}`);
   }
 
-  const { project } = await resolveProject(workspaceDir, channelId);
-  const roleWorker = getRoleWorker(project, role);
-  const workflow = (await loadConfig(workspaceDir, project.name)).workflow;
-
   let slotIndex: number | null = null;
-  let slotLevel: LevelId | null = null;
+  let slotLevel: string | null = null;
   let issueId: number | null = null;
 
-  for (const level of getLevelsForRole(role)) {
+  for (const level of resolvedRole.levels) {
     const slots = roleWorker.levels[level] ?? [];
 
     for (let i = 0; i < slots.length; i++) {
@@ -220,9 +223,9 @@ export async function finishWork(input: FinishWorkInput) {
     throw new Error(`${role.toUpperCase()} worker not active on ${project.name}`);
   }
 
-  const { provider } = await resolveProvider(project, runCommand);
+  const { provider } = await resolveProvider(workspaceDir, project, runCommand);
 
-  if (!getRule(role, result, workflow)) {
+  if (!getRule(role, result, resolvedRole.completion, workflow)) {
     await auditLog(workspaceDir, "work_finish_rejected", {
       project: project.name,
       projectSlug: project.slug,
@@ -268,13 +271,13 @@ async function auditWorkFinishRejectedMissingActiveWorker(opts: {
   workspaceDir: string;
   projectName: string;
   projectSlug: string;
-  role: RoleId;
+  role: string;
   result: string;
   sessionKey?: string;
   roleWorker: ReturnType<typeof getRoleWorker>;
   workflow: Awaited<ReturnType<typeof loadConfig>>["workflow"];
 }): Promise<void> {
-  let activeWorkflowLabel: WorkflowLabel | null = null;
+  let activeWorkflowLabel: string | null = null;
   let candidateIssues: Array<{
     issueId: number;
     workflowState: string;

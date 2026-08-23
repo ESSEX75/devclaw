@@ -2,9 +2,12 @@
  * issues/types.ts — Runtime state for DevClaw-managed provider issues.
  */
 import type { SoftUnion } from "../../types.js";
-import type { IssueProviderType, NotificationChannel } from "../shared/types.js";
-import type { LevelId, ReviewPolicy, RoleId, TestPolicy, WorkflowLabel, WorkflowStateKey } from "../workflow/types.js";
-import { ISSUE_INTEGRITY_STATUS } from "./const.js";
+import type { NotifyTarget } from "../notifications/types.js";
+import type { ReviewPolicy, TestPolicy } from "../workflow/types.js";
+import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER } from "./const.js";
+
+/** Supported issue tracking provider identifier. */
+export type IssueProviderId = SoftUnion<typeof ISSUE_PROVIDER>;
 
 /** Status of the issue's local state relative to the provider. */
 export type IssueIntegrityStatus = SoftUnion<typeof ISSUE_INTEGRITY_STATUS>;
@@ -17,14 +20,6 @@ export type IssueProjectionState = {
   integrityErrors: string[];
   /** Version of the provider-side projection format. */
   projectionVersion: number;
-};
-
-/** Target endpoint details for issue notifications. */
-export type NotifyTarget = {
-  /** Notification channel type (e.g. telegram, slack). */
-  channel: NotificationChannel;
-  /** Channel target name/identifier. */
-  name: string;
 };
 
 /** Git branches and pull request metadata associated with the issue. */
@@ -40,9 +35,9 @@ export type BranchContract = {
 /** Details about the worker currently active on the issue. */
 export type ActiveIssueWorker = {
   /** The assigned worker role (e.g. developer, tester). */
-  role: RoleId;
+  role: string;
   /** The assigned worker tier/level (e.g. junior, senior). */
-  level: LevelId;
+  level: string;
   /** Index of the worker slot. */
   slotIndex: number;
   /** Unique session key of the active run. */
@@ -58,15 +53,15 @@ export type IssueRuntimeState = IssueProjectionState & {
   /** Unique numeric identifier for the issue on the provider. */
   issueId: number;
   /** Provider host name. */
-  provider: IssueProviderType;
+  provider: IssueProviderId;
   /** Current state key in the workflow statechart. */
-  workflowState: WorkflowStateKey;
+  workflowState: string;
   /** Current display state label matching the provider label. */
-  workflowLabel: WorkflowLabel;
+  workflowLabel: string;
   /** Role currently assigned to resolve the issue. */
-  assignedRole?: RoleId | null;
+  assignedRole?: string | null;
   /** Developer level currently assigned. */
-  assignedLevel?: LevelId | null;
+  assignedLevel?: string | null;
   /** User name of the currently assigned human owner. */
   owner?: string | null;
   /** Override review policy for this issue. */
@@ -94,7 +89,7 @@ export type ArchivedIssueSummary = {
   /** Issue identifier. */
   issueId: number;
   /** Final workflow state before archiving. */
-  finalWorkflowState: WorkflowStateKey;
+  finalWorkflowState: string;
   /** ISO timestamp of issue closure. */
   closedAt: string;
   /** ISO timestamp of archiving. */

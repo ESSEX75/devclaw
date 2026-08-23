@@ -9,7 +9,8 @@ import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import {
   ACTION,
-  type Channel,
+  COMPLETION_RESULT,
+  type CompletionEventMap,
   type CompletionRule,
   DEFAULT_WORKFLOW,
   findStateByLabel,
@@ -17,14 +18,11 @@ import {
   getCompletionEmoji,
   getCompletionRule,
   getNextStateDescription,
-  type LevelId,
   NOTIFICATION_CHANNEL,
+  type NotificationEndpoint,
   resolveNotifyChannel,
-  type RoleId,
   WORKFLOW_EVENT,
   type WorkflowConfig,
-  type WorkflowLabel,
-  type WorkflowStateKey,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
@@ -49,11 +47,16 @@ export type CompletionOutput = {
  * Uses workflow config when available.
  */
 export function getRule(
-  role: RoleId,
+  role: string,
   result: string,
+  completion: CompletionEventMap,
   workflow: WorkflowConfig = DEFAULT_WORKFLOW,
-): CompletionRule | undefined {
-  return getCompletionRule(workflow, role, result) ?? undefined;
+): CompletionRule<string> | undefined {
+  const event = completion[result];
+
+  return event
+    ? getCompletionRule(workflow, role, event) ?? undefined
+    : undefined;
 }
 
 /**
@@ -62,7 +65,7 @@ export function getRule(
 export async function executeCompletion(opts: {
   workspaceDir: string;
   projectSlug: string;
-  role: RoleId;
+  role: string;
   result: string;
   issueId: number;
   summary?: string;
@@ -70,7 +73,7 @@ export async function executeCompletion(opts: {
   provider: IssueProvider;
   repoPath: string;
   projectName: string;
-  channels: Channel[];
+  channels: NotificationEndpoint[];
   pluginConfig?: Record<string, unknown>;
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
   runtime?: PluginRuntime;
@@ -79,7 +82,7 @@ export async function executeCompletion(opts: {
   /** Tasks created during this work session (e.g. architect implementation tasks) */
   createdTasks?: Array<{ id: number; title: string; url: string }>;
   /** Level of the completing worker */
-  level?: LevelId;
+  level?: string;
   /** Slot index within the level's array */
   slotIndex?: number;
   runCommand: RunCommand;
@@ -93,11 +96,18 @@ export async function executeCompletion(opts: {
   } = opts;
 
   const key = `${role}:${result}`;
-  const rule = getCompletionRule(workflow, role, result);
+  const config = await loadConfig(workspaceDir, projectName);
+  const completionEvent = config.roles[role]?.completion[result];
+
+  if (!completionEvent) {
+    throw new Error(`No completion event configured for ${key}`);
+  }
+
+  const rule = getCompletionRule(workflow, role, completionEvent);
 
   if (!rule) throw new Error(`No completion rule for ${key}`);
 
-  const { timeouts } = await loadConfig(workspaceDir, projectName);
+  const { timeouts } = config;
   const project = await loadProjectBySlug(workspaceDir, projectSlug);
 
   if (!project) {
@@ -221,7 +231,7 @@ export async function executeCompletion(opts: {
   }
 
   // Get next state description from workflow
-  const nextState = getNextStateDescription(workflow, role, result);
+  const nextState = getNextStateDescription(workflow, role, completionEvent);
 
   // Retrieve worker name from project state (best-effort)
   let workerName: string | undefined;
@@ -251,7 +261,7 @@ export async function executeCompletion(opts: {
       role,
       level: opts.level,
       name: workerName,
-      result: result as "done" | "pass" | "fail" | "refine" | "blocked",
+      result,
       summary,
       nextState,
       prUrl,
@@ -335,7 +345,7 @@ export async function executeCompletion(opts: {
   await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });
 
   // Send review routing notification when developer completes
-  if (role === "developer" && result === "done") {
+  if (role === "developer" && result === COMPLETION_RESULT.DONE) {
     // Re-fetch issue to get labels after transition
     const updated = await provider.getIssue(issueId);
     const routing = runtimeState.reviewPolicy === "human" || runtimeState.reviewPolicy === "agent"
@@ -398,13 +408,13 @@ export async function executeCompletion(opts: {
 
 function getMergeFailedTransition(
   workflow: WorkflowConfig,
-  fromLabel: WorkflowLabel,
-): { key: WorkflowStateKey; label: WorkflowLabel } | null {
+  fromLabel: string,
+): { key: string; label: string } | null {
   const fromState = findStateByLabel(workflow, fromLabel);
   const mergeFailed = fromState?.on?.[WORKFLOW_EVENT.MERGE_FAILED];
 
   if (mergeFailed) {
-    const key = typeof mergeFailed === "string" ? mergeFailed : mergeFailed.target;
+    const key = mergeFailed.target;
     const state = workflow.states[key];
 
     return state ? { key, label: state.label } : null;

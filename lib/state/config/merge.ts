@@ -7,7 +7,7 @@
  * - `false` for a role: marks it as disabled
  * - Primitives: override
  */
-import type { DevClawConfig, RoleOverride } from "./types.js";
+import type { DevClawConfig, RoleOverride, StateOverride } from "./types.js";
 
 /**
  * Merge a config overlay on top of a base config.
@@ -51,10 +51,10 @@ export function mergeConfig(
       testPolicy: overlay.workflow?.testPolicy ?? base.workflow?.testPolicy,
       roleExecution: overlay.workflow?.roleExecution ?? base.workflow?.roleExecution,
       maxWorkersPerLevel: overlay.workflow?.maxWorkersPerLevel ?? base.workflow?.maxWorkersPerLevel,
-      states: {
-        ...base.workflow?.states,
-        ...overlay.workflow?.states,
-      },
+      states: mergeWorkflowStates(
+        base.workflow?.states,
+        overlay.workflow?.states,
+      ),
     };
     // Clean up undefined initial
     if (merged.workflow.initial === undefined) {
@@ -70,23 +70,59 @@ export function mergeConfig(
   return merged;
 }
 
+function mergeWorkflowStates(
+  base: Readonly<Record<string, StateOverride>> | undefined,
+  overlay: Readonly<Record<string, StateOverride>> | undefined,
+): Record<string, StateOverride> | undefined {
+  if (!base && !overlay) return undefined;
+
+  const states: Record<string, StateOverride> = { ...base };
+
+  for (const [stateKey, override] of Object.entries(overlay ?? {})) {
+    const baseState = states[stateKey];
+    const transitions = baseState?.on || override.on
+      ? { ...baseState?.on, ...override.on }
+      : undefined;
+
+    states[stateKey] = {
+      ...baseState,
+      ...override,
+      ...(transitions ? { on: transitions } : {}),
+    };
+  }
+
+  return states;
+}
+
 function mergeRoleOverride(
   base: RoleOverride,
   overlay: RoleOverride,
 ): RoleOverride {
+  const levels = overlay.levels ?? base.levels;
+  const allowedLevels = levels ? new Set(levels) : undefined;
+  const baseModels = allowedLevels
+    ? Object.fromEntries(Object.entries(base.models ?? {}).filter(([level]) => allowedLevels.has(level)))
+    : base.models;
+  const baseEmoji = allowedLevels
+    ? Object.fromEntries(Object.entries(base.emoji ?? {}).filter(([level]) => allowedLevels.has(level)))
+    : base.emoji;
+
   return {
     ...base,
     ...overlay,
     // Models: merge (don't replace)
-    models: base.models || overlay.models
-      ? { ...base.models, ...overlay.models }
+    models: baseModels || overlay.models
+      ? { ...baseModels, ...overlay.models }
       : undefined,
     // Emoji: merge (don't replace)
-    emoji: base.emoji || overlay.emoji
-      ? { ...base.emoji, ...overlay.emoji }
+    emoji: baseEmoji || overlay.emoji
+      ? { ...baseEmoji, ...overlay.emoji }
+      : undefined,
+    // Completion mappings merge by result identifier
+    completion: base.completion || overlay.completion
+      ? { ...base.completion, ...overlay.completion }
       : undefined,
     // Arrays replace entirely
     ...(overlay.levels ? { levels: overlay.levels } : {}),
-    ...(overlay.completionResults ? { completionResults: overlay.completionResults } : {}),
   };
 }

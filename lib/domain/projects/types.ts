@@ -1,8 +1,8 @@
 /**
  * projects/types.ts — Domain types for projects, worker slots, and notification channels.
  */
-import type { IssueProviderType, NotificationChannel } from "../shared/types.js";
-import type { LevelId, RoleId, WorkflowLabel } from "../workflow/types.js";
+import type { IssueProviderId } from "../issues/types.js";
+import type { NotificationEndpoint } from "../notifications/types.js";
 
 /** Slot state. Level is structural (implied by position in the levels map). */
 export type SlotState = {
@@ -15,7 +15,7 @@ export type SlotState = {
   /** ISO timestamp when work started in this slot. */
   startTime: string | null;
   /** Previous workflow label before assignment. */
-  previousLabel?: WorkflowLabel | null;
+  previousLabel?: string | null;
   /** Deterministic fun name for this slot (e.g. "Ada", "Grace"). */
   name?: string;
   /** Last issue this slot worked on (preserved on deactivation for feedback cycle detection). */
@@ -25,21 +25,15 @@ export type SlotState = {
 /** Per-level worker state: levels map instead of flat slots array. */
 export type RoleWorkerState = {
   /** Map of level IDs to arrays of slot states. */
-  levels: Partial<Record<LevelId, SlotState[]>>;
+  levels: Partial<Record<string, SlotState[]>>;
 };
 
-/** Channel registration: maps a channelId to messaging endpoint with event filters. */
-export type Channel = {
-  /** Unique channel identifier. */
-  channelId: string;
-  /** Messaging platform type (e.g. telegram, slack). */
-  channel: NotificationChannel;
-  /** Channel display name (e.g. "primary", "dev-chat"). */
-  name: string;
-  /** Optional account ID for multi-account setups. */
-  accountId?: string;
-  /** Optional thread or topic ID for forum-style channels. */
-  threadId?: string;
+/** Location of a worker slot within a role's level map. */
+export type SlotLocation = {
+  /** Level containing the slot. */
+  level: string;
+  /** Zero-based slot index within the level. */
+  slotIndex: number;
 };
 
 /** Project configuration schema. */
@@ -61,11 +55,11 @@ export type Project = {
   /** Target branch for deployment releases. */
   deployBranch: string;
   /** Channels registered for this project (notification endpoints). */
-  channels: Channel[];
+  channels: NotificationEndpoint[];
   /** Issue tracker provider type (github or gitlab). Auto-detected at registration, stored for reuse. */
-  provider?: IssueProviderType;
+  provider?: IssueProviderId;
   /** Worker state per role (developer, tester, architect, etc.). Shared across all channels. */
-  workers: Partial<Record<RoleId, RoleWorkerState>>;
+  workers: Record<string, RoleWorkerState>;
 };
 
 /** Data structure for the projects registry store. */

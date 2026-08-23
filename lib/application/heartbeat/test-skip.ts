@@ -12,7 +12,6 @@ import type { Project } from "../../domain/index.js";
 import {
   ACTION,
   STATE_TYPE,
-  type StateConfig,
   WORKFLOW_EVENT,
   type WorkflowConfig,
 } from "../../domain/index.js";
@@ -36,15 +35,15 @@ export async function testSkipPass(opts: {
 
   // Find test queue states (role=tester, type=queue) that have a SKIP event
   const testQueueStates = Object.entries(workflow.states)
-    .filter(([, s]) => s.role === "tester" && s.type === STATE_TYPE.QUEUE) as [string, StateConfig][];
+    .filter(([, state]) => state.role === "tester" && state.type === STATE_TYPE.QUEUE);
 
   for (const [, state] of testQueueStates) {
     const skipTransition = state.on?.[WORKFLOW_EVENT.SKIP];
 
     if (!skipTransition) continue;
 
-    const targetKey = typeof skipTransition === "string" ? skipTransition : skipTransition.target;
-    const actions = typeof skipTransition === "object" ? skipTransition.actions : undefined;
+    const targetKey = skipTransition.target;
+    const actions = skipTransition.actions;
     const targetState = workflow.states[targetKey];
 
     if (!targetState) continue;

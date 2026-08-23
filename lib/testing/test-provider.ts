@@ -10,6 +10,7 @@ import type {
   Issue,
   IssueComment,
   IssueProvider,
+  PrReviewComment,
   PrStatus,
   StateLabel,
 } from "../integrations/providers/provider.js";
@@ -287,7 +288,7 @@ export class TestProvider implements IssueProvider {
     return this.prDiffs.get(issueId) ?? null;
   }
 
-  async getPrReviewComments(_issueId: number): Promise<import("../integrations/providers/provider.js").PrReviewComment[]> {
+  async getPrReviewComments(_issueId: number): Promise<PrReviewComment[]> {
     return [];
   }
 

@@ -48,7 +48,7 @@ export function createProjectStatusTool(ctx: PluginContext) {
 
       // Workers summary - per-level slot utilization
       const workers: Record<string, {
-        levelMaxWorkers: Record<string, number>;
+        levelMaxWorkers: Partial<Record<string, number>>;
         activeSlots: number;
         levels: Record<string, Array<{ active: boolean; issueId: string | null; startTime: string | null }>>;
       }> = {};
@@ -59,6 +59,8 @@ export function createProjectStatusTool(ctx: PluginContext) {
         const levels: Record<string, Array<{ active: boolean; issueId: string | null; startTime: string | null }>> = {};
 
         for (const [level, slots] of Object.entries(rw.levels)) {
+          if (slots === undefined) continue;
+
           levels[level] = slots.map(slot => ({
             active: slot.active,
             issueId: slot.issueId,

@@ -5,10 +5,11 @@
  * Three-layer resolution: built-in → workspace → per-project.
  */
 import type {
-  LevelId,
-  StateConfig,
+  CompletionEventMap,
+  ReviewCheckType,
+  TransitionTarget,
   WorkflowConfig,
-  WorkflowStateKey,
+  WorkflowEvent,
 } from "../../domain/index.js";
 
 /**
@@ -19,15 +20,27 @@ import type {
 export type ModelEntry = string | { model: string; maxWorkers?: number };
 
 export type RoleOverride = {
-  levels?: LevelId[];
-  defaultLevel?: LevelId;
-  models?: Partial<Record<LevelId, ModelEntry>>;
-  emoji?: Partial<Record<LevelId, string>>;
-  completionResults?: string[];
+  enabled?: boolean;
+  levels?: string[];
+  defaultLevel?: string;
+  models?: Record<string, ModelEntry>;
+  emoji?: Record<string, string>;
+  completion?: CompletionEventMap;
+};
+
+export type StateOverride = {
+  type?: WorkflowConfig["states"][string]["type"];
+  role?: string;
+  label?: string;
+  color?: string;
+  description?: string;
+  check?: ReviewCheckType;
+  priority?: number;
+  on?: Partial<Record<WorkflowEvent, TransitionTarget<string>>>;
 };
 
 type WorkflowOverride = Omit<Partial<WorkflowConfig>, "states"> & {
-  states?: Partial<Record<WorkflowStateKey, StateConfig>>;
+  states?: Record<string, StateOverride>;
 };
 
 /**
@@ -100,12 +113,12 @@ export type ResolvedConfig = {
  */
 export type ResolvedRoleConfig = {
   /** Per-level max workers. Resolved from: per-model maxWorkers → workflow maxWorkersPerLevel → default 2. */
-  levelMaxWorkers: Partial<Record<LevelId, number>>;
-  levels: LevelId[];
-  defaultLevel: LevelId;
+  levelMaxWorkers: Partial<Record<string, number>>;
+  levels: string[];
+  defaultLevel: string;
   /** Flattened model map (string IDs only, for existing consumers). */
-  models: Partial<Record<LevelId, string>>;
-  emoji: Partial<Record<LevelId, string>>;
-  completionResults: string[];
+  models: Partial<Record<string, string>>;
+  emoji: Partial<Record<string, string>>;
+  completion: CompletionEventMap;
   enabled: boolean;
 };

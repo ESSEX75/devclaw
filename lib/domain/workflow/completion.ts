@@ -1,37 +1,25 @@
 /**
  * workflow/completion.ts — Completion rules derived from workflow transitions.
  */
-import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI, STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
-import { isWorkflowEvent } from "./guards.js";
+import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI, STATE_TYPE } from "./const.js";
+import { isCompletionResult } from "./guards.js";
 import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";
-import { type CompletionRule, type RoleId, type WorkflowConfig, type WorkflowEvent, type WorkflowLabel } from "./types.js";
-
-/**
- * Map completion result to workflow transition event name.
- * Convention: "done" → COMPLETE, others → uppercase.
- */
-function resultToEvent(result: string): WorkflowEvent | null {
-  if (result === "done") return WORKFLOW_EVENT.COMPLETE;
-
-  const event = result.toUpperCase();
-
-  return isWorkflowEvent(event) ? event : null;
-}
+import { type CompletionRule, type WorkflowDefinition, type WorkflowEvent } from "./types.js";
 
 /**
  * Get completion rule for a role:result pair.
  * Derives entirely from workflow transitions — no hardcoded role:result mapping.
  */
-export function getCompletionRule(
-  workflow: WorkflowConfig,
-  role: RoleId,
-  result: string,
-): CompletionRule | null {
-  const event = resultToEvent(result);
-
-  if (!event) return null;
-
-  let activeLabel: WorkflowLabel;
+export function getCompletionRule<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
+  event: WorkflowEvent,
+): CompletionRule<TLabel> | null {
+  let activeLabel: TLabel;
 
   try {
     activeLabel = getActiveLabel(workflow, role);
@@ -49,28 +37,30 @@ export function getCompletionRule(
 
   if (!transition) return null;
 
-  const targetKey = typeof transition === "string" ? transition : transition.target;
-  const actions = typeof transition === "object" ? transition.actions : undefined;
-  const targetState = workflow.states[targetKey];
+  const targetState = workflow.states[transition.target];
 
   if (!targetState) return null;
 
   return {
     from: activeLabel,
     to: targetState.label,
-    actions: actions ?? [],
+    actions: transition.actions ?? [],
   };
 }
 
 /**
  * Get human-readable next state description.
  */
-export function getNextStateDescription(
-  workflow: WorkflowConfig,
-  role: RoleId,
-  result: string,
+export function getNextStateDescription<
+  TRoleId extends string,
+  TStateKey extends string,
+  TLabel extends string,
+>(
+  workflow: WorkflowDefinition<TRoleId, TStateKey, TLabel>,
+  role: TRoleId,
+  event: WorkflowEvent,
 ): string {
-  const rule = getCompletionRule(workflow, role, result);
+  const rule = getCompletionRule(workflow, role, event);
 
   if (!rule) return "";
 
@@ -89,22 +79,7 @@ export function getNextStateDescription(
 
 /** Get emoji for a completion result. */
 export function getCompletionEmoji(result: string): string {
-  switch (result) {
-    case "done":
-      return RESULT_EMOJI.DONE;
-    case "pass":
-      return RESULT_EMOJI.PASS;
-    case "fail":
-      return RESULT_EMOJI.FAIL;
-    case "refine":
-      return RESULT_EMOJI.REFINE;
-    case "blocked":
-      return RESULT_EMOJI.BLOCKED;
-    case "approve":
-      return RESULT_EMOJI.APPROVE;
-    case "reject":
-      return RESULT_EMOJI.REJECT;
-    default:
-      return DEFAULT_RESULT_EMOJI;
-  }
+  return isCompletionResult(result)
+    ? RESULT_EMOJI[result]
+    : DEFAULT_RESULT_EMOJI;
 }

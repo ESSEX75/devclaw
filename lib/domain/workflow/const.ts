@@ -210,6 +210,24 @@ export const WORKFLOW_EVENT = {
   PR_CLOSED: "PR_CLOSED",
 } as const;
 
+/** Built-in worker completion result identifiers. */
+export const COMPLETION_RESULT = {
+  /** Work completed successfully. */
+  DONE: "done",
+  /** Verification passed. */
+  PASS: "pass",
+  /** Verification failed. */
+  FAIL: "fail",
+  /** Work requires refinement. */
+  REFINE: "refine",
+  /** Work cannot continue. */
+  BLOCKED: "blocked",
+  /** Review approved the work. */
+  APPROVE: "approve",
+  /** Review rejected the work. */
+  REJECT: "reject",
+} as const;
+
 /** Built-in workflow state behavior types. */
 export const STATE_TYPE = {
   /** Queue state waiting for worker pickup. */
@@ -220,16 +238,6 @@ export const STATE_TYPE = {
   HOLD: "hold",
   /** Terminal state concluding the workflow (e.g. done, rejected). */
   TERMINAL: "terminal",
-} as const;
-
-/** Step routing label values — per-issue overrides for workflow steps. */
-export const STEP_ROUTING = {
-  /** Route step to human worker. */
-  HUMAN: "human",
-  /** Route step to AI agent worker. */
-  AGENT: "agent",
-  /** Skip this workflow step. */
-  SKIP: "skip",
 } as const;
 
 /** Default colors per role for role:level labels. */
@@ -247,30 +255,18 @@ export const ROLE_LABEL_COLORS = {
 /** Color used for workflow step routing labels. */
 export const STEP_ROUTING_COLOR = "#d93f0b";
 
-/** Prefix used for notification routing labels. */
-export const NOTIFY_LABEL_PREFIX = "notify:";
-
-/** Color used for notification routing labels. */
-export const NOTIFY_LABEL_COLOR = "#e4e4e4";
-
-/** Prefix used for instance ownership labels. */
-export const OWNER_LABEL_PREFIX = "owner:";
-
-/** Color used for instance ownership labels. */
-export const OWNER_LABEL_COLOR = "#e4e4e4";
-
 /** Default fallback color for unknown roles. */
 export const DEFAULT_ROLE_LABEL_COLOR = "#cccccc";
 
 /** Emoji displayed for known worker completion results. */
 export const RESULT_EMOJI = {
-  DONE: "✅",
-  PASS: "🎉",
-  FAIL: "❌",
-  REFINE: "🤔",
-  BLOCKED: "🚫",
-  APPROVE: "✅",
-  REJECT: "❌",
+  [COMPLETION_RESULT.DONE]: "✅",
+  [COMPLETION_RESULT.PASS]: "🎉",
+  [COMPLETION_RESULT.FAIL]: "❌",
+  [COMPLETION_RESULT.REFINE]: "🤔",
+  [COMPLETION_RESULT.BLOCKED]: "🚫",
+  [COMPLETION_RESULT.APPROVE]: "✅",
+  [COMPLETION_RESULT.REJECT]: "❌",
 } as const;
 
 /** Fallback emoji displayed for an unknown completion result. */

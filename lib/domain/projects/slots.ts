@@ -1,9 +1,7 @@
 /**
  * projects/slots.ts — Pure slot helpers (no I/O).
  */
-import { isLevelId } from "../workflow/guards.js";
-import type { LevelId } from "../workflow/types.js";
-import type { RoleWorkerState, SlotState } from "./types.js";
+import type { RoleWorkerState, SlotLocation, SlotState } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Slot helpers
@@ -21,12 +19,12 @@ export function emptySlot(): SlotState {
 
 /** Create a blank RoleWorkerState with the given per-level capacities. */
 export function emptyRoleWorkerState(
-  levelMaxWorkers: Partial<Record<LevelId, number>>,
+  levelMaxWorkers: Partial<Record<string, number>>,
 ): RoleWorkerState {
-  const levels: Partial<Record<LevelId, SlotState[]>> = {};
+  const levels: Partial<Record<string, SlotState[]>> = {};
 
   for (const [level, max] of Object.entries(levelMaxWorkers)) {
-    if (!isLevelId(level)) continue;
+    if (max === undefined) continue;
 
     levels[level] = [];
     for (let i = 0; i < max; i++) {
@@ -38,7 +36,7 @@ export function emptyRoleWorkerState(
 }
 
 /** Return the lowest-index inactive slot within a specific level, or null if full. */
-export function findFreeSlot(roleWorker: RoleWorkerState, level: LevelId): number | null {
+export function findFreeSlot(roleWorker: RoleWorkerState, level: string): number | null {
   const slots = roleWorker.levels[level];
 
   if (!slots) return null;
@@ -57,12 +55,12 @@ export function findFreeSlot(roleWorker: RoleWorkerState, level: LevelId): numbe
  */
 export function reconcileSlots(
   roleWorker: RoleWorkerState,
-  levelMaxWorkers: Partial<Record<LevelId, number>>,
+  levelMaxWorkers: Partial<Record<string, number>>,
 ): boolean {
   let changed = false;
 
   for (const [level, max] of Object.entries(levelMaxWorkers)) {
-    if (!isLevelId(level)) continue;
+    if (max === undefined) continue;
 
     if (!roleWorker.levels[level]) {
       roleWorker.levels[level] = [];
@@ -87,12 +85,10 @@ export function reconcileSlots(
   return changed;
 }
 
-export type SlotLocation = { level: LevelId; slotIndex: number };
-
 /** Find the level and slot index for a given issueId, or null if not found. */
 export function findSlotByIssue(roleWorker: RoleWorkerState, issueId: string): SlotLocation | null {
   for (const [level, slots] of Object.entries(roleWorker.levels)) {
-    if (!isLevelId(level)) continue;
+    if (slots === undefined) continue;
 
     for (let i = 0; i < slots.length; i++) {
       if (slots[i]!.issueId === issueId) return { level, slotIndex: i };
@@ -107,6 +103,8 @@ export function countActiveSlots(roleWorker: RoleWorkerState): number {
   let count = 0;
 
   for (const slots of Object.values(roleWorker.levels)) {
+    if (slots === undefined) continue;
+
     for (const slot of slots) {
       if (slot.active) count++;
     }

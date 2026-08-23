@@ -7,10 +7,8 @@ import {
   getCurrentStateLabel,
   type IssueRuntimeState,
   type Project,
-  type StateConfig,
   type WorkflowConfig,
-  type WorkflowLabel,
-  type WorkflowStateKey,
+  type WorkflowStateConfig,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { readIssueStateStore } from "./store.js";
@@ -19,17 +17,17 @@ export type IssueRuntimeResolution =
   | {
     kind: "managed";
     state: IssueRuntimeState;
-    workflowLabel: WorkflowLabel;
-    workflowState: WorkflowStateKey;
-    stateConfig: StateConfig | null;
+    workflowLabel: string;
+    workflowState: string;
+    stateConfig: WorkflowStateConfig | null;
     providerIssue: Issue;
   }
   | {
     kind: "uninitialized";
     state: null;
-    workflowLabel: WorkflowLabel | null;
-    workflowState: WorkflowStateKey | null;
-    stateConfig: StateConfig | null;
+    workflowLabel: string | null;
+    workflowState: string | null;
+    stateConfig: WorkflowStateConfig | null;
     providerIssue: Issue;
   };
 

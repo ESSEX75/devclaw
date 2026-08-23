@@ -9,7 +9,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { findStateByLabel, getRoleLabelColor, isLevelId, STATE_TYPE } from "../../domain/index.js";
+import { findStateByLabel, getRoleLabelColor, STATE_TYPE } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { applyNotifyLabel, autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
@@ -69,7 +69,7 @@ Examples:
       }
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
+      const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
 
       const issue = await provider.getIssue(issueId);
@@ -92,8 +92,11 @@ Examples:
       // Level is applied as a role:level label. Since HOLD states have no role, we look at the
       // APPROVE transition target to determine which role will handle this issue.
       const approveTarget = currentStateConfig.on?.["APPROVE"];
-      const targetKey = typeof approveTarget === "string" ? approveTarget : approveTarget?.target;
-      const targetState = targetKey ? resolvedConfig.workflow.states[targetKey] : undefined;
+      const targetKey = approveTarget?.target;
+      const targetState = targetKey
+        ? Object.entries(resolvedConfig.workflow.states)
+          .find(([stateKey]) => stateKey === targetKey)?.[1]
+        : undefined;
       const role = targetState?.role;
 
       if (!role) {
@@ -102,7 +105,7 @@ Examples:
 
       const roleConfig = resolvedConfig.roles[role];
 
-      if (!isLevelId(newLevel) || !roleConfig || !roleConfig.levels.includes(newLevel)) {
+      if (!roleConfig || !roleConfig.levels.includes(newLevel)) {
         throw new Error(`Invalid level "${newLevel}" for role "${role}". Valid: ${roleConfig?.levels.join(", ") ?? "none"}`);
       }
 

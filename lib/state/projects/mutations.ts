@@ -2,13 +2,10 @@
  * projects/mutations.ts — State mutations for project worker slots.
  */
 import type {
-  LevelId,
   Project,
   ProjectsData,
-  RoleId,
   RoleWorkerState,
   SlotState,
-  WorkflowLabel,
 } from "../../domain/index.js";
 import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
 import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjects } from "./store.js";
@@ -19,7 +16,7 @@ import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjec
  */
 export function getRoleWorker(
   project: Project,
-  role: RoleId,
+  role: string,
 ): RoleWorkerState {
   return project.workers[role] ?? { levels: {} };
 }
@@ -31,8 +28,8 @@ export function getRoleWorker(
 export async function updateSlot(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: RoleId,
-  level: LevelId,
+  role: string,
+  level: string,
   slotIndex: number,
   updater: (slot: SlotState) => SlotState,
 ): Promise<ProjectsData> {
@@ -75,14 +72,14 @@ export async function updateSlot(
 export async function activateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: RoleId,
+  role: string,
   params: {
     issueId: string;
-    level: LevelId;
+    level: string;
     sessionKey?: string;
     startTime?: string;
     /** Label the issue had before transitioning to the active state (e.g. "To Do", "To Improve"). */
-    previousLabel?: WorkflowLabel;
+    previousLabel?: string;
     /** Slot index within the level's array. If omitted, finds first free slot. */
     slotIndex?: number;
     /** Deterministic fun name for this slot. */
@@ -139,8 +136,8 @@ export async function activateWorker(
 export async function deactivateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
-  role: RoleId,
-  opts?: { level?: LevelId; slotIndex?: number; issueId?: string },
+  role: string,
+  opts?: { level?: string; slotIndex?: number; issueId?: string },
 ): Promise<ProjectsData> {
   await acquireLock(workspaceDir);
   try {
@@ -154,7 +151,7 @@ export async function deactivateWorker(
     const project = data.projects[slug]!;
     const rw = project.workers[role] ?? { levels: {} };
 
-    let level: LevelId | undefined;
+    let level: string | undefined;
     let idx: number | undefined;
 
     if (opts?.level !== undefined && opts?.slotIndex !== undefined) {

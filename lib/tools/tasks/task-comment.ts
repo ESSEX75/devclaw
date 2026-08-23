@@ -10,11 +10,9 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { getAllRoleIds, getFallbackEmoji } from "../../roles/index.js";
+import { getFallbackEmoji } from "../../roles/index.js";
+import { isConfiguredRoleId, loadConfig } from "../../state/config/index.js";
 import { applyNotifyLabel,autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
-
-/** Valid author roles for attribution — all registry roles + orchestrator */
-const AUTHOR_ROLES = [...getAllRoleIds(), "orchestrator"];
 
 type AuthorRole = string;
 
@@ -54,8 +52,7 @@ Examples:
         },
         authorRole: {
           type: "string",
-          enum: AUTHOR_ROLES,
-          description: `Optional role attribution for the comment. One of: ${AUTHOR_ROLES.join(", ")}`,
+          description: "Optional configured role attribution, or orchestrator.",
         },
       },
     },
@@ -72,7 +69,13 @@ Examples:
       }
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider, type: providerType } = await resolveProvider(project, ctx.runCommand);
+      const config = await loadConfig(workspaceDir, project.name);
+
+      if (authorRole && authorRole !== "orchestrator" && !isConfiguredRoleId(config, authorRole)) {
+        throw new Error(`Unknown comment author role "${authorRole}".`);
+      }
+
+      const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
 
       const issue = await provider.getIssue(issueId);
 

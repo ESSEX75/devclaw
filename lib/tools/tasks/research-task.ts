@@ -103,7 +103,7 @@ Example:
       if (!description) throw new Error("description is required — provide detailed background context for the architect");
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider } = await resolveProvider(project, ctx.runCommand);
+      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const pluginConfig = ctx.pluginConfig;
       const role = "architect";
 
@@ -157,7 +157,7 @@ Example:
         // Architect is busy — issue created in queue, heartbeat will pick it up when free
         // Find any active slot's issueId for the message
         const activeIssueId = Object.values(roleWorker.levels)
-          .flat()
+          .flatMap((slots) => slots ?? [])
           .find((s) => s.active)?.issueId;
 
         return jsonResult({

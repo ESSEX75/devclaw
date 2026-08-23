@@ -1,7 +1,6 @@
 /**
  * message-builder.ts — Task message construction for worker sessions.
  */
-import type { LevelId } from "../../domain/index.js";
 import { getFallbackEmoji } from "../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../state/config/index.js";
 import { formatPrContext, formatPrFeedback, type PrContext, type PrFeedback } from "../review/pr-context.js";
@@ -35,8 +34,8 @@ export function buildTaskMessage(opts: {
     issueDescription, issueUrl, repo, baseBranch,
   } = opts;
 
-  const results = opts.resolvedRole?.completionResults ?? [];
-  const availableResults = results.map((r: string) => `"${r}"`).join(", ");
+  const results = Object.keys(opts.resolvedRole?.completion ?? {});
+  const availableResults = results.map((result) => `"${result}"`).join(", ");
 
   const isFeedbackCycle = !!opts.prFeedback;
 
@@ -135,8 +134,8 @@ export function buildConflictFixMessage(opts: {
     issueUrl, repo, baseBranch, prFeedback,
   } = opts;
 
-  const results = opts.resolvedRole?.completionResults ?? [];
-  const availableResults = results.map((r: string) => `"${r}"`).join(", ");
+  const results = Object.keys(opts.resolvedRole?.completion ?? {});
+  const availableResults = results.map((result) => `"${result}"`).join(", ");
 
   const parts = [
     `${role.toUpperCase()} task for project "${projectName}" — Issue #${issueId}`,
@@ -173,7 +172,7 @@ export function buildConflictFixMessage(opts: {
 }
 
 export function buildAnnouncement(
-  level: LevelId, role: string, sessionAction: "spawn" | "send",
+  level: string, role: string, sessionAction: "spawn" | "send",
   issueId: number, issueTitle: string, issueUrl: string,
   resolvedRole?: ResolvedRoleConfig, botName?: string,
 ): string {

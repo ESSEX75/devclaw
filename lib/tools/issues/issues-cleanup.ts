@@ -4,7 +4,8 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
-import { ISSUE_INTEGRITY_STATUS, WORKFLOW_STATE_KEYS } from "../../domain/index.js";
+import { ISSUE_INTEGRITY_STATUS, STATE_TYPE } from "../../domain/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { updateIssueStateStore } from "../../state/issues/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
@@ -13,8 +14,6 @@ export type IssuesCleanupResult = {
   archived: number[];
   skipped: Array<{ issueId: number; reason: string }>;
 };
-
-const ARCHIVABLE_TERMINAL_STATES: Set<string> = new Set([WORKFLOW_STATE_KEYS.DONE, WORKFLOW_STATE_KEYS.REJECTED]);
 
 function parseRetention(value: string): number {
   const match = /^(\d+)([dh])$/.exec(value);
@@ -35,6 +34,12 @@ export async function cleanupIssueState(opts: {
   const cutoff = Date.now() - retentionMs;
   const archived: number[] = [];
   const skipped: Array<{ issueId: number; reason: string }> = [];
+  const config = await loadConfig(opts.workspaceDir, opts.projectSlug);
+  const terminalStates = new Set(
+    Object.entries(config.workflow.states)
+      .filter(([, state]) => state.type === STATE_TYPE.TERMINAL)
+      .map(([stateKey]) => stateKey),
+  );
 
   await updateIssueStateStore(opts.workspaceDir, opts.projectSlug, (store) => {
     for (const [key, issue] of Object.entries(store.issues)) {
@@ -43,7 +48,7 @@ export async function cleanupIssueState(opts: {
         continue;
       }
 
-      if (!ARCHIVABLE_TERMINAL_STATES.has(issue.workflowState)) {
+      if (!terminalStates.has(issue.workflowState)) {
         skipped.push({ issueId: issue.issueId, reason: "non-terminal state" });
         continue;
       }

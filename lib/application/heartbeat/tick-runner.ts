@@ -89,12 +89,13 @@ export async function tick(opts: {
 
       if (!project) continue;
 
+      const resolvedConfig = await loadConfig(workspaceDir, project.name);
       const { provider } = await createProvider({
         repo: project.repo,
         provider: project.provider,
         runCommand,
+        workflow: resolvedConfig.workflow,
       });
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
 
       await performProjectionIntegrityPass(
         workspaceDir,
@@ -110,6 +111,7 @@ export async function tick(opts: {
         project,
         sessions,
         provider,
+        resolvedConfig,
         resolvedConfig.timeouts.staleWorkerHours,
         instanceName,
         runCommand,
@@ -201,6 +203,6 @@ export async function checkProjectActive(
   if (!project) return false;
 
   return Object.values(project.workers).some((w) =>
-    Object.values(w.levels).some(slots => slots.some(s => s.active)),
+    Object.values(w.levels).some(slots => slots?.some(s => s.active) ?? false),
   );
 }
