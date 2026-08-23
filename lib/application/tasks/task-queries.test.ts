@@ -37,13 +37,13 @@ describe("task query use cases", () => {
         workflow: DEFAULT_WORKFLOW,
         roles: ["developer"],
         provider,
-        label: "To Do",
+        label: "Planning",
       });
 
       assert.strictEqual(result.totalIssues, 1);
-      assert.strictEqual(result.states[0]?.label, "To Do");
+      assert.strictEqual(result.states[0]?.label, "Planning");
       assert.strictEqual(result.states[0]?.issues[0]?.id, created.issue.iid);
-      assert.strictEqual(result.states[0]?.issues[0]?.projection.localState?.workflowState, "todo");
+      assert.strictEqual(result.states[0]?.issues[0]?.projection.localState?.workflowState, "planning");
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
@@ -79,9 +79,10 @@ describe("task query use cases", () => {
         provider,
       });
 
-      assert.strictEqual(status.summary.totalQueued, 1);
+      assert.strictEqual(status.summary.totalHold, 1);
+      assert.strictEqual(status.summary.totalQueued, 0);
       assert.strictEqual(status.summary.totalActive, 0);
-      assert.strictEqual(status.queue["To Do"]?.issues[0]?.id, created.issue.iid);
+      assert.strictEqual(status.hold.Planning?.issues[0]?.id, created.issue.iid);
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }

@@ -10,7 +10,45 @@ import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, STATE_TYPE, type WorkflowConfig, 
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 
-describe("task_create managed queue flow", () => {
+describe("task_create managed initial-state flow", () => {
+  it("preserves a custom hold initial state without resolving its queue transition", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-task-create-hold-"));
+    const workflow: WorkflowConfig = {
+      initial: "triage",
+      states: {
+        triage: {
+          type: STATE_TYPE.HOLD,
+          label: "Needs Triage",
+          color: "#64748b",
+        },
+      },
+    };
+
+    try {
+      const provider = new TestProvider({ workflow });
+      const result = await createManagedTaskIssue({
+        workspaceDir: tmpDir,
+        project: { slug: "triage-app", channels: [] },
+        providerType: ISSUE_PROVIDER.GITHUB,
+        provider,
+        workflow,
+        title: "Investigate checkout",
+        description: "Clarify the expected behavior",
+      });
+      const store = await readIssueStateStore(tmpDir, "triage-app");
+      const state = store.issues[String(result.issue.iid)];
+
+      assert.equal(result.workflowState, "triage");
+      assert.equal(result.label, "Needs Triage");
+      assert.equal(result.role, null);
+      assert.equal(state?.workflowState, "triage");
+      assert.equal(state?.assignedRole, null);
+      assert.equal(state?.assignedLevel, null);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("persists a validated custom initial state key, label, and role", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-task-create-custom-"));
     const workflow: WorkflowConfig = {
@@ -64,7 +102,7 @@ describe("task_create managed queue flow", () => {
     }
   });
 
-  it("creates ordinary tasks directly in the developer queue with local state projection", async () => {
+  it("creates ordinary tasks in the default hold state with local state projection", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-task-create-"));
     try {
       const provider = new TestProvider();
@@ -92,13 +130,14 @@ describe("task_create managed queue flow", () => {
       const store = await readIssueStateStore(tmpDir, "devclaw");
       const state = store.issues[String(result.issue.iid)]!;
 
-      assert.strictEqual(provider.callsTo("createIssue")[0]?.args.label, "To Do");
-      assert.strictEqual(result.label, "To Do");
-      assert.strictEqual(result.workflowState, "todo");
-      assert.strictEqual(result.role, "developer");
-      assert.strictEqual(state.workflowState, "todo");
-      assert.strictEqual(state.workflowLabel, "To Do");
-      assert.strictEqual(state.assignedRole, "developer");
+      assert.strictEqual(provider.callsTo("createIssue")[0]?.args.label, "Planning");
+      assert.strictEqual(result.label, "Planning");
+      assert.strictEqual(result.workflowState, "planning");
+      assert.strictEqual(result.role, null);
+      assert.match(result.announcementSuffix, /task_start/);
+      assert.strictEqual(state.workflowState, "planning");
+      assert.strictEqual(state.workflowLabel, "Planning");
+      assert.strictEqual(state.assignedRole, null);
       assert.strictEqual(state.assignedLevel, null);
       assert.strictEqual(state.owner, "main");
       assert.strictEqual(state.reviewPolicy, "human");
@@ -107,7 +146,8 @@ describe("task_create managed queue flow", () => {
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
         name: "primary",
       });
-      assert.ok(issue.labels.includes("To Do"));
+      assert.ok(issue.labels.includes("Planning"));
+      assert.ok(!issue.labels.includes("To Do"));
       assert.ok(issue.labels.includes("owner:main"));
       assert.ok(issue.labels.includes("review:human"));
       assert.ok(issue.labels.includes("test:skip"));

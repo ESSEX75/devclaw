@@ -94,7 +94,6 @@ Create a new issue in the project's issue tracker.
 | `title` | string | Yes | Issue title |
 | `description` | string | No | Full issue body (markdown) |
 | `assignees` | string[] | No | GitHub/GitLab usernames to assign |
-| `pickup` | boolean | No | Deprecated compatibility flag. Ordinary tasks are queued for heartbeat dispatch by default. |
 
 **Use cases:**
 
@@ -102,7 +101,7 @@ Create a new issue in the project's issue tracker.
 - Workers file follow-up bugs discovered during development
 - Breaking down epics into smaller tasks
 
-**Default behavior:** Creates a managed issue directly in the first developer queue state, normally `"To Do"`. The tool writes local `issues.json`, renders managed metadata, and applies provider labels as projection. `"Planning"` remains a hold state for explicit refinement/research flows, not the default landing state for ordinary tasks.
+**Default behavior:** Creates a managed issue in `workflow.initial`, normally the `"Planning"` hold state. The tool writes local `issues.json`, renders managed metadata, and applies provider labels as projection. Call `task_start` when the task is ready to enter its first queue. A custom workflow whose initial state is already a queue remains immediately eligible for heartbeat dispatch.
 
 ---
 
