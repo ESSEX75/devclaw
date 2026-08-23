@@ -24,8 +24,12 @@ import {
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
-import { readProjects, writeProjects } from "../../state/projects/index.js";
-import { resolveRepoPath } from "../../state/projects/index.js";
+import {
+  parseNotificationEndpoint,
+  readProjects,
+  resolveRepoPath,
+  writeProjects,
+} from "../../state/projects/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
 
 /**
@@ -167,6 +171,13 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       const deployUrl = (params.deployUrl as string) ?? "";
       const workspaceDir = toolCtx.workspaceDir;
 
+      parseNotificationEndpoint({
+        channelId,
+        channel,
+        name: "validation",
+        ...(threadId ? { threadId } : {}),
+      });
+
       if (!workspaceDir) {
         throw new Error("No workspace directory available in tool context");
       }
@@ -245,12 +256,12 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       // 6. Add or update project in projects.json
       if (existing) {
         // Add channel to existing project
-      const newChannel: NotificationEndpoint = {
+        const newChannel: NotificationEndpoint = parseNotificationEndpoint({
           channelId,
           channel,
           name: `channel-${existing.channels.length + 1}`,
           ...(threadId ? { threadId } : {}),
-        };
+        });
 
         existing.channels.push(newChannel);
         if (repoRemote && !existing.repoRemote) {
@@ -266,12 +277,12 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           workers[role] = emptyRoleWorkerState(levelMaxWorkers);
         }
 
-    const newChannel: NotificationEndpoint = {
+        const newChannel: NotificationEndpoint = parseNotificationEndpoint({
           channelId,
           channel,
           name: "primary",
           ...(threadId ? { threadId } : {}),
-        };
+        });
 
         data.projects[slug] = {
           slug,

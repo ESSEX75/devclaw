@@ -1,6 +1,6 @@
 import {
   type IssueProviderId,
-  type NotifyTarget,
+  type NotifyBindingRef,
   type Project,
   REVIEW_POLICY,
   STATE_TYPE,
@@ -32,7 +32,7 @@ export async function createManagedTaskIssue(opts: {
   title: string;
   description: string;
   assignees?: string[];
-  notifyTarget?: NotifyTarget | null;
+  notifyTarget?: NotifyBindingRef | null;
   owner?: string | null;
 }): Promise<CreatedManagedTask> {
   const initialState = opts.workflow.states[opts.workflow.initial];

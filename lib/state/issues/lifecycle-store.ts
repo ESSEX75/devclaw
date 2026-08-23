@@ -6,14 +6,12 @@ import {
   detectOwner,
   findStateKeyByLabel,
   getCurrentStateLabel,
-  isNotificationChannel,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   type IssueIntegrityStatus,
   type IssueProviderId,
   type IssueRuntimeState,
-  NOTIFY_LABEL_PREFIX,
-  type NotifyTarget,
+  type NotifyBindingRef,
   type Project,
   REVIEW_POLICY,
   type ReviewPolicy,
@@ -35,7 +33,7 @@ export type IssueStateWriteInput = {
   assignedRole?: string | null;
   assignedLevel?: string | null;
   owner?: string | null;
-  notifyTarget?: NotifyTarget | null;
+  notifyTarget?: NotifyBindingRef | null;
   reviewPolicy?: ReviewPolicy | null;
   testPolicy?: TestPolicy | null;
   activeWorker?: ActiveIssueWorker | null;
@@ -48,29 +46,6 @@ type RoleLevel = {
   role: string;
   level: string;
 };
-
-export function detectNotifyTarget(
-  labels: string[],
-  channels: Pick<Project, "channels">["channels"],
-): NotifyTarget | null {
-  const notifyLabel = labels.find((label) => label.startsWith(NOTIFY_LABEL_PREFIX));
-
-  if (!notifyLabel) return null;
-  const value = notifyLabel.slice(NOTIFY_LABEL_PREFIX.length);
-  const colonIdx = value.indexOf(":");
-
-  if (colonIdx === -1) {
-    const channel = channels.find((ch) => ch.channelId === value);
-
-    return channel ? { channel: channel.channel, name: channel.name } : null;
-  }
-
-  const channel = value.slice(0, colonIdx);
-
-  return isNotificationChannel(channel)
-    ? { channel, name: value.slice(colonIdx + 1) }
-    : null;
-}
 
 export function detectRoleLevel(labels: string[]): RoleLevel | null {
   for (const label of labels) {
@@ -135,7 +110,7 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       owner: input.owner !== undefined ? input.owner : detectOwner(labels) ?? previous?.owner ?? null,
       reviewPolicy: input.reviewPolicy !== undefined ? input.reviewPolicy : detectRouting(labels, "review") ?? previous?.reviewPolicy ?? null,
       testPolicy: input.testPolicy !== undefined ? input.testPolicy : detectRouting(labels, "test") ?? previous?.testPolicy ?? null,
-      notifyTarget: input.notifyTarget !== undefined ? input.notifyTarget : detectNotifyTarget(labels, input.project.channels) ?? previous?.notifyTarget ?? null,
+      notifyTarget: input.notifyTarget !== undefined ? input.notifyTarget : previous?.notifyTarget ?? null,
       branchContract: previous?.branchContract ?? null,
       activeWorker: input.activeWorker !== undefined ? input.activeWorker : previous?.activeWorker ?? null,
       integrityStatus: input.integrityStatus ?? previous?.integrityStatus ?? ISSUE_INTEGRITY_STATUS.OK,

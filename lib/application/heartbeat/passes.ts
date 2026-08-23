@@ -4,12 +4,13 @@
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../context.js";
-import { NOTIFICATION_CHANNEL, resolveNotifyChannel } from "../../domain/index.js";
+import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import { type Project } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getConfiguredRoleIds } from "../../state/config/index.js";
 import type { ResolvedConfig } from "../../state/config/types.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
+import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import {
   checkWorkerHealth,
   scanOrphanedLabels,
@@ -138,11 +139,8 @@ export async function performReviewPass(
     onMerge: (issueId, prUrl, prTitle, sourceBranch) => {
       provider
         .getIssue(issueId)
-        .then((issue) => {
-          const target = resolveNotifyChannel(
-            issue.labels,
-            project.channels,
-          );
+        .then(async (issue) => {
+          const target = await resolveIssueNotificationEndpoint(workspaceDir, project, issueId);
 
           notify(
             {
@@ -255,11 +253,8 @@ export async function performReviewSkipPass(
     onMerge: (issueId, prUrl, prTitle, sourceBranch) => {
       provider
         .getIssue(issueId)
-        .then((issue) => {
-          const target = resolveNotifyChannel(
-            issue.labels,
-            project.channels,
-          );
+        .then(async (issue) => {
+          const target = await resolveIssueNotificationEndpoint(workspaceDir, project, issueId);
 
           notify(
             {

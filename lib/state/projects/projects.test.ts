@@ -19,9 +19,67 @@ import {
   reconcileSlots,
   type RoleWorkerState,
 } from "../../domain/index.js";
-import { getRoleWorker, readProjects, writeProjects } from "./index.js";
+import { getRoleWorker, parseProjectsData, readProjects, writeProjects } from "./index.js";
 
 describe("readProjects", () => {
+  it("accepts a structured Telegram topic endpoint", () => {
+    const data = parseProjectsData(projectsFixture({
+      channelId: "-1003911014709",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      threadId: "5",
+    }));
+
+    assert.equal(data.projects.devclaw?.channels[0]?.channelId, "-1003911014709");
+    assert.equal(data.projects.devclaw?.channels[0]?.threadId, "5");
+  });
+
+  it("rejects legacy Telegram topic syntax with a replacement example", () => {
+    assert.throws(
+      () => parseProjectsData(projectsFixture({
+        channelId: "-1003911014709:topic:5",
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        name: "primary",
+      })),
+      /legacy Telegram topic syntax.*threadId/,
+    );
+  });
+
+  it("rejects conflicting accounts for the same transport destination", () => {
+    const fixture = projectsFixture({
+      channelId: "-1003911014709",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      threadId: "5",
+    });
+
+    if (!isObjectRecord(fixture)) throw new Error("Invalid test fixture root.");
+    const projects = fixture.projects;
+
+    if (!isObjectRecord(projects) || !isObjectRecord(projects.devclaw)) {
+      throw new Error("Invalid test project fixture.");
+    }
+
+    projects.devclaw.channels = [
+      {
+        channelId: "-1003911014709",
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        name: "primary",
+        accountId: "bot-a",
+        threadId: "5",
+      },
+      {
+        channelId: "-1003911014709",
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        name: "secondary",
+        accountId: "bot-b",
+        threadId: "5",
+      },
+    ];
+
+    assert.throws(() => parseProjectsData(fixture), /already registered with accountId.*bot-a/);
+  });
+
   it("should read current project-first per-level format correctly", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-"));
     const dataDir = path.join(tmpDir, "devclaw");
@@ -75,6 +133,33 @@ describe("readProjects", () => {
   });
 
 });
+
+function projectsFixture(channel: {
+  channelId: string;
+  channel: typeof NOTIFICATION_CHANNEL.TELEGRAM;
+  name: string;
+  threadId?: string;
+}): unknown {
+  return {
+    projects: {
+      devclaw: {
+        slug: "devclaw",
+        name: "devclaw",
+        repo: "D:/web/devclaw",
+        groupName: "DevClaw",
+        deployUrl: "",
+        baseBranch: "main",
+        deployBranch: "main",
+        channels: [channel],
+        workers: {},
+      },
+    },
+  };
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 describe("per-level slot helpers", () => {
   it("findFreeSlot returns lowest inactive slot within a level", () => {

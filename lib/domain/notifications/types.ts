@@ -18,10 +18,10 @@ export type NotificationEndpoint = {
   threadId?: string;
 };
 
-/** Target endpoint details persisted for issue notifications. */
-export type NotifyTarget = {
+/** Stable reference to a named project notification endpoint. */
+export type NotifyBindingRef = {
   /** Notification channel type (e.g. telegram, slack). */
   channel: NotificationChannel;
-  /** Channel target name/identifier. */
+  /** Endpoint name within the project channel registry. */
   name: string;
 };

@@ -503,9 +503,21 @@ Each project can have multiple linked channels:
 | `channelId` | string | Chat/group/channel ID |
 | `channel` | `"telegram"` \| `"whatsapp"` \| `"discord"` \| `"slack"` | Messaging provider |
 | `name` | string | Human-readable endpoint name (`primary`, `dev-chat`, etc.) |
-| `events` | string[] | Event filters. `["*"]` receives all project notifications |
 | `accountId` | string | Optional OpenClaw channel account ID |
 | `threadId` | string | Optional thread/topic ID for forum-style channels |
+
+Telegram topics must use separate structured fields:
+
+```json
+{
+  "channelId": "-1003911014709",
+  "channel": "telegram",
+  "name": "primary",
+  "threadId": "5"
+}
+```
+
+Do not encode a topic into `channelId` as `-1003911014709:topic:5`; project validation rejects that legacy form. Managed issues persist a `{ channel, name }` binding reference in local state. Runtime delivery resolves that reference against this endpoint list and never derives the destination from provider labels.
 
 ### Worker state fields
 
@@ -532,6 +544,7 @@ Each slot has:
 - **Project-first state** — projects are keyed by slug and can be linked to multiple channels.
 - **Issue-local runtime authority** — initialized managed issues use `devclaw/projects/<project>/issues.json` for `workflowState`, `workflowLabel`, role/level assignment, review/test policy, and projection integrity.
 - **Provider labels are projection** — GitHub/GitLab labels remain required for visual parity and filtering, but they are not runtime truth for initialized managed issues. Manual label edits do not mutate local state.
+- **Stable notification binding** — each managed issue keeps its selected named endpoint in local state. Comments, attachments, heartbeat, and projection repair do not silently rebind it.
 - **Projection guard** — heartbeat compares provider labels and metadata with local state. Recoverable label drift is repaired. Missing or tampered managed metadata sets `integrity_error` until repaired from local state.
 - **Backfill boundary** — old issues without a local `issues.json` entry are treated as `projection_uninitialized` and must be explicitly initialized/backfilled before managed dispatch.
 - **Initial-state task creation** — `task_create` preserves `workflow.initial`, normally the `Planning` hold state; `task_start` explicitly releases held work into its first queue. A custom queue initial state remains immediately dispatchable.

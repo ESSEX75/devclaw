@@ -20,7 +20,6 @@ import {
   getNextStateDescription,
   NOTIFICATION_CHANNEL,
   type NotificationEndpoint,
-  resolveNotifyChannel,
   WORKFLOW_EVENT,
   type WorkflowConfig,
 } from "../../domain/index.js";
@@ -33,6 +32,7 @@ import {
 } from "../../state/issues/index.js";
 import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/projects/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
+import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 
 export type { CompletionRule };
@@ -215,7 +215,7 @@ async function executeCompletionLocked(opts: {
 
   // Get issue early (for URL in notification + channel routing)
   const issue = await provider.getIssue(issueId);
-  const notifyTarget = resolveNotifyChannel(issue.labels, channels);
+  const notifyTarget = await resolveIssueNotificationEndpoint(workspaceDir, project, issueId);
 
   if (mergeFailure) {
     const failedTransition = getMergeFailedTransition(workflow, rule.from);

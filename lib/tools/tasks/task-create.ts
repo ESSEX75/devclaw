@@ -14,7 +14,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import type { NotifyTarget } from "../../domain/index.js";
+import type { NotifyBindingRef } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
 import { loadConfig } from "../../state/config/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
@@ -64,7 +64,7 @@ export function createTaskCreateTool(ctx: PluginContext) {
       const resolvedConfig = await loadConfig(workspaceDir, project.name);
       const instanceName = await loadInstanceName(workspaceDir, resolvedConfig.instanceName);
       const sourceChannel = project.channels.find((ch) => ch.channelId === channelId) ?? project.channels[0];
-      const notifyTarget: NotifyTarget | null = sourceChannel
+      const notifyTarget: NotifyBindingRef | null = sourceChannel
         ? { channel: sourceChannel.channel, name: sourceChannel.name }
         : null;
 

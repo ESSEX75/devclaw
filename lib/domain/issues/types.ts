@@ -2,7 +2,7 @@
  * issues/types.ts — Runtime state for DevClaw-managed provider issues.
  */
 import type { SoftUnion } from "../../types.js";
-import type { NotifyTarget } from "../notifications/types.js";
+import type { NotifyBindingRef } from "../notifications/types.js";
 import type { ReviewPolicy, TestPolicy } from "../workflow/types.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER } from "./const.js";
 
@@ -69,7 +69,7 @@ export type IssueRuntimeState = IssueProjectionState & {
   /** Override test policy for this issue. */
   testPolicy?: TestPolicy | null;
   /** Overridden notify destination for this issue. */
-  notifyTarget?: NotifyTarget | null;
+  notifyTarget?: NotifyBindingRef | null;
   /** Branch and PR references. */
   branchContract?: BranchContract | null;
   /** Active session worker details. */

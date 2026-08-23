@@ -336,6 +336,8 @@ One-time project setup. Creates state labels, scaffolds project directory with o
 | `deployBranch` | string | No | Deploy branch. Defaults to baseBranch. |
 | `deployUrl` | string | No | Deployment URL |
 
+For a Telegram topic, pass the group ID in `channelId` and the topic ID in `threadId`. The encoded form `channelId:topic:threadId` is rejected.
+
 **What it does atomically:**
 
 1. Generates the project slug from `name`

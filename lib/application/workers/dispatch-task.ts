@@ -15,7 +15,6 @@ import {
   hasTestPhase,
   isFeedbackState,
   producesReviewableWork,
-  resolveNotifyChannel,
   REVIEW_POLICY,
   TEST_POLICY,
 } from "../../domain/index.js";
@@ -32,6 +31,7 @@ import {
   updateSlot,
 } from "../../state/projects/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
+import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { acknowledgeComments, EYES_EMOJI } from "../review/acknowledge-comments.js";
 import { fetchPrContext, fetchPrFeedback } from "../review/pr-context.js";
@@ -235,7 +235,7 @@ export async function dispatchTaskLocked(
   // Step 2: Send notification early (before session dispatch which can timeout)
   // This ensures users see the notification even if gateway is slow
   const notifyConfig = getNotificationConfig(pluginConfig);
-  const notifyTarget = resolveNotifyChannel(issue.labels, project.channels);
+  const notifyTarget = await resolveIssueNotificationEndpoint(workspaceDir, project, issueId);
 
   notify(
     {

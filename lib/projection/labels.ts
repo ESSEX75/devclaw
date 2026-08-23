@@ -1,7 +1,7 @@
 /**
  * projection/labels.ts — Managed provider label detection and rendering.
  */
-import { type IssueRuntimeState,NOTIFY_LABEL_PREFIX, OWNER_LABEL_PREFIX } from "../domain/index.js";
+import { getNotifyLabel, type IssueRuntimeState, NOTIFY_LABEL_PREFIX, OWNER_LABEL_PREFIX } from "../domain/index.js";
 import type { ManagedLabelOptions } from "./types.js";
 
 const DEVCLAW_LABEL_PREFIX = "devclaw:";
@@ -19,7 +19,7 @@ export function expectedManagedLabels(state: IssueRuntimeState): string[] {
   if (state.owner) labels.add(`${OWNER_LABEL_PREFIX}${state.owner}`);
   if (state.reviewPolicy) labels.add(`review:${state.reviewPolicy}`);
   if (state.testPolicy) labels.add(`test:${state.testPolicy}`);
-  if (state.notifyTarget) labels.add(`${NOTIFY_LABEL_PREFIX}${state.notifyTarget.channel}:${state.notifyTarget.name}`);
+  if (state.notifyTarget) labels.add(getNotifyLabel(state.notifyTarget));
 
   return [...labels].filter(Boolean).sort();
 }
