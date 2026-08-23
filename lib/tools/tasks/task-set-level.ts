@@ -1,33 +1,29 @@
 /**
  * task_set_level — Set the developer level hint on a HOLD-state issue.
  *
- * Restricted to HOLD states only (Planning, Refining). The level hint is
- * applied as a role:level label and respected by the heartbeat when the
- * issue is later advanced via task_start.
+ * Restricted to HOLD states only (Planning, Refining). The assignment is
+ * stored locally for the target queue role and projected as a provider label.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import { log as auditLog } from "../../audit.js";
+import { setTaskLevel } from "../../application/tasks/index.js";
 import type { PluginContext } from "../../context.js";
-import { findStateByLabel, getRoleLabelColor, STATE_TYPE } from "../../domain/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
-import { applyNotifyLabel, autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 export function createTaskSetLevelTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_set_level",
     label: "Task Set Level",
     description:
-      `Set the developer level hint on a HOLD-state issue (Planning, Refining). ` +
-      `The level is applied as a role:level label and respected by the heartbeat when the issue is advanced via task_start.
+      `Set the target role level on a HOLD-state issue (Planning, Refining). ` +
+      `The assignment is saved in local issue state and used when task_start advances the issue.
 
 Examples:
 - { issueId: 42, level: "senior" }
 - { issueId: 42, level: "junior", reason: "Simple typo fix" }`,
     parameters: {
       type: "object",
-      required: ["channelId", "issueId"],
+      required: ["channelId", "issueId", "level"],
       properties: {
         channelId: {
           type: "string",
@@ -68,94 +64,14 @@ Examples:
         throw new Error("'level' is required.");
       }
 
-      const { project } = await resolveProject(workspaceDir, channelId);
-      const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
-
-      const issue = await provider.getIssue(issueId);
-      const runtimeState = await resolveIssueRuntimeState({ workspaceDir, project, issue, workflow: resolvedConfig.workflow });
-
-      if (runtimeState.kind !== "managed") {
-        throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_set_level.`);
-      }
-
-      const currentState = runtimeState.workflowLabel;
-
-      // Restrict to HOLD states only — use task_start for queue/active transitions
-      const currentStateConfig = runtimeState.stateConfig ?? findStateByLabel(resolvedConfig.workflow, currentState);
-
-      if (currentStateConfig?.type !== STATE_TYPE.HOLD) {
-        throw new Error(`task_set_level only works on HOLD states (Planning, Refining). Issue #${issueId} is in "${currentState}". Use task_start to advance issues.`);
-      }
-
-      // Apply level hint label (will be respected by heartbeat when task_start advances the issue)
-      // Level is applied as a role:level label. Since HOLD states have no role, we look at the
-      // APPROVE transition target to determine which role will handle this issue.
-      const approveTarget = currentStateConfig.on?.["APPROVE"];
-      const targetKey = approveTarget?.target;
-      const targetState = targetKey
-        ? Object.entries(resolvedConfig.workflow.states)
-          .find(([stateKey]) => stateKey === targetKey)?.[1]
-        : undefined;
-      const role = targetState?.role;
-
-      if (!role) {
-        throw new Error(`Cannot determine target role from "${currentState}". No APPROVE transition found.`);
-      }
-
-      const roleConfig = resolvedConfig.roles[role];
-
-      if (!roleConfig || !roleConfig.levels.includes(newLevel)) {
-        throw new Error(`Invalid level "${newLevel}" for role "${role}". Valid: ${roleConfig?.levels.join(", ") ?? "none"}`);
-      }
-
-      const oldRoleLabels = issue.labels.filter((l) => l.startsWith(`${role}:`));
-      const fromLevel = oldRoleLabels[0]?.split(":")[1];
-
-      if (oldRoleLabels.length > 0) {
-        await provider.removeLabels(issueId, oldRoleLabels);
-      }
-
-      const newRoleLabel = `${role}:${newLevel}`;
-
-      await provider.ensureLabel(newRoleLabel, getRoleLabelColor(role));
-      await provider.addLabel(issueId, newRoleLabel);
-      const levelChanged = fromLevel !== newLevel;
-      const nextLabels = issue.labels
-        .filter((label) => !label.startsWith(`${role}:`))
-        .concat(newRoleLabel);
-
-      // Apply notify label for channel routing (best-effort).
-      applyNotifyLabel(provider, issueId, project, channelId, issue.labels);
-
-      // Auto-assign owner label to this instance (best-effort).
-      autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => { });
-
-      await writeIssueRuntimeState({
+      return jsonResult(await setTaskLevel({
         workspaceDir,
-        project,
-        issue: { ...issue, labels: nextLabels },
-        providerType,
-        workflow: resolvedConfig.workflow,
-        workflowLabel: currentState,
-        assignedRole: role,
-        assignedLevel: newLevel,
-      });
-
-      await auditLog(workspaceDir, "task_set_level", {
-        project: project.name, issueId,
-        ...(levelChanged ? { fromLevel: fromLevel ?? null, toLevel: newLevel } : {}),
-        reason: reason ?? null, provider: providerType,
-      });
-
-      return jsonResult({
-        success: true, issueId, issueTitle: issue.title,
-        level: newLevel, changed: levelChanged,
-        project: project.name, provider: providerType,
-        announcement: levelChanged
-          ? `🔄 Updated #${issueId}: level ${fromLevel ?? "none"} → ${newLevel}${reason ? ` (${reason})` : ""}`
-          : `Issue #${issueId} already has level "${newLevel}".`,
-      });
+        channelId,
+        issueId,
+        level: newLevel,
+        ...(reason ? { reason } : {}),
+        runCommand: ctx.runCommand,
+      }));
     },
   });
 }

@@ -15,10 +15,9 @@ export function createTaskStartTool(ctx: PluginContext) {
     name: "task_start",
     label: "Task Start",
     description:
-      `Advance an issue to the next queue in the workflow. State-agnostic: works from any state ` +
-      `(Planning, Refining, To Do, etc.) and determines the correct queue automatically using workflow transitions.
+      `Advance a HOLD-state issue to its configured queue using the APPROVE transition.
 
-Optionally set a level hint (e.g. "junior", "senior") so the heartbeat dispatches with the desired level.
+Optionally assign a level (e.g. "junior", "senior"). Without one, a prepared level for the same role is reused or selected once before queueing.
 The heartbeat handles the actual dispatch — this tool only places issues in queues.
 
 Examples:
@@ -40,20 +39,28 @@ Examples:
         },
         level: {
           type: "string",
-          description: "Optional level hint for dispatch (e.g. 'junior', 'senior'). Applied as a label so the heartbeat respects it.",
+          description: "Optional level assignment (e.g. 'junior', 'senior'). Overrides a level prepared for the target role.",
         },
       },
     },
 
     async execute(_id: string, params: Record<string, unknown>) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
-      const channelId = resolveChannelId(toolCtx, params.channelId as string | undefined);
+      const channelId = resolveChannelId(
+        toolCtx,
+        typeof params.channelId === "string" ? params.channelId : undefined,
+      );
+      const issueId = params.issueId;
+      const level = params.level;
+
+      if (typeof issueId !== "number") throw new Error("'issueId' is required and must be a number.");
+      if (level !== undefined && typeof level !== "string") throw new Error("'level' must be a string.");
 
       return jsonResult(await startTask({
         workspaceDir,
         channelId,
-        issueId: params.issueId as number,
-        level: params.level as string | undefined,
+        issueId,
+        level,
         runCommand: ctx.runCommand,
       }));
     },

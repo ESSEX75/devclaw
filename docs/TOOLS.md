@@ -6,7 +6,7 @@ Complete reference for all tools registered by DevClaw. See [`index.ts`](../inde
 
 ### `task_start`
 
-Advance an issue to the next queue. State-agnostic — works from any HOLD or QUEUE state. The heartbeat handles actual dispatch on its next cycle.
+Advance a HOLD-state issue through its `APPROVE` transition to the configured queue. The heartbeat handles actual dispatch on its next cycle.
 
 **Source:** [`lib/tools/tasks/task-start.ts`](../lib/tools/tasks/task-start.ts)
 
@@ -16,18 +16,18 @@ Advance an issue to the next queue. State-agnostic — works from any HOLD or QU
 |---|---|---|---|
 | `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 | `issueId` | number | Yes | Issue ID to advance |
-| `level` | string | No | Level hint (`junior`, `medior`, `senior`). Applied as a role:level label. |
+| `level` | string | No | Level assignment (`junior`, `medior`, `senior`) for the target role. Overrides a prepared level. |
 
 **Behavior by current state type:**
 
 | State type | Action | Example |
 |---|---|---|
 | HOLD (Planning, Refining) | Follows APPROVE transition to target queue | Planning → To Do |
-| QUEUE (To Do, To Improve, etc.) | No-op (already queued), applies level if provided | Stays in To Do |
+| QUEUE (To Do, To Improve, etc.) | Error — task has already been released | — |
 | ACTIVE (Doing, Reviewing, etc.) | Error — already being worked on | — |
 | TERMINAL (Done, Rejected) | Error — cannot start | — |
 
-**Level hint:** If `level` is provided, a `role:level` label is applied (e.g. `developer:senior`). The heartbeat respects this when dispatching.
+**Level resolution:** An explicit `level` wins. Otherwise DevClaw reuses a level prepared by `task_set_level` for the same target role, or selects the role's level once before queueing. The `(assignedRole, assignedLevel)` pair is stored in local issue state; provider `role:level` is only its projection. A level is not inherited when the workflow changes to another role.
 
 ---
 
@@ -107,7 +107,7 @@ Create a new issue in the project's issue tracker.
 
 ### `task_set_level`
 
-Set the developer level hint on a HOLD-state issue (Planning, Refining).
+Set the target-role level on a HOLD-state issue (Planning, Refining).
 
 **Source:** [`lib/tools/tasks/task-set-level.ts`](../lib/tools/tasks/task-set-level.ts)
 
@@ -117,10 +117,10 @@ Set the developer level hint on a HOLD-state issue (Planning, Refining).
 |---|---|---|---|
 | `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
 | `issueId` | number | Yes | Issue ID to update |
-| `level` | string | Yes | The role:level hint (e.g. 'senior', 'junior') |
+| `level` | string | Yes | Level to assign to the role of the configured target queue |
 | `reason` | string | No | Audit log reason for the change |
 
-Only works on issues in HOLD states (Planning, Refining). The level is applied as a `role:level` label and respected by the heartbeat when the issue is later advanced via `task_start`.
+Only works on issues in HOLD states (Planning, Refining). The role and level are written to local issue state first; the `role:level` provider label is projection. A later explicit `task_start(level)` overrides this prepared assignment.
 
 **Use cases:**
 
