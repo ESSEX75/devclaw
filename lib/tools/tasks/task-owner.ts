@@ -7,17 +7,16 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
+import { claimManagedTask } from "../../application/tasks/index.js";
 import type { PluginContext } from "../../context.js";
 import {
   getAllQueueLabels,
   getOwnerLabel,
   ISSUE_INTEGRITY_STATUS,
-  OWNER_LABEL_COLOR,
-  OWNER_LABEL_PREFIX,
 } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
 import { loadConfig } from "../../state/config/index.js";
-import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { readIssueStateStore } from "../../state/issues/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskOwnerTool(ctx: PluginContext) {
@@ -66,44 +65,19 @@ export function createTaskOwnerTool(ctx: PluginContext) {
       );
       const ownerLabel = getOwnerLabel(instanceName);
 
-      // Ensure the owner label exists in the issue tracker
-      await provider.ensureLabel(ownerLabel, OWNER_LABEL_COLOR);
-
       const claimed: number[] = [];
       const skipped: Array<{ issueId: number; reason: string }> = [];
 
       if (issueIdParam !== undefined) {
         // Claim a single issue
-        const issue = await provider.getIssue(issueIdParam);
-        const store = await readIssueStateStore(workspaceDir, project.slug);
-        const currentOwner = store.issues[String(issueIdParam)]?.owner ?? null;
+        const result = await claimManagedTask({
+          workspaceDir, project, issueId: issueIdParam, instanceName, force,
+          provider, providerType, workflow: resolvedConfig.workflow,
+          roles: Object.keys(resolvedConfig.roles),
+        });
 
-        if (currentOwner === instanceName) {
-          skipped.push({ issueId: issueIdParam, reason: "Already owned by this instance" });
-        } else if (currentOwner && !force) {
-          skipped.push({
-            issueId: issueIdParam,
-            reason: `Owned by "${currentOwner}". Use force=true to transfer.`,
-          });
-        } else {
-          // Remove old owner label if transferring
-          if (currentOwner) {
-            const oldLabel = getOwnerLabel(currentOwner);
-
-            await provider.removeLabels(issueIdParam, [oldLabel]);
-          }
-
-          await provider.addLabel(issueIdParam, ownerLabel);
-          await writeIssueRuntimeState({
-            workspaceDir,
-            project,
-            issue: { ...issue, labels: issue.labels.filter((label) => !label.startsWith(OWNER_LABEL_PREFIX)).concat(ownerLabel) },
-            providerType,
-            workflow: resolvedConfig.workflow,
-            owner: instanceName,
-          });
-          claimed.push(issueIdParam);
-        }
+        if (result.claimed) claimed.push(issueIdParam);
+        else skipped.push({ issueId: issueIdParam, reason: result.reason });
       } else {
         // Claim all unclaimed queued issues
         const workflow = resolvedConfig.workflow;
@@ -120,36 +94,14 @@ export function createTaskOwnerTool(ctx: PluginContext) {
 
         for (const state of candidateStates) {
           try {
-            const currentOwner = state.owner ?? null;
-
-            if (currentOwner === instanceName) continue; // already ours
-            if (currentOwner && !force) {
-              skipped.push({
-                issueId: state.issueId,
-                reason: `Owned by "${currentOwner}"`,
-              });
-              continue;
-            }
-
-            const issue = await provider.getIssue(state.issueId);
-
-            if (issue.state === "closed" || issue.state === "CLOSED") continue;
-            if (currentOwner) {
-              const oldLabel = getOwnerLabel(currentOwner);
-
-              await provider.removeLabels(issue.iid, [oldLabel]);
-            }
-
-            await provider.addLabel(issue.iid, ownerLabel);
-            await writeIssueRuntimeState({
-              workspaceDir,
-              project,
-              issue: { ...issue, labels: issue.labels.filter((label) => !label.startsWith(OWNER_LABEL_PREFIX)).concat(ownerLabel) },
-              providerType,
-              workflow,
-              owner: instanceName,
+            const claim = await claimManagedTask({
+              workspaceDir, project, issueId: state.issueId, instanceName, force,
+              provider, providerType, workflow,
+              roles: Object.keys(resolvedConfig.roles),
             });
-            claimed.push(issue.iid);
+
+            if (claim.claimed) claimed.push(state.issueId);
+            else skipped.push({ issueId: state.issueId, reason: claim.reason });
           } catch {
             skipped.push({ issueId: state.issueId, reason: "Provider fetch/update failed" });
           }

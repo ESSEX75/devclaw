@@ -17,7 +17,7 @@ import {
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
-import { writeHeartbeatTransitionState } from "./transition-state.js";
+import { transitionHeartbeatIssue } from "./transition-state.js";
 
 /**
  * Scan test queue states and auto-transition issues with testPolicy=skip.
@@ -75,16 +75,20 @@ export async function testSkipPass(opts: {
       }
 
       // Transition label
-      await provider.transitionLabel(issue.iid, state.label, targetState.label);
-      await writeHeartbeatTransitionState({
+      const transitioned = await transitionHeartbeatIssue({
         workspaceDir,
         project,
-        issue,
+        issueId: issue.iid,
+        provider,
         workflow,
+        fromLabel: state.label,
         workflowState: targetKey,
         workflowLabel: targetState.label,
         closedAt: actions?.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
+        owner: "heartbeat_test_skip",
       });
+
+      if (!transitioned) continue;
 
       await auditLog(workspaceDir, "test_skip_transition", {
         project: projectName,

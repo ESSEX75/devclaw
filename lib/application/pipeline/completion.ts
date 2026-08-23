@@ -26,9 +26,14 @@ import {
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
-import { providerKindFromProject, writeIssueRuntimeState } from "../../state/issues/index.js";
+import {
+  providerKindFromProject,
+  withIssueOrchestrationLock,
+  writeIssueRuntimeState,
+} from "../../state/issues/index.js";
 import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/projects/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
+import { reconcileManagedLabelsLocked } from "../projection/index.js";
 
 export type { CompletionRule };
 
@@ -84,6 +89,34 @@ export async function executeCompletion(opts: {
   /** Level of the completing worker */
   level?: string;
   /** Slot index within the level's array */
+  slotIndex?: number;
+  runCommand: RunCommand;
+}): Promise<CompletionOutput> {
+  return withIssueOrchestrationLock(
+    opts.workspaceDir,
+    opts.projectSlug,
+    opts.issueId,
+    () => executeCompletionLocked(opts),
+  );
+}
+
+async function executeCompletionLocked(opts: {
+  workspaceDir: string;
+  projectSlug: string;
+  role: string;
+  result: string;
+  issueId: number;
+  summary?: string;
+  prUrl?: string;
+  provider: IssueProvider;
+  repoPath: string;
+  projectName: string;
+  channels: NotificationEndpoint[];
+  pluginConfig?: Record<string, unknown>;
+  runtime?: PluginRuntime;
+  workflow?: WorkflowConfig;
+  createdTasks?: Array<{ id: number; title: string; url: string }>;
+  level?: string;
   slotIndex?: number;
   runCommand: RunCommand;
 }): Promise<CompletionOutput> {
@@ -205,6 +238,15 @@ export async function executeCompletion(opts: {
       workflowState: failedTransition.key,
       workflowLabel: failedTransition.label,
       activeWorker: null,
+    });
+    await reconcileManagedLabelsLocked({
+      workspaceDir,
+      projectSlug,
+      issueId,
+      workflow,
+      roles: Object.keys(config.roles),
+      provider,
+      owner: "pipeline_merge_failure",
     });
 
     await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });
@@ -339,6 +381,16 @@ export async function executeCompletion(opts: {
     workflowLabel: rule.to,
     activeWorker: null,
     closedAt: rule.actions.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
+  });
+
+  await reconcileManagedLabelsLocked({
+    workspaceDir,
+    projectSlug,
+    issueId,
+    workflow,
+    roles: Object.keys(config.roles),
+    provider,
+    owner: "pipeline_completion",
   });
 
   // Deactivate worker last (non-critical — session cleanup)

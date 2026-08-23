@@ -1,19 +1,17 @@
 import {
   type IssueProviderId,
-  NOTIFY_LABEL_COLOR,
-  NOTIFY_LABEL_PREFIX,
   type NotifyTarget,
-  OWNER_LABEL_COLOR,
   type Project,
   REVIEW_POLICY,
   STATE_TYPE,
   TEST_POLICY,
   type WorkflowConfig,
 } from "../../domain/index.js";
-import type { IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
+import type { IssueReader, IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
-import { expectedManagedLabels, replaceIssueMetadata } from "../../projection/index.js";
+import { replaceIssueMetadata } from "../../projection/index.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
+import { reconcileManagedLabels } from "../projection/index.js";
 
 export type CreatedManagedTask = {
   issue: Issue;
@@ -27,7 +25,9 @@ export async function createManagedTaskIssue(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug" | "channels">;
   providerType: IssueProviderId;
-  provider: Pick<IssueWriter, "createIssue" | "editIssue"> & Pick<LabelProjector, "addLabel" | "ensureLabel">;
+  provider: Pick<IssueReader, "getIssue">
+    & Pick<IssueWriter, "createIssue" | "editIssue">
+    & Pick<LabelProjector, "addLabel" | "ensureLabel" | "removeLabels">;
   workflow: WorkflowConfig;
   title: string;
   description: string;
@@ -64,18 +64,14 @@ export async function createManagedTaskIssue(opts: {
     testPolicy: opts.workflow.testPolicy ?? TEST_POLICY.SKIP,
   });
 
-  for (const label of expectedManagedLabels(state)) {
-    if (label === initialLabel) continue;
-    if (label.startsWith("owner:")) {
-      await opts.provider.ensureLabel(label, OWNER_LABEL_COLOR);
-    }
-
-    if (label.startsWith(NOTIFY_LABEL_PREFIX)) {
-      await opts.provider.ensureLabel(label, NOTIFY_LABEL_COLOR);
-    }
-
-    await opts.provider.addLabel(issue.iid, label);
-  }
+  await reconcileManagedLabels({
+    workspaceDir: opts.workspaceDir,
+    projectSlug: opts.project.slug,
+    issueId: issue.iid,
+    workflow: opts.workflow,
+    provider: opts.provider,
+    owner: "task_create",
+  });
 
   const body = replaceIssueMetadata(issue.description ?? "", {
     projectSlug: state.projectSlug,

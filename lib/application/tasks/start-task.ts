@@ -3,7 +3,6 @@ import type { RunCommand } from "../../context.js";
 import {
   findSlotByIssue,
   findStateByLabel,
-  getRoleLabelColor,
   ISSUE_INTEGRITY_STATUS,
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
@@ -13,6 +12,7 @@ import {
   writeIssueRuntimeState,
 } from "../../state/issues/index.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
+import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { resolveStartTaskDecision } from "./lifecycle-decision.js";
 
 export type StartTaskInput = {
@@ -109,15 +109,15 @@ async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> 
     assignedLevel: decision.assignedLevel,
   });
 
-  const oldRoleLabels = issue.labels
-    .filter((label) => configuredRoleIds.some((role) => label.startsWith(`${role}:`)));
-
-  if (oldRoleLabels.length > 0) await provider.removeLabels(issueId, oldRoleLabels);
-
-  const roleLabel = `${decision.targetRole}:${decision.assignedLevel}`;
-
-  await provider.ensureLabel(roleLabel, getRoleLabelColor(decision.targetRole));
-  await provider.addLabel(issueId, roleLabel);
+  await reconcileManagedLabelsLocked({
+    workspaceDir,
+    projectSlug: project.slug,
+    issueId,
+    workflow,
+    roles: configuredRoleIds,
+    provider,
+    owner: "task_start",
+  });
 
   await auditLog(workspaceDir, "task_start", {
     project: project.name, issueId,

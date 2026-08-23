@@ -3,6 +3,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
+import { reconcileManagedLabels } from "../../application/projection/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import type { IssueIntegrityStatus, Project, ReviewPolicy, TestPolicy, WorkflowConfig } from "../../domain/index.js";
@@ -86,15 +87,18 @@ export async function repairIssueProjection(opts: {
   const repaired: string[] = [];
 
   if (!opts.dryRun) {
-    for (const label of diff.missingManagedLabels) {
-      await opts.provider.addLabel(opts.issueId, label);
-      repaired.push(`add-label:${label}`);
-    }
+    const projection = await reconcileManagedLabels({
+      workspaceDir: opts.workspaceDir,
+      projectSlug: opts.project.slug,
+      issueId: opts.issueId,
+      workflow: opts.workflow,
+      roles: opts.roles,
+      provider: opts.provider,
+      owner: "issue_repair",
+    });
 
-    if (diff.unexpectedManagedLabels.length > 0) {
-      await opts.provider.removeLabels(opts.issueId, diff.unexpectedManagedLabels);
-      repaired.push(...diff.unexpectedManagedLabels.map((label) => `remove-label:${label}`));
-    }
+    repaired.push(...projection.diff.missingManagedLabels.map((label) => `add-label:${label}`));
+    repaired.push(...projection.diff.unexpectedManagedLabels.map((label) => `remove-label:${label}`));
 
     if (metadataAction === "replace") {
       await opts.provider.editIssue(opts.issueId, {

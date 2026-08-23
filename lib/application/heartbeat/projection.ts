@@ -3,15 +3,15 @@
  */
 import { log as auditLog } from "../../audit.js";
 import type { Project } from "../../domain/index.js";
-import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
+import { ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader, LabelProjector } from "../../integrations/providers/capabilities.js";
 import {
-  diffIssueProjection,
   extractIssueMetadata,
   metadataMatches,
   type ProjectionDiff,
 } from "../../projection/index.js";
 import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
+import { reconcileManagedLabels } from "../projection/index.js";
 
 export type ProjectionIntegrityAction =
   | "label_repair"
@@ -38,7 +38,8 @@ export type ProjectionIntegrityResult = {
 export async function projectionIntegrityPass(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug">;
-  provider: Pick<IssueReader, "getIssue"> & Pick<LabelProjector, "addLabel" | "removeLabels">;
+  provider: Pick<IssueReader, "getIssue">
+    & Pick<LabelProjector, "ensureLabel" | "addLabel" | "removeLabels">;
   workflow: WorkflowConfig;
   roles: string[];
 }): Promise<ProjectionIntegrityResult> {
@@ -74,7 +75,8 @@ export async function projectionIntegrityPass(opts: {
       }
 
       result.errors++;
-      const errors = [`provider issue fetch failed: ${(err as Error).message}`];
+      const message = err instanceof Error ? err.message : String(err);
+      const errors = [`provider issue fetch failed: ${message}`];
 
       result.events.push({ issueId: state.issueId, action: "provider_fetch_error", errors });
       await markIntegrityError(workspaceDir, project.slug, state.issueId, errors);
@@ -118,13 +120,14 @@ export async function projectionIntegrityPass(opts: {
       continue;
     }
 
-    const diff = diffIssueProjection({
-      state,
-      actualLabels: issue.labels,
-      options: {
-        stateLabels: getStateLabels(workflow),
-        roles,
-      },
+    const { diff } = await reconcileManagedLabels({
+      workspaceDir,
+      projectSlug: project.slug,
+      issueId: state.issueId,
+      workflow,
+      roles,
+      provider,
+      owner: "heartbeat_projection_repair",
     });
 
     if (diff.missingManagedLabels.length === 0 && diff.unexpectedManagedLabels.length === 0) {
@@ -133,14 +136,6 @@ export async function projectionIntegrityPass(opts: {
       }
 
       continue;
-    }
-
-    for (const label of diff.missingManagedLabels) {
-      await provider.addLabel(state.issueId, label);
-    }
-
-    if (diff.unexpectedManagedLabels.length > 0) {
-      await provider.removeLabels(state.issueId, diff.unexpectedManagedLabels);
     }
 
     result.repaired++;

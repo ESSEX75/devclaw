@@ -3,7 +3,6 @@ import type { RunCommand } from "../../context.js";
 import {
   findSlotByIssue,
   findStateByLabel,
-  getRoleLabelColor,
   ISSUE_INTEGRITY_STATUS,
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
@@ -13,6 +12,7 @@ import {
   writeIssueRuntimeState,
 } from "../../state/issues/index.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
+import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { resolveHoldQueueTarget, validateRoleLevel } from "./lifecycle-decision.js";
 
 export type SetTaskLevelInput = {
@@ -111,15 +111,15 @@ async function setTaskLevelLocked(input: SetTaskLevelInput): Promise<SetTaskLeve
     assignedLevel: level,
   });
 
-  const oldRoleLabels = issue.labels
-    .filter((label) => configuredRoleIds.some((roleId) => label.startsWith(`${roleId}:`)));
-
-  if (oldRoleLabels.length > 0) await provider.removeLabels(issueId, oldRoleLabels);
-
-  const roleLabel = `${role}:${level}`;
-
-  await provider.ensureLabel(roleLabel, getRoleLabelColor(role));
-  await provider.addLabel(issueId, roleLabel);
+  await reconcileManagedLabelsLocked({
+    workspaceDir,
+    projectSlug: project.slug,
+    issueId,
+    workflow: resolvedConfig.workflow,
+    roles: configuredRoleIds,
+    provider,
+    owner: "task_set_level",
+  });
 
   await auditLog(workspaceDir, "task_set_level", {
     project: project.name,

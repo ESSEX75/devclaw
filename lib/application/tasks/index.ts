@@ -1,3 +1,4 @@
+export * from "./claim-task.js";
 export * from "./create-managed-task.js";
 export * from "./edit-task-body.js";
 export * from "./get-task-status.js";

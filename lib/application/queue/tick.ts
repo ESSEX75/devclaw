@@ -23,7 +23,7 @@ import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
 import { withIssueOrchestrationLock, writeIssueRoleLevel } from "../../state/issues/index.js";
 import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
 import { resolveRoleLevel } from "../tasks/lifecycle-decision.js";
-import { dispatchTask } from "../workers/dispatch-task.js";
+import { dispatchTaskLocked } from "../workers/dispatch-task.js";
 import { findNextIssueForRole } from "./scan.js";
 
 // ---------------------------------------------------------------------------
@@ -239,7 +239,7 @@ export async function projectTick(opts: {
           );
 
           const targetLabel = getActiveLabel(workflow, role);
-          const dispatch = await dispatchTask({
+          const dispatch = await dispatchTaskLocked({
             workspaceDir,
             agentId,
             project: lockedProject,

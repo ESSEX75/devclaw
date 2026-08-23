@@ -19,7 +19,7 @@ import {
 } from "../../application/tasks/attachments.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { applyNotifyLabel,autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskAttachTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -142,12 +142,6 @@ Use cases:
         const comment = formatAttachmentComment([meta]);
 
         await provider.addComment(issueId, comment);
-
-        // Apply notify label for channel routing (best-effort).
-        applyNotifyLabel(provider, issueId, project, channelId);
-
-        // Auto-assign owner label to this instance (best-effort).
-        autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => {});
 
         await auditLog(workspaceDir, "task_attach", {
           project: project.name,

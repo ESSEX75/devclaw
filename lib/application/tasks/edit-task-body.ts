@@ -3,7 +3,7 @@ import type { RunCommand } from "../../context.js";
 import { getInitialStateLabel } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import { resolveIssueRuntimeState } from "../../state/issues/index.js";
-import { applyNotifyLabel,autoAssignOwnerLabel, resolveProject, resolveProvider } from "../../tools/helpers.js";
+import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 
 export type EditTaskBodyInput = {
   workspaceDir: string;
@@ -85,9 +85,6 @@ export async function editTaskBody(input: EditTaskBodyInput) {
     ...(newTitle !== undefined ? { title: newTitle } : {}),
     ...(newBody !== undefined ? { body: newBody } : {}),
   });
-
-  applyNotifyLabel(provider, issueId, project, channelId, issue.labels);
-  autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => {});
 
   if (addComment) {
     const timestamp = new Date().toISOString();

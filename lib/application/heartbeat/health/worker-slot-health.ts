@@ -32,6 +32,7 @@ import {
   DEFAULT_WORKFLOW,
 } from "../../../domain/index.js";
 import {
+  findStateKeyByLabel,
   getActiveLabel,
   getCurrentStateLabel,
   getRevertLabel,
@@ -45,6 +46,7 @@ import {
   getRoleWorker,
   updateSlot,
 } from "../../../state/projects/index.js";
+import { transitionHeartbeatIssue } from "../transition-state.js";
 import { isSessionAlive, type SessionLookup } from "./gateway-sessions.js";
 import { fetchIssue, isIssueClosed } from "./issue-utils.js";
 import type { HealthFix } from "./types.js";
@@ -126,8 +128,23 @@ export async function checkWorkerHealth(opts: {
       async function revertLabel(fix: HealthFix, from: StateLabel, to: StateLabel) {
         if (!issueIdNum) return;
         try {
-          await provider.transitionLabel(issueIdNum, from, to);
-          fix.labelReverted = `${from} → ${to}`;
+          const targetKey = findStateKeyByLabel(workflow, to);
+
+          if (!targetKey) throw new Error(`No workflow state found for label "${to}".`);
+          const transitioned = await transitionHeartbeatIssue({
+            workspaceDir,
+            project,
+            issueId: issueIdNum,
+            provider,
+            workflow,
+            fromLabel: from,
+            workflowState: targetKey,
+            workflowLabel: to,
+            owner: "heartbeat_worker_health",
+          });
+
+          if (transitioned) fix.labelReverted = `${from} → ${to}`;
+          else fix.labelRevertFailed = true;
         } catch {
           fix.labelRevertFailed = true;
         }
