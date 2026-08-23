@@ -28,7 +28,7 @@ import {
   type WorkflowStateKey,
 } from "../../domain/index.js";
 import { readProjects, getRoleWorker, getProject } from "../../state/projects/index.js";
-import { writeIssueRuntimeState } from "../../state/issues/index.js";
+import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { slotName } from "../../names.js";
 
 // ---------------------------------------------------------------------------
@@ -416,6 +416,47 @@ describe("E2E pipeline", () => {
       const closeCalls = h.provider.callsTo("closeIssue");
       assert.strictEqual(closeCalls.length, 1);
       assert.strictEqual(closeCalls[0].args.issueId, 30);
+    });
+
+    it("sends pipelineComplete only after terminal state is persisted and reconciled", async () => {
+      const issueBefore = await h.provider.getIssue(30);
+
+      await writeIssueRuntimeState({
+        workspaceDir: h.workspaceDir,
+        project: h.project,
+        issue: issueBefore,
+        providerType: ISSUE_PROVIDER.GITHUB,
+        workflow: h.workflow,
+        notifyTarget: { channel: h.project.channels[0]!.channel, name: h.project.channels[0]!.name },
+      });
+
+      await executeCompletion({
+        workspaceDir: h.workspaceDir,
+        projectSlug: h.project.slug,
+        channels: h.project.channels,
+        role: "tester",
+        result: "pass",
+        issueId: 30,
+        summary: "All tests pass",
+        provider: h.provider,
+        repoPath: "/tmp/test-repo",
+        projectName: "test-project",
+        runCommand: h.runCommand,
+      });
+
+      const notificationCommands = h.commands.commands.filter(
+        (command) => command.argv[0] === "openclaw" && command.argv[1] === "message",
+      );
+      const messages = notificationCommands.map((command) => {
+        const index = command.argv.indexOf("--message");
+
+        return index >= 0 ? command.argv[index + 1] : undefined;
+      });
+      const state = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["30"];
+
+      assert.strictEqual(messages.filter((message) => message?.includes("Pipeline completed #30")).length, 1);
+      assert.strictEqual(state?.workflowState, "done");
+      assert.strictEqual(state?.pipelineNotification?.status, "delivered");
     });
   });
 

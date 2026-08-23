@@ -3,7 +3,7 @@
  *
  * Covers:
  * - getNotifyLabel / NOTIFY_LABEL_PREFIX / NOTIFY_LABEL_COLOR
- * - resolveNotifyChannel
+ * - resolveNotifyBinding
  *
  * Run with: npx tsx --test lib/domain/notifications/routing.test.ts
  */
@@ -49,7 +49,7 @@ describe("notify label helpers", () => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveNotifyChannel — new format (notify:{channel}:{name})
+// resolveNotifyBinding — stable binding reference ({ channel, name })
 // ---------------------------------------------------------------------------
 
 describe("resolveNotifyBinding", () => {

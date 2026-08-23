@@ -20,13 +20,16 @@ import {
   getNextStateDescription,
   NOTIFICATION_CHANNEL,
   type NotificationEndpoint,
+  STATE_TYPE,
   WORKFLOW_EVENT,
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
 import {
+  confirmPipelineNotification,
   providerKindFromProject,
+  reservePipelineNotification,
   withIssueOrchestrationLock,
   writeIssueRuntimeState,
 } from "../../state/issues/index.js";
@@ -392,6 +395,48 @@ async function executeCompletionLocked(opts: {
     provider,
     owner: "pipeline_completion",
   });
+
+  const targetState = findStateByLabel(workflow, rule.to);
+
+  if (
+    targetState?.type === STATE_TYPE.TERMINAL
+    && notifyTarget
+    && notifyConfig.pipelineComplete !== false
+  ) {
+    const eventKey = `pipelineComplete:${runtimeState.workflowState}`;
+    const reserved = await reservePipelineNotification(workspaceDir, projectSlug, issueId, eventKey);
+
+    if (reserved) {
+      const delivered = await notify(
+        {
+          type: "pipelineComplete",
+          project: projectName,
+          issueId,
+          issueTitle: issue.title,
+          issueUrl: issue.web_url,
+          terminalState: rule.to,
+          pullRequestUrl: prUrl,
+          mergeResult: mergedPr ? "merged" : undefined,
+          testResult: role === "tester" ? result : undefined,
+          issueClosed: rule.actions.includes(ACTION.CLOSE_ISSUE),
+        },
+        {
+          workspaceDir,
+          config: notifyConfig,
+          channelId: notifyTarget.channelId,
+          channel: notifyTarget.channel,
+          threadId: notifyTarget.threadId,
+          runtime,
+          accountId: notifyTarget.accountId,
+          runCommand: rc,
+        },
+      );
+
+      if (delivered) {
+        await confirmPipelineNotification(workspaceDir, projectSlug, issueId, eventKey);
+      }
+    }
+  }
 
   // Deactivate worker last (non-critical — session cleanup)
   await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });

@@ -12,6 +12,7 @@ import {
   type IssueProviderId,
   type IssueRuntimeState,
   type NotifyBindingRef,
+  PIPELINE_NOTIFICATION_STATUS,
   type Project,
   REVIEW_POLICY,
   type ReviewPolicy,
@@ -120,11 +121,56 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       updatedAt: now,
       closedAt: input.closedAt !== undefined ? input.closedAt : previous?.closedAt ?? null,
       archivedAt: input.archivedAt !== undefined ? input.archivedAt : previous?.archivedAt ?? null,
+      pipelineNotification: previous?.pipelineNotification ?? null,
     };
     store.issues[String(input.issue.iid)] = written;
   });
 
   return written;
+}
+
+/** Reserve a terminal notification once, preventing duplicate delivery attempts. */
+export async function reservePipelineNotification(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+  eventKey: string,
+): Promise<boolean> {
+  return updateIssueStateStore(workspaceDir, projectSlug, (store) => {
+    const state = store.issues[String(issueId)];
+
+    if (!state) throw new Error(`Issue #${issueId} has no initialized local runtime state.`);
+    if (state.pipelineNotification?.eventKey === eventKey) return false;
+
+    state.pipelineNotification = {
+      eventKey,
+      status: PIPELINE_NOTIFICATION_STATUS.ATTEMPTING,
+      attemptedAt: new Date().toISOString(),
+    };
+    state.updatedAt = new Date().toISOString();
+
+    return true;
+  });
+}
+
+/** Confirm successful delivery of a previously reserved terminal notification. */
+export async function confirmPipelineNotification(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+  eventKey: string,
+): Promise<void> {
+  await updateIssueStateStore(workspaceDir, projectSlug, (store) => {
+    const state = store.issues[String(issueId)];
+
+    if (!state || state.pipelineNotification?.eventKey !== eventKey) {
+      throw new Error(`Issue #${issueId} has no reserved pipeline notification ${eventKey}.`);
+    }
+
+    state.pipelineNotification.status = PIPELINE_NOTIFICATION_STATUS.DELIVERED;
+    state.pipelineNotification.deliveredAt = new Date().toISOString();
+    state.updatedAt = state.pipelineNotification.deliveredAt;
+  });
 }
 
 /** Persist the role-specific level selected for an initialized managed issue. */
