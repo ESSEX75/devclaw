@@ -13,6 +13,5 @@ agent-facing plugin API and deterministic DevClaw behavior.
 - Do not access provider or state internals directly when an application use case
   exists.
 - Register public tool factories in `lib/tools/registry.ts`.
-- Do not reintroduce legacy root package imports.
 
 Use `npm run arch:check:strict` after adding or changing tool factories.

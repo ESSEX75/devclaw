@@ -15,17 +15,16 @@ DevClaw is an OpenClaw plugin for multi-project dev/qa pipeline orchestration wi
 - `lib/testing` — test harnesses, fakes, and test-only helpers.
 - `lib/roles` — role registry, model selection, level resolution, and model fetchers.
 
-Layer-specific contracts live in the `README.md` files under each `lib/*` package.
+Layer-specific contracts live in the `README.md` files under each `lib/*` package. Read the complete README for every affected package before changing it.
 
-## Domain Package API
+## Package APIs
 
-- `lib/domain/index.ts` is the public entry point for the complete domain package.
-- Every `lib/domain/*` subpackage has its own `index.ts` and re-exports its public constants, types, guards, queries, and operations there.
-- `lib/domain/index.ts` re-exports every domain subpackage public API.
-- Code outside `lib/domain` imports domain entities from `lib/domain/index.ts`, not from internal domain files.
-- Files within one domain subpackage may import each other directly.
-- Cross-subpackage domain imports target the other subpackage's `index.ts`; domain internals must not import from the root `lib/domain/index.ts` barrel.
-- Keep file-local implementation details private. Export through the subpackage and root barrels only supported API or entities consumed outside their source subpackage.
+- A directory with an `index.ts` exposes an explicit package or subpackage API.
+- Import through that entrypoint across its public boundary; keep direct implementation imports inside the owning package unless its README specifies otherwise.
+- Do not import a package through its own barrel from inside that package.
+- Re-export only supported entities owned by the package, and keep file-local implementation details private.
+- Do not create a top-level barrel for an organizational layer unless it represents a real supported API.
+- Any stricter package-specific API rules belong in that package's README.
 
 ## Runtime State Contract
 
@@ -57,6 +56,14 @@ Imports must target the current owner package directly. Do not add compatibility
 - **Meaningful names** — Variables, functions, and files should clearly describe their purpose. Avoid abbreviations unless they're universally understood.
 - **No dead code** — Remove unused imports, variables, and unreachable code paths.
 - **Favor readability over cleverness** — Straightforward code beats compact one-liners. The next reader (human or agent) should understand the intent without re-reading.
+
+## Code Documentation
+
+- Start every new source file with a concise JSDoc header explaining why the file exists and which architectural responsibility it owns.
+- Add meaningful JSDoc to every newly exported function, type, interface, class, and constant.
+- Describe non-obvious guarantees, side effects, failure conditions, and source-of-truth semantics.
+- Do not add comments that merely repeat names, types, or individual statements.
+- Keep documentation synchronized with behavior and package ownership.
 
 ## TypeScript Contracts
 
