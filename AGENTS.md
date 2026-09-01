@@ -70,7 +70,7 @@ Imports must target the current owner package directly. Do not add compatibility
 - Do not use type assertions (`as SomeType`) to bypass type errors. Fix the source type or validate unknown input with a type guard or schema.
 - Do not introduce `any`. Keep untrusted boundary values as `unknown` until validated.
 - Do not use inline type imports such as `import("./types.js").Type`; use top-level `import type` declarations.
-- Do not modify `SoftUnion<T> = T[keyof T]` or replace domain types derived through it with primitive aliases.
+- Do not modify `ValueOf<T> = T[keyof T]` or replace domain types derived through it with primitive aliases.
 - Keep built-in identifiers distinct from identifiers validated from resolved runtime configuration. Built-in guards must be named accordingly and must not reject valid custom configuration in runtime paths.
 - Put shared domain constants in `const.ts`, domain types in `types.ts`, and runtime type guards in `guards.ts`.
 - A boolean predicate belongs in `guards.ts` only when it narrows a TypeScript type or validates membership in a domain value set.

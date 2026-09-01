@@ -1,23 +1,23 @@
 /**
  * issues/types.ts — Runtime state for DevClaw-managed provider issues.
  */
-import type { SoftUnion } from "../../types.js";
+import type { ValueOf } from "../../types.js";
 import type { NotifyBindingRef } from "../notifications/types.js";
 import type { ReviewPolicy, TestPolicy } from "../workflow/types.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, PIPELINE_NOTIFICATION_STATUS } from "./const.js";
 
 /** Supported issue tracking provider identifier. */
-export type IssueProviderId = SoftUnion<typeof ISSUE_PROVIDER>;
+export type IssueProviderId = ValueOf<typeof ISSUE_PROVIDER>;
 
 /** Status of the issue's local state relative to the provider. */
-export type IssueIntegrityStatus = SoftUnion<typeof ISSUE_INTEGRITY_STATUS>;
+export type IssueIntegrityStatus = ValueOf<typeof ISSUE_INTEGRITY_STATUS>;
 
 /** Persisted delivery marker for the terminal pipeline notification. */
 export type PipelineNotificationState = {
   /** Stable key identifying the terminal event. */
   eventKey: string;
   /** Current persistence state of the delivery. */
-  status: SoftUnion<typeof PIPELINE_NOTIFICATION_STATUS>;
+  status: ValueOf<typeof PIPELINE_NOTIFICATION_STATUS>;
   /** ISO timestamp written before external delivery begins. */
   attemptedAt: string;
   /** ISO timestamp written after the adapter confirms delivery. */

@@ -34,5 +34,5 @@ outside `lib/domain`.
 ## Domain-specific contracts
 
 - Keep YAML parsing, Zod boundary schemas, persistence, migrations, locks, provider calls, audit logging, and runtime orchestration outside this layer.
-- Derive closed domain value unions from their canonical constant registries through `SoftUnion`.
+- Derive closed domain value unions from their canonical constant registries through `ValueOf`.
 - Keep narrow built-in identifiers distinct from extensible identifiers validated from resolved runtime configuration.
