@@ -15,4 +15,4 @@ projection of that state.
 - Do not call GitHub, GitLab, or OpenClaw APIs here.
 - Do not treat manual provider label edits as authoritative runtime state.
 
-Use `npm run test:issue-state` after changing projection behavior.
+Use `npm run test` after changing projection behavior.

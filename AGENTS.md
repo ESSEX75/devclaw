@@ -94,7 +94,6 @@ Imports must target the current owner package directly. Do not add compatibility
 - Typecheck: `npm run check`
 - Build: `npm run build`
 - Full tests: `npm run test`
-- Issue state/projection focus: `npm run test:issue-state`
 
 For local plugin smoke testing:
 

@@ -13,5 +13,5 @@ types, but they should not contain queue scheduling or worker dispatch behavior.
 - Do not call provider APIs or OpenClaw session APIs.
 - Do not own workflow transitions that require application orchestration.
 
-Use `npm run test:issue-state` after changing issue state behavior, and
+Use `npm run test` after changing issue state behavior, and
 `npm run arch:check:strict` after structural changes.

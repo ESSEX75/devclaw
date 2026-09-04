@@ -60,7 +60,6 @@
     "build": "node build.mjs",
     "check": "tsc --noEmit",
     "test": "node scripts/run-node-tests.mjs",
-    "test:issue-state": "tsx --test lib/state/issues/issues.test.ts lib/state/issues/orchestration-lock.test.ts lib/projection/projection.test.ts lib/application/projection/reconcile-managed-labels.test.ts lib/application/notifications/resolve-endpoint.test.ts lib/application/queue/queue-scan.local-state.test.ts lib/application/queue/tick-lock.test.ts lib/tools/tasks/task-create.test.ts lib/tools/tasks/projection-view.test.ts lib/tools/issues/issue-repair.test.ts lib/tools/issues/issues-cleanup.test.ts",
     "arch:check": "node scripts/architecture-check.mjs --warn-only",
     "arch:check:strict": "node scripts/architecture-check.mjs",
     "prepublishOnly": "npm run build"
