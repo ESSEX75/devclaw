@@ -1,16 +1,19 @@
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import {
+  findSlotByIssue,
   findStateByLabel,
-  getRoleLabelColor,
-  STATE_TYPE,
-  WORKFLOW_EVENT,
-  type WorkflowConfig,
-  type WorkflowStateConfig,
+  ISSUE_INTEGRITY_STATUS,
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { detectNotifyTarget, resolveIssueRuntimeState, writeIssueRuntimeState } from "../../state/issues/index.js";
-import { applyNotifyLabel,autoAssignOwnerLabel, resolveProject, resolveProvider } from "../../tools/helpers.js";
+import {
+  resolveIssueRuntimeState,
+  withIssueOrchestrationLock,
+  writeIssueRuntimeState,
+} from "../../state/issues/index.js";
+import { resolveProject, resolveProvider } from "../../tools/helpers.js";
+import { reconcileManagedLabelsLocked } from "../projection/index.js";
+import { resolveStartTaskDecision } from "./lifecycle-decision.js";
 
 export type StartTaskInput = {
   workspaceDir: string;
@@ -33,9 +36,14 @@ export type StartTaskResult = {
 };
 
 export async function startTask(input: StartTaskInput): Promise<StartTaskResult> {
+  const { workspaceDir, channelId, issueId } = input;
+  const { project } = await resolveProject(workspaceDir, channelId);
+
+  return withIssueOrchestrationLock(workspaceDir, project.slug, issueId, () => startTaskLocked(input));
+}
+
+async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> {
   const { workspaceDir, channelId, issueId, runCommand } = input;
-  const levelHint = input.level;
-  let assignedLevel: string | undefined;
 
   const { project } = await resolveProject(workspaceDir, channelId);
   const { provider, type: providerType } = await resolveProvider(workspaceDir, project, runCommand);
@@ -49,6 +57,21 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
     throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_start.`);
   }
 
+  if (runtimeState.state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) {
+    throw new Error(`Issue #${issueId} has integrity_error. Repair local state before task_start.`);
+  }
+
+  if (runtimeState.state.activeWorker) {
+    throw new Error(`Issue #${issueId} already has an active worker.`);
+  }
+
+  const issueSlot = Object.values(project.workers)
+    .some((roleWorker) => findSlotByIssue(roleWorker, String(issueId)) !== null);
+
+  if (issueSlot) {
+    throw new Error(`Issue #${issueId} is already assigned to a worker slot.`);
+  }
+
   const currentLabel = runtimeState.workflowLabel;
   const currentState = runtimeState.stateConfig ?? findStateByLabel(workflow, currentLabel);
 
@@ -56,106 +79,59 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
     throw new Error(`No state config for label "${currentLabel}".`);
   }
 
-  const { targetLabel, targetState, transitioned } = resolveStartTarget(
-    workflow, currentLabel, currentState,
-  );
+  const decision = resolveStartTaskDecision({
+    workflow,
+    currentState,
+    runtimeState: runtimeState.state,
+    roles: resolvedConfig.roles,
+    requestedLevel: input.level,
+    issueTitle: issue.title,
+    issueDescription: issue.description ?? "",
+  });
 
-  if (transitioned) {
-    await provider.transitionLabel(issueId, currentLabel, targetLabel);
-  }
+  await provider.transitionLabel(issueId, decision.fromLabel, decision.targetLabel);
 
-  const targetRole = targetState.role;
-
-  if (levelHint && targetRole) {
-    const validLevels = resolvedConfig.roles[targetRole]?.levels ?? [];
-
-    if (!validLevels.includes(levelHint)) {
-      throw new Error(`Invalid level "${levelHint}" for role "${targetRole}". Valid: ${validLevels.join(", ")}`);
-    }
-
-    assignedLevel = levelHint;
-
-    const oldRoleLabels = issue.labels.filter((l) => l.startsWith(`${targetRole}:`));
-
-    if (oldRoleLabels.length > 0) {
-      await provider.removeLabels(issueId, oldRoleLabels);
-    }
-
-    const hintLabel = `${targetRole}:${levelHint}`;
-
-    await provider.ensureLabel(hintLabel, getRoleLabelColor(targetRole));
-    await provider.addLabel(issueId, hintLabel);
-  }
-
-  applyNotifyLabel(provider, issueId, project, channelId, issue.labels);
-  autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => {});
-
+  const configuredRoleIds = Object.keys(resolvedConfig.roles);
   const nextLabels = issue.labels
-    .filter((candidate) => candidate !== currentLabel && !candidate.startsWith(`${targetRole}:`))
-    .concat(targetLabel);
+    .filter((candidate) => candidate !== decision.fromLabel)
+    .filter((candidate) => !configuredRoleIds.some((role) => candidate.startsWith(`${role}:`)))
+    .concat(decision.targetLabel, `${decision.targetRole}:${decision.assignedLevel}`);
 
-  if (levelHint && targetRole) nextLabels.push(`${targetRole}:${levelHint}`);
   await writeIssueRuntimeState({
     workspaceDir,
     project,
     issue: { ...issue, labels: nextLabels },
     providerType,
     workflow,
-    workflowLabel: targetLabel,
-    assignedRole: targetRole ?? null,
-    assignedLevel,
-    notifyTarget: detectNotifyTarget(nextLabels, project.channels),
+    workflowLabel: decision.targetLabel,
+    workflowState: decision.targetStateKey,
+    assignedRole: decision.targetRole,
+    assignedLevel: decision.assignedLevel,
+  });
+
+  await reconcileManagedLabelsLocked({
+    workspaceDir,
+    projectSlug: project.slug,
+    issueId,
+    workflow,
+    roles: configuredRoleIds,
+    provider,
+    owner: "task_start",
   });
 
   await auditLog(workspaceDir, "task_start", {
     project: project.name, issueId,
-    from: currentLabel, to: targetLabel,
-    transitioned, level: levelHint ?? null,
+    from: decision.fromLabel, to: decision.targetLabel,
+    transitioned: true, level: decision.assignedLevel,
   });
 
-  const levelMsg = levelHint ? ` (level hint: ${levelHint})` : "";
-  const announcement = transitioned
-    ? `▶️ #${issueId} moved to "${targetLabel}"${levelMsg} — heartbeat will dispatch.`
-    : `▶️ #${issueId} already in queue "${targetLabel}"${levelMsg} — heartbeat will dispatch.`;
+  const announcement = `▶️ #${issueId} moved to "${decision.targetLabel}" `
+    + `(level: ${decision.assignedLevel}) — heartbeat will dispatch.`;
 
   return {
     success: true, issueId, issueTitle: issue.title,
-    from: currentLabel, to: targetLabel, transitioned,
-    level: levelHint ?? null,
+    from: decision.fromLabel, to: decision.targetLabel, transitioned: true,
+    level: decision.assignedLevel,
     project: project.name, announcement,
   };
-}
-
-export function resolveStartTarget(
-  workflow: WorkflowConfig,
-  currentLabel: string,
-  currentState: WorkflowStateConfig,
-): { targetLabel: string; targetState: WorkflowStateConfig; transitioned: boolean } {
-  switch (currentState.type) {
-    case STATE_TYPE.HOLD: {
-      const approveTransition = currentState.on?.[WORKFLOW_EVENT.APPROVE];
-
-      if (!approveTransition) {
-        throw new Error(`HOLD state "${currentLabel}" has no APPROVE transition.`);
-      }
-
-      const targetKey = approveTransition.target;
-      const targetState = workflow.states[targetKey];
-
-      if (!targetState) {
-        throw new Error(`Transition target "${targetKey}" not found in workflow.`);
-      }
-
-      return { targetLabel: targetState.label, targetState, transitioned: true };
-    }
-
-    case STATE_TYPE.QUEUE:
-      return { targetLabel: currentLabel, targetState: currentState, transitioned: false };
-    case STATE_TYPE.ACTIVE:
-      throw new Error(`Issue is in active state "${currentLabel}" — already being worked on.`);
-    case STATE_TYPE.TERMINAL:
-      throw new Error(`Issue is in terminal state "${currentLabel}" — cannot start.`);
-    default:
-      throw new Error(`Unknown state type for "${currentLabel}".`);
-  }
 }

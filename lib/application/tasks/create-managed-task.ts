@@ -1,21 +1,17 @@
 import {
   type IssueProviderId,
-  NOTIFY_LABEL_COLOR,
-  NOTIFY_LABEL_PREFIX,
-  type NotifyTarget,
-  OWNER_LABEL_COLOR,
+  type NotifyBindingRef,
   type Project,
   REVIEW_POLICY,
   STATE_TYPE,
   TEST_POLICY,
-  WORKFLOW_EVENT,
   type WorkflowConfig,
-  type WorkflowStateConfig,
 } from "../../domain/index.js";
-import type { IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
+import type { IssueReader, IssueWriter, LabelProjector } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
-import { expectedManagedLabels, replaceIssueMetadata } from "../../projection/index.js";
+import { replaceIssueMetadata } from "../../projection/index.js";
 import { writeIssueRuntimeState } from "../../state/issues/index.js";
+import { reconcileManagedLabels } from "../projection/index.js";
 
 export type CreatedManagedTask = {
   issue: Issue;
@@ -29,33 +25,38 @@ export async function createManagedTaskIssue(opts: {
   workspaceDir: string;
   project: Pick<Project, "slug" | "channels">;
   providerType: IssueProviderId;
-  provider: Pick<IssueWriter, "createIssue" | "editIssue"> & Pick<LabelProjector, "addLabel" | "ensureLabel">;
+  provider: Pick<IssueReader, "getIssue">
+    & Pick<IssueWriter, "createIssue" | "editIssue">
+    & Pick<LabelProjector, "addLabel" | "ensureLabel" | "removeLabels">;
   workflow: WorkflowConfig;
   title: string;
   description: string;
   assignees?: string[];
-  notifyTarget?: NotifyTarget | null;
+  notifyTarget?: NotifyBindingRef | null;
   owner?: string | null;
 }): Promise<CreatedManagedTask> {
   const initialState = opts.workflow.states[opts.workflow.initial];
 
   if (!initialState) throw new Error(`Initial workflow state "${opts.workflow.initial}" not found.`);
 
-  const { targetKey, targetState } = resolveInitialQueueTarget(opts.workflow, initialState);
-  const targetLabel = targetState.label;
-  const targetRole = targetState.role ?? null;
-  const issue = await opts.provider.createIssue(opts.title, opts.description, targetLabel, opts.assignees ?? []);
+  if (initialState.type !== STATE_TYPE.HOLD && initialState.type !== STATE_TYPE.QUEUE) {
+    throw new Error(`Initial workflow state "${opts.workflow.initial}" must be hold or queue for task_create.`);
+  }
+
+  const initialLabel = initialState.label;
+  const initialRole = initialState.type === STATE_TYPE.QUEUE ? initialState.role : null;
+  const issue = await opts.provider.createIssue(opts.title, opts.description, initialLabel, opts.assignees ?? []);
   const owner = opts.owner ?? null;
 
   const state = await writeIssueRuntimeState({
     workspaceDir: opts.workspaceDir,
     project: opts.project,
-    issue: { ...issue, labels: [targetLabel], state: issue.state },
+    issue: { ...issue, labels: [initialLabel], state: issue.state },
     providerType: opts.providerType,
     workflow: opts.workflow,
-    workflowLabel: targetLabel,
-    workflowState: targetKey,
-    assignedRole: targetRole,
+    workflowLabel: initialLabel,
+    workflowState: opts.workflow.initial,
+    assignedRole: initialRole,
     assignedLevel: null,
     owner,
     notifyTarget: opts.notifyTarget ?? null,
@@ -63,18 +64,14 @@ export async function createManagedTaskIssue(opts: {
     testPolicy: opts.workflow.testPolicy ?? TEST_POLICY.SKIP,
   });
 
-  for (const label of expectedManagedLabels(state)) {
-    if (label === targetLabel) continue;
-    if (label.startsWith("owner:")) {
-      await opts.provider.ensureLabel(label, OWNER_LABEL_COLOR);
-    }
-
-    if (label.startsWith(NOTIFY_LABEL_PREFIX)) {
-      await opts.provider.ensureLabel(label, NOTIFY_LABEL_COLOR);
-    }
-
-    await opts.provider.addLabel(issue.iid, label);
-  }
+  await reconcileManagedLabels({
+    workspaceDir: opts.workspaceDir,
+    projectSlug: opts.project.slug,
+    issueId: issue.iid,
+    workflow: opts.workflow,
+    provider: opts.provider,
+    owner: "task_create",
+  });
 
   const body = replaceIssueMetadata(issue.description ?? "", {
     projectSlug: state.projectSlug,
@@ -85,38 +82,11 @@ export async function createManagedTaskIssue(opts: {
 
   return {
     issue: updated,
-    label: targetLabel,
-    workflowState: targetKey,
-    role: targetRole,
-    announcementSuffix: "\nQueued for heartbeat dispatch.",
+    label: initialLabel,
+    workflowState: opts.workflow.initial,
+    role: initialRole,
+    announcementSuffix: initialState.type === STATE_TYPE.QUEUE
+      ? "\nQueued for heartbeat dispatch."
+      : "\nWaiting in the initial hold state. Use task_start when the task is ready for dispatch.",
   };
-}
-
-function resolveInitialQueueTarget(
-  workflow: WorkflowConfig,
-  initialState: WorkflowStateConfig,
-): { targetKey: string; targetState: WorkflowStateConfig } {
-  if (initialState.type === STATE_TYPE.QUEUE) {
-    return { targetKey: workflow.initial, targetState: initialState };
-  }
-
-  if (initialState.type !== STATE_TYPE.HOLD) {
-    throw new Error(`Initial workflow state "${workflow.initial}" must be hold or queue for task_create.`);
-  }
-
-  const approve = initialState.on?.[WORKFLOW_EVENT.APPROVE];
-
-  if (!approve) {
-    throw new Error(`Initial workflow state "${workflow.initial}" has no APPROVE transition.`);
-  }
-
-  const targetKey = approve.target;
-  const targetState = workflow.states[targetKey];
-
-  if (!targetState) throw new Error(`Initial workflow transition target "${targetKey}" not found.`);
-  if (targetState.type !== STATE_TYPE.QUEUE) {
-    throw new Error(`Initial workflow transition target "${targetKey}" must be a queue state.`);
-  }
-
-  return { targetKey, targetState };
 }

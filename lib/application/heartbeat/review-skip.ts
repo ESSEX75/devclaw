@@ -20,7 +20,7 @@ import {
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
-import { writeHeartbeatTransitionState } from "./transition-state.js";
+import { transitionHeartbeatIssue } from "./transition-state.js";
 
 /**
  * Scan review queue states and auto-merge + transition issues with reviewPolicy=skip.
@@ -102,16 +102,19 @@ export async function reviewSkipPass(opts: {
                   const failedState = workflow.states[failedKey];
 
                   if (failedState) {
-                    await provider.transitionLabel(issue.iid, state.label, failedState.label);
-                    await writeHeartbeatTransitionState({
+                    const transitioned = await transitionHeartbeatIssue({
                       workspaceDir,
                       project,
-                      issue,
+                      issueId: issue.iid,
+                      provider,
                       workflow,
+                      fromLabel: state.label,
                       workflowState: failedKey,
                       workflowLabel: failedState.label,
+                      owner: "heartbeat_review_skip_merge_failure",
                     });
-                    transitions++;
+
+                    if (transitioned) transitions++;
                   }
                 }
 
@@ -142,15 +145,19 @@ export async function reviewSkipPass(opts: {
       if (aborted) continue;
 
       // Transition label
-      await provider.transitionLabel(issue.iid, state.label, targetState.label);
-      await writeHeartbeatTransitionState({
+      const transitioned = await transitionHeartbeatIssue({
         workspaceDir,
         project,
-        issue,
+        issueId: issue.iid,
+        provider,
         workflow,
+        fromLabel: state.label,
         workflowState: targetKey,
         workflowLabel: targetState.label,
+        owner: "heartbeat_review_skip",
       });
+
+      if (!transitioned) continue;
 
       await auditLog(workspaceDir, "review_skip_transition", {
         project: projectName,

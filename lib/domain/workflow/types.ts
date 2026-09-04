@@ -1,7 +1,7 @@
 /**
  * workflow/types.ts — Domain types for workflow statecharts, transitions, and role definitions.
  */
-import type { SoftUnion } from "../../types.js";
+import type { ValueOf } from "../../types.js";
 import {
   ACTION,
   COMPLETION_RESULT,
@@ -19,47 +19,47 @@ import {
 } from "./const.js";
 
 /** Internal system key for a workflow state (e.g. "planning", "todo"). */
-export type WorkflowStateKey = SoftUnion<typeof WORKFLOW_STATE_KEYS>;
+export type WorkflowStateKey = ValueOf<typeof WORKFLOW_STATE_KEYS>;
 
 /** Display label for a workflow state, often mirrored on the provider (e.g. "To Do"). */
-export type WorkflowLabel = SoftUnion<typeof WORKFLOW_STATE_LABELS>;
+export type WorkflowLabel = ValueOf<typeof WORKFLOW_STATE_LABELS>;
 
 /** Unique identifier for a role (e.g. "developer", "tester"). */
-export type RoleId = SoftUnion<typeof DEFAULT_ROLES>;
+export type RoleId = ValueOf<typeof DEFAULT_ROLES>;
 
 /** Unique identifier for a developer tier/level (e.g. "junior", "senior"). */
-export type LevelId = SoftUnion<typeof DEFAULT_LEVELS>;
+export type LevelId = ValueOf<typeof DEFAULT_LEVELS>;
 
 /** Union type for built-in state types (e.g. queue, active, hold, terminal). */
-export type StateType = SoftUnion<typeof STATE_TYPE>;
+export type StateType = ValueOf<typeof STATE_TYPE>;
 
 /** Union type for execution mode (parallel or sequential). */
-export type ExecutionMode = SoftUnion<typeof EXECUTION_MODE>;
+export type ExecutionMode = ValueOf<typeof EXECUTION_MODE>;
 
 /** Union type for review policy (human, agent, or skip). */
-export type ReviewPolicy = SoftUnion<typeof REVIEW_POLICY>;
+export type ReviewPolicy = ValueOf<typeof REVIEW_POLICY>;
 
 /** Union type for test policy (skip or agent). */
-export type TestPolicy = SoftUnion<typeof TEST_POLICY>;
+export type TestPolicy = ValueOf<typeof TEST_POLICY>;
 
 /** Union type for workflow transition events (e.g. PICKUP, COMPLETE). */
-export type WorkflowEvent = SoftUnion<typeof WORKFLOW_EVENT>;
+export type WorkflowEvent = ValueOf<typeof WORKFLOW_EVENT>;
 
 /** Built-in worker completion result identifier. */
-export type CompletionResult = SoftUnion<typeof COMPLETION_RESULT>;
+export type CompletionResult = ValueOf<typeof COMPLETION_RESULT>;
 
 /** Explicit mapping from role completion results to workflow events. */
 export type CompletionEventMap<TResult extends string = string> =
   Readonly<Record<TResult, WorkflowEvent>>;
 
 /** Action identifier executed during transitions (e.g. gitPull, mergePr). */
-export type TransitionAction = SoftUnion<typeof ACTION>;
+export type TransitionAction = ValueOf<typeof ACTION>;
 
 /** Union of possible PR review check types. */
-export type ReviewCheckType = SoftUnion<typeof REVIEW_CHECK>;
+export type ReviewCheckType = ValueOf<typeof REVIEW_CHECK>;
 
 /** Union of possible routing label strings (e.g. review:human, test:agent). */
-export type RoutingLabel = SoftUnion<typeof ROUTING_LABELS>;
+export type RoutingLabel = ValueOf<typeof ROUTING_LABELS>;
 
 /** Configuration for a workflow event transition. */
 export type TransitionTarget<TStateKey extends string> = {

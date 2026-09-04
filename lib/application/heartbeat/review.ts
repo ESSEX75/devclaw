@@ -17,7 +17,7 @@ import {
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
-import { writeHeartbeatTransitionState } from "./transition-state.js";
+import { transitionHeartbeatIssue } from "./transition-state.js";
 
 /**
  * Scan review-type states and transition issues whose PR check condition is met.
@@ -66,15 +66,18 @@ export async function reviewPass(opts: {
         targetKey: string,
         targetLabel: string,
         closedAt?: string | null,
-      ): Promise<void> => {
-        await writeHeartbeatTransitionState({
+      ): Promise<boolean> => {
+        return transitionHeartbeatIssue({
           workspaceDir,
           project,
-          issue,
+          issueId: issue.iid,
+          provider,
           workflow,
+          fromLabel: state.label,
           workflowState: targetKey,
           workflowLabel: targetLabel,
           closedAt,
+          owner: "heartbeat_review",
         });
       };
 
@@ -111,8 +114,7 @@ export async function reviewPass(opts: {
           const targetState = workflow.states[targetKey];
 
           if (targetState) {
-            await provider.transitionLabel(issue.iid, state.label, targetState.label);
-            await syncTransitionState(targetKey, targetState.label);
+            if (!await syncTransitionState(targetKey, targetState.label)) continue;
             await auditLog(workspaceDir, "review_transition", {
               project: projectName, issueId: issue.iid,
               from: state.label, to: targetState.label,
@@ -137,8 +139,7 @@ export async function reviewPass(opts: {
           const targetState = workflow.states[targetKey];
 
           if (targetState) {
-            await provider.transitionLabel(issue.iid, state.label, targetState.label);
-            await syncTransitionState(targetKey, targetState.label);
+            if (!await syncTransitionState(targetKey, targetState.label)) continue;
             await auditLog(workspaceDir, "review_transition", {
               project: projectName, issueId: issue.iid,
               from: state.label, to: targetState.label,
@@ -163,7 +164,6 @@ export async function reviewPass(opts: {
           const targetState = workflow.states[targetKey];
 
           if (targetState) {
-            await provider.transitionLabel(issue.iid, state.label, targetState.label);
             if (closedActions) {
               for (const action of closedActions) {
                 switch (action) {
@@ -179,11 +179,11 @@ export async function reviewPass(opts: {
               }
             }
 
-            await syncTransitionState(
+            if (!await syncTransitionState(
               targetKey,
               targetState.label,
               closedActions?.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
-            );
+            )) continue;
             await auditLog(workspaceDir, "review_transition", {
               project: projectName, issueId: issue.iid,
               from: state.label, to: targetState.label,
@@ -242,8 +242,7 @@ export async function reviewPass(opts: {
                   const failedState = workflow.states[failedKey];
 
                   if (failedState) {
-                    await provider.transitionLabel(issue.iid, state.label, failedState.label);
-                    await syncTransitionState(failedKey, failedState.label);
+                    if (!await syncTransitionState(failedKey, failedState.label)) break;
                     await auditLog(workspaceDir, "review_transition", {
                       project: projectName,
                       issueId: issue.iid,
@@ -278,8 +277,7 @@ export async function reviewPass(opts: {
       if (aborted) continue; // skip normal transition, move to next issue
 
       // Transition label
-      await provider.transitionLabel(issue.iid, state.label, targetState.label);
-      await syncTransitionState(targetKey, targetState.label);
+      if (!await syncTransitionState(targetKey, targetState.label)) continue;
 
       await auditLog(workspaceDir, "review_transition", {
         project: projectName,

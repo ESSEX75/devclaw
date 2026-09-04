@@ -6,14 +6,13 @@ import {
   detectOwner,
   findStateKeyByLabel,
   getCurrentStateLabel,
-  isNotificationChannel,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   type IssueIntegrityStatus,
   type IssueProviderId,
   type IssueRuntimeState,
-  NOTIFY_LABEL_PREFIX,
-  type NotifyTarget,
+  type NotifyBindingRef,
+  PIPELINE_NOTIFICATION_STATUS,
   type Project,
   REVIEW_POLICY,
   type ReviewPolicy,
@@ -35,7 +34,7 @@ export type IssueStateWriteInput = {
   assignedRole?: string | null;
   assignedLevel?: string | null;
   owner?: string | null;
-  notifyTarget?: NotifyTarget | null;
+  notifyTarget?: NotifyBindingRef | null;
   reviewPolicy?: ReviewPolicy | null;
   testPolicy?: TestPolicy | null;
   activeWorker?: ActiveIssueWorker | null;
@@ -48,29 +47,6 @@ type RoleLevel = {
   role: string;
   level: string;
 };
-
-export function detectNotifyTarget(
-  labels: string[],
-  channels: Pick<Project, "channels">["channels"],
-): NotifyTarget | null {
-  const notifyLabel = labels.find((label) => label.startsWith(NOTIFY_LABEL_PREFIX));
-
-  if (!notifyLabel) return null;
-  const value = notifyLabel.slice(NOTIFY_LABEL_PREFIX.length);
-  const colonIdx = value.indexOf(":");
-
-  if (colonIdx === -1) {
-    const channel = channels.find((ch) => ch.channelId === value);
-
-    return channel ? { channel: channel.channel, name: channel.name } : null;
-  }
-
-  const channel = value.slice(0, colonIdx);
-
-  return isNotificationChannel(channel)
-    ? { channel, name: value.slice(colonIdx + 1) }
-    : null;
-}
 
 export function detectRoleLevel(labels: string[]): RoleLevel | null {
   for (const label of labels) {
@@ -135,7 +111,7 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       owner: input.owner !== undefined ? input.owner : detectOwner(labels) ?? previous?.owner ?? null,
       reviewPolicy: input.reviewPolicy !== undefined ? input.reviewPolicy : detectRouting(labels, "review") ?? previous?.reviewPolicy ?? null,
       testPolicy: input.testPolicy !== undefined ? input.testPolicy : detectRouting(labels, "test") ?? previous?.testPolicy ?? null,
-      notifyTarget: input.notifyTarget !== undefined ? input.notifyTarget : detectNotifyTarget(labels, input.project.channels) ?? previous?.notifyTarget ?? null,
+      notifyTarget: input.notifyTarget !== undefined ? input.notifyTarget : previous?.notifyTarget ?? null,
       branchContract: previous?.branchContract ?? null,
       activeWorker: input.activeWorker !== undefined ? input.activeWorker : previous?.activeWorker ?? null,
       integrityStatus: input.integrityStatus ?? previous?.integrityStatus ?? ISSUE_INTEGRITY_STATUS.OK,
@@ -145,11 +121,79 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       updatedAt: now,
       closedAt: input.closedAt !== undefined ? input.closedAt : previous?.closedAt ?? null,
       archivedAt: input.archivedAt !== undefined ? input.archivedAt : previous?.archivedAt ?? null,
+      pipelineNotification: previous?.pipelineNotification ?? null,
     };
     store.issues[String(input.issue.iid)] = written;
   });
 
   return written;
+}
+
+/** Reserve a terminal notification once, preventing duplicate delivery attempts. */
+export async function reservePipelineNotification(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+  eventKey: string,
+): Promise<boolean> {
+  return updateIssueStateStore(workspaceDir, projectSlug, (store) => {
+    const state = store.issues[String(issueId)];
+
+    if (!state) throw new Error(`Issue #${issueId} has no initialized local runtime state.`);
+    if (state.pipelineNotification?.eventKey === eventKey) return false;
+
+    state.pipelineNotification = {
+      eventKey,
+      status: PIPELINE_NOTIFICATION_STATUS.ATTEMPTING,
+      attemptedAt: new Date().toISOString(),
+    };
+    state.updatedAt = new Date().toISOString();
+
+    return true;
+  });
+}
+
+/** Confirm successful delivery of a previously reserved terminal notification. */
+export async function confirmPipelineNotification(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+  eventKey: string,
+): Promise<void> {
+  await updateIssueStateStore(workspaceDir, projectSlug, (store) => {
+    const state = store.issues[String(issueId)];
+
+    if (!state || state.pipelineNotification?.eventKey !== eventKey) {
+      throw new Error(`Issue #${issueId} has no reserved pipeline notification ${eventKey}.`);
+    }
+
+    state.pipelineNotification.status = PIPELINE_NOTIFICATION_STATUS.DELIVERED;
+    state.pipelineNotification.deliveredAt = new Date().toISOString();
+    state.updatedAt = state.pipelineNotification.deliveredAt;
+  });
+}
+
+/** Persist the role-specific level selected for an initialized managed issue. */
+export async function writeIssueRoleLevel(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+  role: string,
+  level: string,
+): Promise<IssueRuntimeState> {
+  return updateIssueStateStore(workspaceDir, projectSlug, (store) => {
+    const state = store.issues[String(issueId)];
+
+    if (!state) {
+      throw new Error(`Issue #${issueId} has no initialized local runtime state.`);
+    }
+
+    state.assignedRole = role;
+    state.assignedLevel = level;
+    state.updatedAt = new Date().toISOString();
+
+    return state;
+  });
 }
 
 export function providerKindFromProject(project: Pick<Project, "provider">): IssueProviderId {

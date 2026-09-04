@@ -20,6 +20,5 @@ review handling.
 - Do not import CLI command adapters from `lib/cli/commands/*`.
 - Do not format OpenClaw tool responses here; keep that in `lib/tools`.
 - Do not parse command-line arguments here; keep that in `lib/cli`.
-- Do not add legacy compatibility imports from old root packages.
 
 Use `npm run arch:check:strict` after changing this layer.

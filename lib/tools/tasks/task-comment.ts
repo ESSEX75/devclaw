@@ -12,7 +12,7 @@ import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { getFallbackEmoji } from "../../roles/index.js";
 import { isConfiguredRoleId, loadConfig } from "../../state/config/index.js";
-import { applyNotifyLabel,autoAssignOwnerLabel, requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 type AuthorRole = string;
 
@@ -87,12 +87,6 @@ Examples:
 
       // Mark as system-managed (best-effort).
       provider.reactToIssueComment(issueId, commentId, "eyes").catch(() => {});
-
-      // Apply notify label for channel routing (best-effort).
-      applyNotifyLabel(provider, issueId, project, channelId, issue.labels);
-
-      // Auto-assign owner label to this instance (best-effort).
-      autoAssignOwnerLabel(workspaceDir, provider, issueId, project).catch(() => {});
 
       await auditLog(workspaceDir, "task_comment", {
         project: project.name, issueId,

@@ -13,6 +13,5 @@ small adapter functions and typed results for application use cases.
 - Do not own workflow decisions here; place those in `lib/domain` or
   `lib/application`.
 - Do not format OpenClaw tool responses here.
-- Do not reintroduce `lib/providers` or other legacy root packages.
 
 Use `npm run arch:check:strict` after changing this layer.

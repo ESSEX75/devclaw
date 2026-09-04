@@ -9,7 +9,7 @@
  * - reviewNeeded: Issue needs review — human or agent (→ project group)
  * - prMerged: PR/MR was merged into the base branch (→ project group)
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+import { randomUUID } from "node:crypto";
 
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
@@ -18,7 +18,41 @@ import { getCompletionEmoji, NOTIFICATION_CHANNEL, type NotificationChannel } fr
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;
 
+export type NotificationDeliveryResult = {
+  delivered: true;
+  messageId?: string;
+  channel: NotificationChannel;
+  accountId?: string;
+  channelId: string;
+  threadId?: string;
+  path: "runtime" | "fallback";
+};
+
+/** Narrow runtime surface required by notification delivery. */
+export type NotificationRuntime = {
+  config: {
+    current(): unknown;
+  };
+  channel: {
+    outbound: {
+      loadAdapter(channel: string): Promise<unknown>;
+    };
+  };
+};
+
 export type NotifyEvent =
+  | {
+      type: "pipelineComplete";
+      project: string;
+      issueId: number;
+      issueTitle: string;
+      issueUrl: string;
+      terminalState: string;
+      pullRequestUrl?: string;
+      mergeResult?: string;
+      testResult?: string;
+      issueClosed: boolean;
+    }
   | {
       type: "workerStart";
       project: string;
@@ -149,6 +183,19 @@ function prLink(url: string): string {
  */
 function buildMessage(event: NotifyEvent): string {
   switch (event.type) {
+    case "pipelineComplete": {
+      let message = `✅ Pipeline completed #${event.issueId}: ${event.issueTitle}`;
+
+      message += `\nFinal state: ${event.terminalState}`;
+      if (event.mergeResult) message += `\nMerge: ${event.mergeResult}`;
+      if (event.testResult) message += `\nTests: ${event.testResult}`;
+      if (event.issueClosed) message += "\nIssue closed";
+      if (event.pullRequestUrl) message += `\n🔗 ${prLink(event.pullRequestUrl)}`;
+      message += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
+
+      return message;
+    }
+
     case "workerStart": {
       const action = event.sessionAction === "spawn" ? "🚀 Started" : "▶️ Resumed";
       const worker = formatWorkerString(event.role, {
@@ -277,78 +324,105 @@ async function sendMessage(
   target: string,
   message: string,
   channel: NotificationChannel,
-  workspaceDir: string,
-  runtime?: PluginRuntime,
+  runtime?: NotificationRuntime,
   accountId?: string,
   threadId?: string,
   runCommand?: RunCommand,
-): Promise<boolean> {
+): Promise<NotificationDeliveryResult> {
   let runtimeError: unknown;
-  let fallbackAttempted = false;
 
-  try {
-    // Use runtime API when available (avoids CLI subprocess timeouts)
-    const sendText = runtime
-      ? (await runtime.channel.outbound.loadAdapter(channel))?.sendText
-      : undefined;
+  // Use runtime API when available (avoids CLI subprocess timeouts)
+  const adapter: unknown = runtime
+    ? await runtime.channel.outbound.loadAdapter(channel)
+    : undefined;
 
-    if (sendText) {
-      try {
-        await sendText({
-          cfg: (runtime as unknown as { config?: unknown }).config ?? {},
-          to: target,
-          text: message,
-          silent: true,
-          accountId,
-          threadId,
-        } as never);
+  if (hasRuntimeSender(adapter) && runtime) {
+    try {
+      const receipt: unknown = await adapter.sendText({
+        cfg: runtime.config.current(),
+        to: target,
+        text: message,
+        silent: true,
+        accountId,
+        threadId,
+      });
 
-        return true;
-      } catch (err) {
-        runtimeError = err;
-      }
+      return {
+        delivered: true,
+        ...(getMessageId(receipt) ? { messageId: getMessageId(receipt) } : {}),
+        channel,
+        accountId,
+        channelId: target,
+        threadId,
+        path: "runtime",
+      };
+    } catch (err) {
+      runtimeError = err;
     }
-
-    const args = [
-      "message",
-      "send",
-      "--channel",
-      channel,
-      "--target",
-      target,
-      "--message",
-      message,
-      "--json",
-    ];
-
-    // Fallback: use CLI (for unsupported channels or when runtime isn't available)
-    // Note: openclaw message send CLI doesn't expose disable_web_page_preview flag.
-    // The runtime API path (above) handles it; CLI fallback won't suppress previews.
-    if (!runCommand) {
-      throw new Error(sendText
-        ? "Runtime notification failed and no command runner is available for fallback"
-        : "No notification delivery path available");
-    }
-
-    if (accountId) args.push("--account", accountId);
-    if (threadId) args.push("--thread-id", threadId);
-
-    fallbackAttempted = true;
-    await runCommand(["openclaw", ...args], { timeoutMs: 30_000 });
-
-    return true;
-  } catch (err) {
-    // Log but don't throw — notifications shouldn't break the main flow
-    await auditLog(workspaceDir, "notify_error", {
-      target,
-      channel,
-      fallbackAttempted,
-      error: (err as Error).message,
-      runtimeError: runtimeError instanceof Error ? runtimeError.message : String(runtimeError ?? ""),
-    });
-
-    return false;
   }
+
+  const args = [
+    "message",
+    "send",
+    "--channel",
+    channel,
+    "--target",
+    target,
+    "--message",
+    message,
+    "--json",
+  ];
+
+  if (!runCommand) {
+    throw new Error(hasRuntimeSender(adapter)
+      ? `Runtime notification failed and no command runner is available for fallback: ${errorMessage(runtimeError)}`
+      : "No notification delivery path available");
+  }
+
+  if (accountId) args.push("--account", accountId);
+  if (threadId) args.push("--thread-id", threadId);
+
+  await runCommand(["openclaw", ...args], { timeoutMs: 30_000 });
+
+  return {
+    delivered: true,
+    channel,
+    accountId,
+    channelId: target,
+    threadId,
+    path: "fallback",
+  };
+}
+
+type RuntimeSendPayload = {
+  cfg: unknown;
+  to: string;
+  text: string;
+  silent: boolean;
+  accountId?: string;
+  threadId?: string;
+};
+
+function hasRuntimeSender(value: unknown): value is {
+  sendText(payload: RuntimeSendPayload): Promise<unknown>;
+} {
+  return typeof value === "object"
+    && value !== null
+    && "sendText" in value
+    && typeof value.sendText === "function";
+}
+
+function getMessageId(value: unknown): string | undefined {
+  return typeof value === "object"
+    && value !== null
+    && "messageId" in value
+    && typeof value.messageId === "string"
+    ? value.messageId
+    : undefined;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /**
@@ -368,14 +442,14 @@ export async function notify(
     /** Optional thread/topic ID for forum-style channels */
     threadId?: string;
     /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
-    runtime?: PluginRuntime;
+    runtime?: NotificationRuntime;
     /** Optional account ID for multi-account setups */
     accountId?: string;
     /** Injected runCommand for dependency injection. */
     runCommand?: RunCommand;
   },
-): Promise<boolean> {
-  if (opts.config?.[event.type] === false) return true;
+): Promise<NotificationDeliveryResult | null> {
+  if (opts.config?.[event.type] === false) return null;
 
   const channel = opts.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;
   const message = buildMessage(event);
@@ -387,18 +461,61 @@ export async function notify(
       reason: "no target",
     });
 
-    return true; // Not an error, just nothing to do
+    return null;
   }
 
-  await auditLog(opts.workspaceDir, "notify", {
-    eventType: event.type,
-    target,
+  const eventId = randomUUID();
+  const deliveryPaths = [opts.runtime ? "runtime" : null, opts.runCommand ? "fallback" : null].filter(Boolean);
+  const targetData = {
     channel,
+    accountId: opts.accountId,
+    channelId: target,
     threadId: opts.threadId,
-    message,
+  };
+
+  await auditLog(opts.workspaceDir, "notify_attempt", {
+    eventId,
+    eventType: event.type,
+    project: event.project,
+    issueId: event.issueId,
+    target: targetData,
+    paths: deliveryPaths,
   });
 
-  return sendMessage(target, message, channel, opts.workspaceDir, opts.runtime, opts.accountId, opts.threadId, opts.runCommand);
+  try {
+    const result = await sendMessage(
+      target,
+      message,
+      channel,
+      opts.runtime,
+      opts.accountId,
+      opts.threadId,
+      opts.runCommand,
+    );
+
+    await auditLog(opts.workspaceDir, "notify_sent", {
+      eventId,
+      eventType: event.type,
+      project: event.project,
+      issueId: event.issueId,
+      target: targetData,
+      ...result,
+    });
+
+    return result;
+  } catch (error) {
+    await auditLog(opts.workspaceDir, "notify_failed", {
+      eventId,
+      eventType: event.type,
+      project: event.project,
+      issueId: event.issueId,
+      target: targetData,
+      attempts: deliveryPaths,
+      error: errorMessage(error),
+    });
+
+    return null;
+  }
 }
 
 /**

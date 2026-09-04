@@ -7,12 +7,20 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
 import {
+  ISSUE_INTEGRITY_STATUS,
+  ISSUE_PROVIDER,
+  PIPELINE_NOTIFICATION_STATUS,
+  type IssueRuntimeState,
+} from "../../domain/index.js";
+import {
+  confirmPipelineNotification,
   emptyIssueStateStore,
   issueStatePath,
   readIssueStateStore,
+  reservePipelineNotification,
   updateIssueStateStore,
+  writeIssueRoleLevel,
   writeIssueStateStore,
 } from "./index.js";
 
@@ -109,6 +117,66 @@ describe("issue state store", () => {
 
       assert.strictEqual(returned, "todo");
       assert.strictEqual(loaded.issues["123"]!.issueId, 123);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("updates the managed role and level together", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
+    try {
+      const store = emptyIssueStateStore("devclaw");
+      store.issues["123"] = issue({ assignedRole: "developer", assignedLevel: "senior" });
+      await writeIssueStateStore(tmpDir, "devclaw", store);
+
+      const updated = await writeIssueRoleLevel(tmpDir, "devclaw", 123, "tester", "junior");
+      const loaded = await readIssueStateStore(tmpDir, "devclaw");
+
+      assert.strictEqual(updated.assignedRole, "tester");
+      assert.strictEqual(updated.assignedLevel, "junior");
+      assert.strictEqual(loaded.issues["123"]!.assignedRole, "tester");
+      assert.strictEqual(loaded.issues["123"]!.assignedLevel, "junior");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("reserves and confirms one terminal pipeline notification", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
+    try {
+      const store = emptyIssueStateStore("devclaw");
+      store.issues["123"] = issue({ workflowState: "done", workflowLabel: "Done" });
+      await writeIssueStateStore(tmpDir, "devclaw", store);
+
+      assert.strictEqual(
+        await reservePipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done"),
+        true,
+      );
+      assert.strictEqual(
+        await reservePipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done"),
+        false,
+      );
+
+      await confirmPipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done");
+      const loaded = await readIssueStateStore(tmpDir, "devclaw");
+
+      assert.strictEqual(
+        loaded.issues["123"]!.pipelineNotification?.status,
+        PIPELINE_NOTIFICATION_STATUS.DELIVERED,
+      );
+      assert.ok(loaded.issues["123"]!.pipelineNotification?.deliveredAt);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("rejects role-level writes for an uninitialized issue", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
+    try {
+      await assert.rejects(
+        writeIssueRoleLevel(tmpDir, "devclaw", 404, "developer", "junior"),
+        /Issue #404 has no initialized local runtime state/,
+      );
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }

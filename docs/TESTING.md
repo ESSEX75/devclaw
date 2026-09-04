@@ -11,9 +11,6 @@ npm test
 # Run a specific test file
 npx tsx --test lib/roles/registry.test.ts
 
-# Run focused issue state/projection tests
-npm run test:issue-state
-
 # Run lightweight architecture diagnostics
 npm run arch:check
 

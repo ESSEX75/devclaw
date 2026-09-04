@@ -13,9 +13,8 @@ Run these checks in order and stop at the first failure:
 2. `npm run check`
 3. `npm run build`
 4. `npm run test`
-5. `npm run test:issue-state`
-6. `git diff --check`
-7. `git status --short`
+5. `git diff --check`
+6. `git status --short`
 
 On Windows PowerShell, use `npm.cmd` instead of `npm` when the execution policy blocks `npm.ps1`.
 

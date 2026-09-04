@@ -11,9 +11,8 @@ import { detectLevelFromLabels, detectRoleLevelFromLabels } from "../../applicat
 
 describe("task_set_level tool", () => {
   it("has correct schema", () => {
-    // state is now optional — at least one of state or level required
-    const requiredParams = ["channelId", "issueId"];
-    assert.strictEqual(requiredParams.length, 2);
+    const requiredParams = ["channelId", "issueId", "level"];
+    assert.strictEqual(requiredParams.length, 3);
   });
 
   it("supports all state labels", () => {
@@ -25,7 +24,6 @@ describe("task_set_level tool", () => {
   });
 
   it("validates required parameters", () => {
-    // At least one of state or level required
     assert.ok(true, "Parameter validation works");
   });
 

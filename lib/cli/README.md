@@ -12,6 +12,5 @@ handlers.
 - Move reusable behavior into `lib/application/*`.
 - Do not write directly to provider or OpenClaw adapters when an application use
   case exists.
-- Do not reintroduce legacy root package imports.
 
 Use `npm run arch:check:strict` after changing this layer.

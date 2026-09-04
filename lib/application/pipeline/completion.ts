@@ -20,15 +20,23 @@ import {
   getNextStateDescription,
   NOTIFICATION_CHANNEL,
   type NotificationEndpoint,
-  resolveNotifyChannel,
+  STATE_TYPE,
   WORKFLOW_EVENT,
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
-import { providerKindFromProject, writeIssueRuntimeState } from "../../state/issues/index.js";
+import {
+  confirmPipelineNotification,
+  providerKindFromProject,
+  reservePipelineNotification,
+  withIssueOrchestrationLock,
+  writeIssueRuntimeState,
+} from "../../state/issues/index.js";
 import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/projects/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
+import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
+import { reconcileManagedLabelsLocked } from "../projection/index.js";
 
 export type { CompletionRule };
 
@@ -84,6 +92,34 @@ export async function executeCompletion(opts: {
   /** Level of the completing worker */
   level?: string;
   /** Slot index within the level's array */
+  slotIndex?: number;
+  runCommand: RunCommand;
+}): Promise<CompletionOutput> {
+  return withIssueOrchestrationLock(
+    opts.workspaceDir,
+    opts.projectSlug,
+    opts.issueId,
+    () => executeCompletionLocked(opts),
+  );
+}
+
+async function executeCompletionLocked(opts: {
+  workspaceDir: string;
+  projectSlug: string;
+  role: string;
+  result: string;
+  issueId: number;
+  summary?: string;
+  prUrl?: string;
+  provider: IssueProvider;
+  repoPath: string;
+  projectName: string;
+  channels: NotificationEndpoint[];
+  pluginConfig?: Record<string, unknown>;
+  runtime?: PluginRuntime;
+  workflow?: WorkflowConfig;
+  createdTasks?: Array<{ id: number; title: string; url: string }>;
+  level?: string;
   slotIndex?: number;
   runCommand: RunCommand;
 }): Promise<CompletionOutput> {
@@ -182,7 +218,7 @@ export async function executeCompletion(opts: {
 
   // Get issue early (for URL in notification + channel routing)
   const issue = await provider.getIssue(issueId);
-  const notifyTarget = resolveNotifyChannel(issue.labels, channels);
+  const notifyTarget = await resolveIssueNotificationEndpoint(workspaceDir, project, issueId);
 
   if (mergeFailure) {
     const failedTransition = getMergeFailedTransition(workflow, rule.from);
@@ -205,6 +241,15 @@ export async function executeCompletion(opts: {
       workflowState: failedTransition.key,
       workflowLabel: failedTransition.label,
       activeWorker: null,
+    });
+    await reconcileManagedLabelsLocked({
+      workspaceDir,
+      projectSlug,
+      issueId,
+      workflow,
+      roles: Object.keys(config.roles),
+      provider,
+      owner: "pipeline_merge_failure",
     });
 
     await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });
@@ -340,6 +385,58 @@ export async function executeCompletion(opts: {
     activeWorker: null,
     closedAt: rule.actions.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
   });
+
+  await reconcileManagedLabelsLocked({
+    workspaceDir,
+    projectSlug,
+    issueId,
+    workflow,
+    roles: Object.keys(config.roles),
+    provider,
+    owner: "pipeline_completion",
+  });
+
+  const targetState = findStateByLabel(workflow, rule.to);
+
+  if (
+    targetState?.type === STATE_TYPE.TERMINAL
+    && notifyTarget
+    && notifyConfig.pipelineComplete !== false
+  ) {
+    const eventKey = `pipelineComplete:${runtimeState.workflowState}`;
+    const reserved = await reservePipelineNotification(workspaceDir, projectSlug, issueId, eventKey);
+
+    if (reserved) {
+      const delivered = await notify(
+        {
+          type: "pipelineComplete",
+          project: projectName,
+          issueId,
+          issueTitle: issue.title,
+          issueUrl: issue.web_url,
+          terminalState: rule.to,
+          pullRequestUrl: prUrl,
+          mergeResult: mergedPr ? "merged" : undefined,
+          testResult: role === "tester" ? result : undefined,
+          issueClosed: rule.actions.includes(ACTION.CLOSE_ISSUE),
+        },
+        {
+          workspaceDir,
+          config: notifyConfig,
+          channelId: notifyTarget.channelId,
+          channel: notifyTarget.channel,
+          threadId: notifyTarget.threadId,
+          runtime,
+          accountId: notifyTarget.accountId,
+          runCommand: rc,
+        },
+      );
+
+      if (delivered) {
+        await confirmPipelineNotification(workspaceDir, projectSlug, issueId, eventKey);
+      }
+    }
+  }
 
   // Deactivate worker last (non-critical — session cleanup)
   await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });

@@ -43,7 +43,6 @@ Layer-specific contracts live in the `README.md` files under each `lib/*` packag
 - Typecheck: `npm run check`
 - Build: `npm run build`
 - Full test suite: `npm run test`
-- Issue state and projection: `npm run test:issue-state`
 - Package smoke: `npm pack --dry-run`
 
 ## Documentation Policy

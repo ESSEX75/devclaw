@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 
 import type { Project,ProjectsData } from "../../domain/index.js";
 import { projectsPath, resolveRepoPath } from "./paths.js";
+import { parseProjectsData } from "./schema.js";
 
 
 // ---------------------------------------------------------------------------
@@ -66,7 +67,9 @@ export async function releaseLock(workspaceDir: string): Promise<void> {
 export async function readProjects(workspaceDir: string): Promise<ProjectsData> {
   const raw = await fs.readFile(projectsPath(workspaceDir), "utf-8");
 
-  return JSON.parse(raw) as ProjectsData;
+  const parsed: unknown = JSON.parse(raw);
+
+  return parseProjectsData(parsed);
 }
 
 export async function writeProjects(
@@ -75,8 +78,9 @@ export async function writeProjects(
 ): Promise<void> {
   const filePath = projectsPath(workspaceDir);
   const tmpPath = filePath + ".tmp";
+  const validated = parseProjectsData(data);
 
-  await fs.writeFile(tmpPath, JSON.stringify(data, null, 2) + "\n", "utf-8");
+  await fs.writeFile(tmpPath, JSON.stringify(validated, null, 2) + "\n", "utf-8");
   await fs.rename(tmpPath, filePath);
 }
 

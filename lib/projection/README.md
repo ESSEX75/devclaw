@@ -14,6 +14,5 @@ projection of that state.
 - Do not read or write `issues.json` here; use `lib/state/issues`.
 - Do not call GitHub, GitLab, or OpenClaw APIs here.
 - Do not treat manual provider label edits as authoritative runtime state.
-- Do not reintroduce legacy issue/projection facades.
 
-Use `npm run test:issue-state` after changing projection behavior.
+Use `npm run test` after changing projection behavior.

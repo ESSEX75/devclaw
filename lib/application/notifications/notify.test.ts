@@ -3,10 +3,9 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { notify } from "./notify.js";
+import { notify, type NotificationRuntime } from "./notify.js";
 import type { RunCommand } from "../../context.js";
 import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 async function readAuditEvents(workspaceDir: string): Promise<Array<Record<string, unknown>>> {
   try {
@@ -18,15 +17,18 @@ async function readAuditEvents(workspaceDir: string): Promise<Array<Record<strin
 }
 
 function runtimeWithSendText(
-  sendText: (payload: unknown) => Promise<void>,
-): PluginRuntime {
+  sendText: (payload: unknown) => Promise<unknown>,
+): NotificationRuntime {
   return {
+    config: {
+      current: () => ({}),
+    },
     channel: {
       outbound: {
         loadAdapter: async () => ({ sendText }),
       },
     },
-  } as unknown as PluginRuntime;
+  };
 }
 
 describe("notifications", () => {
@@ -35,7 +37,7 @@ describe("notifications", () => {
     const calls: string[][] = [];
     const runCommand: RunCommand = async (argv: string[]) => {
       calls.push(argv);
-      return { stdout: "{}", stderr: "", exitCode: 0 } as never;
+      return { stdout: "{}", stderr: "", code: 0, signal: null, killed: false, termination: "exit" };
     };
 
     try {
@@ -60,7 +62,7 @@ describe("notifications", () => {
         },
       );
 
-      assert.strictEqual(sent, true);
+      assert.strictEqual(sent?.path, "fallback");
       assert.strictEqual(calls.length, 1);
       const messageIndex = calls[0]!.indexOf("--message");
       assert.notStrictEqual(messageIndex, -1);
@@ -78,7 +80,7 @@ describe("notifications", () => {
     const sentPayloads: unknown[] = [];
     const runCommand: RunCommand = async (argv: string[]) => {
       calls.push(argv);
-      return { stdout: "{}", stderr: "", exitCode: 0 } as never;
+      return { stdout: "{}", stderr: "", code: 0, signal: null, killed: false, termination: "exit" };
     };
 
     try {
@@ -96,17 +98,56 @@ describe("notifications", () => {
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
           runtime: runtimeWithSendText(async (payload) => {
             sentPayloads.push(payload);
+            return { messageId: "message-10" };
           }),
           runCommand,
         },
       );
 
-      assert.strictEqual(sent, true);
+      assert.strictEqual(sent?.path, "runtime");
+      assert.strictEqual(sent?.messageId, "message-10");
       assert.strictEqual(sentPayloads.length, 1);
       assert.strictEqual(calls.length, 0);
 
       const events = await readAuditEvents(tmpDir);
-      assert.strictEqual(events.filter((event) => event.event === "notify_error").length, 0);
+      assert.deepStrictEqual(events.map((event) => event.event), ["notify_attempt", "notify_sent"]);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("records one fallback success after runtime delivery fails", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-notify-"));
+    const calls: string[][] = [];
+    const runCommand: RunCommand = async (argv: string[]) => {
+      calls.push(argv);
+      return { stdout: "{}", stderr: "", code: 0, signal: null, killed: false, termination: "exit" };
+    };
+
+    try {
+      const result = await notify(
+        {
+          type: "changesRequested",
+          project: "test-project",
+          issueId: 10,
+          issueUrl: "https://example.com/issues/10",
+          issueTitle: "Needs changes",
+        },
+        {
+          workspaceDir: tmpDir,
+          channelId: "telegram:123",
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          runtime: runtimeWithSendText(async () => {
+            throw new Error("runtime send failed");
+          }),
+          runCommand,
+        },
+      );
+
+      assert.strictEqual(result?.path, "fallback");
+      assert.strictEqual(calls.length, 1);
+      const events = await readAuditEvents(tmpDir);
+      assert.deepStrictEqual(events.map((event) => event.event), ["notify_attempt", "notify_sent"]);
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
@@ -134,13 +175,13 @@ describe("notifications", () => {
         },
       );
 
-      assert.strictEqual(sent, false);
+      assert.strictEqual(sent, null);
 
-      const errors = (await readAuditEvents(tmpDir)).filter((event) => event.event === "notify_error");
+      const events = await readAuditEvents(tmpDir);
+      const errors = events.filter((event) => event.event === "notify_failed");
+      assert.deepStrictEqual(events.map((event) => event.event), ["notify_attempt", "notify_failed"]);
       assert.strictEqual(errors.length, 1);
-      assert.strictEqual(errors[0]!.fallbackAttempted, false);
-      assert.strictEqual(errors[0]!.runtimeError, "runtime send failed");
-      assert.strictEqual(errors[0]!.error, "Runtime notification failed and no command runner is available for fallback");
+      assert.match(String(errors[0]!.error), /runtime send failed/);
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }

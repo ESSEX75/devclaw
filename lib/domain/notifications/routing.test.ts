@@ -3,7 +3,7 @@
  *
  * Covers:
  * - getNotifyLabel / NOTIFY_LABEL_PREFIX / NOTIFY_LABEL_COLOR
- * - resolveNotifyChannel
+ * - resolveNotifyBinding
  *
  * Run with: npx tsx --test lib/domain/notifications/routing.test.ts
  */
@@ -14,7 +14,7 @@ import {
   NOTIFICATION_CHANNEL,
   NOTIFY_LABEL_PREFIX,
   NOTIFY_LABEL_COLOR,
-  resolveNotifyChannel,
+  resolveNotifyBinding,
   type NotificationEndpoint,
 } from "../index.js";
 
@@ -25,19 +25,12 @@ import {
 describe("notify label helpers", () => {
   it("should build notify label from channel type and name", () => {
     assert.strictEqual(
-      getNotifyLabel(NOTIFICATION_CHANNEL.TELEGRAM, "primary"),
+      getNotifyLabel({ channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" }),
       "notify:telegram:primary",
     );
     assert.strictEqual(
-      getNotifyLabel(NOTIFICATION_CHANNEL.WHATSAPP, "dev-chat"),
+      getNotifyLabel({ channel: NOTIFICATION_CHANNEL.WHATSAPP, name: "dev-chat" }),
       "notify:whatsapp:dev-chat",
-    );
-  });
-
-  it("should build notify label with index fallback", () => {
-    assert.strictEqual(
-      getNotifyLabel(NOTIFICATION_CHANNEL.TELEGRAM, "0"),
-      "notify:telegram:0",
     );
   });
 
@@ -50,49 +43,41 @@ describe("notify label helpers", () => {
   });
 
   it("getNotifyLabel output should start with NOTIFY_LABEL_PREFIX", () => {
-    const label = getNotifyLabel(NOTIFICATION_CHANNEL.TELEGRAM, "primary");
+    const label = getNotifyLabel({ channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" });
     assert.ok(label.startsWith(NOTIFY_LABEL_PREFIX));
   });
 });
 
 // ---------------------------------------------------------------------------
-// resolveNotifyChannel — new format (notify:{channel}:{name})
+// resolveNotifyBinding — stable binding reference ({ channel, name })
 // ---------------------------------------------------------------------------
 
-describe("resolveNotifyChannel (new format)", () => {
+describe("resolveNotifyBinding", () => {
   const channels: NotificationEndpoint[] = [
       { channelId: "-111", channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
       { channelId: "-222", channel: NOTIFICATION_CHANNEL.WHATSAPP, name: "dev-chat" },
   ];
 
   it("should resolve channel by channel type and name", () => {
-    const result = resolveNotifyChannel(["To Do", "notify:whatsapp:dev-chat"], channels);
+    const result = resolveNotifyBinding({ channel: NOTIFICATION_CHANNEL.WHATSAPP, name: "dev-chat" }, channels);
     assert.ok(result);
-    assert.strictEqual(result!.channelId, "-222");
-    assert.strictEqual(result!.channel, NOTIFICATION_CHANNEL.WHATSAPP);
+    assert.strictEqual(result.channelId, "-222");
+    assert.strictEqual(result.channel, NOTIFICATION_CHANNEL.WHATSAPP);
   });
 
-  it("should resolve channel by channel type and index", () => {
-    const result = resolveNotifyChannel(["To Do", "notify:whatsapp:1"], channels);
-    assert.ok(result);
-    assert.strictEqual(result!.channelId, "-222");
-    assert.strictEqual(result!.channel, NOTIFICATION_CHANNEL.WHATSAPP);
+  it("does not silently redirect an unknown binding", () => {
+    const result = resolveNotifyBinding({ channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "unknown" }, channels);
+    assert.strictEqual(result, undefined);
   });
 
-  it("should fall back to first channel when new-format label matches nothing", () => {
-    const result = resolveNotifyChannel(["To Do", "notify:discord:unknown"], channels);
+  it("uses the first endpoint only when no binding has been selected", () => {
+    const result = resolveNotifyBinding(null, channels);
     assert.ok(result);
-    assert.strictEqual(result!.channelId, "-111");
-  });
-
-  it("should fall back to first channel when no notify label present", () => {
-    const result = resolveNotifyChannel(["To Do", "bug"], channels);
-    assert.ok(result);
-    assert.strictEqual(result!.channelId, "-111");
+    assert.strictEqual(result.channelId, "-111");
   });
 
   it("should return undefined when channels is empty", () => {
-    const result = resolveNotifyChannel(["To Do", "notify:telegram:primary"], []);
+    const result = resolveNotifyBinding({ channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" }, []);
     assert.strictEqual(result, undefined);
   });
 });

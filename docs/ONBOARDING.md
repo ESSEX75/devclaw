@@ -230,7 +230,7 @@ Issues can be created in multiple ways:
 - **Via CLI** — prefer DevClaw CLI/tools so `issues.json` is initialized; raw `gh issue create` needs explicit backfill before managed dispatch
 - **Via web UI** — create the provider issue only when you plan to backfill it into DevClaw local state
 
-Note: `task_create` creates a managed issue directly in the first developer queue, normally "To Do". Provider-only issues created outside DevClaw are not normal dispatch candidates until they have local issue state.
+Note: `task_create` creates a managed issue in the configured initial state, normally "Planning". Call `task_start` to release it into "To Do". Provider-only issues created outside DevClaw are not normal dispatch candidates until they have local issue state.
 
 ## Step 6: Test the pipeline
 
@@ -238,7 +238,7 @@ Ask the agent in the Telegram group:
 
 > "Check the queue status"
 
-The agent should call `tasks_status` and report the "To Do" issue. Then:
+The agent should call `tasks_status` and report the "Planning" issue. Then:
 
 > "Pick up issue #1 for developer"
 

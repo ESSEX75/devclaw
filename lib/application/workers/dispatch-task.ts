@@ -11,22 +11,12 @@ import type { RunCommand } from "../../context.js";
 import { emptySlot, ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type Project } from "../../domain/index.js";
 import {
   detectOwner,
-  getOwnerLabel,
-  getRoleLabelColor,
-  getStateLabels,
   hasReviewCheck,
   hasTestPhase,
   isFeedbackState,
-  OWNER_LABEL_COLOR,
   producesReviewableWork,
-  resolveNotifyChannel,
-  resolveReviewRouting,
-  resolveTestRouting,
   REVIEW_POLICY,
-  type ReviewPolicy,
-  STEP_ROUTING_COLOR,
   TEST_POLICY,
-  type TestPolicy,
 } from "../../domain/index.js";
 import { loadRoleInstructions } from "../../integrations/openclaw/bootstrap-hook.js";
 import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "../../integrations/openclaw/session.js";
@@ -34,13 +24,15 @@ import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { slotName } from "../../names.js";
 import { resolveModel } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { writeIssueRuntimeState } from "../../state/issues/index.js";
+import { withIssueOrchestrationLock, writeIssueRuntimeState } from "../../state/issues/index.js";
 import {
   activateWorker,
   getRoleWorker,
   updateSlot,
 } from "../../state/projects/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
+import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
+import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { acknowledgeComments, EYES_EMOJI } from "../review/acknowledge-comments.js";
 import { fetchPrContext, fetchPrFeedback } from "../review/pr-context.js";
 import { formatAttachmentsForTask } from "../tasks/attachments.js";
@@ -100,6 +92,18 @@ export type DispatchResult = {
  * On state update failure after dispatch: logs warning (session IS running).
  */
 export async function dispatchTask(
+  opts: DispatchOpts,
+): Promise<DispatchResult> {
+  return withIssueOrchestrationLock(
+    opts.workspaceDir,
+    opts.project.slug,
+    opts.issueId,
+    () => dispatchTaskLocked(opts),
+  );
+}
+
+/** Dispatch while the caller already owns this issue's orchestration lock. */
+export async function dispatchTaskLocked(
   opts: DispatchOpts,
 ): Promise<DispatchResult> {
   const {
@@ -219,77 +223,19 @@ export async function dispatchTask(
     }).catch(() => { });
   });
 
-  // Apply role:level label (best-effort — failure must not abort dispatch)
-  // IMPORTANT: Never pass state labels to removeLabels() — state transitions are
-  // handled exclusively by transitionLabel(). Accidentally removing a state label
-  // makes the issue invisible to the queue scanner. See #473 for context.
-  let issue: { labels: string[] } | undefined;
-  let reviewPolicyForState: ReviewPolicy | null = null;
-  let testPolicyForState: TestPolicy | null = null;
-  let ownerForState: string | null = null;
-
-  try {
-    issue = await provider.getIssue(issueId);
-    const stateLabels = getStateLabels(workflow);
-
-    const oldRoleLabels = issue.labels.filter((l) => l.startsWith(`${role}:`));
-    const safeRoleLabels = filterNonStateLabels(oldRoleLabels, stateLabels);
-
-    if (safeRoleLabels.length > 0) {
-      await provider.removeLabels(issueId, safeRoleLabels);
-    }
-
-    const roleLabel = `${role}:${level}`;
-
-    await provider.ensureLabel(roleLabel, getRoleLabelColor(role));
-    await provider.addLabel(issueId, roleLabel);
-
-    // Apply review routing label when role produces reviewable work (best-effort)
-    if (producesReviewableWork(workflow, role)) {
-      const reviewPolicy = workflow.reviewPolicy ?? REVIEW_POLICY.HUMAN;
-      const reviewLabel = resolveReviewRouting(reviewPolicy);
-
-      reviewPolicyForState = reviewPolicy;
-      const oldRouting = issue.labels.filter((l) => l.startsWith("review:"));
-      const safeRouting = filterNonStateLabels(oldRouting, stateLabels);
-
-      if (safeRouting.length > 0) await provider.removeLabels(issueId, safeRouting);
-      await provider.ensureLabel(reviewLabel, STEP_ROUTING_COLOR);
-      await provider.addLabel(issueId, reviewLabel);
-    }
-
-    // Apply test routing label when workflow has a test phase (best-effort)
-    if (hasTestPhase(workflow)) {
-      const testPolicy = workflow.testPolicy ?? TEST_POLICY.SKIP;
-      const testLabel = resolveTestRouting(testPolicy);
-
-      testPolicyForState = testPolicy;
-      const oldTestRouting = issue.labels.filter((l) => l.startsWith("test:"));
-      const safeTestRouting = filterNonStateLabels(oldTestRouting, stateLabels);
-
-      if (safeTestRouting.length > 0) await provider.removeLabels(issueId, safeTestRouting);
-      await provider.ensureLabel(testLabel, STEP_ROUTING_COLOR);
-      await provider.addLabel(issueId, testLabel);
-    }
-
-    // Apply owner label if issue is unclaimed (auto-claim on pickup)
-    if (opts.instanceName && !detectOwner(issue.labels)) {
-      const ownerLabel = getOwnerLabel(opts.instanceName);
-
-      await provider.ensureLabel(ownerLabel, OWNER_LABEL_COLOR);
-      await provider.addLabel(issueId, ownerLabel);
-      ownerForState = opts.instanceName;
-    } else {
-      ownerForState = detectOwner(issue.labels);
-    }
-  } catch {
-    // Best-effort — label failure must not abort dispatch
-  }
+  const issue = await provider.getIssue(issueId);
+  const reviewPolicyForState = producesReviewableWork(workflow, role)
+    ? workflow.reviewPolicy ?? REVIEW_POLICY.HUMAN
+    : null;
+  const testPolicyForState = hasTestPhase(workflow)
+    ? workflow.testPolicy ?? TEST_POLICY.SKIP
+    : null;
+  const ownerForState = detectOwner(issue.labels) ?? opts.instanceName ?? null;
 
   // Step 2: Send notification early (before session dispatch which can timeout)
   // This ensures users see the notification even if gateway is slow
   const notifyConfig = getNotificationConfig(pluginConfig);
-  const notifyTarget = resolveNotifyChannel(issue?.labels ?? [], project.channels);
+  const notifyTarget = await resolveIssueNotificationEndpoint(workspaceDir, project, issueId);
 
   notify(
     {
@@ -347,7 +293,7 @@ export async function dispatchTask(
       project,
       issue: {
         iid: issueId,
-        labels: (issue?.labels ?? [])
+        labels: issue.labels
           .filter((label) => label !== fromLabel && !label.startsWith(`${role}:`))
           .concat(toLabel, `${role}:${level}`),
         state: "open",
@@ -369,6 +315,15 @@ export async function dispatchTask(
         sessionKey,
         startedAt: new Date().toISOString(),
       },
+    });
+    await reconcileManagedLabelsLocked({
+      workspaceDir,
+      projectSlug: project.slug,
+      issueId,
+      workflow,
+      roles: Object.keys(resolvedConfig.roles),
+      provider,
+      owner: "worker_dispatch",
     });
   } catch (err) {
     // Session is already dispatched — log warning but don't fail
@@ -404,14 +359,6 @@ async function recordWorkerState(
     slotIndex,
     name: opts.name,
   });
-}
-
-/**
- * Filter out state labels from a label array to prevent accidental state loss.
- * State labels should only be modified via transitionLabel(). See #473.
- */
-function filterNonStateLabels(labels: string[], stateLabels: string[]): string[] {
-  return labels.filter((l) => !stateLabels.includes(l));
 }
 
 async function auditDispatch(

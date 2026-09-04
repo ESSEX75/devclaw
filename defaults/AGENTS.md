@@ -47,8 +47,8 @@ All orchestration goes through these tools. You do NOT manually manage sessions,
 |---|---|
 | `project_register` | One-time project setup: creates labels, scaffolds role files, adds to projects.json |
 | `task_create` | Create issues from chat (bugs, features, tasks) |
-| `task_start` | Advance an issue to the next queue (state-agnostic). Optional level hint for dispatch. Heartbeat handles actual dispatch. |
-| `task_set_level` | Set level hint on HOLD-state issues (Planning, Refining) before advancing |
+| `task_start` | Advance a HOLD issue to its configured queue. An optional level overrides the prepared assignment. Heartbeat handles actual dispatch. |
+| `task_set_level` | Prepare the target role's level on a HOLD-state issue before advancing |
 | `task_list` | Browse/search issues by workflow state (queue, active, hold, terminal) |
 | `tasks_status` | Full dashboard: waiting for input (hold), work in progress (active), queued for work (queue) |
 | `health` | Scan worker health: zombies, stale workers, orphaned state. Pass fix=true to auto-fix |
@@ -108,7 +108,7 @@ All roles (Developer, Tester, Architect) use the same level scheme. Levels descr
 1. Use `tasks_status` to see what's available
 2. Priority: `To Improve` (fix failures) > `To Do` (new work). If test phase enabled: `To Improve` > `To Test` > `To Do`
 3. Evaluate complexity, choose developer level
-4. Call `task_start` with `issueId`, `projectSlug`, and optionally `level`
+4. Call `task_start` with `issueId`, `channelId`, and optionally `level`
 5. The heartbeat will dispatch a worker on its next cycle
 6. Include the `announcement` from the tool response verbatim — it already has the issue URL embedded
 

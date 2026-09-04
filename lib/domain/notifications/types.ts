@@ -1,8 +1,8 @@
-import type { SoftUnion } from "../../types.js";
+import type { ValueOf } from "../../types.js";
 import { NOTIFICATION_CHANNEL } from "./const.js";
 
 /** Supported notification channel or messaging platform identifier. */
-export type NotificationChannel = SoftUnion<typeof NOTIFICATION_CHANNEL>;
+export type NotificationChannel = ValueOf<typeof NOTIFICATION_CHANNEL>;
 
 /** Registered messaging endpoint used by a project for notifications. */
 export type NotificationEndpoint = {
@@ -18,10 +18,10 @@ export type NotificationEndpoint = {
   threadId?: string;
 };
 
-/** Target endpoint details persisted for issue notifications. */
-export type NotifyTarget = {
+/** Stable reference to a named project notification endpoint. */
+export type NotifyBindingRef = {
   /** Notification channel type (e.g. telegram, slack). */
   channel: NotificationChannel;
-  /** Channel target name/identifier. */
+  /** Endpoint name within the project channel registry. */
   name: string;
 };

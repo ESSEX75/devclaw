@@ -27,3 +27,11 @@ export const ISSUE_INTEGRITY_STATUS = {
   /** Severe state or data integrity error. */
   INTEGRITY_ERROR: "integrity_error",
 } as const;
+
+/** Persistence states for a terminal pipeline notification. */
+export const PIPELINE_NOTIFICATION_STATUS = {
+  /** Delivery has been reserved but is not yet confirmed. */
+  ATTEMPTING: "attempting",
+  /** The notification adapter confirmed delivery. */
+  DELIVERED: "delivered",
+} as const;

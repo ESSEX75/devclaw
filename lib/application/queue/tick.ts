@@ -1,9 +1,6 @@
 /**
  * tick.ts — Project-level queue scan + dispatch.
  *
-/**
- * tick.ts — Project-level queue scan + dispatch.
- *
  * Core function: projectTick() scans one project's queue and fills free worker slots.
  * Called by: work_finish (next pipeline step), heartbeat service (sweep).
  */
@@ -15,20 +12,19 @@ import {
   EXECUTION_MODE,
   findFreeSlot,
   getActiveLabel,
-  isBuiltInRoleId,
   reconcileSlots,
   REVIEW_POLICY,
   TEST_POLICY,
   type WorkflowConfig,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
-import { selectLevel } from "../../roles/model-selector.js";
+import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
-import type { ResolvedRoleConfig } from "../../state/config/types.js";
+import { withIssueOrchestrationLock, writeIssueRoleLevel } from "../../state/issues/index.js";
 import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
-import { dispatchTask } from "../workers/dispatch-task.js";
-import { detectRoleLevelFromLabels, findNextIssueForRole } from "./scan.js";
+import { resolveRoleLevel } from "../tasks/lifecycle-decision.js";
+import { dispatchTaskLocked } from "../workers/dispatch-task.js";
+import { findNextIssueForRole } from "./scan.js";
 
 // ---------------------------------------------------------------------------
 // projectTick
@@ -115,10 +111,7 @@ export async function projectTick(opts: {
 
     if (!fresh) break;
 
-    const roleWorker = getRoleWorker(fresh, role);
     const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
-
-    reconcileSlots(roleWorker, levelMaxWorkers);
 
     // Check sequential role execution: any other role must be inactive
     const otherRoles = enabledRoles.filter((candidate) => candidate !== role);
@@ -157,132 +150,146 @@ export async function projectTick(opts: {
 
     if (!next) continue;
 
-    const { issue, label: currentLabel } = next;
-    const targetLabel = getActiveLabel(workflow, role);
+    try {
+      const claim = await withIssueOrchestrationLock(
+        workspaceDir,
+        projectSlug,
+        next.issue.iid,
+        async (): Promise<{ action: TickAction | null; reason?: string }> => {
+          const lockedNext = await findNextIssueForRole(
+            provider,
+            role,
+            workflow,
+            instanceName,
+            { workspaceDir, projectSlug },
+          );
 
-    // Step routing comes from project-local issue state; provider labels are only projection.
-    if (role === "reviewer") {
-      const routing = next.localState?.reviewPolicy;
+          if (!lockedNext || lockedNext.issue.iid !== next.issue.iid) {
+            return { action: null, reason: `Issue #${next.issue.iid} is no longer the next ${role} candidate` };
+          }
 
-      if (routing === "human" || routing === "skip") {
-        skipped.push({ role, reason: `review:${routing} policy` });
+          const lockedProject = getProject(await readProjects(workspaceDir), projectSlug);
+
+          if (!lockedProject) return { action: null, reason: `Project not found: ${projectSlug}` };
+
+          const lockedRoleWorker = getRoleWorker(lockedProject, role);
+
+          reconcileSlots(lockedRoleWorker, levelMaxWorkers);
+
+          if (
+            roleExecution === EXECUTION_MODE.SEQUENTIAL
+            && otherRoles.some((candidate) => countActiveSlots(getRoleWorker(lockedProject, candidate)) > 0)
+          ) {
+            return { action: null, reason: "Sequential: other role active" };
+          }
+
+          if (role === "reviewer") {
+            const routing = lockedNext.localState.reviewPolicy;
+
+            if (routing === "human" || routing === "skip") {
+              return { action: null, reason: `review:${routing} policy` };
+            }
+          }
+
+          if (role === "tester" && lockedNext.localState.testPolicy === "skip") {
+            return { action: null, reason: "test:skip policy" };
+          }
+
+          const resolvedRole = resolvedConfig.roles[role];
+
+          if (!resolvedRole) return { action: null, reason: "Role is not configured" };
+
+          const selectedLevel = resolveRoleLevel({
+            runtimeState: lockedNext.localState,
+            targetRole: role,
+            roleConfig: resolvedRole,
+            issueTitle: lockedNext.issue.title,
+            issueDescription: lockedNext.issue.description ?? "",
+          });
+          const freeSlot = findFreeSlot(lockedRoleWorker, selectedLevel);
+
+          if (freeSlot === null) return { action: null, reason: `${selectedLevel} slots full` };
+
+          if (dryRun) {
+            const existingSession = lockedRoleWorker.levels[selectedLevel]?.[freeSlot]?.sessionKey;
+
+            return {
+              action: {
+                project: project.name,
+                projectSlug,
+                issueId: lockedNext.issue.iid,
+                issueTitle: lockedNext.issue.title,
+                issueUrl: lockedNext.issue.web_url,
+                role,
+                level: selectedLevel,
+                sessionAction: existingSession ? "send" : "spawn",
+                announcement: `[DRY RUN] Would pick up #${lockedNext.issue.iid}`,
+              },
+            };
+          }
+
+          if (!runCommand) throw new Error("runCommand is required for queue dispatch.");
+
+          await writeIssueRoleLevel(
+            workspaceDir,
+            projectSlug,
+            lockedNext.issue.iid,
+            role,
+            selectedLevel,
+          );
+
+          const targetLabel = getActiveLabel(workflow, role);
+          const dispatch = await dispatchTaskLocked({
+            workspaceDir,
+            agentId,
+            project: lockedProject,
+            issueId: lockedNext.issue.iid,
+            issueTitle: lockedNext.issue.title,
+            issueDescription: lockedNext.issue.description ?? "",
+            issueUrl: lockedNext.issue.web_url,
+            role,
+            level: selectedLevel,
+            fromLabel: lockedNext.label,
+            toLabel: targetLabel,
+            provider,
+            pluginConfig,
+            sessionKey,
+            runtime,
+            slotIndex: freeSlot,
+            instanceName,
+            runCommand,
+          });
+
+          return {
+            action: {
+              project: project.name,
+              projectSlug,
+              issueId: lockedNext.issue.iid,
+              issueTitle: lockedNext.issue.title,
+              issueUrl: lockedNext.issue.web_url,
+              role,
+              level: dispatch.level,
+              sessionAction: dispatch.sessionAction,
+              announcement: dispatch.announcement,
+            },
+          };
+        },
+      );
+
+      if (!claim.action) {
+        skipped.push({ role, reason: claim.reason ?? "Issue claim changed" });
         continue;
       }
-    }
 
-    if (role === "tester") {
-      const routing = next.localState?.testPolicy;
+      pickups.push(claim.action);
+      pickupCount++;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
 
-      if (routing === "skip") {
-        skipped.push({ role, reason: "test:skip policy" });
-        continue;
-      }
-    }
-
-    // Level selection: label → heuristic (must happen before free slot check)
-    const resolvedRole = resolvedConfig.roles[role];
-
-    if (!resolvedRole) {
-      skipped.push({ role, reason: "Role is not configured" });
+      skipped.push({ role, reason: `Dispatch failed: ${message}` });
       continue;
     }
-
-    const selectedLevel = resolveLevelForIssue(
-      issue,
-      role,
-      resolvedRole,
-      resolvedConfig.roles,
-      next.localState,
-    );
-
-    // Check per-level slot availability
-    const freeSlot = findFreeSlot(roleWorker, selectedLevel);
-
-    if (freeSlot === null) {
-      skipped.push({ role, reason: `${selectedLevel} slots full` });
-      continue;
-    }
-
-    if (dryRun) {
-      const existingSession = roleWorker.levels[selectedLevel]?.[freeSlot]?.sessionKey;
-
-      pickups.push({
-        project: project.name, projectSlug, issueId: issue.iid, issueTitle: issue.title, issueUrl: issue.web_url,
-        role, level: selectedLevel,
-        sessionAction: existingSession ? "send" : "spawn",
-        announcement: `[DRY RUN] Would pick up #${issue.iid}`,
-      });
-    } else {
-      try {
-        const dr = await dispatchTask({
-          workspaceDir, agentId, project: fresh, issueId: issue.iid,
-          issueTitle: issue.title, issueDescription: issue.description ?? "", issueUrl: issue.web_url,
-          role, level: selectedLevel, fromLabel: currentLabel, toLabel: targetLabel,
-          provider,
-          pluginConfig,
-          sessionKey,
-          runtime,
-          slotIndex: freeSlot,
-          instanceName,
-          runCommand: runCommand!,
-        });
-
-        pickups.push({
-          project: project.name, projectSlug, issueId: issue.iid, issueTitle: issue.title, issueUrl: issue.web_url,
-          role, level: dr.level, sessionAction: dr.sessionAction, announcement: dr.announcement,
-        });
-      } catch (err) {
-        skipped.push({ role, reason: `Dispatch failed: ${(err as Error).message}` });
-        continue;
-      }
-    }
-
-    pickupCount++;
   }
 
   return { pickups, skipped };
-}
-
-// ---------------------------------------------------------------------------
-// Private helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Determine the level for an issue based on labels and heuristic fallback.
- *
- * Priority:
- * 1. This role's own label (e.g. tester:medior from a previous dispatch)
- * 2. Inherit from another role's label (e.g. developer:medior → tester uses medior)
- * 3. Heuristic fallback (first dispatch, no labels yet)
- */
-function resolveLevelForIssue(
-  issue: Issue,
-  role: string,
-  resolvedRole: ResolvedRoleConfig,
-  roles: Readonly<Record<string, ResolvedRoleConfig>>,
-  localState?: { assignedRole?: string | null; assignedLevel?: string | null },
-): string {
-  if (localState?.assignedLevel) {
-    if (localState.assignedRole === role) return localState.assignedLevel;
-    const levels = resolvedRole.levels;
-
-    if (levels.includes(localState.assignedLevel)) return localState.assignedLevel;
-  }
-
-  const roleLevel = detectRoleLevelFromLabels(issue.labels, roles);
-
-  // Own role label
-  if (roleLevel && roleLevel.role === role) return roleLevel.level;
-
-  // Inherit from another role's label if level is valid for this role
-  if (roleLevel) {
-    const levels = resolvedRole.levels;
-
-    if (levels.includes(roleLevel.level)) return roleLevel.level;
-  }
-
-  // Heuristic fallback
-  return isBuiltInRoleId(role)
-    ? selectLevel(issue.title, issue.description ?? "", role).level
-    : resolvedRole.defaultLevel;
 }

@@ -11,6 +11,8 @@ import {
   getStateLabels,
 } from "../../../domain/index.js";
 import type { IssueProvider } from "../../../integrations/providers/provider.js";
+import { readIssueStateStore } from "../../../state/issues/index.js";
+import { reconcileManagedLabels } from "../../projection/index.js";
 import type { HealthFix } from "./types.js";
 
 /**
@@ -30,9 +32,7 @@ export async function scanStatelessIssues(opts: {
 
   const fixes: HealthFix[] = [];
   const stateLabels = new Set<string>(getStateLabels(workflow));
-  const initialLabel = workflow.states[workflow.initial]?.label;
-
-  if (!initialLabel) return fixes;
+  const store = await readIssueStateStore(workspaceDir, projectSlug);
 
   let allOpenIssues;
 
@@ -55,6 +55,8 @@ export async function scanStatelessIssues(opts: {
 
     if (!hasWorkflowLabels) continue;
     if (instanceName && !isOwnedByOrUnclaimed(issue.labels, instanceName)) continue;
+    const localState = store.issues[String(issue.iid)];
+    const expectedLabel = localState?.workflowLabel ?? null;
 
     const fix: HealthFix = {
       issue: {
@@ -64,7 +66,7 @@ export async function scanStatelessIssues(opts: {
         projectSlug,
         role: "developer",
         issueId: String(issue.iid),
-        expectedLabel: initialLabel,
+        expectedLabel,
         actualLabel: null,
         message: `Issue #${issue.iid} has no state label — invisible to queue scanner. Labels: [${issue.labels.join(", ")}]`,
       },
@@ -72,16 +74,28 @@ export async function scanStatelessIssues(opts: {
     };
 
     if (autoFix) {
+      if (!localState) {
+        fix.issue.message += " Local state is not initialized; explicit backfill/repair is required.";
+        fixes.push(fix);
+        continue;
+      }
+
       try {
-        await provider.ensureLabel(initialLabel, "");
-        await provider.addLabel(issue.iid, initialLabel);
+        await reconcileManagedLabels({
+          workspaceDir,
+          projectSlug,
+          issueId: issue.iid,
+          workflow,
+          provider,
+          owner: "heartbeat_stateless_recovery",
+        });
         fix.fixed = true;
-        fix.labelReverted = `(none) → ${initialLabel}`;
+        fix.labelReverted = `(none) → ${localState.workflowLabel}`;
 
         await auditLog(workspaceDir, "stateless_issue_recovered", {
           project: project.name,
           issueId: issue.iid,
-          restoredTo: initialLabel,
+          restoredTo: localState.workflowLabel,
           originalLabels: issue.labels,
         });
       } catch {

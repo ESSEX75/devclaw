@@ -12,12 +12,13 @@ import {
   hasWorkflowStates,
 } from "../../../domain/index.js";
 import type { IssueProvider } from "../../../integrations/providers/provider.js";
+import { readIssueStateStore } from "../../../state/issues/index.js";
 import {
   getProject,
   getRoleWorker,
 } from "../../../state/projects/index.js";
 import { readProjects } from "../../../state/projects/index.js";
-import { resolveOrphanRevertLabel } from "./issue-utils.js";
+import { reconcileManagedLabels } from "../../projection/index.js";
 import type { HealthFix } from "./types.js";
 
 /**
@@ -55,6 +56,7 @@ export async function scanOrphanedLabels(opts: {
   }
 
   const roleWorker = getRoleWorker(freshProject, role);
+  const issueStore = await readIssueStateStore(workspaceDir, projectSlug);
   const activeLabel = getActiveLabel(workflow, role);
   const queueLabel = getRevertLabel(workflow, role);
 
@@ -102,14 +104,20 @@ export async function scanOrphanedLabels(opts: {
 
       if (autoFix) {
         try {
-          const revertTarget = await resolveOrphanRevertLabel(
-            provider, issue.iid, role, queueLabel, workflow,
-          );
+          const localState = issueStore.issues[String(issue.iid)];
 
-          await provider.transitionLabel(issue.iid, activeLabel, revertTarget);
+          if (!localState) throw new Error("Local issue state is not initialized");
+          await reconcileManagedLabels({
+            workspaceDir,
+            projectSlug,
+            issueId: issue.iid,
+            workflow,
+            provider,
+            owner: "heartbeat_orphaned_label_recovery",
+          });
           fix.fixed = true;
-          fix.labelReverted = `${activeLabel} → ${revertTarget}`;
-          fix.issue.expectedLabel = revertTarget;
+          fix.labelReverted = `${activeLabel} → ${localState.workflowLabel}`;
+          fix.issue.expectedLabel = localState.workflowLabel;
         } catch {
           fix.labelRevertFailed = true;
         }

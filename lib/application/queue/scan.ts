@@ -26,7 +26,7 @@ export function detectLevelFromLabels(
   roles: Readonly<Record<string, { levels: readonly string[] }>> = ROLE_REGISTRY,
 ): string | null {
   // Match projected role:level labels (e.g., "developer:senior").
-  // Managed dispatch uses issues.json first; labels are only a compatibility fallback.
+  // Provider label parsing is reserved for explicit migration and repair flows.
   for (const label of labels) {
     const parts = label.split(":");
 
