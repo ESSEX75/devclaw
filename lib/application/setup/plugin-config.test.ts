@@ -39,6 +39,11 @@ describe("writePluginConfig", () => {
             workspace: "/tmp/orchestrator",
             tools: { alsoAllow: ["existing_tool"] },
           },
+          {
+            id: "main",
+            workspace: "/tmp/main",
+            tools: { alsoAllow: ["existing_tool", "task_start"] },
+          },
         ],
       },
       plugins: {
@@ -61,5 +66,12 @@ describe("writePluginConfig", () => {
     assert.ok(agent.tools.deny?.includes("sessions_spawn"));
     assert.ok(agent.tools.deny?.includes("sessions_send"));
     assert.strictEqual(agent.tools.allow, undefined);
+    const foreignAgent = writes[0]?.nextConfig.agents?.list?.find((entry) => entry.id === "main");
+
+    assert.ok(foreignAgent?.tools?.alsoAllow?.includes("existing_tool"));
+    assert.ok(!foreignAgent?.tools?.alsoAllow?.includes("task_start"));
+    for (const tool of DEVCLAW_AGENT_TOOLS) {
+      assert.ok(foreignAgent?.tools?.deny?.includes(tool), `expected ${tool} to be denied for main`);
+    }
   });
 });

@@ -11,6 +11,10 @@ import path from "node:path";
 
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
+import {
+  validateDestinationAvailability,
+  validateProjectRoute,
+} from "../../application/setup/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import {
@@ -108,11 +112,15 @@ export function createProjectRegisterTool(ctx: PluginContext) {
     description: `Register a new project with DevClaw. Creates state labels, adds to projects.json. One-time setup per project.`,
     parameters: {
       type: "object",
-      required: ["channelId", "name", "repo", "baseBranch"],
+      required: ["channelId", "accountId", "name", "repo", "baseBranch"],
       properties: {
         channelId: {
           type: "string",
           description: "Channel ID — the chat/group ID where this project is managed (e.g. Telegram group ID)",
+        },
+        accountId: {
+          type: "string",
+          description: "Explicit OpenClaw channel account ID used by this project.",
         },
         name: {
           type: "string",
@@ -153,6 +161,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
 
     async execute(_id: string, params: Record<string, unknown>) {
       const channelId = params.channelId as string;
+      const accountId = typeof params.accountId === "string" ? params.accountId.trim() : "";
       const name = params.name as string;
       const repo = params.repo as string;
       const channelInput = params.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;
@@ -170,13 +179,20 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       const deployBranch = (params.deployBranch as string) ?? baseBranch;
       const deployUrl = (params.deployUrl as string) ?? "";
       const workspaceDir = toolCtx.workspaceDir;
+      const agentId = toolCtx.agentId;
 
-      parseNotificationEndpoint({
+      if (!accountId) throw new Error("accountId is required.");
+      if (!agentId) throw new Error("DevClaw project registration requires an agent context.");
+
+      const requestedEndpoint = parseNotificationEndpoint({
         channelId,
         channel,
         name: "validation",
+        accountId,
         ...(threadId ? { threadId } : {}),
       });
+
+      validateProjectRoute(ctx.runtime.config.current(), agentId, requestedEndpoint);
 
       if (!workspaceDir) {
         throw new Error("No workspace directory available in tool context");
@@ -189,9 +205,20 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       const data = await readProjects(workspaceDir);
       const existing = data.projects[slug];
 
+      if (existing && existing.agentId !== agentId) {
+        throw new Error(`Project "${existing.name}" belongs to agent "${existing.agentId}", not "${agentId}".`);
+      }
+
+      validateDestinationAvailability(data, slug, requestedEndpoint);
+
       // If project exists, check if this channelId is already registered
       if (existing) {
-        const channelExists = existing.channels.some(ch => ch.channelId === channelId && ch.threadId === threadId);
+        const channelExists = existing.channels.some((candidate) => (
+          candidate.channel === channel
+          && candidate.accountId === accountId
+          && candidate.channelId === channelId
+          && candidate.threadId === threadId
+        ));
 
         if (channelExists) {
           throw new Error(
@@ -260,6 +287,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           channelId,
           channel,
           name: `channel-${existing.channels.length + 1}`,
+          accountId,
           ...(threadId ? { threadId } : {}),
         });
 
@@ -281,12 +309,14 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           channelId,
           channel,
           name: "primary",
+          accountId,
           ...(threadId ? { threadId } : {}),
         });
 
         data.projects[slug] = {
           slug,
           name,
+          agentId,
           repo,
           repoRemote,
           groupName,
@@ -313,6 +343,8 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         project: name,
         projectSlug: slug,
         channelId,
+        accountId,
+        agentId,
         threadId,
         repo,
         repoRemote: repoRemote || null,

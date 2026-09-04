@@ -34,9 +34,13 @@ export const DEVCLAW_AGENT_TOOLS = [
   "research_task",
   "workflow_guide",
   "config",
+  "issue_repair",
+  "issue_policy_migrate",
+  "issues_cleanup",
 ] as const;
 
 const DEVCLAW_DENIED_TOOLS = ["sessions_spawn", "sessions_send"] as const;
+const DEVCLAW_AGENT_TOOL_SET: ReadonlySet<string> = new Set(DEVCLAW_AGENT_TOOLS);
 
 /**
  * Write DevClaw plugin config to openclaw.json plugins section.
@@ -113,20 +117,34 @@ function configureSubagentCleanup(config: OpenClawConfig): void {
 }
 
 function configureDevClawAgentTools(config: OpenClawConfig, agentId: string): void {
-  const agent = config.agents?.list?.find((a) => a.id === agentId);
-
-  if (agent) {
+  for (const agent of config.agents?.list ?? []) {
     if (!agent.tools) agent.tools = {};
+
+    if (agent.id !== agentId) {
+      const currentDeny = Array.isArray(agent.tools.deny) ? agent.tools.deny : [];
+
+      agent.tools.deny = [...new Set([...currentDeny, ...DEVCLAW_AGENT_TOOLS])];
+      if (Array.isArray(agent.tools.alsoAllow)) {
+        agent.tools.alsoAllow = agent.tools.alsoAllow.filter((tool) => !DEVCLAW_AGENT_TOOL_SET.has(tool));
+      }
+
+      if (Array.isArray(agent.tools.allow)) {
+        agent.tools.allow = agent.tools.allow.filter((tool) => !DEVCLAW_AGENT_TOOL_SET.has(tool));
+      }
+
+      continue;
+    }
 
     const currentAlsoAllow = Array.isArray(agent.tools.alsoAllow) ? agent.tools.alsoAllow : [];
 
     agent.tools.alsoAllow = [...new Set([...currentAlsoAllow, ...DEVCLAW_AGENT_TOOLS])];
 
-    const currentDeny = Array.isArray(agent.tools.deny) ? agent.tools.deny : [];
+    const currentDeny = Array.isArray(agent.tools.deny)
+      ? agent.tools.deny.filter((tool) => !DEVCLAW_AGENT_TOOL_SET.has(tool))
+      : [];
 
     agent.tools.deny = [...new Set([...currentDeny, ...DEVCLAW_DENIED_TOOLS])];
 
-    delete agent.tools.allow;
   }
 }
 

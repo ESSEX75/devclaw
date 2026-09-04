@@ -115,6 +115,7 @@ describe("task_create managed initial-state flow", () => {
           channelId: "telegram:1",
           channel: NOTIFICATION_CHANNEL.TELEGRAM,
           name: "primary",
+          accountId: "default",
         }],
         },
         providerType: ISSUE_PROVIDER.GITHUB,

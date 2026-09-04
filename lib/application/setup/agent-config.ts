@@ -22,21 +22,10 @@ export async function createAgent(
   name: string,
   options: CreateAgentOptions = {},
 ): Promise<{ agentId: string; workspacePath: string }> {
-  const agentId = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  if (!agentId) {
-    throw new Error(`Invalid agent name: "${name}"`);
-  }
-
-  if (agentId === "main") {
-    throw new Error('"main" is reserved. Choose another agent name.');
-  }
+  const agentId = getAgentId(name);
 
   const openClawHome = options.openClawHome ?? path.join(homedir(), ".openclaw");
-  const defaultAgentWorkspace = path.join(openClawHome, "agents", agentId, "workspace");
+  const defaultAgentWorkspace = getAgentWorkspacePath(agentId, openClawHome);
   const defaultAgentDir = path.join(openClawHome, "agents", agentId, "agent");
   const runtime = "runtime" in api ? api.runtime : api;
 
@@ -77,6 +66,27 @@ export async function createAgent(
   await cleanupWorkspace(defaultAgentWorkspace);
 
   return { agentId, workspacePath: defaultAgentWorkspace };
+}
+
+/** Convert an agent display name to its stable OpenClaw identifier. */
+export function getAgentId(name: string): string {
+  const agentId = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (!agentId) throw new Error(`Invalid agent name: "${name}"`);
+  if (agentId === "main") throw new Error('"main" is reserved. Choose another agent name.');
+
+  return agentId;
+}
+
+/** Resolve the workspace path that would be assigned to a new agent. */
+export function getAgentWorkspacePath(
+  agentId: string,
+  openClawHome = path.join(homedir(), ".openclaw"),
+): string {
+  return path.join(openClawHome, "agents", agentId, "workspace");
 }
 
 /**

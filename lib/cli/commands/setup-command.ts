@@ -27,10 +27,10 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
     .option("--agent <id>", "Use an existing agent by ID")
     .option("--workspace <path>", "Direct workspace path")
     .option("--channel-binding <channel>", "Channel binding for a new agent: telegram, whatsapp, or none")
-    .option("--channel-account-id <id>", "Channel account id for routing bindings, defaults to default")
-    .option("--channel-peer-id <id>", "Group/topic peer id for routing bindings, e.g. -100123:topic:331")
-    .option("--migrate-from <agentId>", "Migrate an existing channel-wide binding from this agent")
+    .option("--channel-account-id <id>", "Explicit channel account id for the binding")
+    .option("--channel-peer-id <id>", "Exact group/topic peer id for the binding, e.g. -100123:topic:331")
     .option("--project-execution <mode>", "Project execution mode: parallel or sequential")
+    .option("--dry-run", "Print the setup plan without writing configuration or workspace files")
     .option("--eject-defaults", "Write missing packaged defaults into the workspace");
 
   const defaults = getAllDefaultModels();
@@ -67,19 +67,21 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
         if (Object.keys(roleModels).length > 0) models[role] = roleModels;
       }
 
-      const scopePreflight = await ensureRequiredOpenClawScopes(ctx.runCommand);
+      const scopePreflight = opts.dryRun
+        ? undefined
+        : await ensureRequiredOpenClawScopes(ctx.runCommand);
       const result = await runSetup({
         runtime: ctx.runtime,
         newAgentName: opts.newAgent,
         channelBinding: normalizeChannelBinding(opts.channelBinding),
         channelAccountId: opts.channelAccountId,
         channelPeerId: opts.channelPeerId,
-        migrateFrom: opts.migrateFrom,
         agentId: opts.agent,
         workspacePath: opts.workspace,
         models: Object.keys(models).length > 0 ? models : undefined,
         ejectDefaults: opts.ejectDefaults === true,
         projectExecution: normalizeProjectExecution(opts.projectExecution),
+        dryRun: opts.dryRun === true,
       });
 
       printSetupResult(result, scopePreflight);
@@ -108,8 +110,15 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
 
 function printSetupResult(
   result: Awaited<ReturnType<typeof runSetup>>,
-  scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>>,
+  scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>> | undefined,
 ): void {
+  if (result.dryRun) {
+    console.log("Setup dry-run plan:");
+    for (const change of result.plannedChanges) console.log(`  - ${change}`);
+
+    return;
+  }
+
   if (result.agentCreated) {
     console.log(`Agent "${result.agentId}" created`);
   }
@@ -120,9 +129,6 @@ function printSetupResult(
   console.log(`  Channel binding: ${result.channelBinding ?? "none"}`);
   if (result.channelAccountId) console.log(`  Channel account: ${result.channelAccountId}`);
   if (result.channelPeerId) console.log(`  Channel peer: ${result.channelPeerId}`);
-  if (result.bindingMigrated) {
-    console.log(`  Binding migrated from: ${result.bindingMigrated.from}`);
-  }
 
   console.log(`  Workspace defaults: ${result.defaultsEjected ? "ejected packaged defaults" : "safe defaults"}`);
 
@@ -138,11 +144,11 @@ function printSetupResult(
     console.log(`  ${file}`);
   }
 
-  if (scopePreflight.status === "approved") {
+  if (scopePreflight?.status === "approved") {
     console.log("\nOpenClaw scopes: approved");
   }
 
-  if (scopePreflight.warning) {
+  if (scopePreflight?.warning) {
     console.log("\nOpenClaw scopes warning:");
     console.log(`  ${scopePreflight.warning}`);
   }

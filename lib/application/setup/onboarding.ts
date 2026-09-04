@@ -91,12 +91,11 @@ Ask: "Do you want to configure DevClaw for the current agent, or create a new de
 - New agent → ask for agent name
 - Selected/new agent → ask for:
   1. **Channel setup**: "Bind this agent to an existing channel account? (telegram/default, telegram/dev, whatsapp/default, none)"
-     - List configured channel accounts from openclaw.json; do not ask for tokens, groups, topics, chat ids, or thread ids
+     - List configured channel accounts and exact groups/topics from openclaw.json; do not ask for tokens
      - If a channel account is selected:
-       a) Check openclaw.json for existing channel bindings
+       a) Require an exact group, chat, or topic peer
        b) If channel not configured/enabled → warn and recommend skipping binding for now
-       c) If a channel-wide binding for that same channel/account exists on another agent → ask: "Migrate binding from {agentName}?"
-       d) Collect migration decision
+       c) Reject the route if that exact account/peer is bound to another agent
      - If none selected, user can add bindings manually later via openclaw.json
 
 **Step 2: Model Configuration**
@@ -128,15 +127,14 @@ Ask: "Do you want to configure DevClaw for the current agent, or create a new de
 Call \`setup\` with the collected answers:
 ` +
       `- Current agent: \`setup({ channelBinding: "${NOTIFICATION_CHANNEL.TELEGRAM}"|"${NOTIFICATION_CHANNEL.WHATSAPP}"|null, channelAccountId: "<accountId>"|null, ` +
-    `channelPeerId: "<groupId[:topic:topicId]>"|null, migrateFrom: "<agentId>"|null, ` +
+      `channelPeerId: "<groupId[:topic:topicId]>"|null, ` +
     `models: { developer: { ... }, tester: { ... } } })\`
 ` +
       `- New agent: \`setup({ newAgentName: "<name>", channelBinding: "${NOTIFICATION_CHANNEL.TELEGRAM}"|"${NOTIFICATION_CHANNEL.WHATSAPP}"|null, ` +
     `channelAccountId: "<accountId>"|null, channelPeerId: "<groupId[:topic:topicId]>"|null, ` +
-    `migrateFrom: "<agentId>"|null, models: { ... } })\`
+    `models: { ... } })\`
 ` +
-    `  - Prefer \`channelPeerId\` for Telegram groups/topics so setup creates an exact binding instead of a broad account-wide fallback.
-  - \`migrateFrom\`: Include only when user wants to migrate an existing channel-wide binding.
+    `  - \`channelAccountId\` and \`channelPeerId\` are both required when a channel binding is selected.
 - Setup writes only route bindings; OpenClaw remains responsible for channel account configuration.
 
 **Step 4: Telegram Group Setup (IMPORTANT)**

@@ -20,6 +20,7 @@ import {
   countActiveSlots,
   ISSUE_PROVIDER,
   type LevelId,
+  type Project,
   REVIEW_POLICY,
   type ReviewPolicy,
   type RoleId,
@@ -30,6 +31,31 @@ import {
 import { readProjects, getRoleWorker, getProject } from "../../state/projects/index.js";
 import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { slotName } from "../../names.js";
+import type { NotificationRuntime } from "../notifications/notify.js";
+
+function notificationRuntime(project: Project): NotificationRuntime {
+  const endpoint = project.channels[0];
+
+  if (!endpoint) throw new Error("Test project requires a primary endpoint.");
+
+  return {
+    config: {
+      current: () => ({
+        agents: { list: [{ id: project.agentId }] },
+        channels: { [endpoint.channel]: { enabled: true, accounts: { [endpoint.accountId]: {} } } },
+        bindings: [{
+          agentId: project.agentId,
+          match: {
+            channel: endpoint.channel,
+            accountId: endpoint.accountId,
+            peer: { id: endpoint.channelId },
+          },
+        }],
+      }),
+    },
+    channel: { outbound: { loadAdapter: async () => ({}) } },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -249,6 +275,7 @@ describe("E2E pipeline", () => {
         repoPath: "/tmp/test-repo",
         projectName: "test-project",
         runCommand: h.runCommand,
+        runtime: notificationRuntime(h.project),
       });
 
       assert.strictEqual(output.labelTransition, "Doing → To Review");
@@ -403,6 +430,7 @@ describe("E2E pipeline", () => {
         repoPath: "/tmp/test-repo",
         projectName: "test-project",
         runCommand: h.runCommand,
+        runtime: notificationRuntime(h.project),
       });
 
       assert.strictEqual(output.labelTransition, "Testing → Done");
@@ -442,6 +470,7 @@ describe("E2E pipeline", () => {
         repoPath: "/tmp/test-repo",
         projectName: "test-project",
         runCommand: h.runCommand,
+        runtime: notificationRuntime(h.project),
       });
 
       const notificationCommands = h.commands.commands.filter(

@@ -42,6 +42,8 @@ export type Project = {
   slug: string;
   /** Human-readable project name. */
   name: string;
+  /** OpenClaw agent that owns this project and its channel bindings. */
+  agentId: string;
   /** Repository name or local path. */
   repo: string;
   /** Git remote URL (e.g. https://github.com/.../repo.git). */

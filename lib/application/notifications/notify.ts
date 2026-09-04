@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import { getCompletionEmoji, NOTIFICATION_CHANNEL, type NotificationChannel } from "../../domain/index.js";
+import { inspectProjectRoute, type RouteConfig } from "../setup/route-validation.js";
 
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;
@@ -22,7 +23,7 @@ export type NotificationDeliveryResult = {
   delivered: true;
   messageId?: string;
   channel: NotificationChannel;
-  accountId?: string;
+  accountId: string;
   channelId: string;
   threadId?: string;
   path: "runtime" | "fallback";
@@ -31,7 +32,7 @@ export type NotificationDeliveryResult = {
 /** Narrow runtime surface required by notification delivery. */
 export type NotificationRuntime = {
   config: {
-    current(): unknown;
+    current(): RouteConfig;
   };
   channel: {
     outbound: {
@@ -324,8 +325,8 @@ async function sendMessage(
   target: string,
   message: string,
   channel: NotificationChannel,
+  accountId: string,
   runtime?: NotificationRuntime,
-  accountId?: string,
   threadId?: string,
   runCommand?: RunCommand,
 ): Promise<NotificationDeliveryResult> {
@@ -379,7 +380,7 @@ async function sendMessage(
       : "No notification delivery path available");
   }
 
-  if (accountId) args.push("--account", accountId);
+  args.push("--account", accountId);
   if (threadId) args.push("--thread-id", threadId);
 
   await runCommand(["openclaw", ...args], { timeoutMs: 30_000 });
@@ -445,6 +446,8 @@ export async function notify(
     runtime?: NotificationRuntime;
     /** Optional account ID for multi-account setups */
     accountId?: string;
+    /** Project-owning agent used to verify the exact OpenClaw binding. */
+    agentId?: string;
     /** Injected runCommand for dependency injection. */
     runCommand?: RunCommand;
   },
@@ -464,10 +467,52 @@ export async function notify(
     return null;
   }
 
+  if (!opts.accountId || !opts.agentId || !opts.runtime) {
+    await auditLog(opts.workspaceDir, "notify_configuration_error", {
+      eventType: event.type,
+      project: event.project,
+      issueId: event.issueId,
+      reason: "notification route requires explicit accountId, agentId, and runtime configuration",
+    });
+
+    return null;
+  }
+
+  const routeDiagnostics = inspectProjectRoute(
+    opts.runtime.config.current(),
+    opts.agentId,
+    {
+      channelId: target,
+      channel,
+      name: "delivery",
+      accountId: opts.accountId,
+      ...(opts.threadId ? { threadId: opts.threadId } : {}),
+    },
+  );
+
+  if (routeDiagnostics.length > 0) {
+    await auditLog(opts.workspaceDir, "notify_configuration_error", {
+      eventType: event.type,
+      project: event.project,
+      issueId: event.issueId,
+      agentId: opts.agentId,
+      target: {
+        channel,
+        accountId: opts.accountId,
+        channelId: target,
+        threadId: opts.threadId,
+      },
+      diagnostics: routeDiagnostics,
+    });
+
+    return null;
+  }
+
   const eventId = randomUUID();
   const deliveryPaths = [opts.runtime ? "runtime" : null, opts.runCommand ? "fallback" : null].filter(Boolean);
   const targetData = {
     channel,
+    agentId: opts.agentId,
     accountId: opts.accountId,
     channelId: target,
     threadId: opts.threadId,
@@ -487,8 +532,8 @@ export async function notify(
       target,
       message,
       channel,
-      opts.runtime,
       opts.accountId,
+      opts.runtime,
       opts.threadId,
       opts.runCommand,
     );

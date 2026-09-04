@@ -163,6 +163,7 @@ export async function performReviewPass(
               threadId: target?.threadId,
               runtime,
               accountId: target?.accountId,
+              agentId: project.agentId,
               runCommand,
             },
           ).catch(() => { });
@@ -194,6 +195,7 @@ export async function performReviewPass(
           threadId: target?.threadId,
           runtime,
           accountId: target?.accountId,
+          agentId: project.agentId,
           runCommand,
         },
       ).catch(() => { });
@@ -219,6 +221,7 @@ export async function performReviewPass(
           threadId: target?.threadId,
           runtime,
           accountId: target?.accountId,
+          agentId: project.agentId,
           runCommand,
         },
       ).catch(() => { });
@@ -277,6 +280,7 @@ export async function performReviewSkipPass(
               threadId: target?.threadId,
               runtime,
               accountId: target?.accountId,
+              agentId: project.agentId,
               runCommand,
             },
           ).catch(() => { });

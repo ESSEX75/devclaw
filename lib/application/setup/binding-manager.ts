@@ -7,190 +7,66 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 
+import { validateExactRoute } from "./route-validation.js";
+
 export type ChannelType = string;
 
-export interface BindingAnalysis {
-  channelEnabled: boolean;
-  channelConfigured: boolean;
-  existingChannelWideBinding?: {
-    agentId: string;
-    agentName: string;
-  };
-  groupSpecificBindings: Array<{
-    agentId: string;
-    agentName: string;
-    channelId: string;
-  }>;
-  recommendation: string;
-}
-
 /**
- * Analyze the current state of channel bindings for a given channel.
- */
-export async function analyzeChannelBindings(
-  api: OpenClawPluginApi,
-  channel: ChannelType,
-): Promise<BindingAnalysis> {
-  const cfg = structuredClone(api.runtime.config.current()) as unknown as OpenClawConfig;
-
-  // Check if channel is configured and enabled
-  const channelConfig = cfg.channels?.[channel];
-  const channelConfigured = !!channelConfig;
-  const channelEnabled = channelConfig?.enabled === true;
-
-  // Find existing bindings
-  const bindings = cfg.bindings ?? [];
-  let existingChannelWideBinding:
-    | BindingAnalysis["existingChannelWideBinding"]
-    | undefined;
-  const groupSpecificBindings: BindingAnalysis["groupSpecificBindings"] = [];
-
-  for (const binding of bindings) {
-    if (binding.match?.channel === channel) {
-      const agent = cfg.agents?.list?.find((a) => a.id === binding.agentId);
-      const agentName = agent?.name ?? binding.agentId;
-
-      if (!binding.match.peer) {
-        // Channel-wide binding (no peer filter) - potential conflict
-        existingChannelWideBinding = {
-          agentId: binding.agentId,
-          agentName: agentName ?? "unknown",
-        };
-      } else if (binding.match.peer.kind === "group") {
-        // Group-specific binding - no conflict
-        groupSpecificBindings.push({
-          agentId: binding.agentId,
-          agentName: agentName ?? "unknown",
-          channelId: binding.match.peer.id ?? "",
-        });
-      }
-    }
-  }
-
-  // Generate recommendation
-  let recommendation: string;
-
-  if (!channelConfigured) {
-    recommendation = `⚠️ ${channel} is not configured in OpenClaw. Configure it first via the wizard or openclaw.json, then restart OpenClaw.`;
-  } else if (!channelEnabled) {
-    recommendation = `⚠️ ${channel} is configured but disabled. Enable it in openclaw.json (channels.${channel}.enabled: true) and restart OpenClaw.`;
-  } else if (existingChannelWideBinding) {
-    recommendation =
-      `⚠️ Agent "${existingChannelWideBinding.agentName}" is already bound to all ${channel} messages. Options:\n` +
-      `  1. Migrate binding to the new agent (recommended if replacing)\n` +
-      `  2. Use group-specific binding instead (if you want both agents active)\n` +
-      `  3. Skip binding for now`;
-  } else if (groupSpecificBindings.length > 0) {
-    recommendation = `✅ ${groupSpecificBindings.length} group-specific binding(s) exist. No conflicts - safe to add channel-wide binding.`;
-  } else {
-    recommendation = `✅ No existing ${channel} bindings. Safe to bind the new agent.`;
-  }
-
-  return {
-    channelEnabled,
-    channelConfigured,
-    existingChannelWideBinding,
-    groupSpecificBindings,
-    recommendation,
-  };
-}
-
-/**
- * Migrate a channel-wide binding from one agent to another.
- */
-export async function migrateChannelBinding(
-  api: OpenClawPluginApi | PluginRuntime,
-  channel: ChannelType,
-  fromAgentId: string,
-  toAgentId: string,
-  accountId?: string | null,
-): Promise<void> {
-  const runtime = "runtime" in api ? api.runtime : api;
-  const cfg = structuredClone(runtime.config.current()) as OpenClawConfig;
-  const bindings = cfg.bindings ?? [];
-  const normalizedAccountId = normalizeBindingAccountId(accountId);
-
-  // Find the channel-wide binding for this channel and agent
-  const bindingIndex = bindings.findIndex(
-    (b) =>
-      b.match?.channel === channel &&
-      normalizeBindingAccountId(b.match.accountId) === normalizedAccountId &&
-      !b.match.peer &&
-      b.agentId === fromAgentId,
-  );
-
-  if (bindingIndex === -1) {
-    throw new Error(
-      `No channel-wide ${channel} binding found for agent "${fromAgentId}"`,
-    );
-  }
-
-  // Update the binding to point to the new agent
-  bindings[bindingIndex].agentId = toAgentId;
-  cfg.bindings = bindings;
-
-  await runtime.config.replaceConfigFile({
-    nextConfig: cfg,
-    afterWrite: { mode: "auto" },
-  });
-}
-
-/**
- * Ensure a channel-wide binding exists for an agent.
+ * Ensure an exact account and peer binding exists for an agent.
  */
 export async function ensureChannelBinding(
   api: OpenClawPluginApi | PluginRuntime,
   channel: ChannelType,
   agentId: string,
-  accountId?: string | null,
-  peerId?: string | null,
+  accountId: string,
+  peerId: string,
 ): Promise<void> {
   const runtime = "runtime" in api ? api.runtime : api;
   const cfg = structuredClone(runtime.config.current()) as OpenClawConfig;
 
   cfg.bindings ??= [];
-  const normalizedAccountId = normalizeBindingAccountId(accountId);
+  const normalizedAccountId = requireBindingValue(accountId, "accountId");
   const normalizedPeerId = normalizeBindingPeerId(peerId);
+
+  if (!normalizedPeerId) throw new Error("peerId is required for an exact DevClaw binding");
 
   const existing = cfg.bindings.find(
     (binding) =>
       binding.match?.channel === channel &&
-      normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
+      binding.match.accountId === normalizedAccountId &&
       normalizeBindingPeerId(binding.match.peer?.id) === normalizedPeerId &&
       binding.agentId === agentId,
   );
 
   if (existing) return;
 
-  if (normalizedPeerId?.includes(":topic:")) {
-    const occupied = cfg.bindings.find(
-      (binding) =>
-        binding.match?.channel === channel &&
-        normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
-        normalizeBindingPeerId(binding.match.peer?.id) === normalizedPeerId,
-    );
+  const occupied = cfg.bindings.find(
+    (binding) =>
+      binding.match?.channel === channel &&
+      binding.match.accountId === normalizedAccountId &&
+      normalizeBindingPeerId(binding.match.peer?.id) === normalizedPeerId,
+  );
 
-    if (occupied?.agentId) {
-      throw new Error(
-        `${channel}/${normalizedAccountId}/${normalizedPeerId} is already bound to agent "${occupied.agentId}"`,
-      );
-    }
+  if (occupied?.agentId) {
+    throw new Error(
+      `${channel}/${normalizedAccountId}/${normalizedPeerId} is already bound to agent "${occupied.agentId}"`,
+    );
   }
 
-  const nextBinding = {
+  const nextBinding: NonNullable<OpenClawConfig["bindings"]>[number] = {
     match: {
       channel,
-      ...(accountId?.trim() ? { accountId: normalizedAccountId } : {}),
-      ...(normalizedPeerId ? { peer: { kind: "group", id: normalizedPeerId } } : {}),
+      accountId: normalizedAccountId,
+      peer: { kind: "group", id: normalizedPeerId },
     },
     agentId,
-  } as NonNullable<OpenClawConfig["bindings"]>[number];
+  };
 
   const insertAt = normalizedPeerId
     ? cfg.bindings.findIndex(
       (binding) =>
         binding.match?.channel === channel &&
-        normalizeBindingAccountId(binding.match.accountId) === normalizedAccountId &&
+        binding.match.accountId === normalizedAccountId &&
         !binding.match.peer,
     )
     : -1;
@@ -201,40 +77,24 @@ export async function ensureChannelBinding(
     cfg.bindings.splice(insertAt, 0, nextBinding);
   }
 
+  validateExactRoute(cfg, agentId, channel, normalizedAccountId, normalizedPeerId);
+
   await runtime.config.replaceConfigFile({
     nextConfig: cfg,
     afterWrite: { mode: "auto" },
   });
 }
 
-function normalizeBindingAccountId(accountId: string | undefined | null): string {
-  return accountId?.trim() || "default";
+function requireBindingValue(value: string, name: string): string {
+  const normalized = value.trim();
+
+  if (!normalized) throw new Error(`${name} is required for an exact DevClaw binding`);
+
+  return normalized;
 }
 
 function normalizeBindingPeerId(peerId: string | undefined | null): string | undefined {
   const normalized = peerId?.trim();
 
   return normalized || undefined;
-}
-
-/**
- * Remove a channel-wide binding for a specific agent.
- */
-export async function removeChannelBinding(
-  api: OpenClawPluginApi,
-  channel: ChannelType,
-  agentId: string,
-): Promise<void> {
-  const cfg = structuredClone(api.runtime.config.current()) as OpenClawConfig;
-  const bindings = cfg.bindings ?? [];
-
-  // Filter out the channel-wide binding for this channel and agent
-  cfg.bindings = bindings.filter(
-    (b) => !(b.match?.channel === channel && !b.match.peer && b.agentId === agentId),
-  );
-
-  await api.runtime.config.replaceConfigFile({
-    nextConfig: cfg,
-    afterWrite: { mode: "auto" },
-  });
 }

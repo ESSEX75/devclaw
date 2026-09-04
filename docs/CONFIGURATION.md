@@ -423,6 +423,7 @@ Project registration and worker-slot state live in `<workspace>/devclaw/projects
     "my-webapp": {
       "slug": "my-webapp",
       "name": "my-webapp",
+      "agentId": "dev-agent",
       "repo": "~/git/my-webapp",
       "repoRemote": "git@github.com:org/my-webapp.git",
       "groupName": "Dev - My Webapp",
@@ -435,7 +436,6 @@ Project registration and worker-slot state live in `<workspace>/devclaw/projects
           "channelId": "-1001234567890",
           "channel": "telegram",
           "name": "primary",
-          "events": ["*"],
           "accountId": "dev",
           "threadId": "331"
         }
@@ -483,6 +483,7 @@ Project registration and worker-slot state live in `<workspace>/devclaw/projects
 |---|---|---|
 | `slug` | string | Stable project key used in tool calls |
 | `name` | string | Short project name |
+| `agentId` | string | OpenClaw agent that owns the project and every endpoint binding |
 | `repo` | string | Path to git repo (supports `~/` expansion) |
 | `repoRemote` | string | Optional detected git remote URL |
 | `groupName` | string | Group display name |
@@ -503,7 +504,7 @@ Each project can have multiple linked channels:
 | `channelId` | string | Chat/group/channel ID |
 | `channel` | `"telegram"` \| `"whatsapp"` \| `"discord"` \| `"slack"` | Messaging provider |
 | `name` | string | Human-readable endpoint name (`primary`, `dev-chat`, etc.) |
-| `accountId` | string | Optional OpenClaw channel account ID |
+| `accountId` | string | Required explicit OpenClaw channel account ID |
 | `threadId` | string | Optional thread/topic ID for forum-style channels |
 
 Telegram topics must use separate structured fields:
@@ -513,11 +514,12 @@ Telegram topics must use separate structured fields:
   "channelId": "-1003911014709",
   "channel": "telegram",
   "name": "primary",
+  "accountId": "dev",
   "threadId": "5"
 }
 ```
 
-Do not encode a topic into `channelId` as `-1003911014709:topic:5`; project validation rejects that legacy form. Managed issues persist a `{ channel, name }` binding reference in local state. Runtime delivery resolves that reference against this endpoint list and never derives the destination from provider labels.
+Do not encode a topic into `channelId` as `-1003911014709:topic:5`. Every endpoint must name its account explicitly and have an exact OpenClaw binding to the owning `agentId`; no `default` fallback is inferred. Managed issues persist a `{ channel, name }` binding reference in local state. Runtime delivery resolves that reference against this endpoint list and never derives the destination from provider labels.
 
 ### Worker state fields
 

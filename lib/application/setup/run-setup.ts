@@ -18,8 +18,13 @@ import {
 import { getAllDefaultModels } from "../../roles/index.js";
 import { DATA_DIR } from "../../state/setup/paths.js";
 import { scaffoldWorkspace, writeAllDefaults } from "../../state/setup/workspace-files.js";
-import { createAgent, resolveWorkspacePath } from "./agent-config.js";
-import { ensureChannelBinding, migrateChannelBinding } from "./binding-manager.js";
+import {
+  createAgent,
+  getAgentId,
+  getAgentWorkspacePath,
+  resolveWorkspacePath,
+} from "./agent-config.js";
+import { ensureChannelBinding } from "./binding-manager.js";
 import { writePluginConfig } from "./plugin-config.js";
 
 export type ModelConfig = Record<string, Record<string, string>>;
@@ -45,12 +50,10 @@ export type SetupOpts = {
   newAgentName?: string;
   /** Channel binding for the selected or newly-created agent. */
   channelBinding?: SetupNotificationChannel | null;
-  /** Optional account id for channel-wide bindings in multi-account channel setups. */
+  /** Explicit account id required whenever a channel binding is requested. */
   channelAccountId?: string;
-  /** Optional peer id for group/topic-scoped bindings, e.g. "-100123:topic:331". */
+  /** Exact peer id required whenever a channel binding is requested. */
   channelPeerId?: string;
-  /** Migrate channel-wide binding from this agent ID to the selected or newly-created agent. */
-  migrateFrom?: string;
   /** Use an existing agent by ID. Mutually exclusive with newAgentName. */
   agentId?: string;
   /** Override workspace path (auto-detected from agent if not given). */
@@ -61,6 +64,8 @@ export type SetupOpts = {
   ejectDefaults?: boolean;
   /** Plugin-level project execution mode: parallel or sequential. Default: parallel. */
   projectExecution?: ExecutionMode;
+  /** Compute and validate the setup plan without writing configuration or workspace files. */
+  dryRun?: boolean;
 };
 
 export type SetupResult = {
@@ -70,14 +75,12 @@ export type SetupResult = {
   models: ModelConfig;
   filesWritten: string[];
   warnings: string[];
-  bindingMigrated?: {
-    from: string;
-    channel: SetupNotificationChannel;
-  };
   channelBinding?: SetupNotificationChannel | null;
   channelAccountId?: string;
   channelPeerId?: string;
   defaultsEjected?: boolean;
+  dryRun: boolean;
+  plannedChanges: string[];
 };
 
 /**
@@ -91,8 +94,11 @@ export type SetupResult = {
 export async function runSetup(opts: SetupOpts): Promise<SetupResult> {
   const warnings: string[] = [];
 
-  const { agentId, workspacePath, agentCreated, bindingMigrated } =
-    await resolveOrCreateAgent(opts, warnings);
+  validateRequestedBinding(opts);
+
+  if (opts.dryRun) return previewSetup(opts, warnings);
+
+  const { agentId, workspacePath, agentCreated } = await resolveOrCreateAgent(opts);
 
   await writePluginConfig(opts.runtime, agentId, opts.projectExecution);
 
@@ -114,11 +120,12 @@ export async function runSetup(opts: SetupOpts): Promise<SetupResult> {
     models,
     filesWritten: [...new Set(filesWritten)],
     warnings,
-    bindingMigrated,
     channelBinding: opts.channelBinding ?? null,
     channelAccountId: opts.channelAccountId,
     channelPeerId: opts.channelPeerId,
     defaultsEjected: opts.ejectDefaults === true,
+    dryRun: false,
+    plannedChanges: [],
   };
 }
 
@@ -128,12 +135,10 @@ export async function runSetup(opts: SetupOpts): Promise<SetupResult> {
 
 async function resolveOrCreateAgent(
   opts: SetupOpts,
-  warnings: string[],
 ): Promise<{
   agentId: string;
   workspacePath: string;
   agentCreated: boolean;
-  bindingMigrated?: SetupResult["bindingMigrated"];
 }> {
   if (opts.newAgentName) {
     const { agentId, workspacePath } = await createAgent(
@@ -141,26 +146,21 @@ async function resolveOrCreateAgent(
       opts.newAgentName,
     );
 
-    if (opts.channelBinding && (!opts.migrateFrom || opts.channelPeerId)) {
+    if (opts.channelBinding && opts.channelAccountId && opts.channelPeerId) {
       await ensureChannelBinding(opts.runtime, opts.channelBinding, agentId, opts.channelAccountId, opts.channelPeerId);
     }
 
-    const bindingMigrated = await tryMigrateBinding(opts, agentId, warnings);
-
-    return { agentId, workspacePath, agentCreated: true, bindingMigrated };
+    return { agentId, workspacePath, agentCreated: true };
   }
 
   if (opts.agentId) {
     const workspacePath = opts.workspacePath ?? resolveWorkspacePath(opts.runtime, opts.agentId);
-    let bindingMigrated: SetupResult["bindingMigrated"];
 
-    if (opts.channelBinding && opts.migrateFrom && !opts.channelPeerId) {
-      bindingMigrated = await tryMigrateBinding(opts, opts.agentId, warnings);
-    } else if (opts.channelBinding) {
+    if (opts.channelBinding && opts.channelAccountId && opts.channelPeerId) {
       await ensureChannelBinding(opts.runtime, opts.channelBinding, opts.agentId, opts.channelAccountId, opts.channelPeerId);
     }
 
-    return { agentId: opts.agentId, workspacePath, agentCreated: false, bindingMigrated };
+    return { agentId: opts.agentId, workspacePath, agentCreated: false };
   }
 
   if (opts.workspacePath) {
@@ -174,33 +174,60 @@ async function resolveOrCreateAgent(
   throw new Error("Setup requires either newAgentName, agentId, or workspacePath");
 }
 
-async function tryMigrateBinding(
-  opts: SetupOpts,
-  agentId: string,
-  warnings: string[],
-): Promise<SetupResult["bindingMigrated"]> {
-  if (!opts.migrateFrom || !opts.channelBinding) return undefined;
-  if (opts.channelPeerId) {
-    warnings.push("Skipping migrateFrom: migration is only supported for channel-wide bindings, not peer-scoped bindings.");
-
-    return undefined;
+function validateRequestedBinding(opts: SetupOpts): void {
+  if (!opts.channelBinding) return;
+  if (!opts.channelAccountId?.trim()) {
+    throw new Error("channelAccountId is required when configuring a channel binding.");
   }
 
-  try {
-    await migrateChannelBinding(
-      opts.runtime,
-      opts.channelBinding,
-      opts.migrateFrom,
-      agentId,
-      opts.channelAccountId,
-    );
-
-    return { from: opts.migrateFrom, channel: opts.channelBinding };
-  } catch (err) {
-    warnings.push(`Failed to migrate binding from "${opts.migrateFrom}": ${(err as Error).message}`);
-
-    return undefined;
+  if (!opts.channelPeerId?.trim()) {
+    throw new Error("channelPeerId is required when configuring a channel binding.");
   }
+}
+
+function previewSetup(opts: SetupOpts, warnings: string[]): SetupResult {
+  let agentId: string;
+  let workspacePath: string;
+  let agentCreated = false;
+
+  if (opts.newAgentName) {
+    agentId = getAgentId(opts.newAgentName);
+    workspacePath = getAgentWorkspacePath(agentId);
+    agentCreated = true;
+  } else if (opts.agentId) {
+    agentId = opts.agentId;
+    workspacePath = opts.workspacePath ?? resolveWorkspacePath(opts.runtime, agentId);
+  } else if (opts.workspacePath) {
+    agentId = "unknown";
+    workspacePath = opts.workspacePath;
+  } else {
+    throw new Error("Setup requires either newAgentName, agentId, or workspacePath");
+  }
+
+  const plannedChanges = [
+    ...(agentCreated ? [`Create OpenClaw agent "${agentId}"`] : []),
+    `Configure DevClaw tool isolation for "${agentId}"`,
+    ...(opts.channelBinding && opts.channelAccountId && opts.channelPeerId
+      ? [`Create exact binding ${opts.channelBinding}/${opts.channelAccountId}/${opts.channelPeerId}`]
+      : []),
+    `Scaffold workspace ${workspacePath}`,
+    "Write resolved model configuration",
+  ];
+
+  return {
+    agentId,
+    agentCreated,
+    workspacePath,
+    models: buildModelConfig(opts.models),
+    filesWritten: [],
+    warnings,
+    channelBinding: opts.channelBinding ?? null,
+    channelAccountId: opts.channelAccountId,
+    channelPeerId: opts.channelPeerId,
+    defaultsEjected: opts.ejectDefaults === true,
+    dryRun: true,
+    plannedChanges,
+  };
 }
 
 function buildModelConfig(overrides?: SetupOpts["models"]): ModelConfig {

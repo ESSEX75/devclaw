@@ -23,6 +23,7 @@ async function withProject<T>(fn: (ctx: {
   const project: Project = {
     slug: "test-project",
     name: "test-project",
+    agentId: "test-agent",
     repo: "/tmp/test-repo",
     groupName: "Test Group",
     deployUrl: "",
@@ -32,6 +33,7 @@ async function withProject<T>(fn: (ctx: {
       channelId: "-123",
       channel: NOTIFICATION_CHANNEL.TELEGRAM,
       name: "primary",
+      accountId: "default",
     }],
     provider: ISSUE_PROVIDER.GITHUB,
     workers: {},

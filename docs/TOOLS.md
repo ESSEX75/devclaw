@@ -327,6 +327,7 @@ One-time project setup. Creates state labels, scaffolds project directory with o
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `channelId` | string | Yes | Chat/group/channel ID where this project is managed |
+| `accountId` | string | Yes | Explicit OpenClaw channel account ID |
 | `name` | string | Yes | Short project name (e.g. `my-webapp`) |
 | `repo` | string | Yes | Path to git repo (e.g. `~/git/my-project`) |
 | `channel` | string | No | Channel type. Defaults to `telegram` |
@@ -362,17 +363,17 @@ Agent + workspace initialization.
 |---|---|---|---|
 | `newAgentName` | string | No | Create a new agent. Omit to configure current workspace. |
 | `channelBinding` | `"telegram"` \| `"whatsapp"` | No | Channel to bind to the selected or newly-created agent |
-| `channelAccountId` | string | No | Existing OpenClaw channel account id for the binding, e.g. `default` or `dev` |
-| `channelPeerId` | string | No | Exact group/topic peer id for the binding, e.g. `-1003911014709:topic:331` |
-| `migrateFrom` | string | No | Agent ID to migrate channel binding from |
+| `channelAccountId` | string | Required with `channelBinding` | Explicit OpenClaw channel account id, e.g. `default` or `dev` |
+| `channelPeerId` | string | Required with `channelBinding` | Exact group/chat/topic peer id, e.g. `-1003911014709:topic:331` |
 | `models` | object | No | Model overrides per role and level (see [Configuration](CONFIGURATION.md#role-configuration)) |
 | `projectExecution` | `"parallel"` \| `"sequential"` | No | Project execution mode |
+| `dryRun` | boolean | No | Return the setup plan without writing OpenClaw or workspace configuration |
 
 **What it does:**
 
 1. Creates a new agent or configures existing workspace
-2. Optionally creates an exact messaging binding (Telegram/WhatsApp account, group, or topic)
-3. Optionally migrates channel-wide binding from another agent
+2. Optionally creates an exact messaging binding with an explicit account and peer
+3. Grants DevClaw tools to the selected agent and explicitly denies them to other agents
 4. Writes workspace files: AGENTS.md, HEARTBEAT.md, IDENTITY.md, TOOLS.md, SOUL.md, `devclaw/projects.json`, `devclaw/workflow.yaml`
 5. Scaffolds default prompt files for all roles
 
@@ -385,6 +386,20 @@ Conversational onboarding guide. Returns step-by-step instructions for the agent
 **Source:** [`lib/tools/admin/onboard.ts`](../lib/tools/admin/onboard.ts)
 
 **Note:** Call this before `setup` to get step-by-step guidance.
+
+### CLI: `devclaw doctor`
+
+Validate persisted project routes and explicit per-agent DevClaw tool isolation:
+
+```bash
+openclaw devclaw doctor
+```
+
+The command emits stable diagnostic codes, verifies every endpoint against its exact
+`channel/accountId/channelId/threadId → agentId` binding, and exits non-zero when routing
+or tool exposure is unsafe.
+Use `--workspace /path/to/agent/workspace` when OpenClaw has no default workspace or
+when checking a different agent workspace.
 
 **Parameters:**
 
@@ -565,7 +580,7 @@ devclaw issues cleanup --project my-webapp --older-than 30d
 
 ### `channel_link`
 
-Link a chat/channel to a project. If the channel is already linked to a different project, the old bond is removed first (auto-detach).
+Link an exact account/chat route to a project after validating its OpenClaw binding and owning agent. Conflicting ownership is rejected.
 
 **Source:** [`lib/tools/admin/channel-link.ts`](../lib/tools/admin/channel-link.ts)
 
@@ -574,12 +589,13 @@ Link a chat/channel to a project. If the channel is already linked to a differen
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `channelId` | string | Yes | Chat/group ID to link |
+| `accountId` | string | Yes | Explicit OpenClaw channel account ID |
 | `project` | string | Yes | Project name or slug to link to |
 
 **Use cases:**
 
 - Connect a new chat to an existing project
-- Switch which project a chat controls
+- Connect another exact destination owned by the same project agent
 
 ---
 

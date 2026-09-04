@@ -116,11 +116,6 @@ If you selected a channel binding during setup, the agent is automatically bound
 
 Setup writes only `bindings[]`. OpenClaw channel accounts, bot tokens, group allowlists, and topic allowlists must already exist in OpenClaw config.
 
-**Smart Migration**: If an existing agent already has a channel-wide binding (e.g., the old orchestrator receives all telegram messages), the onboarding agent will:
-1. Detect the conflict
-2. Ask if you want to migrate the binding from the old agent to the new one
-3. If you confirm, the binding is automatically moved — no manual config edit needed
-
 If you didn't bind a channel during setup:
 
 **Option A: Manually edit `openclaw.json`**
@@ -131,14 +126,19 @@ If you didn't bind a channel during setup:
     {
       "agentId": "my-orchestrator",
       "match": {
-        "channel": "telegram"
+        "channel": "telegram",
+        "accountId": "dev",
+        "peer": {
+          "kind": "group",
+          "id": "-1003911014709:topic:331"
+        }
       }
     }
   ]
 }
 ```
 
-For group/topic-specific bindings, setup can now create the binding directly with `channelPeerId`. The resulting OpenClaw binding looks like:
+Setup creates only exact bindings with explicit `channelAccountId` and `channelPeerId`. The resulting OpenClaw binding looks like:
 ```json
 {
   "agentId": "my-orchestrator",
@@ -157,7 +157,7 @@ Restart OpenClaw after editing.
 
 **Option B: Add bot to Telegram/WhatsApp group**
 
-If using a channel-wide binding (no peer filter), the agent receives all messages from that channel. Add your orchestrator bot to the relevant Telegram group.
+Add the selected account's bot to the exact group or topic represented by the binding.
 
 ## Step 4: Register your project
 
@@ -179,6 +179,7 @@ The agent calls `project_register`, which atomically:
   "projects": {
     "my-project": {
       "slug": "my-project",
+      "agentId": "my-orchestrator",
       "name": "my-project",
       "repo": "~/git/my-project",
       "groupName": "Project: my-project",
@@ -288,7 +289,7 @@ Change which model powers each level in `workflow.yaml` — see [Configuration](
 |---|---|---|
 | Plugin installation | You (once) | `openclaw plugins install @laurentenhoor/devclaw` |
 | Agent + workspace setup | Plugin (`setup`) | Creates agent, configures models, writes workspace files |
-| Channel binding migration | Plugin (`setup` with `migrateFrom`) | Automatically moves channel-wide bindings between agents |
+| Exact channel binding | Plugin (`setup`) | Creates an explicit account + peer binding for the selected agent |
 | Label setup | Plugin (`project_register`) | State labels, created idempotently via IssueProvider |
 | Prompt file scaffolding | Plugin (`project_register`) | Creates `devclaw/projects/<project>/prompts/<role>.md` for each role |
 | Project registration | Plugin (`project_register`) | Entry in `projects.json` with empty worker state |

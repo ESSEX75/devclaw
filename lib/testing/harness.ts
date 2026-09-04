@@ -269,6 +269,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
   const project: Project = {
     slug: projectName,
     name: projectName,
+    agentId: "test-agent",
     repo,
     groupName: "Test Group",
     deployUrl: "",
@@ -278,6 +279,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
       channelId,
       channel: NOTIFICATION_CHANNEL.TELEGRAM,
       name: "primary",
+      accountId: "default",
     }],
     provider: ISSUE_PROVIDER.GITHUB,
     workers: defaultWorkers,

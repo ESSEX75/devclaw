@@ -12,8 +12,8 @@ export type NotificationEndpoint = {
   channel: NotificationChannel;
   /** Endpoint display name (e.g. "primary", "dev-chat"). */
   name: string;
-  /** Optional account ID for multi-account setups. */
-  accountId?: string;
+  /** Explicit OpenClaw channel account used for every delivery to this endpoint. */
+  accountId: string;
   /** Optional thread or topic ID for forum-style channels. */
   threadId?: string;
 };

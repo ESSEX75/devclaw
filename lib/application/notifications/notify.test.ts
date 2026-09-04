@@ -21,7 +21,18 @@ function runtimeWithSendText(
 ): NotificationRuntime {
   return {
     config: {
-      current: () => ({}),
+      current: () => ({
+        agents: { list: [{ id: "dev-agent" }] },
+        channels: { telegram: { enabled: true, accounts: { dev: {} } } },
+        bindings: [{
+          agentId: "dev-agent",
+          match: {
+            channel: "telegram",
+            accountId: "dev",
+            peer: { id: "telegram:123" },
+          },
+        }],
+      }),
     },
     channel: {
       outbound: {
@@ -31,7 +42,50 @@ function runtimeWithSendText(
   };
 }
 
+function runtimeWithoutSender(): NotificationRuntime {
+  return {
+    ...runtimeWithSendText(async () => undefined),
+    channel: { outbound: { loadAdapter: async () => ({}) } },
+  };
+}
+
 describe("notifications", () => {
+  it("blocks delivery when the exact route is not bound to the project agent", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-notify-"));
+    const calls: string[][] = [];
+    const runCommand: RunCommand = async (argv: string[]) => {
+      calls.push(argv);
+
+      return { stdout: "{}", stderr: "", code: 0, signal: null, killed: false, termination: "exit" };
+    };
+
+    try {
+      const result = await notify({
+        type: "changesRequested",
+        project: "test-project",
+        issueId: 10,
+        issueUrl: "https://example.com/issues/10",
+        issueTitle: "Needs changes",
+      }, {
+        workspaceDir: tmpDir,
+        channelId: "another-chat",
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        accountId: "dev",
+        agentId: "dev-agent",
+        runtime: runtimeWithSendText(async () => ({ messageId: "unexpected" })),
+        runCommand,
+      });
+
+      assert.equal(result, null);
+      assert.equal(calls.length, 0);
+      const events = await readAuditEvents(tmpDir);
+
+      assert.deepEqual(events.map((event) => event.event), ["notify_configuration_error"]);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
   it("uses the actual target branch in PR merged messages", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-notify-"));
     const calls: string[][] = [];
@@ -57,7 +111,10 @@ describe("notifications", () => {
         {
           workspaceDir: tmpDir,
           channelId: "telegram:123",
-        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          accountId: "dev",
+          agentId: "dev-agent",
+          runtime: runtimeWithoutSender(),
           runCommand,
         },
       );
@@ -95,7 +152,9 @@ describe("notifications", () => {
         {
           workspaceDir: tmpDir,
           channelId: "telegram:123",
-        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          accountId: "dev",
+          agentId: "dev-agent",
           runtime: runtimeWithSendText(async (payload) => {
             sentPayloads.push(payload);
             return { messageId: "message-10" };
@@ -137,6 +196,8 @@ describe("notifications", () => {
           workspaceDir: tmpDir,
           channelId: "telegram:123",
           channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          accountId: "dev",
+          agentId: "dev-agent",
           runtime: runtimeWithSendText(async () => {
             throw new Error("runtime send failed");
           }),
@@ -168,7 +229,9 @@ describe("notifications", () => {
         {
           workspaceDir: tmpDir,
           channelId: "telegram:123",
-        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          accountId: "dev",
+          agentId: "dev-agent",
           runtime: runtimeWithSendText(async () => {
             throw new Error("runtime send failed");
           }),
