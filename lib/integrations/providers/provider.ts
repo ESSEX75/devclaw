@@ -10,6 +10,7 @@ import type {
   IssueWriter,
   LabelProjector,
   ProviderHealthCheck,
+  ProviderRateLimitReader,
   PullRequestOperator,
   PullRequestReader,
   ReactionWriter,
@@ -32,4 +33,5 @@ export interface IssueProvider
     PullRequestOperator,
     ReactionWriter,
     AttachmentUploader,
-    ProviderHealthCheck {}
+    ProviderHealthCheck,
+    ProviderRateLimitReader {}

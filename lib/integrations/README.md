@@ -10,6 +10,10 @@ Provider issue lookups classify not-found, authorization, rate-limit, transient,
 and unknown failures at the adapter boundary. Application code must branch on
 these typed failures rather than inspecting provider error text.
 
+Adapters may expose a typed rate-limit snapshot for planned mutations. GitHub
+repair preflight reads the core API budget; providers without a reliable quota
+endpoint leave the optional capability unavailable and callers report that fact.
+
 ## Boundary Rules
 
 - Keep provider API details in `lib/integrations/providers`.

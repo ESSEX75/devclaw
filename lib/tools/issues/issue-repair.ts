@@ -1,343 +1,140 @@
 /**
- * issue_repair — Restore provider projection from local issue state.
+ * Exposes managed-issue repair to authorized project agents.
+ * This adapter validates untrusted tool input and delegates repair semantics to the application layer.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import { reconcileManagedLabels } from "../../application/projection/index.js";
-import { log as auditLog } from "../../audit.js";
-import type { PluginContext } from "../../context.js";
-import type { IssueIntegrityStatus, Project, ReviewPolicy, TestPolicy, WorkflowConfig } from "../../domain/index.js";
-import { getStateLabels, ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
-import { createProvider } from "../../integrations/providers/index.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
 import {
-  diffIssueProjection,
-  extractIssueMetadata,
-  metadataMatches,
-  type ProjectionDiff,
-  replaceIssueMetadata,
-} from "../../projection/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
+  isIssueRepairFailure,
+  ISSUE_REPAIR_SOURCE,
+  type IssueRepairSource,
+  repairManagedIssue,
+} from "../../application/issues/index.js";
+import type { PluginContext } from "../../context.js";
 import { readProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export type IssueRepairResult = {
-  issueId: number;
-  dryRun: boolean;
-  diff: ProjectionDiff;
-  metadataAction: "none" | "replace";
-  integrityStatus: IssueIntegrityStatus;
-  warnings: string[];
-  repaired: string[];
-};
+const INPUT_FIELDS = new Set([
+  "channelId", "project", "issueId", "source", "dryRun", "apply", "reason", "planToken",
+]);
 
-export type IssuePolicyMigrationChange = {
-  issueId: number;
-  before: {
-    reviewPolicy: ReviewPolicy | null;
-    testPolicy: TestPolicy | null;
-  };
-  after: {
-    reviewPolicy: ReviewPolicy | null;
-    testPolicy: TestPolicy | null;
-  };
-  projection?: IssueRepairResult;
-};
-
-export type IssuePolicyMigrationResult = {
-  projectSlug: string;
-  dryRun: boolean;
-  changed: IssuePolicyMigrationChange[];
-  skipped: Array<{ issueId: number; reason: string }>;
-};
-
-export async function repairIssueProjection(opts: {
-  workspaceDir: string;
-  project: Pick<Project, "slug">;
-  issueId: number;
-  provider: IssueProvider;
-  workflow: WorkflowConfig;
-  roles: string[];
-  dryRun?: boolean;
-}): Promise<IssueRepairResult> {
-  const store = await readIssueStateStore(opts.workspaceDir, opts.project.slug);
-  const state = store.issues[String(opts.issueId)];
-
-  if (!state) throw new Error(`Issue #${opts.issueId} has no local issue state.`);
-
-  const issue = await opts.provider.getIssue(opts.issueId);
-  const diff = diffIssueProjection({
-    state,
-    actualLabels: issue.labels,
-    options: {
-      stateLabels: getStateLabels(opts.workflow),
-      roles: opts.roles,
-    },
-  });
-
-  const expectedMetadata = {
-    projectSlug: state.projectSlug,
-    issueId: state.issueId,
-    projectionVersion: state.projectionVersion,
-  };
-  const currentMetadata = extractIssueMetadata(issue.description);
-  const metadataAction = metadataMatches(currentMetadata, expectedMetadata) ? "none" : "replace";
-
-  const repaired: string[] = [];
-
-  if (!opts.dryRun) {
-    const projection = await reconcileManagedLabels({
-      workspaceDir: opts.workspaceDir,
-      projectSlug: opts.project.slug,
-      issueId: opts.issueId,
-      workflow: opts.workflow,
-      roles: opts.roles,
-      provider: opts.provider,
-      owner: "issue_repair",
-    });
-
-    repaired.push(...projection.diff.missingManagedLabels.map((label) => `add-label:${label}`));
-    repaired.push(...projection.diff.unexpectedManagedLabels.map((label) => `remove-label:${label}`));
-
-    if (metadataAction === "replace") {
-      await opts.provider.editIssue(opts.issueId, {
-        body: replaceIssueMetadata(issue.description, expectedMetadata),
-      });
-      repaired.push("metadata");
-    }
-
-    await updateIssueStateStore(opts.workspaceDir, opts.project.slug, (data) => {
-      const target = data.issues[String(opts.issueId)];
-
-      if (!target) return;
-      target.integrityStatus = ISSUE_INTEGRITY_STATUS.OK;
-      target.integrityErrors = [];
-      target.updatedAt = new Date().toISOString();
-    });
-    await auditLog(opts.workspaceDir, "issue_projection_repair", {
-      project: opts.project.slug,
-      issueId: opts.issueId,
-      repaired,
-    });
-  }
-
-  return {
-    issueId: opts.issueId,
-    dryRun: opts.dryRun === true,
-    diff,
-    metadataAction,
-    integrityStatus: opts.dryRun ? state.integrityStatus : ISSUE_INTEGRITY_STATUS.OK,
-    warnings: [],
-    repaired,
-  };
-}
-
-export async function repairIssueFromLocalState(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  issueId: number;
-  source: string;
-  dryRun?: boolean;
-  provider?: IssueProvider;
-  runCommand: PluginContext["runCommand"];
-}): Promise<IssueRepairResult> {
-  if (opts.source !== "local-state") {
-    throw new Error("Repair from provider is not supported because provider projection is not authoritative.");
-  }
-
-  const projects = await readProjects(opts.workspaceDir);
-  const project = projects.projects[opts.projectSlug];
-
-  if (!project) throw new Error(`Project "${opts.projectSlug}" not found.`);
-
-  const config = await loadConfig(opts.workspaceDir, project.name);
-  const provider = opts.provider ?? (await createProvider({
-    repo: project.repo,
-    provider: project.provider,
-    runCommand: opts.runCommand,
-    workflow: config.workflow,
-  })).provider;
-
-  return repairIssueProjection({
-    workspaceDir: opts.workspaceDir,
-    project,
-    issueId: opts.issueId,
-    provider,
-    workflow: config.workflow,
-    roles: Object.keys(config.roles),
-    dryRun: opts.dryRun,
-  });
-}
-
-export async function migrateIssuePolicies(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  reviewPolicy?: ReviewPolicy;
-  testPolicy?: TestPolicy;
-  issueIds?: number[];
-  workflowStates?: string[];
-  includeClosed?: boolean;
-  dryRun?: boolean;
-  provider?: IssueProvider;
-  runCommand: PluginContext["runCommand"];
-}): Promise<IssuePolicyMigrationResult> {
-  if (!opts.reviewPolicy && !opts.testPolicy) {
-    throw new Error("Policy migration requires reviewPolicy and/or testPolicy.");
-  }
-
-  const projects = await readProjects(opts.workspaceDir);
-  const project = projects.projects[opts.projectSlug];
-
-  if (!project) throw new Error(`Project "${opts.projectSlug}" not found.`);
-
-  const config = await loadConfig(opts.workspaceDir, project.name);
-  const selectedIds = opts.issueIds ? new Set(opts.issueIds.map(String)) : null;
-  const selectedStates = opts.workflowStates ? new Set(opts.workflowStates) : null;
-  const changed: IssuePolicyMigrationChange[] = [];
-  const skipped: Array<{ issueId: number; reason: string }> = [];
-
-  await updateIssueStateStore(opts.workspaceDir, opts.projectSlug, (store) => {
-    for (const [key, state] of Object.entries(store.issues)) {
-      if (selectedIds && !selectedIds.has(key)) continue;
-      if (selectedStates && !selectedStates.has(state.workflowState)) continue;
-
-      if ((state.closedAt || state.workflowState === "done" || state.workflowState === "rejected") && !opts.includeClosed) {
-        skipped.push({ issueId: state.issueId, reason: "closed" });
-        continue;
-      }
-
-      const currentReviewPolicy = state.reviewPolicy ?? null;
-      const currentTestPolicy = state.testPolicy ?? null;
-      const nextReviewPolicy = opts.reviewPolicy ?? currentReviewPolicy;
-      const nextTestPolicy = opts.testPolicy ?? currentTestPolicy;
-
-      if (currentReviewPolicy === nextReviewPolicy && currentTestPolicy === nextTestPolicy) {
-        skipped.push({ issueId: state.issueId, reason: "no_change" });
-        continue;
-      }
-
-      changed.push({
-        issueId: state.issueId,
-        before: {
-          reviewPolicy: currentReviewPolicy,
-          testPolicy: currentTestPolicy,
-        },
-        after: {
-          reviewPolicy: nextReviewPolicy,
-          testPolicy: nextTestPolicy,
-        },
-      });
-
-      if (!opts.dryRun) {
-        state.reviewPolicy = nextReviewPolicy;
-        state.testPolicy = nextTestPolicy;
-        state.updatedAt = new Date().toISOString();
-      }
-    }
-  });
-
-  if (!opts.dryRun && changed.length > 0) {
-  const provider = opts.provider ?? (await createProvider({
-    repo: project.repo,
-    provider: project.provider,
-    runCommand: opts.runCommand,
-    workflow: config.workflow,
-  })).provider;
-
-    for (const change of changed) {
-      change.projection = await repairIssueProjection({
-        workspaceDir: opts.workspaceDir,
-        project,
-        issueId: change.issueId,
-        provider,
-        workflow: config.workflow,
-        roles: Object.keys(config.roles),
-      });
-    }
-
-    await auditLog(opts.workspaceDir, "issue_policy_migration", {
-      project: opts.projectSlug,
-      changed: changed.map((change) => ({
-        issueId: change.issueId,
-        before: change.before,
-        after: change.after,
-      })),
-    });
-  }
-
-  return {
-    projectSlug: opts.projectSlug,
-    dryRun: opts.dryRun === true,
-    changed,
-    skipped,
-  };
-}
-
+/** Create the safe-by-default issue_repair plugin tool. */
 export function createIssueRepairTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "issue_repair",
     label: "Issue Repair",
-    description: "Restore provider labels and managed metadata from project-local issues.json.",
+    description: "Plan or apply a verified repair between local managed issue state and provider projection.",
     parameters: {
       type: "object",
-      required: ["project", "issueId", "source", "dryRun"],
+      additionalProperties: false,
+      required: ["issueId", "source"],
       properties: {
-        project: { type: "string", description: "Project slug." },
-        issueId: { type: "number", description: "Issue ID to repair." },
-        source: { type: "string", enum: ["local-state", "provider"], description: "Repair source. Only local-state is supported." },
-        dryRun: { type: "boolean", description: "Show planned changes without writing." },
+        channelId: { type: "string", description: "Current bound chat/group ID; mutually exclusive with project." },
+        project: { type: "string", description: "Explicit project slug; mutually exclusive with channelId." },
+        issueId: { type: "number", description: "Positive provider issue ID." },
+        source: { type: "string", enum: Object.values(ISSUE_REPAIR_SOURCE), description: "Authoritative repair source." },
+        dryRun: { type: "boolean", description: "Plan without mutation; defaults to true." },
+        apply: { type: "boolean", description: "Apply a previously planned repair." },
+        planToken: { type: "string", description: "Token from the matching dry-run; required for apply." },
+        reason: { type: "string", description: "Optional operator reason included in audit events." },
       },
     },
     async execute(_id: string, params: Record<string, unknown>) {
-      const workspaceDir = requireWorkspaceDir(toolCtx);
-      const result = await repairIssueFromLocalState({
-        workspaceDir,
-        projectSlug: params.project as string,
-        issueId: params.issueId as number,
-        source: params.source as string,
-        dryRun: params.dryRun as boolean | undefined,
-        runCommand: ctx.runCommand,
-      });
+      rejectUnknownFields(params);
+      const projectInput = optionalString(params.project, "project");
+      const channelId = optionalString(params.channelId, "channelId");
 
-      return jsonResult({ success: true, ...result });
+      if ((projectInput === undefined) === (channelId === undefined)) {
+        throw new Error("Exactly one of project or channelId is required.");
+      }
+
+      const issueId = requirePositiveSafeInteger(params.issueId, "issueId");
+      const source = requireRepairSource(params.source);
+      const dryRun = optionalBoolean(params.dryRun, "dryRun");
+      const apply = optionalBoolean(params.apply, "apply") ?? false;
+
+      if (dryRun === true && apply) throw new Error("dryRun and apply cannot both be true.");
+      if (dryRun === false && !apply) throw new Error("dryRun: false requires apply: true.");
+      const planToken = optionalString(params.planToken, "planToken");
+
+      if (apply && !planToken) throw new Error("planToken from a matching dry-run is required for apply.");
+      const workspaceDir = requireWorkspaceDir(toolCtx);
+      const projects = await readProjects(workspaceDir);
+      const matches = Object.values(projects.projects).filter((project) => (
+        projectInput ? project.slug === projectInput : project.channels.some((endpoint) => endpoint.channelId === channelId)
+      ));
+
+      if (matches.length !== 1) throw new Error("Project selection must resolve to exactly one configured project.");
+      const project = matches[0];
+
+      if (!toolCtx.agentId || toolCtx.agentId !== project.agentId) {
+        throw new Error(`Project "${project.slug}" belongs to agent "${project.agentId}".`);
+      }
+
+      let result;
+
+      try {
+        result = await repairManagedIssue({
+          workspaceDir,
+          projectSlug: project.slug,
+          issueId,
+          source,
+          apply,
+          planToken,
+          reason: optionalString(params.reason, "reason"),
+          actor: toolCtx.agentId,
+          channelContext: { channelId },
+          runCommand: ctx.runCommand,
+        });
+      } catch (error) {
+        if (!isIssueRepairFailure(error)) throw error;
+
+        return jsonResult({
+          success: false,
+          mode: apply ? "apply" : "dry_run",
+          status: "blocked",
+          project: project.slug,
+          issueId,
+          source,
+          error: { code: error.code, message: error.message, retryable: error.retryable },
+        });
+      }
+
+      return jsonResult(result);
     },
   });
 }
 
-export function createIssuePolicyMigrationTool(ctx: PluginContext) {
-  return (toolCtx: OpenClawPluginToolContext) => ({
-    name: "issue_policy_migrate",
-    label: "Issue Policy Migration",
-    description: "Migrate review/test policy snapshots for existing managed issues from local state first, then provider projection.",
-    parameters: {
-      type: "object",
-      required: ["project", "dryRun"],
-      properties: {
-        project: { type: "string", description: "Project slug." },
-        reviewPolicy: { type: "string", enum: ["human", "agent", "skip"], description: "Optional review policy to set." },
-        testPolicy: { type: "string", enum: ["agent", "skip"], description: "Optional test policy to set." },
-        issueIds: { type: "array", items: { type: "number" }, description: "Optional issue IDs to migrate." },
-        workflowStates: { type: "array", items: { type: "string" }, description: "Optional workflow state keys to filter." },
-        includeClosed: { type: "boolean", description: "Include closed/done/rejected issues. Default false." },
-        dryRun: { type: "boolean", description: "Show planned changes without writing." },
-      },
-    },
-    async execute(_id: string, params: Record<string, unknown>) {
-      const workspaceDir = requireWorkspaceDir(toolCtx);
-      const result = await migrateIssuePolicies({
-        workspaceDir,
-        projectSlug: params.project as string,
-        reviewPolicy: params.reviewPolicy as ReviewPolicy | undefined,
-        testPolicy: params.testPolicy as TestPolicy | undefined,
-        issueIds: params.issueIds as number[] | undefined,
-        workflowStates: params.workflowStates as string[] | undefined,
-        includeClosed: params.includeClosed as boolean | undefined,
-        dryRun: params.dryRun as boolean | undefined,
-        runCommand: ctx.runCommand,
-      });
+function rejectUnknownFields(params: Record<string, unknown>): void {
+  const unknown = Object.keys(params).filter((field) => !INPUT_FIELDS.has(field));
 
-      return jsonResult({ success: true, ...result });
-    },
-  });
+  if (unknown.length > 0) throw new Error(`Unknown issue_repair parameters: ${unknown.join(", ")}.`);
+}
+
+function optionalString(value: unknown, field: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${field} must be a non-empty string.`);
+
+  return value.trim();
+}
+
+function optionalBoolean(value: unknown, field: string): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") throw new Error(`${field} must be a boolean.`);
+
+  return value;
+}
+
+function requirePositiveSafeInteger(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${field} must be a positive safe integer.`);
+  }
+
+  return value;
+}
+
+function requireRepairSource(value: unknown): IssueRepairSource {
+  if (value === ISSUE_REPAIR_SOURCE.LOCAL_STATE || value === ISSUE_REPAIR_SOURCE.PROVIDER) return value;
+
+  throw new Error("source must be local-state or provider.");
 }

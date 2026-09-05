@@ -33,6 +33,9 @@ const GhIssueSchema = z.object({
   state: z.string(),
   url: z.string(),
 });
+const GhRateLimitSchema = z.object({
+  resources: z.object({ core: z.object({ remaining: z.number().int().nonnegative(), reset: z.number() }) }),
+});
 
 function toIssue(gh: GhIssue): Issue {
   return {
@@ -296,6 +299,16 @@ export class GitHubProvider implements IssueProvider {
 
       throw classifyProviderLookupFailure("github", error);
     }
+  }
+
+  /** Read GitHub's current core API quota for repair mutation preflight. */
+  async getRateLimitStatus(): Promise<{ remaining: number; resetAt: string }> {
+    const parsed = GhRateLimitSchema.parse(JSON.parse(await this.gh(["api", "rate_limit"])));
+
+    return {
+      remaining: parsed.resources.core.remaining,
+      resetAt: new Date(parsed.resources.core.reset * 1_000).toISOString(),
+    };
   }
 
   async listComments(issueId: number): Promise<IssueComment[]> {

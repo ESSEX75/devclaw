@@ -521,21 +521,26 @@ Sync GitHub/GitLab labels with the current workflow config. Creates any missing 
 
 ### `issue_repair` / `devclaw repair issue`
 
-Repair one provider projection from local issue state. The implementation is named `issue_repair`; the packaged CLI entrypoint is `devclaw repair issue`.
+Plan or apply a verified repair between local managed state and the provider projection. CLI and plugin tool call the same application service.
 
-**Source:** [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
+**Source:** [`lib/application/issues/repair.ts`](../lib/application/issues/repair.ts), [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts)
 
 ```bash
 devclaw repair issue --project my-webapp --issue 42 --source local-state --dry-run
-devclaw repair issue --project my-webapp --issue 42 --source local-state --apply
+devclaw repair issue --project my-webapp --issue 42 --source local-state --plan-token <token> --apply
 ```
 
 **Behavior:**
 
-- `--source local-state` is the only supported repair source. Provider import is intentionally unsupported because provider projection is not authoritative.
-- `--dry-run` reports missing/unexpected managed labels and metadata changes without writing.
-- `--apply` restores provider labels and managed metadata from `devclaw/projects/<project>/issues.json`, preserving unmanaged human labels.
-- Successful apply clears local `integrity_error`.
+- Dry-run is the plugin tool default and returns both snapshots, managed/unmanaged label diff, metadata diff, local diff, request estimate, warnings, and a `planToken`.
+- Apply requires the matching token and rejects a provider or local snapshot changed after planning.
+- `source: local-state` restores managed labels and metadata while preserving unmanaged labels.
+- `source: provider` strictly imports only workflow, role/level, owner, policy, and notification fields. It rejects missing or ambiguous managed projection and never changes active worker or branch state.
+- Repairs run under the issue orchestration lock, never transition workflow, and never dispatch a worker.
+- Local integrity becomes `ok` only after a fresh provider read verifies labels and metadata.
+- Known insufficient provider quota blocks apply before mutation; unavailable quota data is reported as a warning.
+
+The tool requires exactly one of `project` or `channelId`, a positive safe integer `issueId`, and an owning project agent. Unknown input fields are rejected.
 
 ---
 
@@ -543,7 +548,7 @@ devclaw repair issue --project my-webapp --issue 42 --source local-state --apply
 
 Migrate review/test policy snapshots for existing managed issues. This is for cases where project workflow config changed after issues were already created. New issues use the new project config automatically; existing issues keep their local snapshot until explicitly migrated.
 
-**Source:** [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
+**Source:** [`lib/application/issues/policy-migration.ts`](../lib/application/issues/policy-migration.ts), [`lib/tools/issues/issue-policy-migrate.ts`](../lib/tools/issues/issue-policy-migrate.ts)
 
 ```bash
 devclaw repair policies --project my-webapp --review agent --test agent --state toReview --dry-run

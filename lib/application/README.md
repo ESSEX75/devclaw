@@ -7,9 +7,11 @@ capabilities. They should contain orchestration logic such as queue ticks,
 heartbeat passes, task lifecycle operations, worker dispatch, setup flows, and
 review handling.
 
-Managed issue archival, retention, and confirmed provider deletion are application
-use cases. Adapters in `lib/tools` and `lib/cli` must call these shared operations
-instead of reproducing lifecycle decisions.
+Managed issue archival, retention, confirmed provider deletion, repair, and policy
+migration are application use cases. Adapters in `lib/tools` and `lib/cli` must
+call these shared operations instead of reproducing lifecycle decisions. Repair
+owns snapshot comparison, plan-token validation, issue locking, minimal mutation,
+and post-apply integrity verification.
 
 ## Allowed Dependencies
 

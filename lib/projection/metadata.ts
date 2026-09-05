@@ -16,13 +16,12 @@ export function extractIssueMetadata(body: string): ProjectionMetadata | null {
 
   if (!match) return null;
   try {
-    const data = JSON.parse(match[1]!) as ProjectionMetadata;
+    const raw = match[1];
 
-    if (!data.projectSlug || typeof data.issueId !== "number" || typeof data.projectionVersion !== "number") {
-      return null;
-    }
+    if (!raw) return null;
+    const data: unknown = JSON.parse(raw);
 
-    return data;
+    return isProjectionMetadata(data) ? data : null;
   } catch {
     return null;
   }
@@ -44,4 +43,15 @@ export function metadataMatches(metadata: ProjectionMetadata | null, expected: P
   return metadata.projectSlug === expected.projectSlug
     && metadata.issueId === expected.issueId
     && metadata.projectionVersion === expected.projectionVersion;
+}
+
+function isProjectionMetadata(value: unknown): value is ProjectionMetadata {
+  if (typeof value !== "object" || value === null) return false;
+  if (!("projectSlug" in value) || typeof value.projectSlug !== "string" || !value.projectSlug) return false;
+  if (!("issueId" in value) || typeof value.issueId !== "number" || !Number.isSafeInteger(value.issueId)) return false;
+  if (!("projectionVersion" in value) || typeof value.projectionVersion !== "number" || !Number.isSafeInteger(value.projectionVersion)) return false;
+  if ("stateRef" in value && value.stateRef !== undefined && typeof value.stateRef !== "string") return false;
+  if ("managedAt" in value && value.managedAt !== undefined && typeof value.managedAt !== "string") return false;
+
+  return true;
 }

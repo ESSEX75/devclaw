@@ -75,3 +75,16 @@ export interface AttachmentUploader {
 export interface ProviderHealthCheck {
   healthCheck(): Promise<boolean>;
 }
+
+/** Current provider request budget when the adapter can query it safely. */
+export type ProviderRateLimitStatus = {
+  /** Requests remaining in the relevant provider budget. */
+  remaining: number;
+  /** ISO reset time when exposed by the provider. */
+  resetAt?: string;
+};
+
+/** Optional quota preflight used by explicitly planned mutations. */
+export interface ProviderRateLimitReader {
+  getRateLimitStatus?(): Promise<ProviderRateLimitStatus>;
+}
