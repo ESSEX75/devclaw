@@ -40,7 +40,6 @@ export type IssueStateWriteInput = {
   activeWorker?: ActiveIssueWorker | null;
   integrityStatus?: IssueIntegrityStatus;
   closedAt?: string | null;
-  archivedAt?: string | null;
 };
 
 type RoleLevel = {
@@ -120,7 +119,9 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
       closedAt: input.closedAt !== undefined ? input.closedAt : previous?.closedAt ?? null,
-      archivedAt: input.archivedAt !== undefined ? input.archivedAt : previous?.archivedAt ?? null,
+      providerMissing: previous?.providerMissing ?? null,
+      retryAt: previous?.retryAt ?? null,
+      retriesRemaining: previous?.retriesRemaining ?? 0,
       pipelineNotification: previous?.pipelineNotification ?? null,
     };
     store.issues[String(input.issue.iid)] = written;

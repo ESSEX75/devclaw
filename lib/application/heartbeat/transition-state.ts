@@ -3,9 +3,11 @@
  */
 import {
   getStateLabels,
+  ISSUE_ARCHIVE_REASON,
   ISSUE_PROVIDER,
   type IssueProviderId,
   type Project,
+  STATE_TYPE,
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { Issue } from "../../integrations/providers/provider.js";
@@ -15,6 +17,7 @@ import {
   withIssueOrchestrationLock,
   writeIssueRuntimeState,
 } from "../../state/issues/index.js";
+import { archiveManagedIssue } from "../issues/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 
 export async function transitionHeartbeatIssue(opts: {
@@ -47,6 +50,22 @@ export async function transitionHeartbeatIssue(opts: {
       provider: opts.provider,
       owner: opts.owner,
     });
+
+    if (opts.workflow.states[opts.workflowState]?.type === STATE_TYPE.TERMINAL) {
+      const archived = await archiveManagedIssue({
+        workspaceDir: opts.workspaceDir,
+        projectSlug: opts.project.slug,
+        issueId: opts.issueId,
+        archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
+        snapshot: { title: issue.title, issueUrl: issue.web_url },
+        actor: opts.owner,
+        correlationId: `terminal:${opts.project.slug}:${opts.issueId}:${opts.workflowState}`,
+      });
+
+      if (!archived.archived && archived.reason !== "retry_pending") {
+        throw new Error(`Terminal issue #${opts.issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
+      }
+    }
 
     return true;
   });

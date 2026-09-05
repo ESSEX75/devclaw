@@ -15,8 +15,11 @@ import {
 } from "../../domain/index.js";
 import {
   confirmPipelineNotification,
+  emptyIssueArchiveStore,
   emptyIssueStateStore,
   issueStatePath,
+  readIssueArchiveStore,
+  resetIssueStores,
   readIssueStateStore,
   reservePipelineNotification,
   updateIssueStateStore,
@@ -45,7 +48,6 @@ function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,
-    archivedAt: null,
     ...overrides,
   };
 }
@@ -70,20 +72,16 @@ describe("issue state store", () => {
       const filePath = issueStatePath(tmpDir, "devclaw");
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(filePath, JSON.stringify({
-        version: 1,
+        version: 2,
         projectSlug: "devclaw",
         issues: {
           "123": issue(),
-        },
-        archive: {
-          issues: {},
         },
       }), "utf-8");
 
       const store = await readIssueStateStore(tmpDir, "devclaw");
       assert.strictEqual(store.projectSlug, "devclaw");
       assert.strictEqual(store.issues["123"]!.workflowState, "todo");
-      assert.deepStrictEqual(store.archive.issues, {});
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
@@ -182,23 +180,26 @@ describe("issue state store", () => {
     }
   });
 
-  it("preserves archive.issues", async () => {
+  it("creates a separate empty issues.archive.json", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
+    try {
+      const archive = await readIssueArchiveStore(tmpDir, "devclaw");
+
+      assert.deepStrictEqual(archive, emptyIssueArchiveStore("devclaw"));
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("resets both stores only through the explicit reset operation", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
     try {
       const store = emptyIssueStateStore("devclaw");
-      store.archive.issues["77"] = {
-        issueId: 77,
-        finalWorkflowState: "done",
-        closedAt: "2026-06-01T00:00:00.000Z",
-        archivedAt: "2026-06-22T00:00:00.000Z",
-        lastIntegrityStatus: ISSUE_INTEGRITY_STATUS.OK,
-      };
-
+      store.issues["123"] = issue();
       await writeIssueStateStore(tmpDir, "devclaw", store);
-      const loaded = await readIssueStateStore(tmpDir, "devclaw");
-
-      assert.strictEqual(loaded.archive.issues["77"]!.finalWorkflowState, "done");
-      assert.deepStrictEqual(loaded.issues, {});
+      await resetIssueStores(tmpDir, "devclaw");
+      assert.deepStrictEqual(await readIssueStateStore(tmpDir, "devclaw"), emptyIssueStateStore("devclaw"));
+      assert.deepStrictEqual(await readIssueArchiveStore(tmpDir, "devclaw"), emptyIssueArchiveStore("devclaw"));
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
@@ -210,15 +211,14 @@ describe("issue state store", () => {
       const filePath = issueStatePath(tmpDir, "devclaw");
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(filePath, JSON.stringify({
-        version: 1,
+        version: 2,
         projectSlug: "other",
         issues: {},
-        archive: { issues: {} },
       }), "utf-8");
 
       await assert.rejects(
         readIssueStateStore(tmpDir, "devclaw"),
-        /issues\.json projectSlug mismatch: expected devclaw, got other/,
+        /Issue store projectSlug mismatch: expected devclaw, got other/,
       );
     } finally {
       await fs.rm(tmpDir, { recursive: true });

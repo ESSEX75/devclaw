@@ -7,6 +7,10 @@ capabilities. They should contain orchestration logic such as queue ticks,
 heartbeat passes, task lifecycle operations, worker dispatch, setup flows, and
 review handling.
 
+Managed issue archival, retention, and confirmed provider deletion are application
+use cases. Adapters in `lib/tools` and `lib/cli` must call these shared operations
+instead of reproducing lifecycle decisions.
+
 ## Allowed Dependencies
 
 - `lib/domain/*` for pure workflow and task semantics.

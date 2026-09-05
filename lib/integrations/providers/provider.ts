@@ -5,6 +5,7 @@
  */
 import type {
   AttachmentUploader,
+  IssueDeleter,
   IssueReader,
   IssueWriter,
   LabelProjector,
@@ -24,6 +25,7 @@ export * from "./types.js";
 export interface IssueProvider
   extends IssueReader,
     IssueWriter,
+    IssueDeleter,
     LabelProjector,
     ReviewReader,
     PullRequestReader,

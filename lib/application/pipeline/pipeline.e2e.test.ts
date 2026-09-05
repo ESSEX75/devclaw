@@ -29,7 +29,7 @@ import {
   type WorkflowStateKey,
 } from "../../domain/index.js";
 import { readProjects, getRoleWorker, getProject } from "../../state/projects/index.js";
-import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { readIssueArchiveStore, readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { slotName } from "../../names.js";
 import type { NotificationRuntime } from "../notifications/notify.js";
 
@@ -482,10 +482,12 @@ describe("E2E pipeline", () => {
         return index >= 0 ? command.argv[index + 1] : undefined;
       });
       const state = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["30"];
+      const archive = await readIssueArchiveStore(h.workspaceDir, h.project.slug);
+      const archived = Object.values(archive.issues).find((record) => record.issueId === 30);
 
       assert.strictEqual(messages.filter((message) => message?.includes("Pipeline completed #30")).length, 1);
-      assert.strictEqual(state?.workflowState, "done");
-      assert.strictEqual(state?.pipelineNotification?.status, "delivered");
+      assert.strictEqual(state, undefined);
+      assert.strictEqual(archived?.finalWorkflowState, "done");
     });
   });
 

@@ -4,13 +4,35 @@
 import type { ValueOf } from "../../types.js";
 import type { NotifyBindingRef } from "../notifications/types.js";
 import type { ReviewPolicy, TestPolicy } from "../workflow/types.js";
-import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, PIPELINE_NOTIFICATION_STATUS } from "./const.js";
+import {
+  ATTACHMENT_DISPOSITION,
+  ISSUE_ARCHIVE_REASON,
+  ISSUE_INTEGRITY_STATUS,
+  ISSUE_PROVIDER,
+  PIPELINE_NOTIFICATION_STATUS,
+} from "./const.js";
 
 /** Supported issue tracking provider identifier. */
 export type IssueProviderId = ValueOf<typeof ISSUE_PROVIDER>;
 
 /** Status of the issue's local state relative to the provider. */
 export type IssueIntegrityStatus = ValueOf<typeof ISSUE_INTEGRITY_STATUS>;
+
+/** Reason a managed issue was moved into the archive store. */
+export type IssueArchiveReason = ValueOf<typeof ISSUE_ARCHIVE_REASON>;
+
+/** Retention state of files associated with an archived issue. */
+export type AttachmentDisposition = ValueOf<typeof ATTACHMENT_DISPOSITION>;
+
+/** Consecutive provider-missing confirmations retained between heartbeat ticks. */
+export type ProviderMissingState = {
+  /** Number of confirmed issue-not-found responses. */
+  confirmations: number;
+  /** ISO timestamp of the first confirmed response. */
+  firstConfirmedAt: string;
+  /** ISO timestamp of the most recent confirmed response. */
+  lastConfirmedAt: string;
+};
 
 /** Persisted delivery marker for the terminal pipeline notification. */
 export type PipelineNotificationState = {
@@ -92,40 +114,66 @@ export type IssueRuntimeState = IssueProjectionState & {
   updatedAt: string;
   /** ISO timestamp when the issue was closed. */
   closedAt?: string | null;
-  /** ISO timestamp when the issue was archived. */
-  archivedAt?: string | null;
+  /** Pending confirmation state when the provider no longer returns this issue. */
+  providerMissing?: ProviderMissingState | null;
+  /** Scheduled retry that keeps a failed terminal-looking state active. */
+  retryAt?: string | null;
+  /** Remaining automatic retries for a failed state. */
+  retriesRemaining?: number;
   /** Terminal notification delivery marker used for deduplication. */
   pipelineNotification?: PipelineNotificationState | null;
 };
 
-/** Lightweight summary of an archived issue. */
-export type ArchivedIssueSummary = {
-  /** Issue identifier. */
+/** Audit-oriented record stored after an issue leaves active runtime state. */
+export type ArchivedIssueRecord = {
+  /** Stable project owner of the archived issue. */
+  projectSlug: string;
+  /** Provider-local issue identifier. */
   issueId: number;
+  /** Provider owning the issue. */
+  provider: IssueProviderId;
+  /** Last known provider title, when available. */
+  title?: string;
+  /** Last known provider URL, when available. */
+  issueUrl?: string;
   /** Final workflow state before archiving. */
   finalWorkflowState: string;
-  /** ISO timestamp of issue closure. */
-  closedAt: string;
+  /** Final provider-facing workflow label. */
+  finalWorkflowLabel?: string;
+  /** Reason the issue left active runtime state. */
+  archiveReason: IssueArchiveReason;
+  /** ISO timestamp of issue closure, when it was closed normally. */
+  closedAt?: string | null;
+  /** ISO timestamp when provider deletion was confirmed. */
+  providerDeletedAt?: string | null;
   /** ISO timestamp of archiving. */
   archivedAt: string;
   /** Last recorded integrity status before archive. */
   lastIntegrityStatus: IssueIntegrityStatus;
+  /** Last known branch and pull-request references. */
+  branchContract?: BranchContract | null;
+  /** Current retention state of associated files. */
+  attachmentDisposition: AttachmentDisposition;
+  /** SHA-256 of the active runtime snapshot used to create this record. */
+  sourceSnapshotHash: string;
 };
 
-/** Container for all archived issues. */
-export type IssueArchive = {
-  /** Map of issue IDs to their archived summaries. */
-  issues: Record<string, ArchivedIssueSummary>;
+/** Dedicated project-local archive store persisted in issues.archive.json. */
+export type IssueArchiveStore = {
+  /** Storage schema version. */
+  version: 1;
+  /** Project slug that owns every record. */
+  projectSlug: string;
+  /** Records keyed by stable provider/project/issue identity. */
+  issues: Record<string, ArchivedIssueRecord>;
 };
 
 /** Local filesystem state store schema for project issues. */
 export type IssueStateStore = {
   /** Storage schema version. */
-  version: 1;
+  version: 2;
   /** Project slug. */
   projectSlug: string;
   /** Active managed issues keyed by stringified issue ID. */
   issues: Record<string, IssueRuntimeState>;
-  /** Archived issues index. */
-  archive: IssueArchive;
 };

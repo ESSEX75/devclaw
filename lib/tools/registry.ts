@@ -15,8 +15,8 @@ import { createProjectStatusTool } from "./admin/project-status.js";
 import { createSetupTool } from "./admin/setup.js";
 import { createSyncLabelsTool } from "./admin/sync-labels.js";
 import { createWorkflowGuideTool } from "./admin/workflow-guide.js";
+import { createIssueDeleteTool } from "./issues/issue-delete.js";
 import { createIssuePolicyMigrationTool, createIssueRepairTool } from "./issues/issue-repair.js";
-import { createIssuesCleanupTool } from "./issues/issues-cleanup.js";
 import { createResearchTaskTool } from "./tasks/research-task.js";
 import { createTaskAttachTool } from "./tasks/task-attach.js";
 import { createTaskCommentTool } from "./tasks/task-comment.js";
@@ -54,7 +54,7 @@ export const toolRegistry = [
   { names: ["research_task"], factory: createResearchTaskTool },
   { names: ["issue_repair"], factory: createIssueRepairTool },
   { names: ["issue_policy_migrate"], factory: createIssuePolicyMigrationTool },
-  { names: ["issues_cleanup"], factory: createIssuesCleanupTool },
+  { names: ["issue_delete"], factory: createIssueDeleteTool },
 
   // Task queries
   { names: ["task_list"], factory: createTaskListTool },

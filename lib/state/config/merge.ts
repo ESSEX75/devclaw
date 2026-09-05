@@ -67,6 +67,13 @@ export function mergeConfig(
     merged.timeouts = { ...base.timeouts, ...overlay.timeouts };
   }
 
+  if (base.issueArchiveMaintenance || overlay.issueArchiveMaintenance) {
+    merged.issueArchiveMaintenance = {
+      ...base.issueArchiveMaintenance,
+      ...overlay.issueArchiveMaintenance,
+    };
+  }
+
   return merged;
 }
 

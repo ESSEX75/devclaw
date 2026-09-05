@@ -16,6 +16,7 @@ import {
   getCompletionEmoji,
   getCompletionRule,
   getNextStateDescription,
+  ISSUE_ARCHIVE_REASON,
   NOTIFICATION_CHANNEL,
   type NotificationEndpoint,
   STATE_TYPE,
@@ -32,6 +33,7 @@ import {
   writeIssueRuntimeState,
 } from "../../state/issues/index.js";
 import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/projects/index.js";
+import { archiveManagedIssue } from "../issues/index.js";
 import {
   getNotificationConfig,
   type NotificationRuntime,
@@ -478,6 +480,22 @@ async function executeCompletionLocked(opts: {
       ).catch((err) => {
         auditLog(workspaceDir, "pipeline_warning", { step: "reviewNotify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
       });
+    }
+  }
+
+  if (targetState?.type === STATE_TYPE.TERMINAL) {
+    const archived = await archiveManagedIssue({
+      workspaceDir,
+      projectSlug,
+      issueId,
+      archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
+      snapshot: { title: issue.title, issueUrl: issue.web_url },
+      actor: "pipeline_completion",
+      correlationId: `terminal:${projectSlug}:${issueId}:${runtimeState.workflowState}`,
+    });
+
+    if (!archived.archived && archived.reason !== "retry_pending") {
+      throw new Error(`Terminal issue #${issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
     }
   }
 

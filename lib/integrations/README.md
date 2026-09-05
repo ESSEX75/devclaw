@@ -6,6 +6,10 @@ Integration modules talk to external systems such as GitHub, GitLab, OpenClaw
 gateway/session APIs, and provider-specific capabilities. They should expose
 small adapter functions and typed results for application use cases.
 
+Provider issue lookups classify not-found, authorization, rate-limit, transient,
+and unknown failures at the adapter boundary. Application code must branch on
+these typed failures rather than inspecting provider error text.
+
 ## Boundary Rules
 
 - Keep provider API details in `lib/integrations/providers`.

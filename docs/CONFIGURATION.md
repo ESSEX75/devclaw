@@ -255,6 +255,18 @@ timeouts:
 | `sessionContextBudget` | 0.6 | Clear and recreate a worker session when it exceeds this fraction of the context window |
 | `stallTimeoutMinutes` | 15 | Minutes of session inactivity before stall detection/nudging starts |
 
+### Issue archive maintenance
+
+```yaml
+issueArchiveMaintenance:
+  deletedProviderRetention: 90d
+  archiveRetention: 365d
+  attachmentsRetention: 90d
+  maxPerHeartbeat: 100
+```
+
+Terminal issues move immediately from `issues.json` into the dedicated `issues.archive.json`; these settings control only subsequent retention. Durations accept `ms`, `s`, `m`, `h`, or `d`, including an explicit zero. `maxPerHeartbeat` must be between 1 and 1000. Project-level configuration may override workspace defaults.
+
 ---
 
 ## Plugin Configuration (`openclaw.json`)
@@ -550,7 +562,7 @@ Each slot has:
 - **Projection guard** — heartbeat compares provider labels and metadata with local state. Recoverable label drift is repaired. Missing or tampered managed metadata sets `integrity_error` until repaired from local state.
 - **Backfill boundary** — old issues without a local `issues.json` entry are treated as `projection_uninitialized` and must be explicitly initialized/backfilled before managed dispatch.
 - **Initial-state task creation** — `task_create` preserves `workflow.initial`, normally the `Planning` hold state; `task_start` explicitly releases held work into its first queue. A custom queue initial state remains immediately dispatchable.
-- **Inline issue archive** — `devclaw issues cleanup` archives old terminal closed local issue records into `archive.issues` inside `issues.json`; `issues.archive.jsonl` is not part of the MVP.
+- **Dedicated issue archive** — terminal issues leave active `issues.json` immediately and are retained in adjacent `issues.archive.json`. Heartbeat performs bounded recovery, attachment retention, and archive retention. Provider deletion requires a typed, confirmed missing result and never relies on arbitrary `404` text.
 - **Per-level slots** — each level owns an array of slots. Capacity is configured through `workflow.maxWorkersPerLevel` and per-model `maxWorkers`.
 - **Session-per-slot** — each slot preserves its own session key, accumulating context independently. Level selection plus slot index maps directly to a session key.
 - **Sessions preserved on completion** — when a worker completes a task, `sessionKey` is preserved while `active`, `issueId`, `startTime`, and `previousLabel` are cleared. This enables session reuse.
@@ -574,7 +586,8 @@ Each slot has:
 │   ├── projects/
 │   │   ├── my-webapp/
 │   │   │   ├── workflow.yaml      ← Project-specific config overrides
-│   │   │   ├── issues.json        ← Project-local issue runtime state
+│   │   │   ├── issues.json        ← Active project-local issue runtime state
+│   │   │   ├── issues.archive.json ← Terminal summaries and provider-deleted tombstones
 │   │   │   └── prompts/
 │   │   │       ├── developer.md   ← Project-specific developer instructions
 │   │   │       ├── tester.md      ← Project-specific tester instructions

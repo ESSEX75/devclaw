@@ -7,6 +7,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
+import { getIssueArchiveStatus } from "../../application/issues/index.js";
 import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, STATE_TYPE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
@@ -45,6 +46,13 @@ export function createProjectStatusTool(ctx: PluginContext) {
       const projectConfig = await loadConfig(workspaceDir, project.name);
       const workflow = projectConfig.workflow;
       const instanceName = await loadInstanceName(workspaceDir, projectConfig.instanceName);
+      const issueArchive = await getIssueArchiveStatus({
+        workspaceDir,
+        projectSlug: project.slug,
+        archiveRetention: projectConfig.issueArchiveMaintenance.archiveRetention,
+        deletedProviderRetention: projectConfig.issueArchiveMaintenance.deletedProviderRetention,
+        workflow: projectConfig.workflow,
+      });
 
       // Workers summary - per-level slot utilization
       const workers: Record<string, {
@@ -98,6 +106,7 @@ export function createProjectStatusTool(ctx: PluginContext) {
           channels: project.channels,
         },
         workflow: workflowSummary,
+        issueArchive,
         workers,
       });
     },

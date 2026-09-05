@@ -31,6 +31,15 @@ export function registerDoctorCommand(parent: Command, ctx: PluginContext): void
         console.log(`  ${agent.agentId}: ${agent.devclawToolsAllowed ? "allowed" : "denied"}`);
       }
 
+      console.log("\nIssue archives:");
+      for (const archive of report.archives) {
+        console.log(
+          `  ${archive.projectSlug}: active=${archive.active}, terminalWaiting=${archive.terminalWaitingArchive}, `
+          + `archived=${archive.archived}, providerDeleted=${archive.providerDeleted}, `
+          + `purgeEligible=${archive.purgeEligible}, attachmentsBytes=${archive.attachmentsRetainedBytes}`,
+        );
+      }
+
       if (!report.ok) process.exitCode = 1;
     });
 }

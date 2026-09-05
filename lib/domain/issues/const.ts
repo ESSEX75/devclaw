@@ -35,3 +35,20 @@ export const PIPELINE_NOTIFICATION_STATUS = {
   /** The notification adapter confirmed delivery. */
   DELIVERED: "delivered",
 } as const;
+
+/** Reasons a managed issue leaves the active runtime store. */
+export const ISSUE_ARCHIVE_REASON = {
+  /** The workflow reached a final terminal state. */
+  TERMINAL: "terminal",
+  /** The provider confirmed that the issue was deleted. */
+  PROVIDER_DELETED: "provider_deleted",
+  /** An explicit project cleanup archived the issue. */
+  PROJECT_CLEANUP: "project_cleanup",
+} as const;
+
+/** Retention state of attachments associated with an archived issue. */
+export const ATTACHMENT_DISPOSITION = {
+  RETAINED: "retained",
+  PURGED: "purged",
+  NONE: "none",
+} as const;

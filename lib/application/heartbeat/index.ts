@@ -171,6 +171,7 @@ async function processAllAgents(
     totalReviewTransitions: 0,
     totalReviewSkipTransitions: 0,
     totalTestSkipTransitions: 0,
+    totalArchived: 0,
   };
 
   // Ensure defaults are fresh on every startup (prompts, workflow, etc.)
@@ -207,6 +208,7 @@ async function processAllAgents(
     result.totalReviewTransitions += agentResult.totalReviewTransitions;
     result.totalReviewSkipTransitions += agentResult.totalReviewSkipTransitions;
     result.totalTestSkipTransitions += agentResult.totalTestSkipTransitions;
+    result.totalArchived += agentResult.totalArchived;
   }
 
   return result;
@@ -224,12 +226,14 @@ function logTickResult(
     result.totalHealthFixes > 0 ||
     result.totalReviewTransitions > 0 ||
     result.totalReviewSkipTransitions > 0 ||
-    result.totalTestSkipTransitions > 0
+    result.totalTestSkipTransitions > 0 ||
+    result.totalArchived > 0
   ) {
     logger.info(
       `work_heartbeat tick: ${result.totalPickups} pickups, ${result.totalHealthFixes} health fixes, ` +
       `${result.totalReviewTransitions} review transitions, ${result.totalReviewSkipTransitions} review skips, ` +
-      `${result.totalTestSkipTransitions} test skips, ${result.totalSkipped} skipped`,
+      `${result.totalTestSkipTransitions} test skips, ${result.totalSkipped} skipped, ` +
+      `${result.totalArchived} archived`,
     );
   }
 }

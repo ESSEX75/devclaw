@@ -20,6 +20,14 @@ export interface IssueWriter {
   editIssue(issueId: number, updates: { title?: string; body?: string }): Promise<Issue>;
 }
 
+/** Destructive provider capability used only by the confirmed issue-delete use case. */
+export interface IssueDeleter {
+  /** Whether this adapter has an explicit provider deletion implementation. */
+  supportsIssueDeletion(): boolean;
+  /** Permanently delete one provider issue. */
+  deleteIssue(issueId: number): Promise<void>;
+}
+
 export interface LabelProjector {
   ensureLabel(name: string, color: string): Promise<void>;
   ensureAllStateLabels(): Promise<void>;

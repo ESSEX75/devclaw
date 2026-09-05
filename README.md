@@ -504,7 +504,8 @@ DevClaw gives the orchestrator 23 tools. These aren't just convenience wrappers 
 | `project_register`     | One-time project setup: creates labels, scaffolds instructions, initializes state       |
 | `sync_labels`          | Sync GitHub/GitLab labels with workflow config after editing `workflow.yaml`            |
 | `devclaw repair issue` | CLI repair of provider projection from local issue state                                |
-| `devclaw issues cleanup` | CLI archive of old closed local issue records into inline `archive.issues`           |
+| `issue_delete`           | Confirmed provider deletion with lossless local tombstone                            |
+| `devclaw issues archive` | Inspect and explicitly purge the dedicated local issue archive                       |
 | `channel_link`         | Link a chat/channel to a project (auto-detaches previous project)                      |
 | `channel_unlink`       | Remove a channel from a project                                                         |
 | `channel_list`         | List channels for a project or all projects                                             |

@@ -1,8 +1,17 @@
 /**
  * GitLabProvider — IssueProvider implementation using glab CLI.
  */
+import { z } from "zod";
+
 import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
+import {
+  classifyProviderLookupFailure,
+  classifyProviderProjectAccessFailure,
+  mayBeMissingProviderIssue,
+  PROVIDER_ISSUE_LOOKUP_ERROR,
+  ProviderIssueLookupError,
+} from "./lookup-errors.js";
 import type { IssueProvider } from "./provider.js";
 import { withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
@@ -19,6 +28,11 @@ type GitLabMR = {
   author?: { username: string };
 };
 
+const GitLabIssueSchema = z.object({
+  iid: z.number(), title: z.string(), description: z.string(), labels: z.array(z.string()),
+  state: z.string(), web_url: z.string(),
+});
+
 export class GitLabProvider implements IssueProvider {
   private repoPath: string;
   private workflow: WorkflowConfig;
@@ -33,6 +47,10 @@ export class GitLabProvider implements IssueProvider {
   private async glab(args: string[]): Promise<string> {
     return withResilience(async () => {
       const result = await this.runCommand(["glab", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
+
+      if (result.code != null && result.code !== 0) {
+        throw new Error(result.stderr?.trim() || `glab command failed with exit code ${result.code}`);
+      }
 
       return result.stdout.trim();
     });
@@ -118,9 +136,31 @@ export class GitLabProvider implements IssueProvider {
   }
 
   async getIssue(issueId: number): Promise<Issue> {
-    const raw = await this.glab(["issue", "view", String(issueId), "--output", "json"]);
+    try {
+      const raw = await this.glab(["issue", "view", String(issueId), "--output", "json"]);
+      const parsed: unknown = JSON.parse(raw);
 
-    return JSON.parse(raw) as Issue;
+      return GitLabIssueSchema.parse(parsed);
+    } catch (error) {
+      if (mayBeMissingProviderIssue(error)) {
+        try {
+          await this.glab(["repo", "view", "--output", "json"]);
+          throw new ProviderIssueLookupError({
+            code: PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND,
+            provider: "gitlab",
+            retryable: false,
+            status: 404,
+            message: `GitLab issue #${issueId} does not exist while project access remains valid.`,
+            cause: error,
+          });
+        } catch (accessError) {
+          if (accessError instanceof ProviderIssueLookupError) throw accessError;
+          throw classifyProviderProjectAccessFailure("gitlab", accessError);
+        }
+      }
+
+      throw classifyProviderLookupFailure("gitlab", error);
+    }
   }
 
   async listComments(issueId: number): Promise<IssueComment[]> {
@@ -188,6 +228,17 @@ export class GitLabProvider implements IssueProvider {
 
   async closeIssue(issueId: number): Promise<void> { await this.glab(["issue", "close", String(issueId)]); }
   async reopenIssue(issueId: number): Promise<void> { await this.glab(["issue", "reopen", String(issueId)]); }
+  supportsIssueDeletion(): boolean { return true; }
+  async deleteIssue(issueId: number): Promise<void> {
+    const result = await this.runCommand(
+      ["glab", "api", `projects/:id/issues/${issueId}`, "--method", "DELETE"],
+      { timeoutMs: 30_000, cwd: this.repoPath },
+    );
+
+    if (result.code != null && result.code !== 0) {
+      throw new Error(result.stderr?.trim() || `glab issue delete failed with exit code ${result.code}`);
+    }
+  }
 
   async getMergedMRUrl(issueId: number): Promise<string | null> {
     const mrs = await this.getRelatedMRs(issueId);

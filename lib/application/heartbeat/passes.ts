@@ -9,6 +9,7 @@ import { type Project } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getConfiguredRoleIds } from "../../state/config/index.js";
 import type { ResolvedConfig } from "../../state/config/types.js";
+import { maintainIssueArchive, recoverTerminalIssueArchives } from "../issues/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import {
@@ -109,6 +110,35 @@ export async function performProjectionIntegrityPass(
   });
 
   return result.repaired + result.removed + result.errors;
+}
+
+/** Recover terminal issues left active by an interrupted archive transfer. */
+export async function performIssueArchivePass(
+  workspaceDir: string,
+  project: Pick<Project, "slug">,
+  resolvedConfig: ResolvedConfig,
+): Promise<number> {
+  const result = await recoverTerminalIssueArchives({
+    workspaceDir,
+    projectSlug: project.slug,
+    workflow: resolvedConfig.workflow,
+    maxItems: resolvedConfig.issueArchiveMaintenance.maxPerHeartbeat,
+  });
+
+  const remaining = Math.max(0, resolvedConfig.issueArchiveMaintenance.maxPerHeartbeat - result.archived.length);
+
+  if (remaining > 0) {
+    await maintainIssueArchive({
+      workspaceDir,
+      projectSlug: project.slug,
+      archiveRetention: resolvedConfig.issueArchiveMaintenance.archiveRetention,
+      deletedProviderRetention: resolvedConfig.issueArchiveMaintenance.deletedProviderRetention,
+      attachmentsRetention: resolvedConfig.issueArchiveMaintenance.attachmentsRetention,
+      maxItems: remaining,
+    });
+  }
+
+  return result.archived.length;
 }
 
 /**

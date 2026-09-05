@@ -15,6 +15,7 @@ import {
   getAttachmentPath,
   formatAttachmentComment,
   formatAttachmentsForTask,
+  purgeIssueAttachments,
 } from "./attachments.js";
 
 describe("extractMediaAttachments", () => {
@@ -197,6 +198,25 @@ describe("formatAttachmentsForTask", () => {
       assert.ok(result.includes("## Attachments"));
       assert.ok(result.includes("readme.md"));
       assert.ok(result.includes("charlie"));
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("purgeIssueAttachments", () => {
+  it("produces a hash manifest and removes only the normalized issue directory", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-attach-purge-"));
+    try {
+      await saveAttachment(tmpDir, "test-project", 42, {
+        buffer: Buffer.from("retained bytes"), filename: "evidence.txt",
+        mimeType: "text/plain", uploader: "tester",
+      });
+      const manifest = await purgeIssueAttachments(tmpDir, "test-project", 42);
+
+      assert.ok(manifest.some((entry) => entry.filename.endsWith("evidence.txt") && entry.sha256.length === 64));
+      assert.deepStrictEqual(await listAttachments(tmpDir, "test-project", 42), []);
+      await assert.rejects(purgeIssueAttachments(tmpDir, "../escape", 42), /Unsafe project slug/);
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }

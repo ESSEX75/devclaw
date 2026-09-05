@@ -17,6 +17,7 @@ import {
 } from "./health.js";
 import {
   performHealthPass,
+  performIssueArchivePass,
   performProjectionIntegrityPass,
   performReviewPass,
   performReviewSkipPass,
@@ -34,6 +35,7 @@ export type HeartbeatTickResult = {
   totalReviewTransitions: number;
   totalReviewSkipTransitions: number;
   totalTestSkipTransitions: number;
+  totalArchived: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -67,6 +69,7 @@ export async function tick(opts: {
       totalReviewTransitions: 0,
       totalReviewSkipTransitions: 0,
       totalTestSkipTransitions: 0,
+      totalArchived: 0,
     };
   }
 
@@ -77,6 +80,7 @@ export async function tick(opts: {
     totalReviewTransitions: 0,
     totalReviewSkipTransitions: 0,
     totalTestSkipTransitions: 0,
+    totalArchived: 0,
   };
 
   const projectExecution =
@@ -101,6 +105,12 @@ export async function tick(opts: {
         workspaceDir,
         project,
         provider,
+        resolvedConfig,
+      );
+
+      result.totalArchived += await performIssueArchivePass(
+        workspaceDir,
+        project,
         resolvedConfig,
       );
 
@@ -183,6 +193,7 @@ export async function tick(opts: {
     reviewTransitions: result.totalReviewTransitions,
     reviewSkipTransitions: result.totalReviewSkipTransitions,
     testSkipTransitions: result.totalTestSkipTransitions,
+    archived: result.totalArchived,
     pickups: result.totalPickups,
     skipped: result.totalSkipped,
   });

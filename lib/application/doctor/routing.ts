@@ -5,7 +5,9 @@
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { ProjectsData } from "../../domain/index.js";
+import { loadConfig } from "../../state/config/index.js";
 import { readProjects } from "../../state/projects/index.js";
+import { getIssueArchiveStatus, parseDuration } from "../issues/index.js";
 import { DEVCLAW_AGENT_TOOLS } from "../setup/plugin-config.js";
 import { inspectConfiguredProjectRoutes } from "../setup/route-validation.js";
 
@@ -27,6 +29,16 @@ export type RoutingDoctorReport = {
   findings: DoctorFinding[];
   /** Explicit DevClaw tool access calculated for every configured agent. */
   agents: Array<{ agentId: string; devclawToolsAllowed: boolean }>;
+  /** Active/archive counters for every configured project. */
+  archives: Array<{
+    projectSlug: string;
+    active: number;
+    terminalWaitingArchive: number;
+    archived: number;
+    providerDeleted: number;
+    purgeEligible: number;
+    attachmentsRetainedBytes: number;
+  }>;
 };
 
 /** Inspect project routes and explicit per-agent DevClaw tool isolation. */
@@ -37,7 +49,30 @@ export async function runRoutingDoctor(
   const config = runtime.config.current();
   const projects = await readProjects(workspaceDir);
 
-  return buildRoutingDoctorReport(config, projects);
+  const report = buildRoutingDoctorReport(config, projects);
+
+  for (const project of Object.values(projects.projects)) {
+    const resolved = await loadConfig(workspaceDir, project.name);
+
+    report.archives.push({ projectSlug: project.slug, ...await getIssueArchiveStatus({
+      workspaceDir,
+      projectSlug: project.slug,
+      archiveRetention: resolved.issueArchiveMaintenance.archiveRetention,
+      deletedProviderRetention: resolved.issueArchiveMaintenance.deletedProviderRetention,
+      workflow: resolved.workflow,
+    }) });
+    if (parseDuration(resolved.issueArchiveMaintenance.archiveRetention) < parseDuration(resolved.issueArchiveMaintenance.attachmentsRetention)) {
+      report.findings.push({
+        code: "archive.retention_order",
+        severity: "info",
+        message: `${project.slug}: archiveRetention is shorter than attachmentsRetention; attachments are purged with the archive record.`,
+      });
+    }
+  }
+
+  report.ok = report.findings.every((finding) => finding.severity !== "error");
+
+  return report;
 }
 
 /** Build a doctor report from already loaded configuration and project state. */
@@ -100,5 +135,6 @@ export function buildRoutingDoctorReport(
     ok: findings.every((finding) => finding.severity !== "error"),
     findings,
     agents,
+    archives: [],
   };
 }

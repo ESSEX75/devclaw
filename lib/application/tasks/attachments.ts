@@ -139,6 +139,58 @@ function attachmentsDir(workspaceDir: string, projectSlug: string, issueId: numb
   return path.join(workspaceDir, DATA_DIR, "attachments", projectSlug, String(issueId));
 }
 
+/** Manifest entry retained in audit output before attachment bytes are purged. */
+export type AttachmentPurgeManifestEntry = {
+  filename: string;
+  size: number;
+  sha256: string;
+};
+
+/**
+ * Delete one issue attachment directory after validating its bounded root and every entry.
+ * Symbolic links are rejected so cleanup cannot escape the normalized attachment root.
+ */
+export async function purgeIssueAttachments(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+): Promise<AttachmentPurgeManifestEntry[]> {
+  if (!/^[A-Za-z0-9_-]+$/.test(projectSlug)) throw new Error(`Unsafe project slug "${projectSlug}".`);
+  if (!Number.isInteger(issueId) || issueId <= 0) throw new Error(`Unsafe issue ID "${issueId}".`);
+  const root = path.resolve(workspaceDir, DATA_DIR, "attachments");
+  const directory = path.resolve(root, projectSlug, String(issueId));
+
+  if (!directory.startsWith(`${root}${path.sep}`)) throw new Error("Attachment path escapes the configured root.");
+
+  let entries: string[];
+
+  try { entries = await fs.readdir(directory); } catch (error) {
+    if (isMissingFile(error)) return [];
+    throw error;
+  }
+
+  const manifest: AttachmentPurgeManifestEntry[] = [];
+
+  for (const filename of entries) {
+    const filePath = path.join(directory, filename);
+    const stat = await fs.lstat(filePath);
+
+    if (stat.isSymbolicLink()) throw new Error(`Refusing to purge symbolic link ${filePath}.`);
+    if (!stat.isFile()) continue;
+    const content = await fs.readFile(filePath);
+
+    manifest.push({ filename, size: stat.size, sha256: crypto.createHash("sha256").update(content).digest("hex") });
+  }
+
+  await fs.rm(directory, { recursive: true });
+
+  return manifest;
+}
+
+function isMissingFile(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
 function metadataPath(workspaceDir: string, projectSlug: string, issueId: number): string {
   return path.join(attachmentsDir(workspaceDir, projectSlug, issueId), "metadata.json");
 }

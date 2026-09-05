@@ -559,22 +559,26 @@ devclaw repair policies --project my-webapp --review agent --test agent --issue 
 
 ---
 
-### `devclaw issues cleanup`
+### `issue_delete` / `devclaw issues delete`
 
-Archive old terminal closed local issue records into inline `archive.issues`.
-
-**Source:** [`lib/tools/issues/issues-cleanup.ts`](../lib/tools/issues/issues-cleanup.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
+Safely delete one provider issue and retain a local tombstone. Preview is the default tool behavior; apply mode requires `confirmIssueId` or `--confirm-issue` to exactly match the target issue.
 
 ```bash
-devclaw issues cleanup --project my-webapp --older-than 30d
+devclaw issues delete --project my-webapp --issue 42 --dry-run
+devclaw issues delete --project my-webapp --issue 42 --confirm-issue 42 --apply
 ```
 
-**Behavior:**
+Deletion is rejected for active workers and unhealthy local state. DevClaw audits the request and provider result, confirms the issue is actually absent, writes `issues.archive.json` first, and only then removes the active record from `issues.json`.
 
-- Moves terminal closed issue records older than the retention window from `issues` to `archive.issues` inside the same `issues.json`.
-- Archives only completed terminal states such as `done` and `rejected`; closed records in non-terminal states remain active for inspection or repair.
-- Skips `integrity_error` records so they can be inspected or repaired first.
-- Does not write `issues.archive.jsonl`; that file is outside the MVP.
+### `devclaw issues archive status/purge`
+
+```bash
+devclaw issues archive status --project my-webapp
+devclaw issues archive purge --project my-webapp --dry-run
+devclaw issues archive purge --project my-webapp --apply
+```
+
+Terminal issues are archived immediately by lifecycle code; heartbeat retries interrupted transfers. Archive purge never deletes provider issues and requires an explicit mode. `devclaw issues reset-store --project my-webapp --confirm-project my-webapp` is the deliberate one-time destructive reset for the new non-legacy schema and never runs during Gateway startup.
 
 ---
 

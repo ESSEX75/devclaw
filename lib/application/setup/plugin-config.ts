@@ -36,7 +36,7 @@ export const DEVCLAW_AGENT_TOOLS = [
   "config",
   "issue_repair",
   "issue_policy_migrate",
-  "issues_cleanup",
+  "issue_delete",
 ] as const;
 
 const DEVCLAW_DENIED_TOOLS = ["sessions_spawn", "sessions_send"] as const;
