@@ -34,7 +34,10 @@ describe("task_create managed initial-state flow", () => {
         workflow,
         title: "Investigate checkout",
         description: "Clarify the expected behavior",
+        idempotencyKey: "hold-task",
+        requestedBy: "test",
       });
+      assert.ok(result.issue);
       const store = await readIssueStateStore(tmpDir, "triage-app");
       const state = store.issues[String(result.issue.iid)];
 
@@ -87,7 +90,10 @@ describe("task_create managed initial-state flow", () => {
         workflow,
         title: "Design checkout",
         description: "Prepare the checkout design",
+        idempotencyKey: "design-task",
+        requestedBy: "test",
       });
+      assert.ok(result.issue);
       const store = await readIssueStateStore(tmpDir, "design-app");
       const state = store.issues[String(result.issue.iid)];
 
@@ -125,13 +131,16 @@ describe("task_create managed initial-state flow", () => {
         description: "Build the login screen",
         notifyTarget: { channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
         owner: "main",
+        idempotencyKey: "ordinary-task",
+        requestedBy: "test",
       });
+      assert.ok(result.issue);
 
       const issue = await provider.getIssue(result.issue.iid);
       const store = await readIssueStateStore(tmpDir, "devclaw");
       const state = store.issues[String(result.issue.iid)]!;
 
-      assert.strictEqual(provider.callsTo("createIssue")[0]?.args.label, "Planning");
+      assert.ok(provider.callsTo("createIssue")[0]?.args.labels.includes("Planning"));
       assert.strictEqual(result.label, "Planning");
       assert.strictEqual(result.workflowState, "planning");
       assert.strictEqual(result.role, null);

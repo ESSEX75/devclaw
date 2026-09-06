@@ -5,6 +5,14 @@ export type IssueListFilter = {
   state?: "open" | "closed" | "all";
 };
 
+/** Complete provider issue payload used by transactional creation. */
+export type CreateIssueInput = {
+  title: string;
+  body: string;
+  labels: string[];
+  assignees: string[];
+};
+
 export interface IssueReader {
   listIssuesByLabel(label: StateLabel): Promise<Issue[]>;
   listIssues(opts?: IssueListFilter): Promise<Issue[]>;
@@ -13,7 +21,7 @@ export interface IssueReader {
 }
 
 export interface IssueWriter {
-  createIssue(title: string, description: string, label: StateLabel, assignees?: string[]): Promise<Issue>;
+  createIssue(input: CreateIssueInput): Promise<Issue>;
   closeIssue(issueId: number): Promise<void>;
   reopenIssue(issueId: number): Promise<void>;
   addComment(issueId: number, body: string): Promise<number>;

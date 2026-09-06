@@ -32,6 +32,7 @@ const BranchContractSchema = z.object({
 }).strict();
 const RuntimeIssueSchema = z.object({
   projectSlug: z.string(), issueId: z.number().int().positive(), provider: z.enum(ISSUE_PROVIDER),
+  creationOperationId: z.string().uuid().optional(),
   workflowState: z.string(), workflowLabel: z.string(), assignedRole: z.string().nullable().optional(),
   assignedLevel: z.string().nullable().optional(), owner: z.string().nullable().optional(),
   reviewPolicy: z.enum(REVIEW_POLICY).nullable().optional(), testPolicy: z.enum(TEST_POLICY).nullable().optional(),

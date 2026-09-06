@@ -175,7 +175,7 @@ For initialized DevClaw-managed issues, `devclaw/projects/<project>/issues.json`
 
 ### Child Issue Creation Invariant
 
-When `task_create` creates an ordinary implementation task, it preserves `workflow.initial`, normally the `Planning` hold state, writes `issues.json`, renders managed metadata, applies provider projection labels, and adds the `eyes` compatibility marker. `task_start` explicitly advances a held issue to its first queue. A custom workflow may intentionally declare a queue as its initial state; only in that case is a newly created issue immediately dispatchable.
+When `task_create` creates an ordinary implementation task, it records a durable idempotent operation and preserves `workflow.initial`, normally the `Planning` hold state. The provider issue receives the complete initial label projection and a hidden operation marker; metadata and a fresh provider read are verified before local runtime state becomes ready. Partial or ambiguous operations remain unavailable to heartbeat and workers while safe reconciliation continues. `task_start` explicitly advances a ready held issue to its first queue. A custom workflow may intentionally declare a queue as its initial state; only a verified issue is immediately dispatchable.
 
 When issue decomposition creates child issues, each child must be initialized as its own managed issue before it can be dispatched: create the provider issue, write its local `issues.json` record, render managed metadata, apply provider projection labels, and add the `eyes` compatibility marker. Root/container issues are not dispatchable unless they also have a normal managed runtime state.
 

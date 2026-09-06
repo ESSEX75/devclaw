@@ -10,6 +10,9 @@ Provider issue lookups classify not-found, authorization, rate-limit, transient,
 and unknown failures at the adapter boundary. Application code must branch on
 these typed failures rather than inspecting provider error text.
 
+Provider mutation errors also declare retryability and whether the request outcome
+is unknown. Creation must never blindly retry an outcome-unknown mutation.
+
 Adapters may expose a typed rate-limit snapshot for planned mutations. GitHub
 repair preflight reads the core API budget; providers without a reliable quota
 endpoint leave the optional capability unavailable and callers report that fact.

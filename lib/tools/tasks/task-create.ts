@@ -12,7 +12,6 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
-import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import type { NotifyBindingRef } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
@@ -28,7 +27,8 @@ export function createTaskCreateTool(ctx: PluginContext) {
       "The issue remains in the configured initial state until task_start is called, unless that initial state is already a queue.",
     parameters: {
       type: "object",
-      required: ["channelId", "title"],
+      additionalProperties: false,
+      required: ["channelId", "title", "idempotencyKey"],
       properties: {
         channelId: {
           type: "string",
@@ -39,6 +39,10 @@ export function createTaskCreateTool(ctx: PluginContext) {
         title: {
           type: "string",
           description: "Short, descriptive issue title (e.g., 'Fix login timeout bug')",
+        },
+        idempotencyKey: {
+          type: "string",
+          description: "Stable caller-generated request ID. Reuse it only when retrying this exact creation request.",
         },
         description: {
           type: "string",
@@ -57,6 +61,7 @@ export function createTaskCreateTool(ctx: PluginContext) {
       const title = requiredString(params.title, "title");
       const description = optionalString(params.description, "description") ?? "";
       const assignees = optionalStringArray(params.assignees, "assignees");
+      const idempotencyKey = requiredString(params.idempotencyKey, "idempotencyKey");
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
       const { project } = await resolveProject(workspaceDir, channelId);
@@ -74,31 +79,33 @@ export function createTaskCreateTool(ctx: PluginContext) {
         providerType,
         provider,
         workflow: resolvedConfig.workflow,
+        roles: Object.keys(resolvedConfig.roles),
         title,
         description,
         assignees,
         notifyTarget,
         owner: instanceName,
+        idempotencyKey,
+        requestedBy: toolCtx.agentId ?? "agent",
       });
 
-      // Mark as system-managed (best-effort).
-      provider.reactToIssue(created.issue.iid, "eyes").catch(() => {});
-
-      await auditLog(workspaceDir, "task_create", {
-        project: project.name, issueId: created.issue.iid,
-        title, label: created.label, provider: providerType,
-      });
+      if (created.success && created.issue) provider.reactToIssue(created.issue.iid, "eyes").catch(() => {});
 
       const hasBody = description && description.trim().length > 0;
-      let announcement = `📋 Created #${created.issue.iid}: "${title}" (${created.label})`;
+      let announcement = created.issue
+        ? `${created.success ? "📋 Created" : "⏳ Creation pending for"} #${created.issue.iid}: "${title}" (${created.label})`
+        : `⏳ Creation pending: "${title}" (${created.label})`;
 
       if (hasBody) announcement += "\nWith detailed description.";
-      announcement += `\n🔗 [Issue #${created.issue.iid}](${created.issue.web_url})`;
+      if (created.issue) announcement += `\n🔗 [Issue #${created.issue.iid}](${created.issue.web_url})`;
       announcement += created.announcementSuffix;
 
       return jsonResult({
-        success: true,
-        issue: {
+        success: created.success,
+        status: created.status,
+        operationId: created.operationId,
+        idempotencyKey: created.idempotencyKey,
+        issue: created.issue ? {
           id: created.issue.iid,
           title: created.issue.title,
           body: hasBody ? description : null,
@@ -106,8 +113,16 @@ export function createTaskCreateTool(ctx: PluginContext) {
           label: created.label,
           workflowState: created.workflowState,
           role: created.role,
-        },
-        project: project.name, provider: providerType, announcement,
+        } : undefined,
+        project: project.name,
+        provider: providerType,
+        completedSteps: created.completedSteps,
+        pendingSteps: created.pendingSteps,
+        integrity: created.integrity,
+        error: created.error,
+        recovery: created.recovery,
+        auditCorrelationId: created.auditCorrelationId,
+        announcement,
       });
     },
   });

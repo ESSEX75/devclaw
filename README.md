@@ -76,7 +76,7 @@ Each project is fully isolated — own queue, workers, sessions, and state. Work
 
 ### Process enforcement
 
-GitHub/GitLab issues are the visible task surface; initialized managed issue runtime state is stored locally in `issues.json`. Every tool call wraps the full operation into deterministic code with rollback on failure:
+GitHub/GitLab issues are the visible task surface; initialized managed issue runtime state is stored locally in `issues.json`. Task creation uses a durable idempotent saga, so partial provider work remains unavailable to workers until read-back verification succeeds:
 
 - **[External task surface](#your-issues-stay-in-your-tracker)** — issues, projected labels, and status visibility stay in your issue tracker
 - **[Atomic operations](#what-atomic-means-here)** — label transition + state update + session dispatch + audit log in one call

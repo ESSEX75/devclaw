@@ -6,6 +6,7 @@
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { DEFAULT_WORKFLOW, getStateLabels, type WorkflowConfig } from "../domain/index.js";
+import type { CreateIssueInput } from "../integrations/providers/capabilities.js";
 import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../integrations/providers/lookup-errors.js";
 import type {
   Issue,
@@ -25,12 +26,7 @@ export type ProviderCall =
   | { method: "ensureAllStateLabels"; args: Record<string, never> }
   | {
     method: "createIssue";
-    args: {
-      title: string;
-      description: string;
-      label: StateLabel;
-      assignees?: string[];
-    };
+    args: CreateIssueInput;
   }
   | { method: "listIssuesByLabel"; args: { label: StateLabel } }
   | { method: "listIssues"; args: { label?: string; state?: string } }
@@ -153,22 +149,17 @@ export class TestProvider implements IssueProvider {
     }
   }
 
-  async createIssue(
-    title: string,
-    description: string,
-    label: StateLabel,
-    assignees?: string[],
-  ): Promise<Issue> {
+  async createIssue(input: CreateIssueInput): Promise<Issue> {
     this.calls.push({
       method: "createIssue",
-      args: { title, description, label, assignees },
+      args: input,
     });
     const iid = this.nextIssueId++;
     const issue: Issue = {
       iid,
-      title,
-      description,
-      labels: [label],
+      title: input.title,
+      description: input.body,
+      labels: [...input.labels],
       state: "opened",
       web_url: `https://example.com/issues/${iid}`,
     };

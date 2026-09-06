@@ -82,7 +82,7 @@ Complete a task with a result. Called by workers (DEVELOPER/TESTER/ARCHITECT sub
 
 ### `task_create`
 
-Create a new issue in the project's issue tracker.
+Create a new issue through a durable, idempotent operation.
 
 **Source:** [`lib/tools/tasks/task-create.ts`](../lib/tools/tasks/task-create.ts)
 
@@ -91,6 +91,7 @@ Create a new issue in the project's issue tracker.
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
+| `idempotencyKey` | string | Yes | Stable caller request key; repeating the same key and payload resumes the same operation. |
 | `title` | string | Yes | Issue title |
 | `description` | string | No | Full issue body (markdown) |
 | `assignees` | string[] | No | GitHub/GitLab usernames to assign |
@@ -101,7 +102,7 @@ Create a new issue in the project's issue tracker.
 - Workers file follow-up bugs discovered during development
 - Breaking down epics into smaller tasks
 
-**Default behavior:** Creates a managed issue in `workflow.initial`, normally the `"Planning"` hold state. The tool writes local `issues.json`, renders managed metadata, and applies provider labels as projection. Call `task_start` when the task is ready to enter its first queue. A custom workflow whose initial state is already a queue remains immediately eligible for heartbeat dispatch.
+**Default behavior:** Creates a managed issue in `workflow.initial`, normally the `"Planning"` hold state. The provider issue receives its initial labels and hidden creation marker in the create request. DevClaw then applies metadata and verifies a fresh provider read before publishing local runtime state as `ready`. Partial operations return `pending`, `failed`, or `manual_repair_required` with recovery details and remain unavailable to workers. Call `task_start` when a ready task should enter its first queue. A custom workflow whose initial state is already a queue becomes eligible only after verification.
 
 ---
 
@@ -221,6 +222,8 @@ Full project dashboard showing all non-terminal state types with issue details.
 - Summary totals: `totalHold`, `totalActive`, `totalQueued`
 
 For initialized managed issues, local `issues.json` is runtime truth and provider labels are visual projection. `tasks_status` lists managed issues from local state first, so provider label drift does not hide an issue. `projection_uninitialized` marks old provider-only issues without local state; initialize/backfill them before managed dispatch. `integrity_error` marks managed metadata tamper or unrecoverable projection inconsistency; repair from local state before dispatching.
+
+Unfinished durable creation operations appear separately as pending or failed and are excluded from normal task buckets.
 
 ---
 

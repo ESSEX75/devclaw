@@ -11,7 +11,7 @@ import {
   metadataMatches,
   type ProjectionDiff,
 } from "../../projection/index.js";
-import { readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
 import { archiveManagedIssue } from "../issues/index.js";
 import { reconcileManagedLabels } from "../projection/index.js";
 
@@ -59,6 +59,7 @@ export async function projectionIntegrityPass(opts: {
   };
 
   for (const state of states) {
+    if (!await isIssueCreationReady(workspaceDir, project.slug, state.creationOperationId)) continue;
     result.checked++;
     let issue: Awaited<ReturnType<typeof provider.getIssue>>;
 

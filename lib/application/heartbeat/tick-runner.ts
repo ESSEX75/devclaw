@@ -18,6 +18,7 @@ import {
 import {
   performHealthPass,
   performIssueArchivePass,
+  performIssueCreationPass,
   performProjectionIntegrityPass,
   performReviewPass,
   performReviewSkipPass,
@@ -36,6 +37,9 @@ export type HeartbeatTickResult = {
   totalReviewSkipTransitions: number;
   totalTestSkipTransitions: number;
   totalArchived: number;
+  totalCreationsReady: number;
+  totalCreationsPending: number;
+  totalCreationsManual: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -70,6 +74,9 @@ export async function tick(opts: {
       totalReviewSkipTransitions: 0,
       totalTestSkipTransitions: 0,
       totalArchived: 0,
+      totalCreationsReady: 0,
+      totalCreationsPending: 0,
+      totalCreationsManual: 0,
     };
   }
 
@@ -81,6 +88,9 @@ export async function tick(opts: {
     totalReviewSkipTransitions: 0,
     totalTestSkipTransitions: 0,
     totalArchived: 0,
+    totalCreationsReady: 0,
+    totalCreationsPending: 0,
+    totalCreationsManual: 0,
   };
 
   const projectExecution =
@@ -100,6 +110,17 @@ export async function tick(opts: {
         runCommand,
         workflow: resolvedConfig.workflow,
       });
+
+      const creations = await performIssueCreationPass(
+        workspaceDir,
+        project,
+        provider,
+        resolvedConfig,
+      );
+
+      result.totalCreationsReady += creations.ready;
+      result.totalCreationsPending += creations.pending;
+      result.totalCreationsManual += creations.manual;
 
       await performProjectionIntegrityPass(
         workspaceDir,

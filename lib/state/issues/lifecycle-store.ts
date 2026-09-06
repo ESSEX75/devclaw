@@ -28,6 +28,7 @@ export type IssueStateWriteInput = {
   project: Pick<Project, "slug" | "channels">;
   issue: Pick<Issue, "iid" | "labels" | "state">;
   providerType: IssueProviderId;
+  creationOperationId?: string;
   workflow: WorkflowConfig;
   workflowLabel?: string;
   workflowState?: string;
@@ -103,6 +104,7 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       projectSlug: input.project.slug,
       issueId: input.issue.iid,
       provider: input.providerType,
+      creationOperationId: input.creationOperationId ?? previous?.creationOperationId,
       workflowState,
       workflowLabel: detectedWorkflowLabel,
       assignedRole: input.assignedRole !== undefined ? input.assignedRole : detectedRoleLevel?.role ?? previous?.assignedRole ?? null,

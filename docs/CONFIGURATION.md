@@ -425,6 +425,8 @@ Restrict DevClaw tools to your orchestrator agent. Setup writes these tools to `
 
 Project registration and worker-slot state live in `<workspace>/devclaw/projects.json`, keyed by project slug. Initialized DevClaw-managed issue runtime state lives per project in `<workspace>/devclaw/projects/<project>/issues.json`.
 
+In-progress creation lives separately in `<workspace>/devclaw/projects/<project>/issue-creations.json`. The strict, atomically written store retains idempotency, provider identity, progress, retry timing, and typed failures across Gateway restarts; it is not a dispatch queue.
+
 **Source:** [`lib/domain/projects/types.ts`](../lib/domain/projects/types.ts), [`lib/domain/projects/slots.ts`](../lib/domain/projects/slots.ts), [`lib/domain/issues/types.ts`](../lib/domain/issues/types.ts), [`lib/state/issues/store.ts`](../lib/state/issues/store.ts)
 
 ### Schema
@@ -588,6 +590,7 @@ Each slot has:
 │   │   │   ├── workflow.yaml      ← Project-specific config overrides
 │   │   │   ├── issues.json        ← Active project-local issue runtime state
 │   │   │   ├── issues.archive.json ← Terminal summaries and provider-deleted tombstones
+│   │   │   ├── issue-creations.json ← Durable task-creation operations
 │   │   │   └── prompts/
 │   │   │       ├── developer.md   ← Project-specific developer instructions
 │   │   │       ├── tester.md      ← Project-specific tester instructions

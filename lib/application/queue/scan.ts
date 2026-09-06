@@ -15,7 +15,7 @@ import {
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
 import { ROLE_REGISTRY } from "../../roles/index.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore } from "../../state/issues/index.js";
 
 // ---------------------------------------------------------------------------
 // Label detection
@@ -113,6 +113,7 @@ async function findNextIssueForRoleFromLocalState(
     .sort((a, b) => a.issueId - b.issueId);
 
   for (const state of localCandidates) {
+    if (!await isIssueCreationReady(workspaceDir, projectSlug, state.creationOperationId)) continue;
     try {
       const issue = await provider.getIssue(state.issueId);
 

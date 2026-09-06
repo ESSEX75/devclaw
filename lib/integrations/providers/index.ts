@@ -5,6 +5,7 @@ import { ISSUE_PROVIDER, type IssueProviderId, type WorkflowConfig } from "../..
 
 export type * from "./capabilities.js";
 export * from "./lookup-errors.js";
+export * from "./operation-errors.js";
 export * from "./provider.js";
 export * from "./types.js";
 import type { RunCommand } from "../../context.js";

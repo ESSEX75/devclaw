@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
+import type { CreateIssueInput } from "./capabilities.js";
 import {
   classifyProviderLookupFailure,
   classifyProviderProjectAccessFailure,
@@ -12,6 +13,7 @@ import {
   PROVIDER_ISSUE_LOOKUP_ERROR,
   ProviderIssueLookupError,
 } from "./lookup-errors.js";
+import { classifyProviderOperationError } from "./operation-errors.js";
 import type { IssueProvider } from "./provider.js";
 import { withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
@@ -45,15 +47,18 @@ export class GitLabProvider implements IssueProvider {
   }
 
   private async glab(args: string[]): Promise<string> {
-    return withResilience(async () => {
-      const result = await this.runCommand(["glab", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
+    return withResilience(() => this.glabOnce(args));
+  }
 
-      if (result.code != null && result.code !== 0) {
-        throw new Error(result.stderr?.trim() || `glab command failed with exit code ${result.code}`);
-      }
+  /** Execute a non-idempotent GitLab mutation exactly once. */
+  private async glabOnce(args: string[]): Promise<string> {
+    const result = await this.runCommand(["glab", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
 
-      return result.stdout.trim();
-    });
+    if (result.code != null && result.code !== 0) {
+      throw new Error(result.stderr?.trim() || `glab command failed with exit code ${result.code}`);
+    }
+
+    return result.stdout.trim();
   }
 
   /** Get MRs linked to an issue via GitLab's native related_merge_requests API. */
@@ -98,19 +103,31 @@ export class GitLabProvider implements IssueProvider {
     }
   }
 
-  async createIssue(title: string, description: string, label: StateLabel, assignees?: string[]): Promise<Issue> {
-    // Pass description directly as argv — runCommand uses spawn (no shell),
-    // so no escaping issues with special characters.
-    const args = ["issue", "create", "--title", title, "--description", description, "--label", label];
+  async createIssue(input: CreateIssueInput): Promise<Issue> {
+    try {
+      // Pass description directly as argv — runCommand uses spawn (no shell),
+      // so no escaping issues with special characters.
+      const args = ["issue", "create", "--title", input.title, "--description", input.body];
 
-    if (assignees?.length) args.push("--assignee", assignees.join(","));
-    const stdout = await this.glab(args);
-    // glab issue create returns the issue URL
-    const match = stdout.match(/\/issues\/(\d+)/);
+      if (input.labels.length) args.push("--label", input.labels.join(","));
+      if (input.assignees.length) args.push("--assignee", input.assignees.join(","));
+      const stdout = await this.glabOnce(args);
+      // glab issue create returns the issue URL
+      const match = stdout.match(/https?:\/\/\S+\/issues\/(\d+)/);
 
-    if (!match) throw new Error(`Failed to parse issue URL: ${stdout}`);
+      if (!match) throw new Error(`Provider returned an invalid issue URL: ${stdout}`);
 
-    return this.getIssue(parseInt(match[1], 10));
+      return {
+        iid: parseInt(match[1], 10),
+        title: input.title,
+        description: input.body,
+        labels: [...input.labels],
+        state: "opened",
+        web_url: match[0],
+      };
+    } catch (error) {
+      throw classifyProviderOperationError(error);
+    }
   }
 
   async listIssuesByLabel(label: StateLabel): Promise<Issue[]> {

@@ -10,6 +10,8 @@ types, but they should not contain queue scheduling or worker dispatch behavior.
 
 - `issues.json` contains active managed issue state only.
 - `issues.archive.json` contains archived records and deletion tombstones only.
+- `issue-creations.json` contains resumable creation operations and idempotency
+  keys; these records are not active runtime state.
 - Both files share one per-project lock. Archival writes the archive record before
   removing active state so an interrupted operation can be recovered idempotently.
 - Stores accept only their current strict schema. Destructive reset is an explicit

@@ -172,6 +172,9 @@ async function processAllAgents(
     totalReviewSkipTransitions: 0,
     totalTestSkipTransitions: 0,
     totalArchived: 0,
+    totalCreationsReady: 0,
+    totalCreationsPending: 0,
+    totalCreationsManual: 0,
   };
 
   // Ensure defaults are fresh on every startup (prompts, workflow, etc.)
@@ -209,6 +212,9 @@ async function processAllAgents(
     result.totalReviewSkipTransitions += agentResult.totalReviewSkipTransitions;
     result.totalTestSkipTransitions += agentResult.totalTestSkipTransitions;
     result.totalArchived += agentResult.totalArchived;
+    result.totalCreationsReady += agentResult.totalCreationsReady;
+    result.totalCreationsPending += agentResult.totalCreationsPending;
+    result.totalCreationsManual += agentResult.totalCreationsManual;
   }
 
   return result;
@@ -228,12 +234,16 @@ function logTickResult(
     result.totalReviewSkipTransitions > 0 ||
     result.totalTestSkipTransitions > 0 ||
     result.totalArchived > 0
+    || result.totalCreationsReady > 0
+    || result.totalCreationsPending > 0
+    || result.totalCreationsManual > 0
   ) {
     logger.info(
       `work_heartbeat tick: ${result.totalPickups} pickups, ${result.totalHealthFixes} health fixes, ` +
       `${result.totalReviewTransitions} review transitions, ${result.totalReviewSkipTransitions} review skips, ` +
       `${result.totalTestSkipTransitions} test skips, ${result.totalSkipped} skipped, ` +
-      `${result.totalArchived} archived`,
+      `${result.totalArchived} archived, ${result.totalCreationsReady} creations ready, ` +
+      `${result.totalCreationsPending} creations pending, ${result.totalCreationsManual} creations requiring manual repair`,
     );
   }
 }

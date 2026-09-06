@@ -1,6 +1,7 @@
 import type { IssueProviderId, Project, WorkflowConfig } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import {
+  isIssueCreationReady,
   readIssueStateStore,
   withIssueOrchestrationLock,
   writeIssueRuntimeState,
@@ -31,6 +32,10 @@ export async function claimManagedTask(input: {
       const state = store.issues[String(input.issueId)];
 
       if (!state) return { claimed: false, reason: "Local issue state is not initialized" };
+      if (!await isIssueCreationReady(input.workspaceDir, input.project.slug, state.creationOperationId)) {
+        return { claimed: false, reason: "Issue creation is not ready" };
+      }
+
       if (state.owner === input.instanceName) {
         return { claimed: false, reason: "Already owned by this instance" };
       }

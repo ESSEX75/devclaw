@@ -7,6 +7,8 @@ import type { ReviewPolicy, TestPolicy } from "../workflow/types.js";
 import {
   ATTACHMENT_DISPOSITION,
   ISSUE_ARCHIVE_REASON,
+  ISSUE_CREATION_ERROR,
+  ISSUE_CREATION_STATUS,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   PIPELINE_NOTIFICATION_STATUS,
@@ -23,6 +25,12 @@ export type IssueArchiveReason = ValueOf<typeof ISSUE_ARCHIVE_REASON>;
 
 /** Retention state of files associated with an archived issue. */
 export type AttachmentDisposition = ValueOf<typeof ATTACHMENT_DISPOSITION>;
+
+/** Durable managed-issue creation stage. */
+export type IssueCreationStatus = ValueOf<typeof ISSUE_CREATION_STATUS>;
+
+/** Stable managed-issue creation failure code. */
+export type IssueCreationErrorCode = ValueOf<typeof ISSUE_CREATION_ERROR>;
 
 /** Consecutive provider-missing confirmations retained between heartbeat ticks. */
 export type ProviderMissingState = {
@@ -82,6 +90,8 @@ export type ActiveIssueWorker = {
 
 /** Main local runtime state for a managed provider issue. */
 export type IssueRuntimeState = IssueProjectionState & {
+  /** Creation saga that must reach ready before lifecycle consumers may use this issue. */
+  creationOperationId?: string;
   /** Slug of the project owning this issue. */
   projectSlug: string;
   /** Unique numeric identifier for the issue on the provider. */
@@ -176,4 +186,63 @@ export type IssueStateStore = {
   projectSlug: string;
   /** Active managed issues keyed by stringified issue ID. */
   issues: Record<string, IssueRuntimeState>;
+};
+
+/** Persisted input and resolved defaults required to resume issue creation after restart. */
+export type IssueCreationInput = {
+  title: string;
+  body: string;
+  assignees: string[];
+  workflowState: string;
+  workflowLabel: string;
+  assignedRole: string | null;
+  assignedLevel: string | null;
+  owner: string | null;
+  reviewPolicy: ReviewPolicy;
+  testPolicy: TestPolicy;
+  notifyTarget: NotifyBindingRef | null;
+  provider: IssueProviderId;
+};
+
+/** Provider identity retained immediately after create succeeds. */
+export type CreatedProviderIssueRef = {
+  issueId: number;
+  url: string;
+  createdAt: string;
+};
+
+/** Last durable failure associated with a creation operation. */
+export type IssueCreationFailure = {
+  code: IssueCreationErrorCode;
+  message: string;
+  retryable: boolean;
+  retryAfter?: string;
+};
+
+/** Durable saga record that prevents incomplete provider issues from entering runtime state. */
+export type IssueCreationOperation = {
+  operationId: string;
+  idempotencyKey: string;
+  payloadHash: string;
+  projectSlug: string;
+  requestedBy: string;
+  requestedAt: string;
+  updatedAt: string;
+  status: IssueCreationStatus;
+  input: IssueCreationInput;
+  expectedLabels: string[];
+  providerIssue?: CreatedProviderIssueRef;
+  completedSteps: string[];
+  pendingSteps: string[];
+  attempts: number;
+  retryAfter?: string;
+  lastError?: IssueCreationFailure;
+  auditCorrelationId: string;
+};
+
+/** Per-project durable store of creation operations keyed by idempotency key. */
+export type IssueCreationStore = {
+  version: 1;
+  projectSlug: string;
+  operations: Record<string, IssueCreationOperation>;
 };

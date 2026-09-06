@@ -9,9 +9,11 @@ import { type Project } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getConfiguredRoleIds } from "../../state/config/index.js";
 import type { ResolvedConfig } from "../../state/config/types.js";
+import { providerKindFromProject } from "../../state/issues/index.js";
 import { maintainIssueArchive, recoverTerminalIssueArchives } from "../issues/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
+import { reconcileManagedTaskCreations } from "../tasks/index.js";
 import {
   checkWorkerHealth,
   scanOrphanedLabels,
@@ -110,6 +112,26 @@ export async function performProjectionIntegrityPass(
   });
 
   return result.repaired + result.removed + result.errors;
+}
+
+/** Resume a bounded batch of durable issue creation operations before lifecycle passes run. */
+export async function performIssueCreationPass(
+  workspaceDir: string,
+  project: Project,
+  provider: IssueProvider,
+  resolvedConfig: ResolvedConfig,
+): Promise<{ ready: number; pending: number; manual: number }> {
+  const result = await reconcileManagedTaskCreations({
+    workspaceDir,
+    project,
+    providerType: providerKindFromProject(project),
+    provider,
+    workflow: resolvedConfig.workflow,
+    roles: Object.keys(resolvedConfig.roles),
+    maxItems: 20,
+  });
+
+  return { ready: result.ready.length, pending: result.pending.length, manual: result.manual.length };
 }
 
 /** Recover terminal issues left active by an interrupted archive transfer. */

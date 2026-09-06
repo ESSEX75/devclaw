@@ -14,17 +14,15 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import { reconcileManagedLabels } from "../../application/projection/index.js";
+import { createManagedTaskIssue } from "../../application/tasks/index.js";
 import { dispatchTask } from "../../application/workers/dispatch-task.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { countActiveSlots, findStateKeyByLabel, getActiveLabel } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
-import { replaceIssueMetadata } from "../../projection/index.js";
 import { resolveModel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import { loadConfig } from "../../state/config/index.js";
-import { writeIssueRuntimeState } from "../../state/issues/index.js";
 import { getRoleWorker } from "../../state/projects/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
@@ -141,50 +139,45 @@ Example:
         });
       }
 
-      // Create issue in "To Research" (the architect queue state)
-      const issue = await provider.createIssue(title, issueBody, TO_RESEARCH_LABEL);
-
-      // Mark as system-managed (best-effort).
-      provider.reactToIssue(issue.iid, "eyes").catch(() => {});
-
       const workflowState = findStateKeyByLabel(resolvedConfig.workflow, TO_RESEARCH_LABEL);
 
       if (!workflowState) throw new Error(`No workflow state found for label "${TO_RESEARCH_LABEL}".`);
       const notificationChannel = project.channels.find((entry) => entry.channelId === channelId)
         ?? project.channels[0];
       const instanceName = await loadInstanceName(workspaceDir, resolvedConfig.instanceName);
-      const runtimeState = await writeIssueRuntimeState({
+      const creation = await createManagedTaskIssue({
         workspaceDir,
         project,
-        issue,
         providerType,
+        provider,
         workflow: resolvedConfig.workflow,
+        roles: Object.keys(resolvedConfig.roles),
+        title,
+        description: issueBody,
+        assignees: [],
         workflowState,
-        workflowLabel: TO_RESEARCH_LABEL,
         assignedRole: role,
         assignedLevel: level,
         owner: instanceName,
         notifyTarget: notificationChannel
           ? { channel: notificationChannel.channel, name: notificationChannel.name }
           : null,
+        idempotencyKey: `research-task:${_id}`,
+        requestedBy: "research_task",
       });
 
-      await provider.editIssue(issue.iid, {
-        body: replaceIssueMetadata(issue.description ?? "", {
-          projectSlug: project.slug,
-          issueId: issue.iid,
-          projectionVersion: runtimeState.projectionVersion,
-        }),
-      });
-      await reconcileManagedLabels({
-        workspaceDir,
-        projectSlug: project.slug,
-        issueId: issue.iid,
-        workflow: resolvedConfig.workflow,
-        roles: Object.keys(resolvedConfig.roles),
-        provider,
-        owner: "research_task_create",
-      });
+      if (!creation.success || !creation.issue) {
+        return jsonResult({
+          success: false,
+          creation,
+          research: { level, model, status: "creation_pending" },
+          announcement: `Research ticket creation is ${creation.status}; it is unavailable to workers until reconciliation completes.`,
+        });
+      }
+
+      const issue = creation.issue;
+
+      provider.reactToIssue(issue.iid, "eyes").catch(() => {});
 
       // Check worker availability across all levels
       const roleWorker = getRoleWorker(project, role);

@@ -1,6 +1,6 @@
-import { STATE_TYPE, type WorkflowConfig } from "../../domain/index.js";
+import { ISSUE_CREATION_STATUS, type IssueCreationFailure, STATE_TYPE, type WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueCreationStore, readIssueStateStore } from "../../state/issues/index.js";
 import {
   loadProjectionViewContext,
   summarizeLocalIssueStates,
@@ -21,6 +21,10 @@ export type TaskStatusResult = {
   hold: StateBucket;
   active: StateBucket;
   queue: StateBucket;
+  creation: {
+    pending: Array<{ operationId: string; title: string; status: string; issueId?: number; error?: IssueCreationFailure }>;
+    failed: Array<{ operationId: string; title: string; status: string; issueId?: number; error?: IssueCreationFailure }>;
+  };
 };
 
 export async function getManagedTaskStatus(opts: {
@@ -38,8 +42,24 @@ export async function getManagedTaskStatus(opts: {
     roles: opts.roles,
   });
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
-  const openLocalStates = Object.values(store.issues)
-    .filter((state) => state.closedAt == null);
+  const openLocalStates = [];
+
+  for (const state of Object.values(store.issues)) {
+    if (state.closedAt == null && await isIssueCreationReady(opts.workspaceDir, opts.projectSlug, state.creationOperationId)) {
+      openLocalStates.push(state);
+    }
+  }
+
+  const creationStore = await readIssueCreationStore(opts.workspaceDir, opts.projectSlug);
+  const unfinished = Object.values(creationStore.operations)
+    .filter((operation) => operation.status !== ISSUE_CREATION_STATUS.READY)
+    .map((operation) => ({
+      operationId: operation.operationId,
+      title: operation.input.title,
+      status: operation.status,
+      issueId: operation.providerIssue?.issueId,
+      error: operation.lastError,
+    }));
 
   const hold = await summarizeStateBucket(statesByType.hold, openLocalStates, opts.provider, projectionCtx);
   const active = await summarizeStateBucket(statesByType.active, openLocalStates, opts.provider, projectionCtx);
@@ -59,6 +79,10 @@ export async function getManagedTaskStatus(opts: {
     hold,
     active,
     queue,
+    creation: {
+      pending: unfinished.filter((operation) => operation.status !== ISSUE_CREATION_STATUS.MANUAL_REPAIR_REQUIRED && operation.error?.retryable !== false),
+      failed: unfinished.filter((operation) => operation.status === ISSUE_CREATION_STATUS.MANUAL_REPAIR_REQUIRED || operation.error?.retryable === false),
+    },
   };
 }
 

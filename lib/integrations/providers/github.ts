@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
+import type { CreateIssueInput } from "./capabilities.js";
 import {
   classifyProviderLookupFailure,
   classifyProviderProjectAccessFailure,
@@ -12,6 +13,7 @@ import {
   PROVIDER_ISSUE_LOOKUP_ERROR,
   ProviderIssueLookupError,
 } from "./lookup-errors.js";
+import { classifyProviderOperationError } from "./operation-errors.js";
 import type { IssueProvider } from "./provider.js";
 import { withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
@@ -56,15 +58,18 @@ export class GitHubProvider implements IssueProvider {
   }
 
   private async gh(args: string[]): Promise<string> {
-    return withResilience(async () => {
-      const result = await this.runCommand(["gh", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
+    return withResilience(() => this.ghOnce(args));
+  }
 
-      if (result.code != null && result.code !== 0) {
-        throw new Error(result.stderr?.trim() || `gh command failed with exit code ${result.code}`);
-      }
+  /** Execute a non-idempotent GitHub mutation exactly once. */
+  private async ghOnce(args: string[]): Promise<string> {
+    const result = await this.runCommand(["gh", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
 
-      return result.stdout.trim();
-    });
+    if (result.code != null && result.code !== 0) {
+      throw new Error(result.stderr?.trim() || `gh command failed with exit code ${result.code}`);
+    }
+
+    return result.stdout.trim();
   }
 
   /** Cached repo owner/name for GraphQL queries. */
@@ -242,16 +247,28 @@ export class GitHubProvider implements IssueProvider {
     }
   }
 
-  async createIssue(title: string, description: string, label: StateLabel, assignees?: string[]): Promise<Issue> {
-    const args = ["issue", "create", "--title", title, "--body", description, "--label", label];
+  async createIssue(input: CreateIssueInput): Promise<Issue> {
+    try {
+      const args = ["issue", "create", "--title", input.title, "--body", input.body];
 
-    if (assignees?.length) args.push("--assignee", assignees.join(","));
-    const url = await this.gh(args);
-    const match = url.match(/\/issues\/(\d+)$/);
+      if (input.labels.length) args.push("--label", input.labels.join(","));
+      if (input.assignees.length) args.push("--assignee", input.assignees.join(","));
+      const url = await this.ghOnce(args);
+      const match = url.match(/\/issues\/(\d+)$/);
 
-    if (!match) throw new Error(`Failed to parse issue URL: ${url}`);
+      if (!match) throw new Error(`Provider returned an invalid issue URL: ${url}`);
 
-    return this.getIssue(parseInt(match[1], 10));
+      return {
+        iid: parseInt(match[1], 10),
+        title: input.title,
+        description: input.body,
+        labels: [...input.labels],
+        state: "OPEN",
+        web_url: url,
+      };
+    } catch (error) {
+      throw classifyProviderOperationError(error);
+    }
   }
 
   async listIssuesByLabel(label: StateLabel): Promise<Issue[]> {

@@ -8,6 +8,9 @@ labels, and compact issue body metadata. Local `issues.json` state remains the
 source of truth for managed issues; provider labels and metadata are the visible
 projection of that state.
 
+Hidden creation markers bind provider issues to durable creation operations and
+are verified before the application publishes an issue for lifecycle processing.
+
 ## Boundary Rules
 
 - Keep projection helpers deterministic and side-effect free.

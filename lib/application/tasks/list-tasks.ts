@@ -5,7 +5,7 @@ import {
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore } from "../../state/issues/index.js";
 import {
   loadProjectionViewContext,
   summarizeLocalIssueStates,
@@ -47,7 +47,14 @@ export async function listManagedTasks(opts: {
     roles: opts.roles,
   });
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
-  const localStates = Object.values(store.issues);
+  const localStates: IssueRuntimeState[] = [];
+
+  for (const state of Object.values(store.issues)) {
+    if (await isIssueCreationReady(opts.workspaceDir, opts.projectSlug, state.creationOperationId)) {
+      localStates.push(state);
+    }
+  }
+
   const labelsToFetch = resolveTaskListLabels(opts.workflow, opts.stateType, opts.label);
   const searchLower = opts.search?.toLowerCase();
   const results: TaskListStateGroup[] = [];

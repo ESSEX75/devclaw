@@ -6,6 +6,18 @@ import type { ProjectionMetadata } from "./types.js";
 export const ISSUE_METADATA_PREFIX = "<!-- devclaw:issue-metadata ";
 export const ISSUE_METADATA_SUFFIX = " -->";
 const ISSUE_METADATA_RE = /<!-- devclaw:issue-metadata (\{.*?\}) -->/s;
+const ISSUE_CREATION_MARKER_PREFIX = "<!-- devclaw:issue-creation ";
+const ISSUE_CREATION_MARKER_RE = /<!-- devclaw:issue-creation ([0-9a-f-]+) -->/;
+
+/** Render the durable operation marker used to identify uncertain provider creates. */
+export function renderIssueCreationMarker(operationId: string): string {
+  return `${ISSUE_CREATION_MARKER_PREFIX}${operationId}${ISSUE_METADATA_SUFFIX}`;
+}
+
+/** Read a creation operation marker from provider issue body text. */
+export function extractIssueCreationMarker(body: string): string | null {
+  return ISSUE_CREATION_MARKER_RE.exec(body)?.[1] ?? null;
+}
 
 export function renderIssueMetadata(metadata: ProjectionMetadata): string {
   return `${ISSUE_METADATA_PREFIX}${JSON.stringify(metadata)}${ISSUE_METADATA_SUFFIX}`;

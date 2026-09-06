@@ -30,7 +30,10 @@ describe("task query use cases", () => {
         title: "Implement search",
         description: "Build search",
         owner: "main",
+        idempotencyKey: "list-task",
+        requestedBy: "test",
       });
+      assert.ok(created.issue);
 
       const result = await listManagedTasks({
         workspaceDir: tmpDir,
@@ -71,7 +74,10 @@ describe("task query use cases", () => {
         title: "Implement queue",
         description: "Build queue",
         owner: "main",
+        idempotencyKey: "status-task",
+        requestedBy: "test",
       });
+      assert.ok(created.issue);
 
       const status = await getManagedTaskStatus({
         workspaceDir: tmpDir,
