@@ -22,11 +22,54 @@ import {
 import { getRoleWorker, parseProjectsData, readProjects, writeProjects } from "./index.js";
 
 describe("readProjects", () => {
+  it("rejects projects without an owning agent", () => {
+    const fixture = projectsFixture({
+      channelId: "chat-1",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      accountId: "dev",
+    });
+
+    if (!isObjectRecord(fixture) || !isObjectRecord(fixture.projects)) {
+      throw new Error("Invalid test fixture.");
+    }
+    const project = fixture.projects.devclaw;
+
+    if (!isObjectRecord(project)) throw new Error("Invalid test project fixture.");
+    delete project.agentId;
+
+    assert.throws(() => parseProjectsData(fixture), /agentId/);
+  });
+
+  it("rejects endpoints without an explicit account", () => {
+    assert.throws(() => parseProjectsData({
+      projects: {
+        devclaw: {
+          slug: "devclaw",
+          name: "devclaw",
+          agentId: "dev-agent",
+          repo: "repo",
+          groupName: "DevClaw",
+          deployUrl: "",
+          baseBranch: "main",
+          deployBranch: "main",
+          channels: [{
+            channelId: "chat-1",
+            channel: NOTIFICATION_CHANNEL.TELEGRAM,
+            name: "primary",
+          }],
+          workers: {},
+        },
+      },
+    }), /accountId/);
+  });
+
   it("accepts a structured Telegram topic endpoint", () => {
     const data = parseProjectsData(projectsFixture({
       channelId: "-1003911014709",
       channel: NOTIFICATION_CHANNEL.TELEGRAM,
       name: "primary",
+      accountId: "dev",
       threadId: "5",
     }));
 
@@ -40,16 +83,18 @@ describe("readProjects", () => {
         channelId: "-1003911014709:topic:5",
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
         name: "primary",
+        accountId: "dev",
       })),
       /legacy Telegram topic syntax.*threadId/,
     );
   });
 
-  it("rejects conflicting accounts for the same transport destination", () => {
+  it("treats different accounts as distinct transport destinations", () => {
     const fixture = projectsFixture({
       channelId: "-1003911014709",
       channel: NOTIFICATION_CHANNEL.TELEGRAM,
       name: "primary",
+      accountId: "bot-a",
       threadId: "5",
     });
 
@@ -77,7 +122,7 @@ describe("readProjects", () => {
       },
     ];
 
-    assert.throws(() => parseProjectsData(fixture), /already registered with accountId.*bot-a/);
+    assert.doesNotThrow(() => parseProjectsData(fixture));
   });
 
   it("should read current project-first per-level format correctly", async () => {
@@ -91,6 +136,7 @@ describe("readProjects", () => {
         "g1": {
           slug: "test",
           name: "test",
+          agentId: "test-agent",
           repo: "~/git/test",
           groupName: "Test",
           deployUrl: "",
@@ -100,6 +146,7 @@ describe("readProjects", () => {
             channelId: "g1",
             channel: NOTIFICATION_CHANNEL.TELEGRAM,
             name: "primary",
+            accountId: "default",
           }],
           workers: {
             developer: {
@@ -138,6 +185,7 @@ function projectsFixture(channel: {
   channelId: string;
   channel: typeof NOTIFICATION_CHANNEL.TELEGRAM;
   name: string;
+  accountId: string;
   threadId?: string;
 }): unknown {
   return {
@@ -145,6 +193,7 @@ function projectsFixture(channel: {
       devclaw: {
         slug: "devclaw",
         name: "devclaw",
+        agentId: "dev-agent",
         repo: "D:/web/devclaw",
         groupName: "DevClaw",
         deployUrl: "",
@@ -238,6 +287,7 @@ describe("writeProjects round-trip", () => {
         "g1": {
           slug: "roundtrip",
           name: "roundtrip",
+          agentId: "test-agent",
           repo: "~/git/rt",
           groupName: "RT",
           deployUrl: "",
@@ -247,6 +297,7 @@ describe("writeProjects round-trip", () => {
         channelId: "g1",
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
         name: "primary",
+        accountId: "default",
       }],
           workers: {
             developer: emptyRoleWorkerState({ medior: 2 }),

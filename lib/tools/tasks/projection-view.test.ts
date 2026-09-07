@@ -24,7 +24,6 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,
-    archivedAt: null,
     ...overrides,
   };
 }

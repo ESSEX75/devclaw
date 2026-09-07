@@ -44,16 +44,11 @@ export function createSetupTool(ctx: PluginContext) {
         },
         channelAccountId: {
           type: "string",
-          description: "Optional channel account id for channel-wide bindings, e.g. Telegram account 'dev'.",
+          description: "Explicit channel account id required when channelBinding is set, e.g. Telegram account 'dev'.",
         },
         channelPeerId: {
           type: "string",
-          description: "Optional group/topic peer id for exact routing bindings, e.g. '-1003911014709:topic:331'.",
-        },
-        migrateFrom: {
-          type: "string",
-          description:
-            "Agent ID to migrate channel binding from. Check openclaw.json bindings first.",
+          description: "Exact group/chat/topic peer id required when channelBinding is set, e.g. '-1003911014709:topic:331'.",
         },
         models: {
           type: "object",
@@ -78,6 +73,10 @@ export function createSetupTool(ctx: PluginContext) {
           type: "boolean",
           description: "Force-write all package defaults to workspace, overwriting existing files. Creates .bak backups.",
         },
+        dryRun: {
+          type: "boolean",
+          description: "Return the setup plan without writing OpenClaw or workspace configuration.",
+        },
       },
     },
 
@@ -101,7 +100,7 @@ export function createSetupTool(ctx: PluginContext) {
         });
       }
 
-      let scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>>;
+      let scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>> | undefined;
       let result: Awaited<ReturnType<typeof runSetup>>;
       const channelBindingInput = params.channelBinding;
 
@@ -113,7 +112,9 @@ export function createSetupTool(ctx: PluginContext) {
       }
 
       try {
-        scopePreflight = await ensureRequiredOpenClawScopes(ctx.runCommand);
+        scopePreflight = params.dryRun === true
+          ? undefined
+          : await ensureRequiredOpenClawScopes(ctx.runCommand);
         result = await runSetup({
           runtime: ctx.runtime,
           newAgentName: params.newAgentName as string | undefined,
@@ -122,13 +123,13 @@ export function createSetupTool(ctx: PluginContext) {
             typeof params.channelAccountId === "string" ? params.channelAccountId : undefined,
           channelPeerId:
             typeof params.channelPeerId === "string" ? params.channelPeerId : undefined,
-          migrateFrom: params.migrateFrom as string | undefined,
           agentId: params.newAgentName ? undefined : toolCtx.agentId,
           workspacePath: params.newAgentName ? undefined : toolCtx.workspaceDir,
           models: params.models as SetupOpts["models"],
           projectExecution: params.projectExecution as
             | ExecutionMode
             | undefined,
+          dryRun: params.dryRun === true,
         });
       } catch (err) {
         if (isScopeApprovalRequiredError(err)) {
@@ -163,12 +164,6 @@ export function createSetupTool(ctx: PluginContext) {
         "",
       ];
 
-      if (result.bindingMigrated) {
-        lines.push(
-          `✅ Binding migrated: ${result.bindingMigrated.channel} (${result.bindingMigrated.from} → ${result.agentId})`,
-          "",
-        );
-      }
 
       lines.push("Models:");
       for (const [role, levels] of Object.entries(result.models)) {
@@ -181,11 +176,15 @@ export function createSetupTool(ctx: PluginContext) {
 
       lines.push("Files:", ...result.filesWritten.map((f) => `  ${f}`));
 
-      if (scopePreflight.status === "approved") {
+      if (result.dryRun) {
+        return jsonResult({ success: true, ...result, summary: `Setup dry-run:\n${result.plannedChanges.map((change) => `  - ${change}`).join("\n")}` });
+      }
+
+      if (scopePreflight?.status === "approved") {
         lines.push("", "OpenClaw scopes: approved");
       }
 
-      if (scopePreflight.warning) {
+      if (scopePreflight?.warning) {
         lines.push("", "OpenClaw scopes warning:", `  ${scopePreflight.warning}`);
       }
 

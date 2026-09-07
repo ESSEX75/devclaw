@@ -255,6 +255,18 @@ timeouts:
 | `sessionContextBudget` | 0.6 | Clear and recreate a worker session when it exceeds this fraction of the context window |
 | `stallTimeoutMinutes` | 15 | Minutes of session inactivity before stall detection/nudging starts |
 
+### Issue archive maintenance
+
+```yaml
+issueArchiveMaintenance:
+  deletedProviderRetention: 90d
+  archiveRetention: 365d
+  attachmentsRetention: 90d
+  maxPerHeartbeat: 100
+```
+
+Terminal issues move immediately from `issues.json` into the dedicated `issues.archive.json`; these settings control only subsequent retention. Durations accept `ms`, `s`, `m`, `h`, or `d`, including an explicit zero. `maxPerHeartbeat` must be between 1 and 1000. Project-level configuration may override workspace defaults.
+
 ---
 
 ## Plugin Configuration (`openclaw.json`)
@@ -413,6 +425,8 @@ Restrict DevClaw tools to your orchestrator agent. Setup writes these tools to `
 
 Project registration and worker-slot state live in `<workspace>/devclaw/projects.json`, keyed by project slug. Initialized DevClaw-managed issue runtime state lives per project in `<workspace>/devclaw/projects/<project>/issues.json`.
 
+In-progress creation lives separately in `<workspace>/devclaw/projects/<project>/issue-creations.json`. The strict, atomically written store retains idempotency, provider identity, progress, retry timing, and typed failures across Gateway restarts; it is not a dispatch queue.
+
 **Source:** [`lib/domain/projects/types.ts`](../lib/domain/projects/types.ts), [`lib/domain/projects/slots.ts`](../lib/domain/projects/slots.ts), [`lib/domain/issues/types.ts`](../lib/domain/issues/types.ts), [`lib/state/issues/store.ts`](../lib/state/issues/store.ts)
 
 ### Schema
@@ -423,6 +437,7 @@ Project registration and worker-slot state live in `<workspace>/devclaw/projects
     "my-webapp": {
       "slug": "my-webapp",
       "name": "my-webapp",
+      "agentId": "dev-agent",
       "repo": "~/git/my-webapp",
       "repoRemote": "git@github.com:org/my-webapp.git",
       "groupName": "Dev - My Webapp",
@@ -435,7 +450,6 @@ Project registration and worker-slot state live in `<workspace>/devclaw/projects
           "channelId": "-1001234567890",
           "channel": "telegram",
           "name": "primary",
-          "events": ["*"],
           "accountId": "dev",
           "threadId": "331"
         }
@@ -483,6 +497,7 @@ Project registration and worker-slot state live in `<workspace>/devclaw/projects
 |---|---|---|
 | `slug` | string | Stable project key used in tool calls |
 | `name` | string | Short project name |
+| `agentId` | string | OpenClaw agent that owns the project and every endpoint binding |
 | `repo` | string | Path to git repo (supports `~/` expansion) |
 | `repoRemote` | string | Optional detected git remote URL |
 | `groupName` | string | Group display name |
@@ -503,7 +518,7 @@ Each project can have multiple linked channels:
 | `channelId` | string | Chat/group/channel ID |
 | `channel` | `"telegram"` \| `"whatsapp"` \| `"discord"` \| `"slack"` | Messaging provider |
 | `name` | string | Human-readable endpoint name (`primary`, `dev-chat`, etc.) |
-| `accountId` | string | Optional OpenClaw channel account ID |
+| `accountId` | string | Required explicit OpenClaw channel account ID |
 | `threadId` | string | Optional thread/topic ID for forum-style channels |
 
 Telegram topics must use separate structured fields:
@@ -513,11 +528,12 @@ Telegram topics must use separate structured fields:
   "channelId": "-1003911014709",
   "channel": "telegram",
   "name": "primary",
+  "accountId": "dev",
   "threadId": "5"
 }
 ```
 
-Do not encode a topic into `channelId` as `-1003911014709:topic:5`; project validation rejects that legacy form. Managed issues persist a `{ channel, name }` binding reference in local state. Runtime delivery resolves that reference against this endpoint list and never derives the destination from provider labels.
+Do not encode a topic into `channelId` as `-1003911014709:topic:5`. Every endpoint must name its account explicitly and have an exact OpenClaw binding to the owning `agentId`; no `default` fallback is inferred. Managed issues persist a `{ channel, name }` binding reference in local state. Runtime delivery resolves that reference against this endpoint list and never derives the destination from provider labels.
 
 ### Worker state fields
 
@@ -548,7 +564,7 @@ Each slot has:
 - **Projection guard** — heartbeat compares provider labels and metadata with local state. Recoverable label drift is repaired. Missing or tampered managed metadata sets `integrity_error` until repaired from local state.
 - **Backfill boundary** — old issues without a local `issues.json` entry are treated as `projection_uninitialized` and must be explicitly initialized/backfilled before managed dispatch.
 - **Initial-state task creation** — `task_create` preserves `workflow.initial`, normally the `Planning` hold state; `task_start` explicitly releases held work into its first queue. A custom queue initial state remains immediately dispatchable.
-- **Inline issue archive** — `devclaw issues cleanup` archives old terminal closed local issue records into `archive.issues` inside `issues.json`; `issues.archive.jsonl` is not part of the MVP.
+- **Dedicated issue archive** — terminal issues leave active `issues.json` immediately and are retained in adjacent `issues.archive.json`. Heartbeat performs bounded recovery, attachment retention, and archive retention. Provider deletion requires a typed, confirmed missing result and never relies on arbitrary `404` text.
 - **Per-level slots** — each level owns an array of slots. Capacity is configured through `workflow.maxWorkersPerLevel` and per-model `maxWorkers`.
 - **Session-per-slot** — each slot preserves its own session key, accumulating context independently. Level selection plus slot index maps directly to a session key.
 - **Sessions preserved on completion** — when a worker completes a task, `sessionKey` is preserved while `active`, `issueId`, `startTime`, and `previousLabel` are cleared. This enables session reuse.
@@ -572,7 +588,9 @@ Each slot has:
 │   ├── projects/
 │   │   ├── my-webapp/
 │   │   │   ├── workflow.yaml      ← Project-specific config overrides
-│   │   │   ├── issues.json        ← Project-local issue runtime state
+│   │   │   ├── issues.json        ← Active project-local issue runtime state
+│   │   │   ├── issues.archive.json ← Terminal summaries and provider-deleted tombstones
+│   │   │   ├── issue-creations.json ← Durable task-creation operations
 │   │   │   └── prompts/
 │   │   │       ├── developer.md   ← Project-specific developer instructions
 │   │   │       ├── tester.md      ← Project-specific tester instructions

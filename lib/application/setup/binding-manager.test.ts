@@ -7,7 +7,7 @@ import assert from "node:assert";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
-import { ensureChannelBinding, migrateChannelBinding } from "./binding-manager.js";
+import { ensureChannelBinding } from "./binding-manager.js";
 
 function createRuntime(initialConfig: OpenClawConfig): {
   runtime: PluginRuntime;
@@ -31,38 +31,58 @@ function createRuntime(initialConfig: OpenClawConfig): {
 }
 
 describe("channel binding helpers", () => {
-  it("adds a channel-wide binding for an existing agent once", async () => {
+  it("adds an exact binding for an existing agent once", async () => {
     const { runtime, writes } = createRuntime({
+      agents: { list: [{ id: "orchestrator" }] },
+      channels: { telegram: { enabled: true, accounts: { default: {} } } },
       bindings: [],
     } as OpenClawConfig);
 
-    await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "orchestrator");
-    await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "orchestrator");
+    await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "orchestrator", "default", "chat-1");
+    await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "orchestrator", "default", "chat-1");
 
     assert.strictEqual(writes.length, 1);
     assert.deepStrictEqual(writes[0]?.nextConfig.bindings, [
-      { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM }, agentId: "orchestrator" },
+      {
+        match: {
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          accountId: "default",
+          peer: { kind: "group", id: "chat-1" },
+        },
+        agentId: "orchestrator",
+      },
     ]);
   });
 
-  it("adds account-scoped channel-wide bindings without touching default bindings", async () => {
+  it("adds an account-scoped exact binding without touching another account", async () => {
     const { runtime, writes } = createRuntime({
+      agents: { list: [{ id: "dev-agent" }] },
+      channels: { telegram: { enabled: true, accounts: { dev: {} } } },
       bindings: [
         { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM }, agentId: "main" },
       ],
     } as OpenClawConfig);
 
-    await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "dev-agent", "dev");
+    await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "dev-agent", "dev", "chat-1");
 
     assert.strictEqual(writes.length, 1);
     assert.deepStrictEqual(writes[0]?.nextConfig.bindings, [
       { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM }, agentId: "main" },
-      { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM, accountId: "dev" }, agentId: "dev-agent" },
+      {
+        match: {
+          channel: NOTIFICATION_CHANNEL.TELEGRAM,
+          accountId: "dev",
+          peer: { kind: "group", id: "chat-1" },
+        },
+        agentId: "dev-agent",
+      },
     ]);
   });
 
   it("adds peer-scoped bindings before channel-wide fallbacks for the same account", async () => {
     const { runtime, writes } = createRuntime({
+      agents: { list: [{ id: "dev-agent" }, { id: "test-agent3" }] },
+      channels: { telegram: { enabled: true, accounts: { dev: {} } } },
       bindings: [
         { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM, accountId: "dev" }, agentId: "dev-agent" },
       ],
@@ -86,6 +106,8 @@ describe("channel binding helpers", () => {
 
   it("does not duplicate an existing peer-scoped binding", async () => {
     const { runtime, writes } = createRuntime({
+      agents: { list: [{ id: "test-agent3" }] },
+      channels: { telegram: { enabled: true, accounts: { dev: {} } } },
       bindings: [],
     } as OpenClawConfig);
 
@@ -97,6 +119,8 @@ describe("channel binding helpers", () => {
 
   it("rejects binding an occupied topic to a different agent", async () => {
     const { runtime, writes } = createRuntime({
+      agents: { list: [{ id: "test-agent3" }, { id: "test-agent4" }] },
+      channels: { telegram: { enabled: true, accounts: { dev: {} } } },
       bindings: [
         {
           match: {
@@ -116,35 +140,4 @@ describe("channel binding helpers", () => {
     assert.strictEqual(writes.length, 0);
   });
 
-  it("migrates a channel-wide binding without creating a duplicate", async () => {
-    const { runtime, writes } = createRuntime({
-      bindings: [
-        { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM }, agentId: "old-agent" },
-      ],
-    } as OpenClawConfig);
-
-    await migrateChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "old-agent", "new-agent");
-
-    assert.strictEqual(writes.length, 1);
-    assert.deepStrictEqual(writes[0]?.nextConfig.bindings, [
-      { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM }, agentId: "new-agent" },
-    ]);
-  });
-
-  it("migrates only the selected account-scoped channel-wide binding", async () => {
-    const { runtime, writes } = createRuntime({
-      bindings: [
-        { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM, accountId: "default" }, agentId: "main" },
-        { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM, accountId: "dev" }, agentId: "old-agent" },
-      ],
-    } as OpenClawConfig);
-
-    await migrateChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "old-agent", "new-agent", "dev");
-
-    assert.strictEqual(writes.length, 1);
-    assert.deepStrictEqual(writes[0]?.nextConfig.bindings, [
-      { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM, accountId: "default" }, agentId: "main" },
-      { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM, accountId: "dev" }, agentId: "new-agent" },
-    ]);
-  });
 });

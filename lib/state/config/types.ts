@@ -59,6 +59,22 @@ export type TimeoutConfig = {
   stallTimeoutMinutes?: number;
 };
 
+/** Retention and bounded heartbeat maintenance for the dedicated issue archive. */
+export type IssueArchiveMaintenanceConfig = {
+  deletedProviderRetention?: string;
+  archiveRetention?: string;
+  attachmentsRetention?: string;
+  maxPerHeartbeat?: number;
+};
+
+/** Fully resolved archive maintenance policy. */
+export type ResolvedIssueArchiveMaintenance = {
+  deletedProviderRetention: string;
+  archiveRetention: string;
+  attachmentsRetention: string;
+  maxPerHeartbeat: number;
+};
+
 /**
  * Instance identity config. Optional — auto-generated if not set.
  */
@@ -76,6 +92,7 @@ export type RawConfig = {
   workflow?: WorkflowOverride;
   timeouts?: TimeoutConfig;
   instance?: InstanceConfig;
+  issueArchiveMaintenance?: IssueArchiveMaintenanceConfig;
 };
 
 type ValidatedConfig = RawConfig;
@@ -106,6 +123,7 @@ export type ResolvedConfig = {
   timeouts: ResolvedTimeouts;
   /** Instance name override from config. Undefined = use auto-generated from instance.json. */
   instanceName?: string;
+  issueArchiveMaintenance: ResolvedIssueArchiveMaintenance;
 };
 
 /**

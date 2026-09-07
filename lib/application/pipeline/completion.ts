@@ -3,8 +3,6 @@
  *
  * Uses workflow config to determine transitions and side effects.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import {
@@ -18,6 +16,7 @@ import {
   getCompletionEmoji,
   getCompletionRule,
   getNextStateDescription,
+  ISSUE_ARCHIVE_REASON,
   NOTIFICATION_CHANNEL,
   type NotificationEndpoint,
   STATE_TYPE,
@@ -34,7 +33,12 @@ import {
   writeIssueRuntimeState,
 } from "../../state/issues/index.js";
 import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/projects/index.js";
-import { getNotificationConfig, notify } from "../notifications/notify.js";
+import { archiveManagedIssue } from "../issues/index.js";
+import {
+  getNotificationConfig,
+  type NotificationRuntime,
+  notify,
+} from "../notifications/notify.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 
@@ -84,7 +88,7 @@ export async function executeCompletion(opts: {
   channels: NotificationEndpoint[];
   pluginConfig?: Record<string, unknown>;
   /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
-  runtime?: PluginRuntime;
+  runtime?: NotificationRuntime;
   /** Workflow config (defaults to DEFAULT_WORKFLOW) */
   workflow?: WorkflowConfig;
   /** Tasks created during this work session (e.g. architect implementation tasks) */
@@ -116,7 +120,7 @@ async function executeCompletionLocked(opts: {
   projectName: string;
   channels: NotificationEndpoint[];
   pluginConfig?: Record<string, unknown>;
-  runtime?: PluginRuntime;
+  runtime?: NotificationRuntime;
   workflow?: WorkflowConfig;
   createdTasks?: Array<{ id: number; title: string; url: string }>;
   level?: string;
@@ -320,6 +324,7 @@ async function executeCompletionLocked(opts: {
       threadId: notifyTarget?.threadId,
       runtime,
       accountId: notifyTarget?.accountId,
+      agentId: project.agentId,
     },
   ).catch((err) => {
     auditLog(workspaceDir, "pipeline_warning", { step: "notify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
@@ -348,6 +353,7 @@ async function executeCompletionLocked(opts: {
         threadId: notifyTarget?.threadId,
         runtime,
         accountId: notifyTarget?.accountId,
+        agentId: project.agentId,
       },
     ).catch((err) => {
       auditLog(workspaceDir, "pipeline_warning", { step: "mergeNotify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
@@ -428,6 +434,7 @@ async function executeCompletionLocked(opts: {
           threadId: notifyTarget.threadId,
           runtime,
           accountId: notifyTarget.accountId,
+          agentId: project.agentId,
           runCommand: rc,
         },
       );
@@ -468,10 +475,27 @@ async function executeCompletionLocked(opts: {
           threadId: notifyTarget?.threadId,
           runtime,
           accountId: notifyTarget?.accountId,
+          agentId: project.agentId,
         },
       ).catch((err) => {
         auditLog(workspaceDir, "pipeline_warning", { step: "reviewNotify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
       });
+    }
+  }
+
+  if (targetState?.type === STATE_TYPE.TERMINAL) {
+    const archived = await archiveManagedIssue({
+      workspaceDir,
+      projectSlug,
+      issueId,
+      archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
+      snapshot: { title: issue.title, issueUrl: issue.web_url },
+      actor: "pipeline_completion",
+      correlationId: `terminal:${projectSlug}:${issueId}:${runtimeState.workflowState}`,
+    });
+
+    if (!archived.archived && archived.reason !== "retry_pending") {
+      throw new Error(`Terminal issue #${issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
     }
   }
 

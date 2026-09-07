@@ -1,14 +1,18 @@
 /**
  * channel_link — Attach this chat to a project.
  *
- * Links the current channel/chat to a registered project. If the channel
- * is already linked to a different project, the old bond is removed first
- * (auto-detach). This is the primary way to switch which project a chat
- * controls.
+ * Links an exact account/chat route to a registered project after validating
+ * its owning agent and OpenClaw binding. Existing project ownership is never
+ * changed implicitly.
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
+import {
+  validateDestinationAvailability,
+  validateProjectRoute,
+} from "../../application/setup/index.js";
 import { log as auditLog } from "../../audit.js";
+import type { PluginContext } from "../../context.js";
 import {
   isNotificationChannel,
   NOTIFICATION_CHANNEL,
@@ -17,23 +21,26 @@ import {
 import { readProjects, writeProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createChannelLinkTool() {
+export function createChannelLinkTool(ctx: PluginContext) {
 
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_link",
     label: "Channel Link",
     description:
-      "Link this chat/channel to a project. If this channel is already linked to another project, " +
-      "it is automatically detached first. Use this to switch projects or connect a new chat.",
+      "Link an explicitly bound account/chat route to a project. Conflicting project ownership is rejected.",
     parameters: {
       type: "object",
-      required: ["channelId", "project"],
+      required: ["channelId", "accountId", "project"],
       properties: {
         channelId: {
           type: "string",
           description:
             "YOUR chat/group ID — the numeric ID of the chat you are in right now (e.g. '-1003844794417'). " +
             "Do NOT guess; use the ID of the conversation this message came from.",
+        },
+        accountId: {
+          type: "string",
+          description: "Explicit OpenClaw channel account ID for this destination.",
         },
         project: {
           type: "string",
@@ -60,6 +67,7 @@ export function createChannelLinkTool() {
 
     async execute(_id: string, params: Record<string, unknown>) {
       const channelId = params.channelId as string;
+      const accountId = typeof params.accountId === "string" ? params.accountId.trim() : "";
       const projectRef = params.project as string;
       const channelTypeInput = params.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;
 
@@ -73,9 +81,12 @@ export function createChannelLinkTool() {
         : undefined;
       const channelName = params.name as string | undefined;
       const workspaceDir = requireWorkspaceDir(toolCtx);
+      const agentId = toolCtx.agentId;
 
       if (!channelId) throw new Error("channelId is required.");
+      if (!accountId) throw new Error("accountId is required.");
       if (!projectRef) throw new Error("project is required.");
+      if (!agentId) throw new Error("Channel linking requires an agent context.");
 
       const data = await readProjects(workspaceDir);
 
@@ -98,9 +109,27 @@ export function createChannelLinkTool() {
         );
       }
 
+      if (target.agentId !== agentId) {
+        throw new Error(`Project "${target.name}" belongs to agent "${target.agentId}", not "${agentId}".`);
+      }
+
+      const newChannel: NotificationEndpoint = {
+        channelId,
+        channel: channelType,
+        name: channelName ?? `channel-${target.channels.length + 1}`,
+        accountId,
+        ...(threadId ? { threadId } : {}),
+      };
+
+      validateProjectRoute(ctx.runtime.config.current(), agentId, newChannel);
+      validateDestinationAvailability(data, target.slug, newChannel);
+
       // Already linked to this project?
       const alreadyLinked = target.channels.some(
-        (ch) => ch.channelId === channelId && ch.threadId === threadId,
+        (ch) => ch.channel === channelType
+          && ch.accountId === accountId
+          && ch.channelId === channelId
+          && ch.threadId === threadId,
       );
 
       if (alreadyLinked) {
@@ -115,29 +144,6 @@ export function createChannelLinkTool() {
         });
       }
 
-      // Auto-detach from any other project that has this channelId
-      let detachedFrom: string | null = null;
-
-      for (const project of Object.values(data.projects)) {
-        const idx = project.channels.findIndex(
-          (ch) => ch.channelId === channelId && ch.threadId === threadId,
-        );
-
-        if (idx !== -1) {
-          detachedFrom = project.name;
-          project.channels.splice(idx, 1);
-          break;
-        }
-      }
-
-      // Attach to target project
-    const newChannel: NotificationEndpoint = {
-        channelId,
-        channel: channelType,
-        name: channelName ?? `channel-${target.channels.length + 1}`,
-        ...(threadId ? { threadId } : {}),
-      };
-
       target.channels.push(newChannel);
 
       await writeProjects(workspaceDir, data);
@@ -146,15 +152,12 @@ export function createChannelLinkTool() {
         project: target.name,
         projectSlug: target.slug,
         channelId,
+        accountId,
+        agentId,
         threadId,
         channelType,
         channelName: newChannel.name,
-        detachedFrom,
       });
-
-      const detachNote = detachedFrom
-        ? ` (detached from "${detachedFrom}")`
-        : "";
 
       return jsonResult({
         success: true,
@@ -164,8 +167,7 @@ export function createChannelLinkTool() {
         channelId,
         threadId,
         channelName: newChannel.name,
-        detachedFrom,
-        announcement: `Channel linked to "${target.name}"${detachNote}.`,
+        announcement: `Channel linked to "${target.name}".`,
       });
     },
   });

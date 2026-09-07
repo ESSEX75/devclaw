@@ -23,36 +23,12 @@ type ChannelAccountChoice = {
   peerId?: string;
 };
 
-function getExistingChannelWideBinding(
-  runtime: PluginRuntime,
-  channel: SetupNotificationChannel,
-  accountId?: string,
-): { agentId: string; agentName: string } | undefined {
-  try {
-    const config = runtime.config.current() as OpenClawConfig;
-    const normalizedAccountId = accountId?.trim() || "default";
-    const binding = (config.bindings ?? []).find(
-      (entry) =>
-        entry.match?.channel === channel &&
-        (entry.match.accountId?.trim() || "default") === normalizedAccountId &&
-        !entry.match.peer,
-    );
-
-    if (!binding?.agentId) return undefined;
-    const agent = config.agents?.list?.find((entry) => entry.id === binding.agentId);
-
-    return { agentId: binding.agentId, agentName: agent?.name ?? binding.agentId };
-  } catch {
-    return undefined;
-  }
-}
-
 function getBoundTopicPeerIds(
   config: OpenClawConfig,
   channel: SetupNotificationChannel,
   accountId: string,
 ): Set<string> {
-  const normalizedAccountId = accountId.trim() || "default";
+  const normalizedAccountId = accountId.trim();
   const peerIds = new Set<string>();
 
   for (const binding of config.bindings ?? []) {
@@ -60,7 +36,7 @@ function getBoundTopicPeerIds(
 
     if (
       binding.match?.channel === channel &&
-      (binding.match.accountId?.trim() || "default") === normalizedAccountId &&
+      binding.match.accountId?.trim() === normalizedAccountId &&
       peerId?.includes(":topic:")
     ) {
       peerIds.add(peerId);
@@ -76,13 +52,8 @@ function buildChannelEndpointChoices(
   rawConfig: unknown,
   boundTopicPeerIds: Set<string>,
 ): ChannelAccountChoice[] {
-  const choices: ChannelAccountChoice[] = [{
-    channel,
-    accountId,
-    label: `${channel} / ${accountId} / all messages (fallback)`,
-  }];
-  const config = rawConfig as { groups?: Record<string, { topics?: Record<string, unknown> }> };
-  const groups = config.groups;
+  const choices: ChannelAccountChoice[] = [];
+  const groups = getChannelGroups(rawConfig);
 
   if (!groups || typeof groups !== "object" || Array.isArray(groups)) return choices;
 
@@ -95,7 +66,7 @@ function buildChannelEndpointChoices(
       label: `${channel} / ${accountId} / group ${groupId}`,
     });
 
-    const topics = groupConfig?.topics;
+    const topics = getGroupTopics(groupConfig);
 
     if (!topics || typeof topics !== "object" || Array.isArray(topics)) continue;
     for (const topicId of Object.keys(topics)) {
@@ -115,6 +86,24 @@ function buildChannelEndpointChoices(
   return choices;
 }
 
+function getChannelGroups(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== "object" || value === null || !("groups" in value)) return undefined;
+  const groups = value.groups;
+
+  return isRecord(groups) ? groups : undefined;
+}
+
+function getGroupTopics(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== "object" || value === null || !("topics" in value)) return undefined;
+  const topics = value.topics;
+
+  return isRecord(topics) ? topics : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function getConfiguredChannelAccounts(runtime: PluginRuntime): ChannelAccountChoice[] {
   try {
     const config = runtime.config.current() as OpenClawConfig;
@@ -124,19 +113,13 @@ function getConfiguredChannelAccounts(runtime: PluginRuntime): ChannelAccountCho
       const channelConfig = config.channels?.[channel];
 
       if (!channelConfig || channelConfig.enabled === false) continue;
-      choices.push(...buildChannelEndpointChoices(
-        channel,
-        "default",
-        channelConfig,
-        getBoundTopicPeerIds(config, channel, "default"),
-      ));
       const accounts = channelConfig.accounts;
 
       if (accounts && typeof accounts === "object" && !Array.isArray(accounts)) {
         for (const [accountId, accountConfig] of Object.entries(accounts)) {
           const normalized = accountId.trim();
 
-          if (normalized && normalized !== "default") {
+          if (normalized) {
             choices.push(...buildChannelEndpointChoices(
               channel,
               normalized,
@@ -170,8 +153,7 @@ async function askYesNo(
 async function collectChannelBinding(
   rl: ReturnType<typeof createInterface>,
   runtime: PluginRuntime,
-  targetAgentId?: string,
-): Promise<Pick<SetupCliOptions, "channelBinding" | "channelAccountId" | "channelPeerId" | "migrateFrom">> {
+): Promise<Pick<SetupCliOptions, "channelBinding" | "channelAccountId" | "channelPeerId">> {
   const choices = getConfiguredChannelAccounts(runtime);
 
   console.log("\nCreate a binding for an existing channel endpoint:");
@@ -194,27 +176,17 @@ async function collectChannelBinding(
   const channelBinding = choice.channel;
   const channelAccountId = choice.accountId;
   const channelPeerId = choice.peerId;
-  const result: Pick<SetupCliOptions, "channelBinding" | "channelAccountId" | "channelPeerId" | "migrateFrom"> = {
+  const result: Pick<SetupCliOptions, "channelBinding" | "channelAccountId" | "channelPeerId"> = {
     channelBinding,
     channelAccountId,
     channelPeerId,
   };
 
-  if (channelPeerId) return result;
+  if (!channelPeerId) {
+    throw new Error("DevClaw requires an exact group, chat, or topic binding; channel-wide fallback bindings are not supported.");
+  }
 
-  const existing = getExistingChannelWideBinding(
-    runtime,
-    channelBinding,
-    channelAccountId,
-  );
-
-  if (!existing) return result;
-  if (targetAgentId && existing.agentId === targetAgentId) return result;
-
-  console.log(`Existing ${channelBinding} channel-wide binding: ${existing.agentName} (${existing.agentId})`);
-  const migrate = await askYesNo(rl, `Migrate this binding to the selected agent`, true);
-
-  return migrate ? { ...result, migrateFrom: existing.agentId } : result;
+  return result;
 }
 
 function hasModelOverrides(opts: SetupCliOptions): boolean {
@@ -287,7 +259,7 @@ export async function collectInteractiveSetupDetails(
     let next = { ...opts };
 
     if ((next.newAgent || next.agent) && !next.channelBinding) {
-      next = { ...next, ...await collectChannelBinding(rl, runtime, next.agent) };
+      next = { ...next, ...await collectChannelBinding(rl, runtime) };
     }
 
     next = await collectModelOptions(next, rl);
@@ -385,7 +357,6 @@ export function printSelectedSetupTarget(opts: SetupCliOptions, runtime: PluginR
     console.log("\nSelected setup target:");
     console.log(`  New agent: ${opts.newAgent}`);
     console.log(`  Channel binding: ${formatSelectedChannelBinding(opts)}`);
-    if (opts.migrateFrom) console.log(`  Migrate binding from: ${opts.migrateFrom}`);
 
     return;
   }

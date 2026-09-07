@@ -5,6 +5,14 @@ export type IssueListFilter = {
   state?: "open" | "closed" | "all";
 };
 
+/** Complete provider issue payload used by transactional creation. */
+export type CreateIssueInput = {
+  title: string;
+  body: string;
+  labels: string[];
+  assignees: string[];
+};
+
 export interface IssueReader {
   listIssuesByLabel(label: StateLabel): Promise<Issue[]>;
   listIssues(opts?: IssueListFilter): Promise<Issue[]>;
@@ -13,11 +21,19 @@ export interface IssueReader {
 }
 
 export interface IssueWriter {
-  createIssue(title: string, description: string, label: StateLabel, assignees?: string[]): Promise<Issue>;
+  createIssue(input: CreateIssueInput): Promise<Issue>;
   closeIssue(issueId: number): Promise<void>;
   reopenIssue(issueId: number): Promise<void>;
   addComment(issueId: number, body: string): Promise<number>;
   editIssue(issueId: number, updates: { title?: string; body?: string }): Promise<Issue>;
+}
+
+/** Destructive provider capability used only by the confirmed issue-delete use case. */
+export interface IssueDeleter {
+  /** Whether this adapter has an explicit provider deletion implementation. */
+  supportsIssueDeletion(): boolean;
+  /** Permanently delete one provider issue. */
+  deleteIssue(issueId: number): Promise<void>;
 }
 
 export interface LabelProjector {
@@ -66,4 +82,17 @@ export interface AttachmentUploader {
 
 export interface ProviderHealthCheck {
   healthCheck(): Promise<boolean>;
+}
+
+/** Current provider request budget when the adapter can query it safely. */
+export type ProviderRateLimitStatus = {
+  /** Requests remaining in the relevant provider budget. */
+  remaining: number;
+  /** ISO reset time when exposed by the provider. */
+  resetAt?: string;
+};
+
+/** Optional quota preflight used by explicitly planned mutations. */
+export interface ProviderRateLimitReader {
+  getRateLimitStatus?(): Promise<ProviderRateLimitStatus>;
 }

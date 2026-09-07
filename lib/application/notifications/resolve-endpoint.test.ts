@@ -57,17 +57,19 @@ function projectFixture(): Project {
   return {
     slug: "devclaw",
     name: "DevClaw",
+    agentId: "test-agent",
     repo: "D:/web/devclaw",
     groupName: "DevClaw",
     deployUrl: "",
     baseBranch: "main",
     deployBranch: "main",
     channels: [
-      { channelId: "-100", channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
+      { channelId: "-100", channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary", accountId: "default" },
       {
         channelId: "-200",
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
         name: "task-topic",
+        accountId: "default",
         threadId: "7",
       },
     ],

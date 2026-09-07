@@ -4,7 +4,7 @@
 import { ISSUE_INTEGRITY_STATUS, type IssueRuntimeState } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore } from "../../state/issues/index.js";
 
 export async function getHeartbeatCandidates(opts: {
   workspaceDir: string;
@@ -19,8 +19,8 @@ export async function getHeartbeatCandidates(opts: {
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
   const states = Object.values(store.issues)
     .filter((state) =>
-      state.archivedAt == null
-      && state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
+      state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
+      && state.providerMissing == null
       && state.workflowLabel === opts.workflowLabel
       && (!opts.routing || state[opts.routing.field] === opts.routing.value),
     )
@@ -29,6 +29,7 @@ export async function getHeartbeatCandidates(opts: {
   const candidates: Array<{ issue: Issue; localState: IssueRuntimeState }> = [];
 
   for (const localState of states) {
+    if (!await isIssueCreationReady(opts.workspaceDir, opts.projectSlug, localState.creationOperationId)) continue;
     try {
       const issue = await opts.provider.getIssue(localState.issueId);
 

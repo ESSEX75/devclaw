@@ -257,6 +257,7 @@ export async function dispatchTaskLocked(
       threadId: notifyTarget?.threadId,
       runtime,
       accountId: notifyTarget?.accountId,
+      agentId: project.agentId,
       runCommand: rc,
     },
   ).catch((err) => {

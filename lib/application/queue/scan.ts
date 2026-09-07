@@ -15,7 +15,7 @@ import {
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
 import { ROLE_REGISTRY } from "../../roles/index.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore } from "../../state/issues/index.js";
 
 // ---------------------------------------------------------------------------
 // Label detection
@@ -106,13 +106,14 @@ async function findNextIssueForRoleFromLocalState(
   const store = await readIssueStateStore(workspaceDir, projectSlug);
   const localCandidates = Object.values(store.issues)
     .filter((state) =>
-      state.archivedAt == null
-      && state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
+      state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
+      && state.providerMissing == null
       && queueLabels.includes(state.workflowLabel),
     )
     .sort((a, b) => a.issueId - b.issueId);
 
   for (const state of localCandidates) {
+    if (!await isIssueCreationReady(workspaceDir, projectSlug, state.creationOperationId)) continue;
     try {
       const issue = await provider.getIssue(state.issueId);
 

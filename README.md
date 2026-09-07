@@ -76,7 +76,7 @@ Each project is fully isolated — own queue, workers, sessions, and state. Work
 
 ### Process enforcement
 
-GitHub/GitLab issues are the visible task surface; initialized managed issue runtime state is stored locally in `issues.json`. Every tool call wraps the full operation into deterministic code with rollback on failure:
+GitHub/GitLab issues are the visible task surface; initialized managed issue runtime state is stored locally in `issues.json`. Task creation uses a durable idempotent saga, so partial provider work remains unavailable to workers until read-back verification succeeds:
 
 - **[External task surface](#your-issues-stay-in-your-tracker)** — issues, projected labels, and status visibility stay in your issue tracker
 - **[Atomic operations](#what-atomic-means-here)** — label transition + state update + session dispatch + audit log in one call
@@ -504,7 +504,8 @@ DevClaw gives the orchestrator 23 tools. These aren't just convenience wrappers 
 | `project_register`     | One-time project setup: creates labels, scaffolds instructions, initializes state       |
 | `sync_labels`          | Sync GitHub/GitLab labels with workflow config after editing `workflow.yaml`            |
 | `devclaw repair issue` | CLI repair of provider projection from local issue state                                |
-| `devclaw issues cleanup` | CLI archive of old closed local issue records into inline `archive.issues`           |
+| `issue_delete`           | Confirmed provider deletion with lossless local tombstone                            |
+| `devclaw issues archive` | Inspect and explicitly purge the dedicated local issue archive                       |
 | `channel_link`         | Link a chat/channel to a project (auto-detaches previous project)                      |
 | `channel_unlink`       | Remove a channel from a project                                                         |
 | `channel_list`         | List channels for a project or all projects                                             |

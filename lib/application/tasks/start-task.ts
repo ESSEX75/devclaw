@@ -7,6 +7,7 @@ import {
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
 import {
+  isIssueCreationReady,
   resolveIssueRuntimeState,
   withIssueOrchestrationLock,
   writeIssueRuntimeState,
@@ -55,6 +56,10 @@ async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> 
 
   if (runtimeState.kind !== "managed") {
     throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_start.`);
+  }
+
+  if (!await isIssueCreationReady(workspaceDir, project.slug, runtimeState.state.creationOperationId)) {
+    throw new Error(`Issue #${issueId} creation is not ready. Wait for creation reconciliation before task_start.`);
   }
 
   if (runtimeState.state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) {

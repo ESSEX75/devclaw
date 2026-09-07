@@ -28,6 +28,7 @@ export type IssueStateWriteInput = {
   project: Pick<Project, "slug" | "channels">;
   issue: Pick<Issue, "iid" | "labels" | "state">;
   providerType: IssueProviderId;
+  creationOperationId?: string;
   workflow: WorkflowConfig;
   workflowLabel?: string;
   workflowState?: string;
@@ -40,7 +41,6 @@ export type IssueStateWriteInput = {
   activeWorker?: ActiveIssueWorker | null;
   integrityStatus?: IssueIntegrityStatus;
   closedAt?: string | null;
-  archivedAt?: string | null;
 };
 
 type RoleLevel = {
@@ -104,6 +104,7 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       projectSlug: input.project.slug,
       issueId: input.issue.iid,
       provider: input.providerType,
+      creationOperationId: input.creationOperationId ?? previous?.creationOperationId,
       workflowState,
       workflowLabel: detectedWorkflowLabel,
       assignedRole: input.assignedRole !== undefined ? input.assignedRole : detectedRoleLevel?.role ?? previous?.assignedRole ?? null,
@@ -120,7 +121,9 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
       closedAt: input.closedAt !== undefined ? input.closedAt : previous?.closedAt ?? null,
-      archivedAt: input.archivedAt !== undefined ? input.archivedAt : previous?.archivedAt ?? null,
+      providerMissing: previous?.providerMissing ?? null,
+      retryAt: previous?.retryAt ?? null,
+      retriesRemaining: previous?.retriesRemaining ?? 0,
       pipelineNotification: previous?.pipelineNotification ?? null,
     };
     store.issues[String(input.issue.iid)] = written;

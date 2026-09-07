@@ -4,6 +4,19 @@ import { describe, it } from "node:test";
 import { parseResolvedWorkflowConfig, validateConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
 
 describe("workflow config schema", () => {
+  it("validates bounded issue archive maintenance settings", () => {
+    assert.doesNotThrow(() => validateConfig({
+      issueArchiveMaintenance: {
+        deletedProviderRetention: "90d",
+        archiveRetention: "365d",
+        attachmentsRetention: "0d",
+        maxPerHeartbeat: 1000,
+      },
+    }));
+    assert.throws(() => validateConfig({ issueArchiveMaintenance: { archiveRetention: "forever" } }));
+    assert.throws(() => validateConfig({ issueArchiveMaintenance: { maxPerHeartbeat: 1001 } }));
+  });
+
   it("accepts sparse state overrides before configuration layers merge", () => {
     assert.doesNotThrow(() => validateConfig({
       workflow: {

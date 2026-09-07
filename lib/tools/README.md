@@ -13,5 +13,7 @@ agent-facing plugin API and deterministic DevClaw behavior.
 - Do not access provider or state internals directly when an application use case
   exists.
 - Register public tool factories in `lib/tools/registry.ts`.
+- Creation adapters must call the shared durable use case and report pending or
+  manual-repair states honestly; only a `ready` operation is successful.
 
 Use `npm run arch:check:strict` after adding or changing tool factories.

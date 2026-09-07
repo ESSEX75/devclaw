@@ -14,9 +14,9 @@ export type SetupCliOptions = {
   channelBinding?: SetupNotificationChannel | "none";
   channelAccountId?: string;
   channelPeerId?: string;
-  migrateFrom?: string;
   ejectDefaults?: boolean;
   projectExecution?: ExecutionMode;
+  dryRun?: boolean;
   [key: string]: string | boolean | undefined;
 };
 
@@ -52,7 +52,7 @@ export function formatAgentLabel(agent: ConfiguredAgent): string {
 
 export function formatSelectedChannelBinding(opts: Pick<SetupCliOptions, "channelBinding" | "channelAccountId" | "channelPeerId">): string {
   if (!opts.channelBinding || opts.channelBinding === "none") return "none";
-  const account = opts.channelAccountId?.trim() || "default";
+  const account = opts.channelAccountId?.trim() || "missing-account";
 
   return opts.channelPeerId?.trim()
     ? `${opts.channelBinding}/${account}/${opts.channelPeerId.trim()}`

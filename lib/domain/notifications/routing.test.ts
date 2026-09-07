@@ -54,8 +54,8 @@ describe("notify label helpers", () => {
 
 describe("resolveNotifyBinding", () => {
   const channels: NotificationEndpoint[] = [
-      { channelId: "-111", channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
-      { channelId: "-222", channel: NOTIFICATION_CHANNEL.WHATSAPP, name: "dev-chat" },
+      { channelId: "-111", channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary", accountId: "default" },
+      { channelId: "-222", channel: NOTIFICATION_CHANNEL.WHATSAPP, name: "dev-chat", accountId: "default" },
   ];
 
   it("should resolve channel by channel type and name", () => {

@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { RunCommand } from "../../context.js";
-import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { readIssueArchiveStore, readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type Project } from "../../domain/index.js";
@@ -23,6 +23,7 @@ async function withProject<T>(fn: (ctx: {
   const project: Project = {
     slug: "test-project",
     name: "test-project",
+    agentId: "test-agent",
     repo: "/tmp/test-repo",
     groupName: "Test Group",
     deployUrl: "",
@@ -32,6 +33,7 @@ async function withProject<T>(fn: (ctx: {
       channelId: "-123",
       channel: NOTIFICATION_CHANNEL.TELEGRAM,
       name: "primary",
+      accountId: "default",
     }],
     provider: ISSUE_PROVIDER.GITHUB,
     workers: {},
@@ -129,11 +131,14 @@ describe("heartbeat transition state sync", () => {
         provider,
       });
       const store = await readIssueStateStore(workspaceDir, project.slug);
+      const archive = await readIssueArchiveStore(workspaceDir, project.slug);
+      const archived = Object.values(archive.issues).find((record) => record.issueId === 91);
 
       assert.strictEqual(transitions, 1);
-      assert.strictEqual(store.issues["91"]!.workflowState, "done");
-      assert.strictEqual(store.issues["91"]!.workflowLabel, "Done");
-      assert.ok(store.issues["91"]!.closedAt);
+      assert.strictEqual(store.issues["91"], undefined);
+      assert.strictEqual(archived?.finalWorkflowState, "done");
+      assert.strictEqual(archived?.finalWorkflowLabel, "Done");
+      assert.ok(archived?.closedAt);
       assert.strictEqual(provider.callsTo("listIssuesByLabel").length, 0);
     });
   });

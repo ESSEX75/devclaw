@@ -5,10 +5,12 @@
  */
 import type {
   AttachmentUploader,
+  IssueDeleter,
   IssueReader,
   IssueWriter,
   LabelProjector,
   ProviderHealthCheck,
+  ProviderRateLimitReader,
   PullRequestOperator,
   PullRequestReader,
   ReactionWriter,
@@ -24,10 +26,12 @@ export * from "./types.js";
 export interface IssueProvider
   extends IssueReader,
     IssueWriter,
+    IssueDeleter,
     LabelProjector,
     ReviewReader,
     PullRequestReader,
     PullRequestOperator,
     ReactionWriter,
     AttachmentUploader,
-    ProviderHealthCheck {}
+    ProviderHealthCheck,
+    ProviderRateLimitReader {}

@@ -10,6 +10,7 @@ import os from "node:os";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import { createAgent } from "./agent-config.js";
+import { runSetup } from "./run-setup.js";
 
 let tmpDir: string | undefined;
 
@@ -79,5 +80,27 @@ describe("createAgent", () => {
     await fs.access(result.workspacePath);
     await fs.access(path.join(openClawHome, "agents", expectedAgentId, "agent"));
     await fs.access(path.join(openClawHome, "agents", expectedAgentId, "sessions"));
+  });
+
+  it("previews setup without writing OpenClaw config or workspace files", async () => {
+    const { runtime, writes } = createRuntime({
+      agents: {
+        defaults: { model: "openai/gpt-5.4" },
+        list: [],
+      },
+    });
+
+    const result = await runSetup({
+      runtime,
+      newAgentName: "Preview Agent",
+      dryRun: true,
+    });
+
+    assert.strictEqual(result.dryRun, true);
+    assert.strictEqual(result.agentId, "preview-agent");
+    assert.strictEqual(writes.length, 0);
+    assert.ok(result.plannedChanges.some((change) => change.includes("Create OpenClaw agent")));
+
+    await assert.rejects(fs.access(result.workspacePath));
   });
 });

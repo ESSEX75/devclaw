@@ -70,11 +70,11 @@ Prefer focused names that communicate the file's owned responsibility.
 
 - Start every new source file with a concise file-level JSDoc comment.
 - Explain why the file exists, what responsibility it owns, and where it sits in the architecture.
-- Add concise JSDoc to every newly exported function, type, interface, class, and constant.
-- For exported functions, document behavior, important guarantees, side effects, and failure conditions that are not obvious from the signature.
-- Add `@param` and `@returns` documentation when it improves the public API description.
-- Use these tags to explain semantic meaning, purpose, constraints, defaults, ownership, or lifecycle behavior; avoid descriptions that only restate the parameter name or TypeScript type.
-- Document public contract fields whose meaning, source of truth, or lifecycle is not obvious.
+- Add concise JSDoc to every newly exported type, interface, class, and constant, and to every newly created or materially changed function declaration or class/object method, including non-exported and private functions. Inline callbacks do not require separate JSDoc.
+- Give every property declared by an interface or object-shaped type alias its own JSDoc comment, even when the property appears self-explanatory. This applies to nested declared contract objects as well as top-level fields.
+- Document function behavior, important guarantees, side effects, and failure conditions that are not obvious from the signature.
+- Include one `@param name - Description.` tag for every parameter of every documented function or method. Because every new or materially changed function declaration and method must be documented, none of their parameters may be omitted. Describe semantic purpose, constraints, defaults, ownership, or lifecycle role; do not repeat the TypeScript type.
+- Keep `@param` tags in signature order. Document destructured parameters by their signature name when one exists; otherwise name the meaningful destructured path, such as `@param input.projectSlug`.
 - Avoid comments that merely restate an identifier or narrate individual code statements.
 - Update comments when behavior or ownership changes; stale documentation is an architectural defect.
 
@@ -93,8 +93,12 @@ Example exported function:
 /**
  * Resolves the endpoint selected in local issue state.
  * Returns undefined when the binding no longer exists; it never falls back to another endpoint.
+ *
+ * @param workspaceDir - The workspace containing the authoritative issue state.
+ * @param project - The project whose notification endpoints may satisfy the binding.
+ * @param issueId - The provider-local issue identifier.
  */
-export async function resolveIssueNotificationEndpoint(/* ... */) {
+export async function resolveIssueNotificationEndpoint(workspaceDir, project, issueId) {
   // ...
 }
 ```
@@ -128,7 +132,9 @@ Before completing an architectural change, verify that:
 - private helpers remain private;
 - imports use the appropriate public entrypoint without creating cycles;
 - new files have a meaningful file-level JSDoc header;
-- new exported entities have useful JSDoc;
+- new exported entities and new or materially changed named functions have useful JSDoc;
+- every interface and object-shaped type property has its own JSDoc comment;
+- every documented function or method parameter has an ordered `@param` entry without a duplicated TypeScript type;
 - comments describe current behavior rather than historical implementation;
 - relevant tests cover the changed behavior.
 

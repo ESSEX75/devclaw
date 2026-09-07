@@ -16,7 +16,7 @@ import {
   WORKFLOW_EVENT,
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { readIssueArchiveStore, readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
 import { createTestHarness, type TestHarness } from "../../testing/index.js";
 import { projectTick } from "../queue/tick.js";
@@ -189,8 +189,9 @@ workflow:
     assert.equal(completedIssue.labels.includes("Done"), true);
 
     const reloadedStore = await readIssueStateStore(harness.workspaceDir, harness.project.slug);
-    assert.equal(reloadedStore.issues[String(issue.iid)]?.workflowState, "done");
-    assert.equal(reloadedStore.issues[String(issue.iid)]?.assignedRole, CUSTOM_ROLE);
-    assert.equal(reloadedStore.issues[String(issue.iid)]?.assignedLevel, CUSTOM_LEVEL);
+    const archive = await readIssueArchiveStore(harness.workspaceDir, harness.project.slug);
+    const archived = Object.values(archive.issues).find((record) => record.issueId === issue.iid);
+    assert.equal(reloadedStore.issues[String(issue.iid)], undefined);
+    assert.equal(archived?.finalWorkflowState, "done");
   });
 });

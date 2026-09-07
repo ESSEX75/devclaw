@@ -247,6 +247,12 @@ function resolve(config: DevClawConfig): ResolvedConfig {
   return {
     roles, workflow, timeouts,
     instanceName: config.instance?.name,
+    issueArchiveMaintenance: {
+      deletedProviderRetention: config.issueArchiveMaintenance?.deletedProviderRetention ?? "90d",
+      archiveRetention: config.issueArchiveMaintenance?.archiveRetention ?? "365d",
+      attachmentsRetention: config.issueArchiveMaintenance?.attachmentsRetention ?? "90d",
+      maxPerHeartbeat: config.issueArchiveMaintenance?.maxPerHeartbeat ?? 100,
+    },
   };
 }
 

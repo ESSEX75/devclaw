@@ -1,8 +1,19 @@
 /**
  * GitHubProvider — IssueProvider implementation using gh CLI.
  */
+import { z } from "zod";
+
 import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
+import type { CreateIssueInput } from "./capabilities.js";
+import {
+  classifyProviderLookupFailure,
+  classifyProviderProjectAccessFailure,
+  mayBeMissingProviderIssue,
+  PROVIDER_ISSUE_LOOKUP_ERROR,
+  ProviderIssueLookupError,
+} from "./lookup-errors.js";
+import { classifyProviderOperationError } from "./operation-errors.js";
 import type { IssueProvider } from "./provider.js";
 import { withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
@@ -10,11 +21,23 @@ import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrSt
 type GhIssue = {
   number: number;
   title: string;
-  body: string;
+  body?: string | null;
   labels: Array<{ name: string }>;
   state: string;
   url: string;
 };
+
+const GhIssueSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  body: z.string().nullable().optional(),
+  labels: z.array(z.object({ name: z.string() })),
+  state: z.string(),
+  url: z.string(),
+});
+const GhRateLimitSchema = z.object({
+  resources: z.object({ core: z.object({ remaining: z.number().int().nonnegative(), reset: z.number() }) }),
+});
 
 function toIssue(gh: GhIssue): Issue {
   return {
@@ -35,15 +58,18 @@ export class GitHubProvider implements IssueProvider {
   }
 
   private async gh(args: string[]): Promise<string> {
-    return withResilience(async () => {
-      const result = await this.runCommand(["gh", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
+    return withResilience(() => this.ghOnce(args));
+  }
 
-      if (result.code != null && result.code !== 0) {
-        throw new Error(result.stderr?.trim() || `gh command failed with exit code ${result.code}`);
-      }
+  /** Execute a non-idempotent GitHub mutation exactly once. */
+  private async ghOnce(args: string[]): Promise<string> {
+    const result = await this.runCommand(["gh", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
 
-      return result.stdout.trim();
-    });
+    if (result.code != null && result.code !== 0) {
+      throw new Error(result.stderr?.trim() || `gh command failed with exit code ${result.code}`);
+    }
+
+    return result.stdout.trim();
   }
 
   /** Cached repo owner/name for GraphQL queries. */
@@ -221,16 +247,28 @@ export class GitHubProvider implements IssueProvider {
     }
   }
 
-  async createIssue(title: string, description: string, label: StateLabel, assignees?: string[]): Promise<Issue> {
-    const args = ["issue", "create", "--title", title, "--body", description, "--label", label];
+  async createIssue(input: CreateIssueInput): Promise<Issue> {
+    try {
+      const args = ["issue", "create", "--title", input.title, "--body", input.body];
 
-    if (assignees?.length) args.push("--assignee", assignees.join(","));
-    const url = await this.gh(args);
-    const match = url.match(/\/issues\/(\d+)$/);
+      if (input.labels.length) args.push("--label", input.labels.join(","));
+      if (input.assignees.length) args.push("--assignee", input.assignees.join(","));
+      const url = await this.ghOnce(args);
+      const match = url.match(/\/issues\/(\d+)$/);
 
-    if (!match) throw new Error(`Failed to parse issue URL: ${url}`);
+      if (!match) throw new Error(`Provider returned an invalid issue URL: ${url}`);
 
-    return this.getIssue(parseInt(match[1], 10));
+      return {
+        iid: parseInt(match[1], 10),
+        title: input.title,
+        description: input.body,
+        labels: [...input.labels],
+        state: "OPEN",
+        web_url: url,
+      };
+    } catch (error) {
+      throw classifyProviderOperationError(error);
+    }
   }
 
   async listIssuesByLabel(label: StateLabel): Promise<Issue[]> {
@@ -253,9 +291,41 @@ export class GitHubProvider implements IssueProvider {
   }
 
   async getIssue(issueId: number): Promise<Issue> {
-    const raw = await this.gh(["issue", "view", String(issueId), "--json", "number,title,body,labels,state,url"]);
+    try {
+      const raw = await this.gh(["issue", "view", String(issueId), "--json", "number,title,body,labels,state,url"]);
+      const parsed: unknown = JSON.parse(raw);
 
-    return toIssue(JSON.parse(raw) as GhIssue);
+      return toIssue(GhIssueSchema.parse(parsed));
+    } catch (error) {
+      if (mayBeMissingProviderIssue(error)) {
+        try {
+          await this.gh(["repo", "view", "--json", "name"]);
+          throw new ProviderIssueLookupError({
+            code: PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND,
+            provider: "github",
+            retryable: false,
+            status: 404,
+            message: `GitHub issue #${issueId} does not exist while repository access remains valid.`,
+            cause: error,
+          });
+        } catch (accessError) {
+          if (accessError instanceof ProviderIssueLookupError) throw accessError;
+          throw classifyProviderProjectAccessFailure("github", accessError);
+        }
+      }
+
+      throw classifyProviderLookupFailure("github", error);
+    }
+  }
+
+  /** Read GitHub's current core API quota for repair mutation preflight. */
+  async getRateLimitStatus(): Promise<{ remaining: number; resetAt: string }> {
+    const parsed = GhRateLimitSchema.parse(JSON.parse(await this.gh(["api", "rate_limit"])));
+
+    return {
+      remaining: parsed.resources.core.remaining,
+      resetAt: new Date(parsed.resources.core.reset * 1_000).toISOString(),
+    };
   }
 
   async listComments(issueId: number): Promise<IssueComment[]> {
@@ -321,6 +391,17 @@ export class GitHubProvider implements IssueProvider {
 
   async closeIssue(issueId: number): Promise<void> { await this.gh(["issue", "close", String(issueId)]); }
   async reopenIssue(issueId: number): Promise<void> { await this.gh(["issue", "reopen", String(issueId)]); }
+  supportsIssueDeletion(): boolean { return true; }
+  async deleteIssue(issueId: number): Promise<void> {
+    const result = await this.runCommand(
+      ["gh", "issue", "delete", String(issueId), "--confirm"],
+      { timeoutMs: 30_000, cwd: this.repoPath },
+    );
+
+    if (result.code != null && result.code !== 0) {
+      throw new Error(result.stderr?.trim() || `gh issue delete failed with exit code ${result.code}`);
+    }
+  }
 
   async getMergedMRUrl(issueId: number): Promise<string | null> {
     type MergedPr = { title: string; body: string; headRefName: string; url: string; mergedAt: string };

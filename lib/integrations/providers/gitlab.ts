@@ -1,8 +1,19 @@
 /**
  * GitLabProvider — IssueProvider implementation using glab CLI.
  */
+import { z } from "zod";
+
 import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
+import type { CreateIssueInput } from "./capabilities.js";
+import {
+  classifyProviderLookupFailure,
+  classifyProviderProjectAccessFailure,
+  mayBeMissingProviderIssue,
+  PROVIDER_ISSUE_LOOKUP_ERROR,
+  ProviderIssueLookupError,
+} from "./lookup-errors.js";
+import { classifyProviderOperationError } from "./operation-errors.js";
 import type { IssueProvider } from "./provider.js";
 import { withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
@@ -19,6 +30,11 @@ type GitLabMR = {
   author?: { username: string };
 };
 
+const GitLabIssueSchema = z.object({
+  iid: z.number(), title: z.string(), description: z.string(), labels: z.array(z.string()),
+  state: z.string(), web_url: z.string(),
+});
+
 export class GitLabProvider implements IssueProvider {
   private repoPath: string;
   private workflow: WorkflowConfig;
@@ -31,11 +47,18 @@ export class GitLabProvider implements IssueProvider {
   }
 
   private async glab(args: string[]): Promise<string> {
-    return withResilience(async () => {
-      const result = await this.runCommand(["glab", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
+    return withResilience(() => this.glabOnce(args));
+  }
 
-      return result.stdout.trim();
-    });
+  /** Execute a non-idempotent GitLab mutation exactly once. */
+  private async glabOnce(args: string[]): Promise<string> {
+    const result = await this.runCommand(["glab", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
+
+    if (result.code != null && result.code !== 0) {
+      throw new Error(result.stderr?.trim() || `glab command failed with exit code ${result.code}`);
+    }
+
+    return result.stdout.trim();
   }
 
   /** Get MRs linked to an issue via GitLab's native related_merge_requests API. */
@@ -80,19 +103,31 @@ export class GitLabProvider implements IssueProvider {
     }
   }
 
-  async createIssue(title: string, description: string, label: StateLabel, assignees?: string[]): Promise<Issue> {
-    // Pass description directly as argv — runCommand uses spawn (no shell),
-    // so no escaping issues with special characters.
-    const args = ["issue", "create", "--title", title, "--description", description, "--label", label];
+  async createIssue(input: CreateIssueInput): Promise<Issue> {
+    try {
+      // Pass description directly as argv — runCommand uses spawn (no shell),
+      // so no escaping issues with special characters.
+      const args = ["issue", "create", "--title", input.title, "--description", input.body];
 
-    if (assignees?.length) args.push("--assignee", assignees.join(","));
-    const stdout = await this.glab(args);
-    // glab issue create returns the issue URL
-    const match = stdout.match(/\/issues\/(\d+)/);
+      if (input.labels.length) args.push("--label", input.labels.join(","));
+      if (input.assignees.length) args.push("--assignee", input.assignees.join(","));
+      const stdout = await this.glabOnce(args);
+      // glab issue create returns the issue URL
+      const match = stdout.match(/https?:\/\/\S+\/issues\/(\d+)/);
 
-    if (!match) throw new Error(`Failed to parse issue URL: ${stdout}`);
+      if (!match) throw new Error(`Provider returned an invalid issue URL: ${stdout}`);
 
-    return this.getIssue(parseInt(match[1], 10));
+      return {
+        iid: parseInt(match[1], 10),
+        title: input.title,
+        description: input.body,
+        labels: [...input.labels],
+        state: "opened",
+        web_url: match[0],
+      };
+    } catch (error) {
+      throw classifyProviderOperationError(error);
+    }
   }
 
   async listIssuesByLabel(label: StateLabel): Promise<Issue[]> {
@@ -118,9 +153,31 @@ export class GitLabProvider implements IssueProvider {
   }
 
   async getIssue(issueId: number): Promise<Issue> {
-    const raw = await this.glab(["issue", "view", String(issueId), "--output", "json"]);
+    try {
+      const raw = await this.glab(["issue", "view", String(issueId), "--output", "json"]);
+      const parsed: unknown = JSON.parse(raw);
 
-    return JSON.parse(raw) as Issue;
+      return GitLabIssueSchema.parse(parsed);
+    } catch (error) {
+      if (mayBeMissingProviderIssue(error)) {
+        try {
+          await this.glab(["repo", "view", "--output", "json"]);
+          throw new ProviderIssueLookupError({
+            code: PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND,
+            provider: "gitlab",
+            retryable: false,
+            status: 404,
+            message: `GitLab issue #${issueId} does not exist while project access remains valid.`,
+            cause: error,
+          });
+        } catch (accessError) {
+          if (accessError instanceof ProviderIssueLookupError) throw accessError;
+          throw classifyProviderProjectAccessFailure("gitlab", accessError);
+        }
+      }
+
+      throw classifyProviderLookupFailure("gitlab", error);
+    }
   }
 
   async listComments(issueId: number): Promise<IssueComment[]> {
@@ -188,6 +245,17 @@ export class GitLabProvider implements IssueProvider {
 
   async closeIssue(issueId: number): Promise<void> { await this.glab(["issue", "close", String(issueId)]); }
   async reopenIssue(issueId: number): Promise<void> { await this.glab(["issue", "reopen", String(issueId)]); }
+  supportsIssueDeletion(): boolean { return true; }
+  async deleteIssue(issueId: number): Promise<void> {
+    const result = await this.runCommand(
+      ["glab", "api", `projects/:id/issues/${issueId}`, "--method", "DELETE"],
+      { timeoutMs: 30_000, cwd: this.repoPath },
+    );
+
+    if (result.code != null && result.code !== 0) {
+      throw new Error(result.stderr?.trim() || `glab issue delete failed with exit code ${result.code}`);
+    }
+  }
 
   async getMergedMRUrl(issueId: number): Promise<string | null> {
     const mrs = await this.getRelatedMRs(issueId);

@@ -20,6 +20,7 @@ import {
   countActiveSlots,
   ISSUE_PROVIDER,
   type LevelId,
+  type Project,
   REVIEW_POLICY,
   type ReviewPolicy,
   type RoleId,
@@ -28,8 +29,33 @@ import {
   type WorkflowStateKey,
 } from "../../domain/index.js";
 import { readProjects, getRoleWorker, getProject } from "../../state/projects/index.js";
-import { readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { readIssueArchiveStore, readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
 import { slotName } from "../../names.js";
+import type { NotificationRuntime } from "../notifications/notify.js";
+
+function notificationRuntime(project: Project): NotificationRuntime {
+  const endpoint = project.channels[0];
+
+  if (!endpoint) throw new Error("Test project requires a primary endpoint.");
+
+  return {
+    config: {
+      current: () => ({
+        agents: { list: [{ id: project.agentId }] },
+        channels: { [endpoint.channel]: { enabled: true, accounts: { [endpoint.accountId]: {} } } },
+        bindings: [{
+          agentId: project.agentId,
+          match: {
+            channel: endpoint.channel,
+            accountId: endpoint.accountId,
+            peer: { id: endpoint.channelId },
+          },
+        }],
+      }),
+    },
+    channel: { outbound: { loadAdapter: async () => ({}) } },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -249,6 +275,7 @@ describe("E2E pipeline", () => {
         repoPath: "/tmp/test-repo",
         projectName: "test-project",
         runCommand: h.runCommand,
+        runtime: notificationRuntime(h.project),
       });
 
       assert.strictEqual(output.labelTransition, "Doing → To Review");
@@ -403,6 +430,7 @@ describe("E2E pipeline", () => {
         repoPath: "/tmp/test-repo",
         projectName: "test-project",
         runCommand: h.runCommand,
+        runtime: notificationRuntime(h.project),
       });
 
       assert.strictEqual(output.labelTransition, "Testing → Done");
@@ -442,6 +470,7 @@ describe("E2E pipeline", () => {
         repoPath: "/tmp/test-repo",
         projectName: "test-project",
         runCommand: h.runCommand,
+        runtime: notificationRuntime(h.project),
       });
 
       const notificationCommands = h.commands.commands.filter(
@@ -453,10 +482,12 @@ describe("E2E pipeline", () => {
         return index >= 0 ? command.argv[index + 1] : undefined;
       });
       const state = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["30"];
+      const archive = await readIssueArchiveStore(h.workspaceDir, h.project.slug);
+      const archived = Object.values(archive.issues).find((record) => record.issueId === 30);
 
       assert.strictEqual(messages.filter((message) => message?.includes("Pipeline completed #30")).length, 1);
-      assert.strictEqual(state?.workflowState, "done");
-      assert.strictEqual(state?.pipelineNotification?.status, "delivered");
+      assert.strictEqual(state, undefined);
+      assert.strictEqual(archived?.finalWorkflowState, "done");
     });
   });
 

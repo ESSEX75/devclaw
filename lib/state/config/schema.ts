@@ -150,11 +150,20 @@ const InstanceConfigSchema = z.object({
   name: z.string().trim().min(1).optional(),
 }).strict().optional();
 
+const DurationSchema = z.string().regex(/^\d+(?:ms|s|m|h|d)$/, "must be a duration such as 90d, 12h, or 0d");
+const IssueArchiveMaintenanceSchema = z.object({
+  deletedProviderRetention: DurationSchema.optional(),
+  archiveRetention: DurationSchema.optional(),
+  attachmentsRetention: DurationSchema.optional(),
+  maxPerHeartbeat: z.number().int().min(1).max(1000).optional(),
+}).strict().optional();
+
 export const DevClawConfigSchema = z.object({
   roles: z.record(IdentifierSchema, RoleOverrideSchema).optional(),
   workflow: WorkflowConfigSchema.optional(),
   timeouts: TimeoutConfigSchema,
   instance: InstanceConfigSchema,
+  issueArchiveMaintenance: IssueArchiveMaintenanceSchema,
 }).strict();
 
 /** Validate raw parsed YAML and throw a path-aware Zod error on failure. */

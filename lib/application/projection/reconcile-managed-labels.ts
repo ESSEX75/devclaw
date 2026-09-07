@@ -40,6 +40,31 @@ export type ReconcileManagedLabelsInput = {
   owner: string;
 };
 
+/** Input for applying an already calculated managed-label diff without changing local integrity state. */
+export type ApplyManagedLabelDiffInput = {
+  issueId: number;
+  provider: Pick<LabelProjector, "ensureLabel" | "addLabel" | "removeLabels">;
+  diff: ProjectionDiff;
+  workflow: WorkflowConfig;
+  roles: string[];
+};
+
+/** Apply only the managed label mutations represented by a deterministic projection diff. */
+export async function applyManagedLabelDiff(input: ApplyManagedLabelDiffInput): Promise<void> {
+  const stateLabels = getStateLabels(input.workflow);
+
+  for (const label of input.diff.missingManagedLabels) {
+    await input.provider.ensureLabel(label, managedLabelColor(label, input.workflow, input.roles));
+    await input.provider.addLabel(input.issueId, label);
+  }
+
+  const staleNonState = input.diff.unexpectedManagedLabels.filter((label) => !stateLabels.includes(label));
+  const staleStates = input.diff.unexpectedManagedLabels.filter((label) => stateLabels.includes(label));
+
+  if (staleNonState.length > 0) await input.provider.removeLabels(input.issueId, staleNonState);
+  if (staleStates.length > 0) await input.provider.removeLabels(input.issueId, staleStates);
+}
+
 export function reconcileManagedLabels(input: ReconcileManagedLabelsInput): Promise<ManagedProjectionResult> {
   return withIssueOrchestrationLock(
     input.workspaceDir,
@@ -68,16 +93,7 @@ export async function reconcileManagedLabelsLocked(
   });
 
   try {
-    for (const label of diff.missingManagedLabels) {
-      await input.provider.ensureLabel(label, managedLabelColor(label, input.workflow, roles));
-      await input.provider.addLabel(input.issueId, label);
-    }
-
-    const staleNonState = diff.unexpectedManagedLabels.filter((label) => !stateLabels.includes(label));
-    const staleStates = diff.unexpectedManagedLabels.filter((label) => stateLabels.includes(label));
-
-    if (staleNonState.length > 0) await input.provider.removeLabels(input.issueId, staleNonState);
-    if (staleStates.length > 0) await input.provider.removeLabels(input.issueId, staleStates);
+    await applyManagedLabelDiff({ provider: input.provider, diff, workflow: input.workflow, roles, issueId: input.issueId });
 
     await setProjectionIntegrity(input, ISSUE_INTEGRITY_STATUS.OK, []);
     await auditLog(input.workspaceDir, "issue_projection_reconciled", {

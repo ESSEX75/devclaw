@@ -82,7 +82,7 @@ Complete a task with a result. Called by workers (DEVELOPER/TESTER/ARCHITECT sub
 
 ### `task_create`
 
-Create a new issue in the project's issue tracker.
+Create a new issue through a durable, idempotent operation.
 
 **Source:** [`lib/tools/tasks/task-create.ts`](../lib/tools/tasks/task-create.ts)
 
@@ -91,6 +91,7 @@ Create a new issue in the project's issue tracker.
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `channelId` | string | Yes | Current chat/group ID. The project is resolved from this channel. |
+| `idempotencyKey` | string | Yes | Stable caller request key; repeating the same key and payload resumes the same operation. |
 | `title` | string | Yes | Issue title |
 | `description` | string | No | Full issue body (markdown) |
 | `assignees` | string[] | No | GitHub/GitLab usernames to assign |
@@ -101,7 +102,7 @@ Create a new issue in the project's issue tracker.
 - Workers file follow-up bugs discovered during development
 - Breaking down epics into smaller tasks
 
-**Default behavior:** Creates a managed issue in `workflow.initial`, normally the `"Planning"` hold state. The tool writes local `issues.json`, renders managed metadata, and applies provider labels as projection. Call `task_start` when the task is ready to enter its first queue. A custom workflow whose initial state is already a queue remains immediately eligible for heartbeat dispatch.
+**Default behavior:** Creates a managed issue in `workflow.initial`, normally the `"Planning"` hold state. The provider issue receives its initial labels and hidden creation marker in the create request. DevClaw then applies metadata and verifies a fresh provider read before publishing local runtime state as `ready`. Partial operations return `pending`, `failed`, or `manual_repair_required` with recovery details and remain unavailable to workers. Call `task_start` when a ready task should enter its first queue. A custom workflow whose initial state is already a queue becomes eligible only after verification.
 
 ---
 
@@ -222,6 +223,8 @@ Full project dashboard showing all non-terminal state types with issue details.
 
 For initialized managed issues, local `issues.json` is runtime truth and provider labels are visual projection. `tasks_status` lists managed issues from local state first, so provider label drift does not hide an issue. `projection_uninitialized` marks old provider-only issues without local state; initialize/backfill them before managed dispatch. `integrity_error` marks managed metadata tamper or unrecoverable projection inconsistency; repair from local state before dispatching.
 
+Unfinished durable creation operations appear separately as pending or failed and are excluded from normal task buckets.
+
 ---
 
 ### `project_status`
@@ -327,6 +330,7 @@ One-time project setup. Creates state labels, scaffolds project directory with o
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `channelId` | string | Yes | Chat/group/channel ID where this project is managed |
+| `accountId` | string | Yes | Explicit OpenClaw channel account ID |
 | `name` | string | Yes | Short project name (e.g. `my-webapp`) |
 | `repo` | string | Yes | Path to git repo (e.g. `~/git/my-project`) |
 | `channel` | string | No | Channel type. Defaults to `telegram` |
@@ -362,17 +366,17 @@ Agent + workspace initialization.
 |---|---|---|---|
 | `newAgentName` | string | No | Create a new agent. Omit to configure current workspace. |
 | `channelBinding` | `"telegram"` \| `"whatsapp"` | No | Channel to bind to the selected or newly-created agent |
-| `channelAccountId` | string | No | Existing OpenClaw channel account id for the binding, e.g. `default` or `dev` |
-| `channelPeerId` | string | No | Exact group/topic peer id for the binding, e.g. `-1003911014709:topic:331` |
-| `migrateFrom` | string | No | Agent ID to migrate channel binding from |
+| `channelAccountId` | string | Required with `channelBinding` | Explicit OpenClaw channel account id, e.g. `default` or `dev` |
+| `channelPeerId` | string | Required with `channelBinding` | Exact group/chat/topic peer id, e.g. `-1003911014709:topic:331` |
 | `models` | object | No | Model overrides per role and level (see [Configuration](CONFIGURATION.md#role-configuration)) |
 | `projectExecution` | `"parallel"` \| `"sequential"` | No | Project execution mode |
+| `dryRun` | boolean | No | Return the setup plan without writing OpenClaw or workspace configuration |
 
 **What it does:**
 
 1. Creates a new agent or configures existing workspace
-2. Optionally creates an exact messaging binding (Telegram/WhatsApp account, group, or topic)
-3. Optionally migrates channel-wide binding from another agent
+2. Optionally creates an exact messaging binding with an explicit account and peer
+3. Grants DevClaw tools to the selected agent and explicitly denies them to other agents
 4. Writes workspace files: AGENTS.md, HEARTBEAT.md, IDENTITY.md, TOOLS.md, SOUL.md, `devclaw/projects.json`, `devclaw/workflow.yaml`
 5. Scaffolds default prompt files for all roles
 
@@ -385,6 +389,20 @@ Conversational onboarding guide. Returns step-by-step instructions for the agent
 **Source:** [`lib/tools/admin/onboard.ts`](../lib/tools/admin/onboard.ts)
 
 **Note:** Call this before `setup` to get step-by-step guidance.
+
+### CLI: `devclaw doctor`
+
+Validate persisted project routes and explicit per-agent DevClaw tool isolation:
+
+```bash
+openclaw devclaw doctor
+```
+
+The command emits stable diagnostic codes, verifies every endpoint against its exact
+`channel/accountId/channelId/threadId → agentId` binding, and exits non-zero when routing
+or tool exposure is unsafe.
+Use `--workspace /path/to/agent/workspace` when OpenClaw has no default workspace or
+when checking a different agent workspace.
 
 **Parameters:**
 
@@ -506,21 +524,26 @@ Sync GitHub/GitLab labels with the current workflow config. Creates any missing 
 
 ### `issue_repair` / `devclaw repair issue`
 
-Repair one provider projection from local issue state. The implementation is named `issue_repair`; the packaged CLI entrypoint is `devclaw repair issue`.
+Plan or apply a verified repair between local managed state and the provider projection. CLI and plugin tool call the same application service.
 
-**Source:** [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
+**Source:** [`lib/application/issues/repair.ts`](../lib/application/issues/repair.ts), [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts)
 
 ```bash
 devclaw repair issue --project my-webapp --issue 42 --source local-state --dry-run
-devclaw repair issue --project my-webapp --issue 42 --source local-state --apply
+devclaw repair issue --project my-webapp --issue 42 --source local-state --plan-token <token> --apply
 ```
 
 **Behavior:**
 
-- `--source local-state` is the only supported repair source. Provider import is intentionally unsupported because provider projection is not authoritative.
-- `--dry-run` reports missing/unexpected managed labels and metadata changes without writing.
-- `--apply` restores provider labels and managed metadata from `devclaw/projects/<project>/issues.json`, preserving unmanaged human labels.
-- Successful apply clears local `integrity_error`.
+- Dry-run is the plugin tool default and returns both snapshots, managed/unmanaged label diff, metadata diff, local diff, request estimate, warnings, and a `planToken`.
+- Apply requires the matching token and rejects a provider or local snapshot changed after planning.
+- `source: local-state` restores managed labels and metadata while preserving unmanaged labels.
+- `source: provider` strictly imports only workflow, role/level, owner, policy, and notification fields. It rejects missing or ambiguous managed projection and never changes active worker or branch state.
+- Repairs run under the issue orchestration lock, never transition workflow, and never dispatch a worker.
+- Local integrity becomes `ok` only after a fresh provider read verifies labels and metadata.
+- Known insufficient provider quota blocks apply before mutation; unavailable quota data is reported as a warning.
+
+The tool requires exactly one of `project` or `channelId`, a positive safe integer `issueId`, and an owning project agent. Unknown input fields are rejected.
 
 ---
 
@@ -528,7 +551,7 @@ devclaw repair issue --project my-webapp --issue 42 --source local-state --apply
 
 Migrate review/test policy snapshots for existing managed issues. This is for cases where project workflow config changed after issues were already created. New issues use the new project config automatically; existing issues keep their local snapshot until explicitly migrated.
 
-**Source:** [`lib/tools/issues/issue-repair.ts`](../lib/tools/issues/issue-repair.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
+**Source:** [`lib/application/issues/policy-migration.ts`](../lib/application/issues/policy-migration.ts), [`lib/tools/issues/issue-policy-migrate.ts`](../lib/tools/issues/issue-policy-migrate.ts)
 
 ```bash
 devclaw repair policies --project my-webapp --review agent --test agent --state toReview --dry-run
@@ -544,28 +567,32 @@ devclaw repair policies --project my-webapp --review agent --test agent --issue 
 
 ---
 
-### `devclaw issues cleanup`
+### `issue_delete` / `devclaw issues delete`
 
-Archive old terminal closed local issue records into inline `archive.issues`.
-
-**Source:** [`lib/tools/issues/issues-cleanup.ts`](../lib/tools/issues/issues-cleanup.ts), [`lib/cli/register.ts`](../lib/cli/register.ts)
+Safely delete one provider issue and retain a local tombstone. Preview is the default tool behavior; apply mode requires `confirmIssueId` or `--confirm-issue` to exactly match the target issue.
 
 ```bash
-devclaw issues cleanup --project my-webapp --older-than 30d
+devclaw issues delete --project my-webapp --issue 42 --dry-run
+devclaw issues delete --project my-webapp --issue 42 --confirm-issue 42 --apply
 ```
 
-**Behavior:**
+Deletion is rejected for active workers and unhealthy local state. DevClaw audits the request and provider result, confirms the issue is actually absent, writes `issues.archive.json` first, and only then removes the active record from `issues.json`.
 
-- Moves terminal closed issue records older than the retention window from `issues` to `archive.issues` inside the same `issues.json`.
-- Archives only completed terminal states such as `done` and `rejected`; closed records in non-terminal states remain active for inspection or repair.
-- Skips `integrity_error` records so they can be inspected or repaired first.
-- Does not write `issues.archive.jsonl`; that file is outside the MVP.
+### `devclaw issues archive status/purge`
+
+```bash
+devclaw issues archive status --project my-webapp
+devclaw issues archive purge --project my-webapp --dry-run
+devclaw issues archive purge --project my-webapp --apply
+```
+
+Terminal issues are archived immediately by lifecycle code; heartbeat retries interrupted transfers. Archive purge never deletes provider issues and requires an explicit mode. `devclaw issues reset-store --project my-webapp --confirm-project my-webapp` is the deliberate one-time destructive reset for the new non-legacy schema and never runs during Gateway startup.
 
 ---
 
 ### `channel_link`
 
-Link a chat/channel to a project. If the channel is already linked to a different project, the old bond is removed first (auto-detach).
+Link an exact account/chat route to a project after validating its OpenClaw binding and owning agent. Conflicting ownership is rejected.
 
 **Source:** [`lib/tools/admin/channel-link.ts`](../lib/tools/admin/channel-link.ts)
 
@@ -574,12 +601,13 @@ Link a chat/channel to a project. If the channel is already linked to a differen
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `channelId` | string | Yes | Chat/group ID to link |
+| `accountId` | string | Yes | Explicit OpenClaw channel account ID |
 | `project` | string | Yes | Project name or slug to link to |
 
 **Use cases:**
 
 - Connect a new chat to an existing project
-- Switch which project a chat controls
+- Connect another exact destination owned by the same project agent
 
 ---
 

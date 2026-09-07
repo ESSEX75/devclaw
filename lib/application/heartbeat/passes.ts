@@ -9,8 +9,11 @@ import { type Project } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getConfiguredRoleIds } from "../../state/config/index.js";
 import type { ResolvedConfig } from "../../state/config/types.js";
+import { providerKindFromProject } from "../../state/issues/index.js";
+import { maintainIssueArchive, recoverTerminalIssueArchives } from "../issues/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
+import { reconcileManagedTaskCreations } from "../tasks/index.js";
 import {
   checkWorkerHealth,
   scanOrphanedLabels,
@@ -111,6 +114,55 @@ export async function performProjectionIntegrityPass(
   return result.repaired + result.removed + result.errors;
 }
 
+/** Resume a bounded batch of durable issue creation operations before lifecycle passes run. */
+export async function performIssueCreationPass(
+  workspaceDir: string,
+  project: Project,
+  provider: IssueProvider,
+  resolvedConfig: ResolvedConfig,
+): Promise<{ ready: number; pending: number; manual: number }> {
+  const result = await reconcileManagedTaskCreations({
+    workspaceDir,
+    project,
+    providerType: providerKindFromProject(project),
+    provider,
+    workflow: resolvedConfig.workflow,
+    roles: Object.keys(resolvedConfig.roles),
+    maxItems: 20,
+  });
+
+  return { ready: result.ready.length, pending: result.pending.length, manual: result.manual.length };
+}
+
+/** Recover terminal issues left active by an interrupted archive transfer. */
+export async function performIssueArchivePass(
+  workspaceDir: string,
+  project: Pick<Project, "slug">,
+  resolvedConfig: ResolvedConfig,
+): Promise<number> {
+  const result = await recoverTerminalIssueArchives({
+    workspaceDir,
+    projectSlug: project.slug,
+    workflow: resolvedConfig.workflow,
+    maxItems: resolvedConfig.issueArchiveMaintenance.maxPerHeartbeat,
+  });
+
+  const remaining = Math.max(0, resolvedConfig.issueArchiveMaintenance.maxPerHeartbeat - result.archived.length);
+
+  if (remaining > 0) {
+    await maintainIssueArchive({
+      workspaceDir,
+      projectSlug: project.slug,
+      archiveRetention: resolvedConfig.issueArchiveMaintenance.archiveRetention,
+      deletedProviderRetention: resolvedConfig.issueArchiveMaintenance.deletedProviderRetention,
+      attachmentsRetention: resolvedConfig.issueArchiveMaintenance.attachmentsRetention,
+      maxItems: remaining,
+    });
+  }
+
+  return result.archived.length;
+}
+
 /**
  * Run review pass for a project — transition issues whose PR check condition is met.
  */
@@ -163,6 +215,7 @@ export async function performReviewPass(
               threadId: target?.threadId,
               runtime,
               accountId: target?.accountId,
+              agentId: project.agentId,
               runCommand,
             },
           ).catch(() => { });
@@ -194,6 +247,7 @@ export async function performReviewPass(
           threadId: target?.threadId,
           runtime,
           accountId: target?.accountId,
+          agentId: project.agentId,
           runCommand,
         },
       ).catch(() => { });
@@ -219,6 +273,7 @@ export async function performReviewPass(
           threadId: target?.threadId,
           runtime,
           accountId: target?.accountId,
+          agentId: project.agentId,
           runCommand,
         },
       ).catch(() => { });
@@ -277,6 +332,7 @@ export async function performReviewSkipPass(
               threadId: target?.threadId,
               runtime,
               accountId: target?.accountId,
+              agentId: project.agentId,
               runCommand,
             },
           ).catch(() => { });

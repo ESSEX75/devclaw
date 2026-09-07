@@ -22,7 +22,7 @@ const NotificationEndpointSchema = z.object({
   }),
   channel: z.enum(NOTIFICATION_CHANNEL),
   name: NonEmptyString,
-  accountId: NonEmptyString.optional(),
+  accountId: NonEmptyString,
   threadId: NonEmptyString.optional(),
 }).strict();
 
@@ -43,38 +43,45 @@ const RoleWorkerStateSchema = z.object({
 const ProjectSchema = z.object({
   slug: NonEmptyString,
   name: NonEmptyString,
+  agentId: NonEmptyString,
   repo: NonEmptyString,
   repoRemote: NonEmptyString.optional(),
   groupName: z.string(),
   deployUrl: z.string(),
   baseBranch: NonEmptyString,
   deployBranch: NonEmptyString,
-  channels: z.array(NotificationEndpointSchema).min(1).superRefine((endpoints, context) => {
-    const destinations = new Map<string, string>();
-
-    for (const [index, endpoint] of endpoints.entries()) {
-      const destination = `${endpoint.channel}\u0000${endpoint.channelId}\u0000${endpoint.threadId ?? ""}`;
-      const account = endpoint.accountId ?? "default";
-      const existingAccount = destinations.get(destination);
-
-      if (existingAccount !== undefined && existingAccount !== account) {
-        context.addIssue({
-          code: "custom",
-          path: [index, "accountId"],
-          message: `destination is already registered with accountId "${existingAccount}"`,
-        });
-      } else {
-        destinations.set(destination, account);
-      }
-    }
-  }),
+  channels: z.array(NotificationEndpointSchema).min(1),
   provider: z.enum(ISSUE_PROVIDER).optional(),
   workers: z.record(z.string(), RoleWorkerStateSchema),
 }).strict();
 
 const ProjectsDataSchema = z.object({
   projects: z.record(z.string(), ProjectSchema),
-}).strict();
+}).strict().superRefine((data, context) => {
+  const destinations = new Map<string, string>();
+
+  for (const [slug, project] of Object.entries(data.projects)) {
+    for (const [index, endpoint] of project.channels.entries()) {
+      const destination = [
+        endpoint.channel,
+        endpoint.accountId,
+        endpoint.channelId,
+        endpoint.threadId ?? "",
+      ].join("\u0000");
+      const existingProject = destinations.get(destination);
+
+      if (existingProject !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["projects", slug, "channels", index],
+          message: `destination is already registered by project "${existingProject}"`,
+        });
+      } else {
+        destinations.set(destination, slug);
+      }
+    }
+  }
+});
 
 export function parseProjectsData(value: unknown): ProjectsData {
   return ProjectsDataSchema.parse(value);

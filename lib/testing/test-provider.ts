@@ -6,6 +6,8 @@
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { DEFAULT_WORKFLOW, getStateLabels, type WorkflowConfig } from "../domain/index.js";
+import type { CreateIssueInput } from "../integrations/providers/capabilities.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../integrations/providers/lookup-errors.js";
 import type {
   Issue,
   IssueComment,
@@ -24,12 +26,7 @@ export type ProviderCall =
   | { method: "ensureAllStateLabels"; args: Record<string, never> }
   | {
     method: "createIssue";
-    args: {
-      title: string;
-      description: string;
-      label: StateLabel;
-      assignees?: string[];
-    };
+    args: CreateIssueInput;
   }
   | { method: "listIssuesByLabel"; args: { label: StateLabel } }
   | { method: "listIssues"; args: { label?: string; state?: string } }
@@ -43,6 +40,7 @@ export type ProviderCall =
   | { method: "removeLabels"; args: { issueId: number; labels: string[] } }
   | { method: "closeIssue"; args: { issueId: number } }
   | { method: "reopenIssue"; args: { issueId: number } }
+  | { method: "deleteIssue"; args: { issueId: number } }
   | { method: "getMergedMRUrl"; args: { issueId: number } }
   | { method: "getPrStatus"; args: { issueId: number } }
   | { method: "mergePr"; args: { issueId: number } }
@@ -151,22 +149,17 @@ export class TestProvider implements IssueProvider {
     }
   }
 
-  async createIssue(
-    title: string,
-    description: string,
-    label: StateLabel,
-    assignees?: string[],
-  ): Promise<Issue> {
+  async createIssue(input: CreateIssueInput): Promise<Issue> {
     this.calls.push({
       method: "createIssue",
-      args: { title, description, label, assignees },
+      args: input,
     });
     const iid = this.nextIssueId++;
     const issue: Issue = {
       iid,
-      title,
-      description,
-      labels: [label],
+      title: input.title,
+      description: input.body,
+      labels: [...input.labels],
       state: "opened",
       web_url: `https://example.com/issues/${iid}`,
     };
@@ -197,7 +190,15 @@ export class TestProvider implements IssueProvider {
     this.calls.push({ method: "getIssue", args: { issueId } });
     const issue = this.issues.get(issueId);
 
-    if (!issue) throw new Error(`Issue #${issueId} not found in TestProvider`);
+    if (!issue) {
+      throw new ProviderIssueLookupError({
+        code: PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND,
+        provider: "test",
+        retryable: false,
+        status: 404,
+        message: `Issue #${issueId} not found in TestProvider`,
+      });
+    }
 
     return issue;
   }
@@ -254,6 +255,13 @@ export class TestProvider implements IssueProvider {
     const issue = this.issues.get(issueId);
 
     if (issue) issue.state = "opened";
+  }
+
+  supportsIssueDeletion(): boolean { return true; }
+
+  async deleteIssue(issueId: number): Promise<void> {
+    this.calls.push({ method: "deleteIssue", args: { issueId } });
+    this.issues.delete(issueId);
   }
 
   async getMergedMRUrl(issueId: number): Promise<string | null> {
