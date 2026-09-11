@@ -17,7 +17,11 @@ export function emptySlot(): SlotState {
   };
 }
 
-/** Create a blank RoleWorkerState with the given per-level capacities. */
+/**
+ * Create a blank role-worker state with the configured per-level capacities.
+ *
+ * @param levelMaxWorkers - Maximum slot count keyed by resolved level identifier.
+ */
 export function emptyRoleWorkerState(
   levelMaxWorkers: Partial<Record<string, number>>,
 ): RoleWorkerState {
@@ -35,7 +39,12 @@ export function emptyRoleWorkerState(
   return { levels };
 }
 
-/** Return the lowest-index inactive slot within a specific level, or null if full. */
+/**
+ * Return the lowest-index inactive slot within a specific level, or null if full.
+ *
+ * @param roleWorker - Role-owned worker slots to inspect.
+ * @param level - Resolved level identifier whose slots should be searched.
+ */
 export function findFreeSlot(roleWorker: RoleWorkerState, level: string): number | null {
   const slots = roleWorker.levels[level];
 
@@ -52,6 +61,9 @@ export function findFreeSlot(roleWorker: RoleWorkerState, level: string): number
  * - Adds missing levels, expands short arrays, shrinks idle trailing slots.
  * Active workers are never removed — they finish naturally.
  * Mutates roleWorker in place. Returns true if any changes were made.
+ *
+ * @param roleWorker - Mutable role-owned worker state to reconcile.
+ * @param levelMaxWorkers - Desired maximum slot count keyed by level identifier.
  */
 export function reconcileSlots(
   roleWorker: RoleWorkerState,
@@ -85,8 +97,13 @@ export function reconcileSlots(
   return changed;
 }
 
-/** Find the level and slot index for a given issueId, or null if not found. */
-export function findSlotByIssue(roleWorker: RoleWorkerState, issueId: string): SlotLocation | null {
+/**
+ * Find the level and slot index for a given issue ID, or null if not found.
+ *
+ * @param roleWorker - Role-owned worker slots to inspect.
+ * @param issueId - Stable issue identifier assigned to the requested slot.
+ */
+export function findSlotByIssue(roleWorker: RoleWorkerState, issueId: number): SlotLocation | null {
   for (const [level, slots] of Object.entries(roleWorker.levels)) {
     if (slots === undefined) continue;
 
@@ -98,7 +115,11 @@ export function findSlotByIssue(roleWorker: RoleWorkerState, issueId: string): S
   return null;
 }
 
-/** Count the number of active slots across all levels. */
+/**
+ * Count the number of active slots across all levels.
+ *
+ * @param roleWorker - Role-owned worker slots to count.
+ */
 export function countActiveSlots(roleWorker: RoleWorkerState): number {
   let count = 0;
 

@@ -2,8 +2,8 @@
  * issues/types.ts — Runtime state for DevClaw-managed provider issues.
  */
 import type { ValueOf } from "../../types.js";
-import type { NotifyBindingRef } from "../notifications/types.js";
-import type { ReviewPolicy, TestPolicy } from "../workflow/types.js";
+import type { NotifyBindingRef } from "../notifications/index.js";
+import type { ReviewPolicy, TestPolicy } from "../workflow/index.js";
 import {
   ATTACHMENT_DISPOSITION,
   ISSUE_ARCHIVE_REASON,
@@ -64,16 +64,6 @@ export type IssueProjectionState = {
   projectionVersion: number;
 };
 
-/** Git branches and pull request metadata associated with the issue. */
-export type BranchContract = {
-  /** Developer's working branch name. */
-  branch?: string;
-  /** Target base branch (e.g. main/master). */
-  baseBranch?: string;
-  /** URL of the opened pull request, if any. */
-  pullRequestUrl?: string | null;
-};
-
 /** Details about the worker currently active on the issue. */
 export type ActiveIssueWorker = {
   /** The assigned worker role (e.g. developer, tester). */
@@ -103,35 +93,29 @@ export type IssueRuntimeState = IssueProjectionState & {
   /** Current display state label matching the provider label. */
   workflowLabel: string;
   /** Role currently assigned to resolve the issue. */
-  assignedRole?: string | null;
+  assignedRole: string | null;
   /** Developer level currently assigned. */
-  assignedLevel?: string | null;
+  assignedLevel: string | null;
   /** User name of the currently assigned human owner. */
-  owner?: string | null;
+  owner: string | null;
   /** Override review policy for this issue. */
-  reviewPolicy?: ReviewPolicy | null;
+  reviewPolicy: ReviewPolicy | null;
   /** Override test policy for this issue. */
-  testPolicy?: TestPolicy | null;
+  testPolicy: TestPolicy | null;
   /** Overridden notify destination for this issue. */
-  notifyTarget?: NotifyBindingRef | null;
-  /** Branch and PR references. */
-  branchContract?: BranchContract | null;
+  notifyTarget: NotifyBindingRef | null;
   /** Active session worker details. */
-  activeWorker?: ActiveIssueWorker | null;
+  activeWorker: ActiveIssueWorker | null;
   /** ISO timestamp when managed state was created. */
   createdAt: string;
   /** ISO timestamp of the last state update. */
   updatedAt: string;
   /** ISO timestamp when the issue was closed. */
-  closedAt?: string | null;
+  closedAt: string | null;
   /** Pending confirmation state when the provider no longer returns this issue. */
-  providerMissing?: ProviderMissingState | null;
-  /** Scheduled retry that keeps a failed terminal-looking state active. */
-  retryAt?: string | null;
-  /** Remaining automatic retries for a failed state. */
-  retriesRemaining?: number;
+  providerMissing: ProviderMissingState | null;
   /** Terminal notification delivery marker used for deduplication. */
-  pipelineNotification?: PipelineNotificationState | null;
+  pipelineNotification: PipelineNotificationState | null;
 };
 
 /** Audit-oriented record stored after an issue leaves active runtime state. */
@@ -160,89 +144,8 @@ export type ArchivedIssueRecord = {
   archivedAt: string;
   /** Last recorded integrity status before archive. */
   lastIntegrityStatus: IssueIntegrityStatus;
-  /** Last known branch and pull-request references. */
-  branchContract?: BranchContract | null;
   /** Current retention state of associated files. */
   attachmentDisposition: AttachmentDisposition;
   /** SHA-256 of the active runtime snapshot used to create this record. */
   sourceSnapshotHash: string;
-};
-
-/** Dedicated project-local archive store persisted in issues.archive.json. */
-export type IssueArchiveStore = {
-  /** Storage schema version. */
-  version: 1;
-  /** Project slug that owns every record. */
-  projectSlug: string;
-  /** Records keyed by stable provider/project/issue identity. */
-  issues: Record<string, ArchivedIssueRecord>;
-};
-
-/** Local filesystem state store schema for project issues. */
-export type IssueStateStore = {
-  /** Storage schema version. */
-  version: 2;
-  /** Project slug. */
-  projectSlug: string;
-  /** Active managed issues keyed by stringified issue ID. */
-  issues: Record<string, IssueRuntimeState>;
-};
-
-/** Persisted input and resolved defaults required to resume issue creation after restart. */
-export type IssueCreationInput = {
-  title: string;
-  body: string;
-  assignees: string[];
-  workflowState: string;
-  workflowLabel: string;
-  assignedRole: string | null;
-  assignedLevel: string | null;
-  owner: string | null;
-  reviewPolicy: ReviewPolicy;
-  testPolicy: TestPolicy;
-  notifyTarget: NotifyBindingRef | null;
-  provider: IssueProviderId;
-};
-
-/** Provider identity retained immediately after create succeeds. */
-export type CreatedProviderIssueRef = {
-  issueId: number;
-  url: string;
-  createdAt: string;
-};
-
-/** Last durable failure associated with a creation operation. */
-export type IssueCreationFailure = {
-  code: IssueCreationErrorCode;
-  message: string;
-  retryable: boolean;
-  retryAfter?: string;
-};
-
-/** Durable saga record that prevents incomplete provider issues from entering runtime state. */
-export type IssueCreationOperation = {
-  operationId: string;
-  idempotencyKey: string;
-  payloadHash: string;
-  projectSlug: string;
-  requestedBy: string;
-  requestedAt: string;
-  updatedAt: string;
-  status: IssueCreationStatus;
-  input: IssueCreationInput;
-  expectedLabels: string[];
-  providerIssue?: CreatedProviderIssueRef;
-  completedSteps: string[];
-  pendingSteps: string[];
-  attempts: number;
-  retryAfter?: string;
-  lastError?: IssueCreationFailure;
-  auditCorrelationId: string;
-};
-
-/** Per-project durable store of creation operations keyed by idempotency key. */
-export type IssueCreationStore = {
-  version: 1;
-  projectSlug: string;
-  operations: Record<string, IssueCreationOperation>;
 };

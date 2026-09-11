@@ -5,7 +5,13 @@
  * All role-related behavior should be derived from this config.
  */
 
-import type { CompletionEventMap, LevelId, RoleId } from "../domain/index.js";
+import type { CompletionEventMap, LevelId, RoleId, RoleLevelDefinition } from "../domain/index.js";
+
+/** Complete built-in definition of one worker capability level. */
+export type RoleLevelConfig = RoleLevelDefinition & {
+  /** Announcement emoji. */
+  emoji: string;
+};
 
 /** Configuration for a single worker role. */
 export type RoleConfig = {
@@ -13,14 +19,10 @@ export type RoleConfig = {
   id: RoleId;
   /** Human-readable display name. */
   displayName: string;
-  /** Valid levels for this role. */
-  levels: readonly LevelId[];
+  /** Complete level definitions keyed by built-in level identifier. */
+  levels: Readonly<Partial<Record<LevelId, RoleLevelConfig>>>;
   /** Default level when none specified. */
   defaultLevel: LevelId;
-  /** Default model per level. */
-  models: Partial<Record<LevelId, string>>;
-  /** Emoji per level (used in announcements). */
-  emoji: Partial<Record<LevelId, string>>;
   /** Fallback emoji when level-specific emoji not found. */
   fallbackEmoji: string;
   /** Explicit mapping from valid completion results to workflow events. */

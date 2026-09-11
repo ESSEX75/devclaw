@@ -28,7 +28,7 @@ export type HealthIssue = {
   level?: string | null;
   sessionKey?: string | null;
   hoursActive?: number;
-  issueId?: string | null;
+  issueId?: number | null;
   expectedLabel?: string;
   actualLabel?: string | null;
   slotIndex?: number;

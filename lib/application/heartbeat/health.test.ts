@@ -10,10 +10,37 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { createTestHarness, type TestHarness } from "../../testing/index.js";
-import { scanOrphanedLabels } from "./health.js";
-import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState, type ProjectsData } from "../../domain/index.js";
+import { checkWorkerHealth, scanOrphanedLabels, scanStatelessIssues } from "./health.js";
+import {
+  ISSUE_INTEGRITY_STATUS,
+  ISSUE_PROVIDER,
+  STATE_TYPE,
+  type IssueRuntimeState,
+  type WorkflowConfig,
+  WORKFLOW_EVENT,
+} from "../../domain/index.js";
 import { emptyIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
-import { writeProjects } from "../../state/projects/index.js";
+import { type ProjectsData, writeProjects } from "../../state/projects/index.js";
+
+const DESIGNER_WORKFLOW: WorkflowConfig = {
+  initial: "toDesign",
+  states: {
+    toDesign: {
+      type: STATE_TYPE.QUEUE,
+      role: "designer",
+      label: "To Design",
+      color: "#123456",
+      on: { [WORKFLOW_EVENT.PICKUP]: { target: "designing" } },
+    },
+    designing: {
+      type: STATE_TYPE.ACTIVE,
+      role: "designer",
+      label: "Designing",
+      color: "#654321",
+      on: { [WORKFLOW_EVENT.COMPLETE]: { target: "toDesign" } },
+    },
+  },
+};
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -56,7 +83,7 @@ describe("scanOrphanedLabels", () => {
                 levels: {
                   senior: [{
                     active: true,
-                    issueId: "42",
+                    issueId: 42,
                     sessionKey: "test-session",
                     startTime: new Date().toISOString(),
                     previousLabel: null,
@@ -142,6 +169,63 @@ describe("scanOrphanedLabels", () => {
   });
 });
 
+describe("custom-role health checks", () => {
+  let h: TestHarness;
+
+  afterEach(async () => {
+    if (h) await h.cleanup();
+  });
+
+  it("checks worker slots belonging to a configured custom role", async () => {
+    h = await createTestHarness({
+      workflow: DESIGNER_WORKFLOW,
+      workers: {
+        designer: {
+          level: "standard",
+          active: true,
+          issueId: 42,
+          sessionKey: null,
+          startTime: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    });
+    h.provider.seedIssue({ iid: 42, title: "Design", labels: ["Designing"] });
+
+    const fixes = await checkWorkerHealth({
+      workspaceDir: h.workspaceDir,
+      projectSlug: h.project.slug,
+      project: h.project,
+      role: "designer",
+      autoFix: false,
+      provider: h.provider,
+      sessions: null,
+      workflow: DESIGNER_WORKFLOW,
+      runCommand: h.runCommand,
+    });
+
+    assert.strictEqual(fixes.length, 1);
+    assert.strictEqual(fixes[0]!.issue.type, "session_dead");
+    assert.strictEqual(fixes[0]!.issue.level, "standard");
+  });
+
+  it("recognizes a custom role label on a stateless issue", async () => {
+    h = await createTestHarness({ workflow: DESIGNER_WORKFLOW });
+    h.provider.seedIssue({ iid: 42, title: "Design", labels: ["designer:standard"] });
+
+    const fixes = await scanStatelessIssues({
+      workspaceDir: h.workspaceDir,
+      projectSlug: h.project.slug,
+      project: h.project,
+      provider: h.provider,
+      workflow: DESIGNER_WORKFLOW,
+      autoFix: false,
+    });
+
+    assert.strictEqual(fixes.length, 1);
+    assert.strictEqual(fixes[0]!.issue.role, "designer");
+  });
+});
+
 async function seedIssueState(harness: TestHarness, workflowState: string, workflowLabel: string): Promise<void> {
   const store = emptyIssueStateStore(harness.project.slug);
   const state: IssueRuntimeState = {
@@ -152,12 +236,19 @@ async function seedIssueState(harness: TestHarness, workflowState: string, workf
     workflowLabel,
     assignedRole: "developer",
     assignedLevel: "junior",
+    owner: null,
+    reviewPolicy: null,
+    testPolicy: null,
+    notifyTarget: null,
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
     projectionVersion: 1,
     createdAt: "2026-08-23T00:00:00.000Z",
     updatedAt: "2026-08-23T00:00:00.000Z",
+    closedAt: null,
+    providerMissing: null,
+    pipelineNotification: null,
   };
 
   store.issues["42"] = state;

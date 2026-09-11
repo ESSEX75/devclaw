@@ -276,21 +276,10 @@ async function writeModelsToWorkflow(workspacePath: string, models: ModelConfig)
   // Parse as Document to preserve comments
   const doc = content ? YAML.parseDocument(content) : new YAML.Document({});
 
-  // Ensure roles section exists
-  if (!doc.has("roles")) {
-    doc.set("roles", {});
-  }
-
-  const roles = doc.getIn(["roles"], true) as unknown as YAML.YAMLMap;
-
-  // Merge models into roles section
-  for (const [role, levels] of Object.entries(models)) {
-    if (!roles.has(role)) {
-      roles.set(role, doc.createNode({ models: levels }));
-    } else {
-      const roleNode = roles.get(role, true) as unknown as YAML.YAMLMap;
-
-      roleNode.set("models", doc.createNode(levels));
+  // Merge model assignments into their structured role levels.
+  for (const [role, levelModels] of Object.entries(models)) {
+    for (const [level, model] of Object.entries(levelModels)) {
+      doc.setIn(["roles", role, "levels", level, "model"], model);
     }
   }
 

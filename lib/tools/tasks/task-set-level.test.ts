@@ -64,7 +64,10 @@ describe("detectRoleLevelFromLabels", () => {
   it("detects a configured custom role and level", () => {
     const roles = {
       security_auditor: {
-        levels: ["apprentice", "principal"],
+        levels: {
+          apprentice: { rank: 1, model: "model/apprentice" },
+          principal: { rank: 2, model: "model/principal" },
+        },
       },
     };
 

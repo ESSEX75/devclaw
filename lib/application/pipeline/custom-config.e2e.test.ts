@@ -10,6 +10,7 @@ import {
   getLabelColors,
   getOwnerLabel,
   getRoleLabels,
+  getStepRoutingLabels,
   ISSUE_PROVIDER,
   STATE_TYPE,
   type WorkflowConfig,
@@ -74,11 +75,14 @@ describe("custom configuration E2E", () => {
     await fs.writeFile(path.join(harness.workspaceDir, "devclaw", "workflow.yaml"), `
 roles:
   security_auditor:
-    levels: [apprentice, principal]
+    levels:
+      apprentice:
+        rank: 1
+        model: model/security-fast
+      principal:
+        rank: 2
+        model: model/security-deep
     defaultLevel: apprentice
-    models:
-      apprentice: model/security-fast
-      principal: model/security-deep
     completion:
       audited: COMPLETE
       blocked: BLOCKED
@@ -112,6 +116,8 @@ workflow:
 
     assert.equal(roleLabels.some((label) => label.name === `${CUSTOM_ROLE}:apprentice`), true);
     assert.equal(roleLabels.some((label) => label.name === `${CUSTOM_ROLE}:${CUSTOM_LEVEL}`), true);
+    assert.equal(roleLabels.some((label) => label.name === "review:human"), false);
+    assert.equal(getStepRoutingLabels().some((label) => label.name === "review:human"), true);
     assert.equal(getCompletionEmoji("audited"), DEFAULT_RESULT_EMOJI);
 
     await harness.provider.ensureAllStateLabels();
@@ -150,6 +156,7 @@ workflow:
     assert.equal(tick.pickups.length, 1);
     assert.equal(tick.pickups[0]?.role, CUSTOM_ROLE);
     assert.equal(tick.pickups[0]?.level, CUSTOM_LEVEL);
+    assert.equal(harness.commands.sessionPatches()[0]?.model, "model/security-deep");
     assert.match(harness.commands.extraSystemPrompts()[0] ?? "", /complete security audit/);
 
     const activeProjects = await readProjects(harness.workspaceDir);

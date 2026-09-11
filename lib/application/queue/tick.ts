@@ -19,7 +19,7 @@ import {
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
-import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
+import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/config/index.js";
 import { withIssueOrchestrationLock, writeIssueRoleLevel } from "../../state/issues/index.js";
 import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
 import { resolveRoleLevel } from "../tasks/lifecycle-decision.js";
@@ -111,7 +111,7 @@ export async function projectTick(opts: {
 
     if (!fresh) break;
 
-    const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
+    const levelMaxWorkers = getLevelMaxWorkers(resolvedConfig.roles[role]);
 
     // Check sequential role execution: any other role must be inactive
     const otherRoles = enabledRoles.filter((candidate) => candidate !== role);

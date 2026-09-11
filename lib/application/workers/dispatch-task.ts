@@ -10,7 +10,6 @@ import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import { emptySlot, ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type Project } from "../../domain/index.js";
 import {
-  detectOwner,
   hasReviewCheck,
   hasTestPhase,
   isFeedbackState,
@@ -24,7 +23,7 @@ import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { slotName } from "../../names.js";
 import { resolveModel } from "../../roles/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { withIssueOrchestrationLock, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { readIssueStateStore, withIssueOrchestrationLock, writeIssueRuntimeState } from "../../state/issues/index.js";
 import {
   activateWorker,
   getRoleWorker,
@@ -126,7 +125,7 @@ export async function dispatchTaskLocked(
 
   // Deactivated slot: preserve session if same issue is returning (feedback cycle)
   if (existingSessionKey && !slot.issueId) {
-    const isSameIssueReturn = slot.lastIssueId && String(issueId) === String(slot.lastIssueId);
+    const isSameIssueReturn = slot.lastIssueId === issueId;
 
     if (!isSameIssueReturn) {
       await rc(
@@ -230,7 +229,9 @@ export async function dispatchTaskLocked(
   const testPolicyForState = hasTestPhase(workflow)
     ? workflow.testPolicy ?? TEST_POLICY.SKIP
     : null;
-  const ownerForState = detectOwner(issue.labels) ?? opts.instanceName ?? null;
+  const issueStore = await readIssueStateStore(workspaceDir, project.slug);
+  const currentState = issueStore.issues[String(issueId)];
+  const ownerForState = currentState?.owner ?? opts.instanceName ?? null;
 
   // Step 2: Send notification early (before session dispatch which can timeout)
   // This ensures users see the notification even if gateway is slow
@@ -352,7 +353,7 @@ async function recordWorkerState(
   opts: { issueId: number; level: string; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: string; name?: string },
 ): Promise<void> {
   await activateWorker(workspaceDir, slug, role, {
-    issueId: String(opts.issueId),
+    issueId: opts.issueId,
     level: opts.level,
     sessionKey: opts.sessionKey,
     startTime: new Date().toISOString(),

@@ -12,12 +12,12 @@ import {
   ISSUE_CREATION_ERROR,
   ISSUE_CREATION_STATUS,
   ISSUE_PROVIDER,
-  type IssueCreationStore,
   NOTIFICATION_CHANNEL,
   REVIEW_POLICY,
   TEST_POLICY,
 } from "../../domain/index.js";
 import { DATA_DIR } from "../setup/paths.js";
+import type { IssueCreationStore } from "./types.js";
 
 const LOCK_TIMEOUT_MS = 10_000;
 const LOCK_RETRY_MS = 50;

@@ -9,8 +9,6 @@ import {
   ISSUE_CREATION_ERROR,
   ISSUE_CREATION_STATUS,
   ISSUE_INTEGRITY_STATUS,
-  type IssueCreationFailure,
-  type IssueCreationOperation,
   type IssueCreationStatus,
   type IssueProviderId,
   type IssueRuntimeState,
@@ -36,6 +34,7 @@ import {
   renderIssueCreationMarker,
   replaceIssueMetadata,
 } from "../../projection/index.js";
+import type { IssueCreationFailure, IssueCreationOperation } from "../../state/issues/index.js";
 import {
   newIssueCreationIdentity,
   readIssueCreationStore,
@@ -454,6 +453,9 @@ function runtimeStateFor(
     projectionVersion: 1,
     createdAt: now,
     updatedAt: now,
+    closedAt: null,
+    providerMissing: null,
+    pipelineNotification: null,
   };
 }
 

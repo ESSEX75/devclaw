@@ -17,7 +17,7 @@ function singleModelAssignment(model: string): ModelAssignment {
     const config = ROLE_REGISTRY[roleId];
 
     result[roleId] = {};
-    for (const level of config.levels) {
+    for (const level of Object.keys(config.levels)) {
       result[roleId][level] = model;
     }
   }
@@ -35,7 +35,7 @@ function buildJsonExample(): string {
     const config = ROLE_REGISTRY[roleId];
 
     obj[roleId] = {};
-    for (const level of config.levels) {
+    for (const level of Object.keys(config.levels)) {
       obj[roleId][level] = "provider/model-name";
     }
   }
@@ -59,7 +59,7 @@ function validateAssignment(
     if (!roleData) {
       // Backfill missing roles from the first available role or fallback
       result[roleId] = {};
-      for (const level of config.levels) {
+      for (const level of Object.keys(config.levels)) {
         result[roleId][level] = fallbackModel;
       }
 
@@ -67,7 +67,7 @@ function validateAssignment(
     }
 
     result[roleId] = {};
-    for (const level of config.levels) {
+    for (const level of Object.keys(config.levels)) {
       if (!roleData[level]) {
         console.error(`Missing ${roleId}.${level} in LLM assignment`);
 

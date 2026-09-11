@@ -132,7 +132,7 @@ DevClaw ships with four built-in roles, defined in `lib/roles/registry.ts`. All 
 | Reviewer | `reviewer` | junior, senior | junior | approve, reject, blocked |
 
 Roles and their levels are extensible through `workflow.yaml`. A custom role
-provides its levels, default level, models, completion mapping, and corresponding
+provides its levels, unique capability ranks, default level, models, completion mapping, and corresponding
 workflow states in configuration; it does not need an entry in `ROLE_REGISTRY`.
 Built-in roles remain registry-backed defaults and can be overridden or disabled
 entirely (`tester: false`).
@@ -732,7 +732,7 @@ Layer 2: Workspace:  <workspace>/devclaw/workflow.yaml
 Layer 3: Project:    <workspace>/devclaw/projects/<project>/workflow.yaml
 ```
 
-Each layer can override roles (levels, models, emoji), workflow states/transitions, and timeouts. Config is validated with Zod schemas at load time, with cross-reference integrity checks (transition targets exist, queue states have roles, terminal states have no outgoing transitions).
+Each layer can override structured role levels (rank, model, capacity, and emoji), workflow states/transitions, and timeouts. Config is validated with Zod schemas at load time, with cross-reference integrity checks (every active level has a unique positive rank and model, transition targets exist, queue states have roles, terminal states have no outgoing transitions).
 
 See [CONFIGURATION.md](CONFIGURATION.md) for the full reference.
 

@@ -17,6 +17,8 @@ import type { HealthFix } from "./types.js";
 
 /**
  * Scan for open, DevClaw-managed issues that have lost their state label.
+ *
+ * @param opts - Project, provider, workflow, and repair behavior for the scan.
  */
 export async function scanStatelessIssues(opts: {
   workspaceDir: string;
@@ -32,6 +34,11 @@ export async function scanStatelessIssues(opts: {
 
   const fixes: HealthFix[] = [];
   const stateLabels = new Set<string>(getStateLabels(workflow));
+  const workflowRoles = [...new Set(
+    Object.values(workflow.states)
+      .map((state) => state.role)
+      .filter((role): role is string => role !== undefined),
+  )];
   const store = await readIssueStateStore(workspaceDir, projectSlug);
 
   let allOpenIssues;
@@ -47,13 +54,20 @@ export async function scanStatelessIssues(opts: {
 
     if (hasStateLabel) continue;
 
-    const hasWorkflowLabels = issue.labels.some((l) =>
-      l.startsWith("developer:") || l.startsWith("tester:") || l.startsWith("reviewer:") ||
-      l.startsWith("architect:") || l.startsWith("review:") || l.startsWith("test:") ||
-      l.startsWith("owner:") || l.startsWith("notify:"),
+    const projectedRole = workflowRoles.find((role) =>
+      issue.labels.some((label) => label.startsWith(`${role}:`)),
+    );
+
+    const hasWorkflowLabels = projectedRole !== undefined || issue.labels.some((label) =>
+      label.startsWith("review:")
+      || label.startsWith("test:")
+      || label.startsWith("owner:")
+      || label.startsWith("notify:"),
     );
 
     if (!hasWorkflowLabels) continue;
+    // Provider ownership is only a diagnostic scoping hint here because no
+    // authoritative local runtime state may exist for this issue.
     if (instanceName && !isOwnedByOrUnclaimed(issue.labels, instanceName)) continue;
     const localState = store.issues[String(issue.iid)];
     const expectedLabel = localState?.workflowLabel ?? null;
@@ -64,8 +78,8 @@ export async function scanStatelessIssues(opts: {
         severity: "critical",
         project: project.name,
         projectSlug,
-        role: "developer",
-        issueId: String(issue.iid),
+        role: projectedRole ?? "developer",
+        issueId: issue.iid,
         expectedLabel,
         actualLabel: null,
         message: `Issue #${issue.iid} has no state label — invisible to queue scanner. Labels: [${issue.labels.join(", ")}]`,

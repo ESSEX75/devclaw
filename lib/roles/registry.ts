@@ -18,18 +18,12 @@ export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {
   developer: {
     id: "developer",
     displayName: "DEVELOPER",
-    levels: ["junior", "medior", "senior"],
+    levels: {
+      junior: { rank: 1, model: "anthropic/claude-haiku-4-5", emoji: "⚡" },
+      medior: { rank: 2, model: "anthropic/claude-sonnet-4-5", emoji: "🔧" },
+      senior: { rank: 3, model: "anthropic/claude-opus-4-6", emoji: "🧠" },
+    },
     defaultLevel: "medior",
-    models: {
-      junior: "anthropic/claude-haiku-4-5",
-      medior: "anthropic/claude-sonnet-4-5",
-      senior: "anthropic/claude-opus-4-6",
-    },
-    emoji: {
-      junior: "⚡",
-      medior: "🔧",
-      senior: "🧠",
-    },
     fallbackEmoji: "🔧",
     completion: {
       [COMPLETION_RESULT.DONE]: WORKFLOW_EVENT.COMPLETE,
@@ -42,18 +36,12 @@ export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {
   tester: {
     id: "tester",
     displayName: "TESTER",
-    levels: ["junior", "medior", "senior"],
+    levels: {
+      junior: { rank: 1, model: "anthropic/claude-haiku-4-5", emoji: "⚡" },
+      medior: { rank: 2, model: "anthropic/claude-sonnet-4-5", emoji: "🔍" },
+      senior: { rank: 3, model: "anthropic/claude-opus-4-6", emoji: "🧠" },
+    },
     defaultLevel: "medior",
-    models: {
-      junior: "anthropic/claude-haiku-4-5",
-      medior: "anthropic/claude-sonnet-4-5",
-      senior: "anthropic/claude-opus-4-6",
-    },
-    emoji: {
-      junior: "⚡",
-      medior: "🔍",
-      senior: "🧠",
-    },
     fallbackEmoji: "🔍",
     completion: {
       [COMPLETION_RESULT.PASS]: WORKFLOW_EVENT.PASS,
@@ -68,16 +56,11 @@ export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {
   architect: {
     id: "architect",
     displayName: "ARCHITECT",
-    levels: ["junior", "senior"],
+    levels: {
+      junior: { rank: 1, model: "anthropic/claude-sonnet-4-5", emoji: "📐" },
+      senior: { rank: 2, model: "anthropic/claude-opus-4-6", emoji: "🏗️" },
+    },
     defaultLevel: "junior",
-    models: {
-      junior: "anthropic/claude-sonnet-4-5",
-      senior: "anthropic/claude-opus-4-6",
-    },
-    emoji: {
-      junior: "📐",
-      senior: "🏗️",
-    },
     fallbackEmoji: "🏗️",
     completion: {
       [COMPLETION_RESULT.DONE]: WORKFLOW_EVENT.COMPLETE,
@@ -90,16 +73,11 @@ export const ROLE_REGISTRY: Record<RoleId, RoleConfig> = {
   reviewer: {
     id: "reviewer",
     displayName: "REVIEWER",
-    levels: ["junior", "senior"],
+    levels: {
+      junior: { rank: 1, model: "anthropic/claude-haiku-4-5", emoji: "👁️" },
+      senior: { rank: 2, model: "anthropic/claude-sonnet-4-5", emoji: "🔬" },
+    },
     defaultLevel: "junior",
-    models: {
-      junior: "anthropic/claude-haiku-4-5",
-      senior: "anthropic/claude-sonnet-4-5",
-    },
-    emoji: {
-      junior: "👁️",
-      senior: "🔬",
-    },
     fallbackEmoji: "👁️",
     completion: {
       [COMPLETION_RESULT.APPROVE]: WORKFLOW_EVENT.APPROVE,

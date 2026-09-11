@@ -46,12 +46,14 @@ export function requireRole(role: string): RoleConfig {
 
 /** Get valid levels for a role. */
 export function getLevelsForRole(role: string): readonly LevelId[] {
-  return getRole(role)?.levels ?? [];
+  const levels = getRole(role)?.levels;
+
+  return levels ? Object.keys(levels).filter(isBuiltInLevelId) : [];
 }
 
 /** Get all levels across all roles. */
 export function getAllLevels(): LevelId[] {
-  return Object.values(ROLE_REGISTRY).flatMap(r => [...r.levels]);
+  return getAllRoleIds().flatMap((role) => [...getLevelsForRole(role)]);
 }
 
 /** Check if a level belongs to a specific role. */
@@ -64,7 +66,7 @@ export function roleForLevel(level: string): RoleId | undefined {
   if (!isBuiltInLevelId(level)) return undefined;
 
   for (const roleId of getAllRoleIds()) {
-    if (ROLE_REGISTRY[roleId].levels.includes(level)) return roleId;
+    if (getLevelsForRole(roleId).includes(level)) return roleId;
   }
 
   return undefined;
@@ -89,7 +91,7 @@ export function getDefaultLevel(role: string): LevelId | undefined {
 
 /** Get default model for a role + level. */
 export function getDefaultModel(role: string, level: string): string | undefined {
-  return isBuiltInLevelId(level) ? getRole(role)?.models[level] : undefined;
+  return isBuiltInLevelId(level) ? getRole(role)?.levels[level]?.model : undefined;
 }
 
 /** Get all default models, nested by role (for config schema). */
@@ -99,7 +101,13 @@ export function getAllDefaultModels(): Record<string, Record<string, string>> {
   for (const roleId of getAllRoleIds()) {
     const config = ROLE_REGISTRY[roleId];
 
-    result[roleId] = { ...config.models };
+    result[roleId] = {};
+
+    for (const level of getLevelsForRole(roleId)) {
+      const model = config.levels[level]?.model;
+
+      if (model) result[roleId][level] = model;
+    }
   }
 
   return result;
@@ -118,12 +126,13 @@ export function resolveModel(
   level: string,
   resolvedRole?: ResolvedRoleConfig,
 ): string {
+  const configuredModel = resolvedRole?.levels[level]?.model;
+
+  if (configuredModel) return configuredModel;
+
   const canonical = canonicalLevel(role, level);
 
-  // 1. Resolved config (workflow.yaml — includes workspace + project overrides)
-  if (canonical && resolvedRole?.models[canonical]) return resolvedRole.models[canonical];
-
-  // 2. Built-in registry default
+  // Built-in registry default, then passthrough for raw model IDs.
   return canonical ? getDefaultModel(role, canonical) ?? canonical : level;
 }
 
@@ -133,7 +142,7 @@ export function resolveModel(
 
 /** Get emoji for a role + level. */
 export function getEmoji(role: string, level: string): string | undefined {
-  return isBuiltInLevelId(level) ? getRole(role)?.emoji[level] : undefined;
+  return isBuiltInLevelId(level) ? getRole(role)?.levels[level]?.emoji : undefined;
 }
 
 /** Get fallback emoji for a role. */

@@ -8,6 +8,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {
+  DEFAULT_WORKFLOW,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   PIPELINE_NOTIFICATION_STATUS,
@@ -24,6 +25,7 @@ import {
   reservePipelineNotification,
   updateIssueStateStore,
   writeIssueRoleLevel,
+  writeIssueRuntimeState,
   writeIssueStateStore,
 } from "./index.js";
 
@@ -40,7 +42,6 @@ function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     reviewPolicy: "human",
     testPolicy: "skip",
     notifyTarget: null,
-    branchContract: null,
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
@@ -48,6 +49,8 @@ function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,
+    providerMissing: null,
+    pipelineNotification: null,
     ...overrides,
   };
 }
@@ -87,6 +90,38 @@ describe("issue state store", () => {
     }
   });
 
+  it("normalizes removed fields and missing nullable values from persisted runtime state", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
+    try {
+      const filePath = issueStatePath(tmpDir, "devclaw");
+      const persistedIssue: Record<string, unknown> = {
+        ...issue(),
+        branchContract: { branch: "feature/123" },
+        retryAt: "2026-06-23T00:00:00.000Z",
+        retriesRemaining: 1,
+      };
+
+      delete persistedIssue.owner;
+      delete persistedIssue.pipelineNotification;
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, JSON.stringify({
+        version: 2,
+        projectSlug: "devclaw",
+        issues: { "123": persistedIssue },
+      }), "utf-8");
+
+      const state = (await readIssueStateStore(tmpDir, "devclaw")).issues["123"]!;
+
+      assert.strictEqual(state.owner, null);
+      assert.strictEqual(state.pipelineNotification, null);
+      assert.strictEqual("branchContract" in state, false);
+      assert.strictEqual("retryAt" in state, false);
+      assert.strictEqual("retriesRemaining" in state, false);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
   it("writes issue state and preserves projectSlug", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
     try {
@@ -99,6 +134,36 @@ describe("issue state store", () => {
       assert.strictEqual(loaded.projectSlug, "devclaw");
       assert.strictEqual(loaded.issues["123"]!.projectSlug, "devclaw");
       assert.strictEqual(loaded.issues["123"]!.workflowLabel, "To Do");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("preserves local semantic state when provider projection labels drift", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
+
+    try {
+      const store = emptyIssueStateStore("devclaw");
+
+      store.issues["123"] = issue();
+      await writeIssueStateStore(tmpDir, "devclaw", store);
+
+      const updated = await writeIssueRuntimeState({
+        workspaceDir: tmpDir,
+        project: { slug: "devclaw", channels: [] },
+        issue: {
+          iid: 123,
+          labels: ["To Do", "tester:junior", "review:agent", "test:agent"],
+          state: "open",
+        },
+        providerType: ISSUE_PROVIDER.GITHUB,
+        workflow: DEFAULT_WORKFLOW,
+      });
+
+      assert.strictEqual(updated.assignedRole, "developer");
+      assert.strictEqual(updated.assignedLevel, "medior");
+      assert.strictEqual(updated.reviewPolicy, "human");
+      assert.strictEqual(updated.testPolicy, "skip");
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }

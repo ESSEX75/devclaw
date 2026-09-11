@@ -31,10 +31,12 @@ import { deleteManagedIssue } from "./delete.js";
 function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug: "devclaw", issueId: 42, provider: ISSUE_PROVIDER.GITHUB,
-    workflowState: "done", workflowLabel: "Done", activeWorker: null,
+    workflowState: "done", workflowLabel: "Done", assignedRole: null, assignedLevel: null,
+    owner: null, reviewPolicy: null, testPolicy: null, notifyTarget: null, activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK, integrityErrors: [], projectionVersion: 1,
     createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
-    closedAt: "2026-01-01T00:00:00.000Z", ...overrides,
+    closedAt: "2026-01-01T00:00:00.000Z", providerMissing: null, pipelineNotification: null,
+    ...overrides,
   };
 }
 
@@ -93,10 +95,10 @@ describe("managed issue archive", () => {
     });
   });
 
-  it("keeps failed issues active while a retry remains", async () => {
+  it("archives failed terminal issues without an unimplemented retry state", async () => {
     await withIssueStore(async (workspaceDir) => {
       const active = await readIssueStateStore(workspaceDir, "devclaw");
-      active.issues["42"] = issue({ workflowState: "failed", workflowLabel: "Failed", retriesRemaining: 1 });
+      active.issues["42"] = issue({ workflowState: "failed", workflowLabel: "Failed" });
       await writeIssueStateStore(workspaceDir, "devclaw", active);
       const result = await recoverTerminalIssueArchives({
         workspaceDir, projectSlug: "devclaw", workflow: {
@@ -104,8 +106,8 @@ describe("managed issue archive", () => {
           states: { ...DEFAULT_WORKFLOW.states, failed: { type: "terminal", label: "Failed", color: "#000000" } },
         }, maxItems: 10,
       });
-      assert.deepEqual(result.skipped, [{ issueId: 42, reason: "retry_pending" }]);
-      assert.ok((await readIssueStateStore(workspaceDir, "devclaw")).issues["42"]);
+      assert.deepEqual(result.archived, [42]);
+      assert.equal((await readIssueStateStore(workspaceDir, "devclaw")).issues["42"], undefined);
     });
   });
 

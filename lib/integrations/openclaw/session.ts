@@ -19,7 +19,7 @@ import { fetchGatewaySessions } from "./gateway-sessions.js";
  */
 export async function shouldClearSession(
   sessionKey: string,
-  slotIssueId: string | null,
+  slotIssueId: number | null,
   newIssueId: number,
   timeouts: ResolvedTimeouts,
   workspaceDir: string,
@@ -27,7 +27,7 @@ export async function shouldClearSession(
   runCommand: RunCommand,
 ): Promise<boolean> {
   // Don't clear if re-dispatching for the same issue (feedback cycle)
-  if (slotIssueId && String(newIssueId) === String(slotIssueId)) {
+  if (slotIssueId === newIssueId) {
     return false;
   }
 

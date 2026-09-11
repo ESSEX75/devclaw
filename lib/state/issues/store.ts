@@ -13,55 +13,49 @@ import {
   ISSUE_ARCHIVE_REASON,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
-  type IssueArchiveStore,
   type IssueRuntimeState,
-  type IssueStateStore,
   NOTIFICATION_CHANNEL,
   PIPELINE_NOTIFICATION_STATUS,
   REVIEW_POLICY,
   TEST_POLICY,
 } from "../../domain/index.js";
 import { DATA_DIR } from "../setup/paths.js";
+import type { IssueArchiveStore, IssueStateStore } from "./types.js";
 
 const LOCK_STALE_MS = 30_000;
 const LOCK_RETRY_MS = 50;
 const LOCK_TIMEOUT_MS = 10_000;
 
-const BranchContractSchema = z.object({
-  branch: z.string().optional(), baseBranch: z.string().optional(), pullRequestUrl: z.string().nullable().optional(),
-}).strict();
-const RuntimeIssueSchema = z.object({
+const RuntimeIssueSchema = z.preprocess(normalizeRuntimeIssue, z.object({
   projectSlug: z.string(), issueId: z.number().int().positive(), provider: z.enum(ISSUE_PROVIDER),
   creationOperationId: z.string().uuid().optional(),
-  workflowState: z.string(), workflowLabel: z.string(), assignedRole: z.string().nullable().optional(),
-  assignedLevel: z.string().nullable().optional(), owner: z.string().nullable().optional(),
-  reviewPolicy: z.enum(REVIEW_POLICY).nullable().optional(), testPolicy: z.enum(TEST_POLICY).nullable().optional(),
-  notifyTarget: z.object({ channel: z.enum(NOTIFICATION_CHANNEL), name: z.string() }).strict().nullable().optional(),
-  branchContract: BranchContractSchema.nullable().optional(),
+  workflowState: z.string(), workflowLabel: z.string(), assignedRole: z.string().nullable(),
+  assignedLevel: z.string().nullable(), owner: z.string().nullable(),
+  reviewPolicy: z.enum(REVIEW_POLICY).nullable(), testPolicy: z.enum(TEST_POLICY).nullable(),
+  notifyTarget: z.object({ channel: z.enum(NOTIFICATION_CHANNEL), name: z.string() }).strict().nullable(),
   activeWorker: z.object({
     role: z.string(), level: z.string(), slotIndex: z.number().int().nonnegative(),
     sessionKey: z.string().nullable(), startedAt: z.string(),
-  }).strict().nullable().optional(),
+  }).strict().nullable(),
   integrityStatus: z.enum(ISSUE_INTEGRITY_STATUS), integrityErrors: z.array(z.string()),
   projectionVersion: z.number().int().positive(), createdAt: z.string(), updatedAt: z.string(),
-  closedAt: z.string().nullable().optional(),
-  providerMissing: z.object({ confirmations: z.number().int().positive(), firstConfirmedAt: z.string(), lastConfirmedAt: z.string() }).strict().nullable().optional(),
-  retryAt: z.string().nullable().optional(), retriesRemaining: z.number().int().nonnegative().optional(),
+  closedAt: z.string().nullable(),
+  providerMissing: z.object({ confirmations: z.number().int().positive(), firstConfirmedAt: z.string(), lastConfirmedAt: z.string() }).strict().nullable(),
   pipelineNotification: z.object({
     eventKey: z.string(), status: z.enum(PIPELINE_NOTIFICATION_STATUS),
     attemptedAt: z.string(), deliveredAt: z.string().optional(),
-  }).strict().nullable().optional(),
-}).strict();
+  }).strict().nullable(),
+}).strict());
 const IssueStateStoreSchema = z.object({ version: z.literal(2), projectSlug: z.string(), issues: z.record(z.string(), RuntimeIssueSchema) }).strict();
-const ArchivedIssueSchema = z.object({
+const ArchivedIssueSchema = z.preprocess(normalizeArchivedIssue, z.object({
   projectSlug: z.string(), issueId: z.number().int().positive(), provider: z.enum(ISSUE_PROVIDER),
   title: z.string().optional(), issueUrl: z.string().optional(), finalWorkflowState: z.string(),
   finalWorkflowLabel: z.string().optional(), archiveReason: z.enum(ISSUE_ARCHIVE_REASON),
   closedAt: z.string().nullable().optional(), providerDeletedAt: z.string().nullable().optional(),
   archivedAt: z.string(), lastIntegrityStatus: z.enum(ISSUE_INTEGRITY_STATUS),
-  branchContract: BranchContractSchema.nullable().optional(), attachmentDisposition: z.enum(ATTACHMENT_DISPOSITION),
+  attachmentDisposition: z.enum(ATTACHMENT_DISPOSITION),
   sourceSnapshotHash: z.string().regex(/^[0-9a-f]{64}$/),
-}).strict();
+}).strict());
 const IssueArchiveStoreSchema = z.object({ version: z.literal(1), projectSlug: z.string(), issues: z.record(z.string(), ArchivedIssueSchema) }).strict();
 
 /** Resolve the active issue state file for a project. */
@@ -194,6 +188,41 @@ function validateProjectStore<T>(data: unknown, projectSlug: string, schema: z.Z
 
 function hasProjectSlug(value: unknown): value is { projectSlug: string } {
   return typeof value === "object" && value !== null && "projectSlug" in value && typeof value.projectSlug === "string";
+}
+
+function normalizeRuntimeIssue(value: unknown): unknown {
+  if (!isObjectRecord(value)) return value;
+  const normalized = { ...value };
+
+  delete normalized.branchContract;
+  delete normalized.retryAt;
+  delete normalized.retriesRemaining;
+
+  normalized.assignedRole ??= null;
+  normalized.assignedLevel ??= null;
+  normalized.owner ??= null;
+  normalized.reviewPolicy ??= null;
+  normalized.testPolicy ??= null;
+  normalized.notifyTarget ??= null;
+  normalized.activeWorker ??= null;
+  normalized.closedAt ??= null;
+  normalized.providerMissing ??= null;
+  normalized.pipelineNotification ??= null;
+
+  return normalized;
+}
+
+function normalizeArchivedIssue(value: unknown): unknown {
+  if (!isObjectRecord(value)) return value;
+  const normalized = { ...value };
+
+  delete normalized.branchContract;
+
+  return normalized;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function writeJsonAtomic(filePath: string, data: unknown): Promise<void> {

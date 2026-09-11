@@ -1,7 +1,7 @@
 /**
  * project_register — Register a new project with DevClaw.
  *
- * Atomically: validates repo, detects GitHub/GitLab provider, creates all 8 state labels (idempotent),
+ * Atomically validates the repository, detects its provider, ensures configured labels,
  * adds project entry to projects.json, and logs the event.
  *
  * Replaces the manual steps of running glab/gh label create + editing projects.json.
@@ -20,6 +20,8 @@ import type { PluginContext } from "../../context.js";
 import {
   emptyRoleWorkerState,
   getRoleLabels,
+  getStateLabels,
+  getStepRoutingLabels,
   isNotificationChannel,
   ISSUE_PROVIDER,
   NOTIFICATION_CHANNEL,
@@ -27,7 +29,7 @@ import {
   type RoleWorkerState,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
+import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/config/index.js";
 import {
   parseNotificationEndpoint,
   readProjects,
@@ -94,8 +96,9 @@ Example — override model for senior developer:
 \`\`\`yaml
 roles:
   developer:
-    models:
-      senior: claude-sonnet-4-5-20250514
+    levels:
+      senior:
+        model: claude-sonnet-4-5-20250514
 \`\`\`
 
 Call \`workflow_guide\` for the full config reference.
@@ -105,6 +108,11 @@ Call \`workflow_guide\` for the full config reference.
   }
 }
 
+/**
+ * Create the OpenClaw adapter for project registration and label provisioning.
+ *
+ * @param ctx - Plugin services used for commands, provider access, and audit logging.
+ */
 export function createProjectRegisterTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "project_register",
@@ -140,10 +148,6 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           description:
             "Optional thread/topic ID for forum-style channels, e.g. Telegram topic ID.",
         },
-        groupName: {
-          type: "string",
-          description: "Group display name (optional - defaults to 'Project: {name}')",
-        },
         baseBranch: {
           type: "string",
           description: "Base branch for development (e.g. 'development', 'main')",
@@ -151,10 +155,6 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         deployBranch: {
           type: "string",
           description: "Branch that triggers deployment. Defaults to baseBranch.",
-        },
-        deployUrl: {
-          type: "string",
-          description: "Deployment URL for the project",
         },
       },
     },
@@ -174,10 +174,8 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       const threadId = typeof params.threadId === "string" && params.threadId.trim()
         ? params.threadId.trim()
         : undefined;
-      const groupName = (params.groupName as string) ?? `Project: ${name}`;
       const baseBranch = params.baseBranch as string;
       const deployBranch = (params.deployBranch as string) ?? baseBranch;
-      const deployUrl = (params.deployUrl as string) ?? "";
       const workspaceDir = toolCtx.workspaceDir;
       const agentId = toolCtx.agentId;
 
@@ -261,26 +259,16 @@ export function createProjectRegisterTool(ctx: PluginContext) {
 
       // 4b. Create role:level + step routing labels (e.g. developer:junior, review:human, test:skip)
       const roleLabels = getRoleLabels(resolvedConfig.roles);
+      const routingLabels = getStepRoutingLabels();
+      const labelsCreated = getStateLabels(resolvedConfig.workflow).length
+        + roleLabels.length
+        + routingLabels.length;
 
-      for (const { name: labelName, color } of roleLabels) {
+      for (const { name: labelName, color } of [...roleLabels, ...routingLabels]) {
         await provider.ensureLabel(labelName, color);
       }
 
-      // 5. Auto-detect repoRemote from git
-      let repoRemote: string | undefined;
-
-      try {
-        const result = await ctx.runCommand(["git", "remote", "get-url", "origin"], {
-          timeoutMs: 5_000,
-          cwd: repoPath,
-        });
-
-        repoRemote = result.stdout.trim() || undefined;
-      } catch {
-        repoRemote = undefined;
-      }
-
-      // 6. Add or update project in projects.json
+      // 5. Add or update project in projects.json
       if (existing) {
         // Add channel to existing project
         const newChannel: NotificationEndpoint = parseNotificationEndpoint({
@@ -292,15 +280,12 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         });
 
         existing.channels.push(newChannel);
-        if (repoRemote && !existing.repoRemote) {
-          existing.repoRemote = repoRemote;
-        }
       } else {
-        // Create new project - get levelMaxWorkers from resolved config (already loaded above)
-  const workers: Record<string, RoleWorkerState> = {};
+        // Create new project with slots derived from resolved level capacities.
+        const workers: Record<string, RoleWorkerState> = {};
 
         for (const role of getConfiguredRoleIds(resolvedConfig)) {
-          const levelMaxWorkers = resolvedConfig.roles[role]?.levelMaxWorkers ?? {};
+          const levelMaxWorkers = getLevelMaxWorkers(resolvedConfig.roles[role]);
 
           workers[role] = emptyRoleWorkerState(levelMaxWorkers);
         }
@@ -318,9 +303,6 @@ export function createProjectRegisterTool(ctx: PluginContext) {
           name,
           agentId,
           repo,
-          repoRemote,
-          groupName,
-          deployUrl,
           baseBranch,
           deployBranch,
           channels: [newChannel],
@@ -331,14 +313,14 @@ export function createProjectRegisterTool(ctx: PluginContext) {
 
       await writeProjects(workspaceDir, data);
 
-      // 7. Scaffold prompt files
+      // 6. Scaffold prompt files
       const promptsCreated = await scaffoldPromptFiles(
         workspaceDir,
         name,
         getConfiguredRoleIds(resolvedConfig),
       );
 
-      // 8. Audit log
+      // 7. Audit log
       await auditLog(workspaceDir, "project_register", {
         project: name,
         projectSlug: slug,
@@ -347,14 +329,12 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         agentId,
         threadId,
         repo,
-        repoRemote: repoRemote || null,
         baseBranch,
         deployBranch,
-        deployUrl: deployUrl || null,
         isNewProject: !existing,
       });
 
-      // 9. Return announcement
+      // 8. Return announcement
       const promptsNote = promptsCreated ? " Prompt files scaffolded." : "";
       const action = existing ? `Channel added to existing project` : `Project "${name}" created`;
       const announcement = `${action}. Labels ensured.${promptsNote} Ready for tasks.`;
@@ -375,10 +355,9 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         channelId,
         threadId,
         repo,
-        repoRemote: repoRemote || null,
         baseBranch,
         deployBranch,
-        labelsCreated: 10,
+        labelsCreated,
         promptsScaffolded: promptsCreated,
         isNewProject: !existing,
         activeWorkflow,

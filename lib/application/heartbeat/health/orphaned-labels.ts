@@ -68,19 +68,26 @@ export async function scanOrphanedLabels(opts: {
     return fixes;
   }
 
-  const ownedIssues = instanceName
-    ? issuesWithLabel.filter((i) => isOwnedByOrUnclaimed(i.labels, instanceName))
-    : issuesWithLabel;
+  const ownedIssues = issuesWithLabel.filter((issue) => {
+    const localState = issueStore.issues[String(issue.iid)];
+
+    if (!instanceName) return true;
+    if (!localState) {
+      // Without local state, the provider label is only a diagnostic scoping hint;
+      // this scan never imports it into runtime state.
+      return isOwnedByOrUnclaimed(issue.labels, instanceName);
+    }
+
+    return localState.owner == null || localState.owner === instanceName;
+  });
 
   for (const issue of ownedIssues) {
-    const issueIdStr = String(issue.iid);
-
     let isTracked = false;
 
     for (const slots of Object.values(roleWorker.levels)) {
       if (slots === undefined) continue;
 
-      if (slots.some(slot => slot.active && slot.issueId === issueIdStr)) {
+      if (slots.some(slot => slot.active && slot.issueId === issue.iid)) {
         isTracked = true;
         break;
       }
@@ -94,7 +101,7 @@ export async function scanOrphanedLabels(opts: {
           project: project.name,
           projectSlug,
           role,
-          issueId: issueIdStr,
+          issueId: issue.iid,
           expectedLabel: queueLabel,
           actualLabel: activeLabel,
           message: `Issue #${issue.iid} has "${activeLabel}" label but no ${role.toUpperCase()} slot is tracking it`,

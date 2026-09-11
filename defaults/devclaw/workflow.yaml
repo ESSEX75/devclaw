@@ -1,7 +1,7 @@
 # DevClaw workflow configuration
 #
 # This file is YOUR configuration — DevClaw will never overwrite it on restart.
-# Edit freely: roles, models, timeouts, reviewPolicy, testPolicy, states, etc.
+# Edit freely: role levels, models, timeouts, reviewPolicy, testPolicy, states, etc.
 # Copy to devclaw/projects/<project>/workflow.yaml for project-specific overrides.
 #
 # To see what changed in a new version: config({ action: "diff" })
@@ -9,8 +9,8 @@
 #
 # Role, level, and state identifiers may be extended. Identifiers must start
 # with a letter and contain only letters, numbers, underscores, or hyphens.
-# A custom role requires levels, defaultLevel, a model for every level, at
-# least one completion mapping, a role prompt, and queue/active states that
+# A custom role requires a positive rank and model in every level definition,
+# defaultLevel, at least one completion mapping, a role prompt, and queue/active states that
 # place it at the intended position in the workflow graph.
 #
 # State overrides are sparse and merge by state key. New states must provide a
@@ -21,34 +21,44 @@
 
 roles:
   developer:
-    models:
-      junior: anthropic/claude-haiku-4-5
-      medior: anthropic/claude-sonnet-4-5
-      senior: anthropic/claude-opus-4-6
+    levels:
+      junior:
+        model: anthropic/claude-haiku-4-5
+      medior:
+        model: anthropic/claude-sonnet-4-5
+      senior:
+        model: anthropic/claude-opus-4-6
     completion:
       done: COMPLETE
       blocked: BLOCKED
   tester:
-    models:
-      junior: anthropic/claude-haiku-4-5
-      medior: anthropic/claude-sonnet-4-5
-      senior: anthropic/claude-opus-4-6
+    levels:
+      junior:
+        model: anthropic/claude-haiku-4-5
+      medior:
+        model: anthropic/claude-sonnet-4-5
+      senior:
+        model: anthropic/claude-opus-4-6
     completion:
       pass: PASS
       fail: FAIL
       refine: REFINE
       blocked: BLOCKED
   architect:
-    models:
-      junior: anthropic/claude-sonnet-4-5
-      senior: anthropic/claude-opus-4-6
+    levels:
+      junior:
+        model: anthropic/claude-sonnet-4-5
+      senior:
+        model: anthropic/claude-opus-4-6
     completion:
       done: COMPLETE
       blocked: BLOCKED
   reviewer:
-    models:
-      junior: anthropic/claude-haiku-4-5
-      senior: anthropic/claude-sonnet-4-5
+    levels:
+      junior:
+        model: anthropic/claude-haiku-4-5
+      senior:
+        model: anthropic/claude-sonnet-4-5
     completion:
       approve: APPROVE
       reject: REJECT
@@ -59,7 +69,7 @@ workflow:
   maxWorkersPerLevel: 2
   # maxWorkersPerLevel: 2 — each level (junior/medior/senior) gets up to this many parallel slots.
   # With 3 levels × 2 slots = 6 workers per role in parallel per project at full capacity.
-  # Override per-model with object syntax: senior: { model: anthropic/claude-opus-4-6, maxWorkers: 3 }
+  # Override per level: senior: { model: anthropic/claude-opus-4-6, maxWorkers: 3 }
   reviewPolicy: human # Options: human (default), agent, skip
   # human — All PRs need human approval on GitHub/GitLab. Heartbeat auto-merges when approved.
   # agent — Agent reviewer checks every PR before merge.

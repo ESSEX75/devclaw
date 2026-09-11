@@ -4,9 +4,8 @@
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
-import type { ProjectsData } from "../../domain/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { readProjects } from "../../state/projects/index.js";
+import { type ProjectsData, readProjects } from "../../state/projects/index.js";
 import { getIssueArchiveStatus, parseDuration } from "../issues/index.js";
 import { DEVCLAW_AGENT_TOOLS } from "../setup/plugin-config.js";
 import { inspectConfiguredProjectRoutes } from "../setup/route-validation.js";

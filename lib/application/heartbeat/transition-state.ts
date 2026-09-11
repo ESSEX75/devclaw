@@ -4,8 +4,6 @@
 import {
   getStateLabels,
   ISSUE_ARCHIVE_REASON,
-  ISSUE_PROVIDER,
-  type IssueProviderId,
   type Project,
   STATE_TYPE,
   type WorkflowConfig,
@@ -62,7 +60,7 @@ export async function transitionHeartbeatIssue(opts: {
         correlationId: `terminal:${opts.project.slug}:${opts.issueId}:${opts.workflowState}`,
       });
 
-      if (!archived.archived && archived.reason !== "retry_pending") {
+      if (!archived.archived) {
         throw new Error(`Terminal issue #${opts.issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
       }
     }
@@ -92,15 +90,11 @@ export async function writeHeartbeatTransitionState(opts: {
       ...opts.issue,
       labels,
     },
-    providerType: providerType(opts.project.provider),
+    providerType: opts.project.provider,
     workflow: opts.workflow,
     workflowState: opts.workflowState,
     workflowLabel: opts.workflowLabel,
     activeWorker: null,
     closedAt: opts.closedAt,
   });
-}
-
-function providerType(provider: Project["provider"]): IssueProviderId {
-  return provider === ISSUE_PROVIDER.GITLAB ? ISSUE_PROVIDER.GITLAB : ISSUE_PROVIDER.GITHUB;
 }

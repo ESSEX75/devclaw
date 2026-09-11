@@ -5,7 +5,11 @@ import { DEFAULT_ROLES, STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
 import { isWorkflowEvent } from "./guards.js";
 import { type StateDefinition, type WorkflowDefinition, type WorkflowEvent } from "./types.js";
 
-/** Return workflow states without losing generic identifier types. */
+/**
+ * Return workflow states without losing generic identifier types.
+ *
+ * @param workflow - Workflow whose state registry should be enumerated.
+ */
 function getWorkflowStates<
   TRoleId extends string,
   TStateKey extends string,
@@ -24,6 +28,8 @@ function getWorkflowStates<
 
 /**
  * Get all state labels (for GitHub/GitLab label creation).
+ *
+ * @param workflow - Workflow whose provider-facing labels should be returned.
  */
 export function getStateLabels<
   TRoleId extends string,
@@ -36,6 +42,9 @@ export function getStateLabels<
 /**
  * Find the current workflow state label on an issue.
  * Pure utility — no provider dependency.
+ *
+ * @param labels - Provider-visible issue labels to inspect.
+ * @param workflow - Workflow defining recognized state labels.
  */
 export function getCurrentStateLabel<
   TRoleId extends string,
@@ -54,6 +63,8 @@ export function getCurrentStateLabel<
 
 /**
  * Get the initial state label (the first state in the workflow, e.g. "Planning").
+ *
+ * @param workflow - Workflow whose configured initial state should be resolved.
  */
 export function getInitialStateLabel<
   TRoleId extends string,
@@ -65,6 +76,8 @@ export function getInitialStateLabel<
 
 /**
  * Get label → color mapping.
+ *
+ * @param workflow - Workflow defining labels and their display colors.
  */
 export function getLabelColors<
   TRoleId extends string,
@@ -82,6 +95,9 @@ export function getLabelColors<
 
 /**
  * Get queue labels for a role, ordered by priority (highest first).
+ *
+ * @param workflow - Workflow defining role-owned queue states.
+ * @param role - Runtime-configured role whose queues should be returned.
  */
 export function getQueueLabels<
   TRoleId extends string,
@@ -99,6 +115,8 @@ export function getQueueLabels<
 
 /**
  * Get all queue labels ordered by priority (for findNextIssue).
+ *
+ * @param workflow - Workflow defining queue states and priorities.
  */
 export function getAllQueueLabels<
   TRoleId extends string,
@@ -113,6 +131,10 @@ export function getAllQueueLabels<
 
 /**
  * Get the active (in-progress) label for a role.
+ * Throws when the workflow has no active state for the role.
+ *
+ * @param workflow - Workflow defining role-owned active states.
+ * @param role - Runtime-configured role whose active label is required.
  */
 export function getActiveLabel<
   TRoleId extends string,
@@ -133,6 +155,10 @@ export function getActiveLabel<
 
 /**
  * Get the revert label for a role (first queue state for that role).
+ * Throws when the workflow has no queue state for the role.
+ *
+ * @param workflow - Workflow defining role-owned queue transitions.
+ * @param role - Runtime-configured role whose revert label is required.
  */
 export function getRevertLabel<
   TRoleId extends string,
@@ -163,6 +189,9 @@ export function getRevertLabel<
 
 /**
  * Detect role from a label.
+ *
+ * @param workflow - Workflow defining role-owned queue labels.
+ * @param label - Provider-facing label to resolve.
  */
 export function detectRoleFromLabel<
   TRoleId extends string,
@@ -181,9 +210,11 @@ export function detectRoleFromLabel<
   return null;
 }
 
-
 /**
  * Find state config by label.
+ *
+ * @param workflow - Workflow containing the state registry.
+ * @param label - Provider-facing label to find.
  */
 export function findStateByLabel<
   TRoleId extends string,
@@ -198,6 +229,9 @@ export function findStateByLabel<
 
 /**
  * Find state key by label.
+ *
+ * @param workflow - Workflow containing the state registry.
+ * @param label - Provider-facing label whose internal key is required.
  */
 export function findStateKeyByLabel<
   TRoleId extends string,
@@ -216,6 +250,9 @@ export function findStateKeyByLabel<
 
 /**
  * Check if a role has any workflow states (queue, active, etc.).
+ *
+ * @param workflow - Workflow containing role-owned states.
+ * @param role - Runtime-configured role to inspect.
  */
 export function hasWorkflowStates<
   TRoleId extends string,
@@ -241,6 +278,9 @@ const FEEDBACK_EVENTS: Set<WorkflowEvent> = new Set([
 /**
  * Check if a label's state is a "feedback" state — one that issues land in
  * after review rejection, test failure, or merge conflict.
+ *
+ * @param workflow - Workflow whose incoming transitions should be inspected.
+ * @param label - Provider-facing label of the potential feedback state.
  */
 export function isFeedbackState<
   TRoleId extends string,
@@ -267,6 +307,9 @@ export function isFeedbackState<
 
 /**
  * Check if a role has states with PR review checks (e.g. prApproved, prMerged).
+ *
+ * @param workflow - Workflow containing role-owned states.
+ * @param role - Runtime-configured role to inspect.
  */
 export function hasReviewCheck<
   TRoleId extends string,
@@ -283,6 +326,9 @@ export function hasReviewCheck<
 
 /**
  * Check if completing this role's active state leads to a state with a review check.
+ *
+ * @param workflow - Workflow whose active-state transitions should be inspected.
+ * @param role - Runtime-configured role producing the work.
  */
 export function producesReviewableWork<
   TRoleId extends string,
@@ -315,8 +361,11 @@ export function producesReviewableWork<
   return false;
 }
 
+//TODO: The behavior of the tester, reviewer, etc. is hard-coded.
 /**
  * Check if the workflow has a test phase (any queue state with role=tester).
+ *
+ * @param workflow - Workflow to inspect for the built-in tester queue.
  */
 export function hasTestPhase<
   TRoleId extends string,

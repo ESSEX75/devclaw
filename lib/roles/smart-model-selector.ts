@@ -19,7 +19,7 @@ function singleModelAssignment(model: string): ModelAssignment {
     const config = ROLE_REGISTRY[roleId];
 
     result[roleId] = {};
-    for (const level of config.levels) {
+    for (const level of Object.keys(config.levels)) {
       result[roleId][level] = model;
     }
   }
@@ -73,8 +73,8 @@ export async function assignModels(
     const config = ROLE_REGISTRY[roleId];
 
     result[roleId] = {};
-    for (const level of config.levels) {
-      const registryDefault = config.models[level];
+    for (const level of getLevelsForRole(roleId)) {
+      const registryDefault = config.levels[level]?.model;
 
       result[roleId][level] = registryDefault && modelSet.has(registryDefault)
         ? registryDefault

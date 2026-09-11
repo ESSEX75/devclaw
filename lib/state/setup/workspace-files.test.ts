@@ -39,7 +39,7 @@ describe("ensureDefaultFiles — write-once behavior", () => {
     const ws = await makeTmpDir();
     const workflowPath = path.join(ws, DATA_DIR, "workflow.yaml");
     await fs.mkdir(path.dirname(workflowPath), { recursive: true });
-    const customContent = "# My custom workflow\nroles:\n  developer:\n    models:\n      junior: openai/gpt-4\n";
+    const customContent = "# My custom workflow\nroles:\n  developer:\n    levels:\n      junior:\n        model: openai/gpt-4\n";
     await fs.writeFile(workflowPath, customContent, "utf-8");
 
     await ensureDefaultFiles(ws);

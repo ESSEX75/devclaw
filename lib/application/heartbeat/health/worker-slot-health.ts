@@ -39,8 +39,7 @@ import {
   hasWorkflowStates,
 } from "../../../domain/index.js";
 import { sendToAgent } from "../../../integrations/openclaw/session.js";
-import type { Issue,IssueProvider, StateLabel } from "../../../integrations/providers/provider.js";
-import { getLevelsForRole } from "../../../roles/index.js";
+import type { Issue, IssueProvider, StateLabel } from "../../../integrations/providers/provider.js";
 import {
   deactivateWorker,
   getRoleWorker,
@@ -61,6 +60,12 @@ import {
 // ---------------------------------------------------------------------------
 
 
+/**
+ * Inspect every persisted slot for a role and optionally repair unhealthy workers.
+ * Levels come from project worker state so configured custom roles are handled identically.
+ *
+ * @param opts - Project worker state, resolved workflow, provider, and repair dependencies.
+ */
 export async function checkWorkerHealth(opts: {
   workspaceDir: string;
   projectSlug: string;
@@ -98,7 +103,7 @@ export async function checkWorkerHealth(opts: {
   const queueLabel = getRevertLabel(workflow, role);
 
   // Iterate over all levels and their slots
-  for (const level of getLevelsForRole(role)) {
+  for (const level of Object.keys(roleWorker.levels)) {
     const slots = roleWorker.levels[level] ?? [];
 
     for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
@@ -112,8 +117,7 @@ export async function checkWorkerHealth(opts: {
       const workerStartTime = slot.startTime ? new Date(slot.startTime).getTime() : null;
       const withinGracePeriod = workerStartTime !== null && (Date.now() - workerStartTime) < GRACE_PERIOD_MS;
 
-      // Parse issueId
-      const issueIdNum = slot.issueId ? Number(slot.issueId) : null;
+      const issueIdNum = slot.issueId;
 
       // Fetch issue state if we have an issueId
       let issue: Issue | null = null;

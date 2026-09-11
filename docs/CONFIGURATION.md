@@ -29,21 +29,23 @@ Override which LLM model powers each level, customize levels, tune per-level con
 ```yaml
 roles:
   developer:
-    models:
-      junior: anthropic/claude-haiku-4-5
-      medior: anthropic/claude-sonnet-4-5
+    levels:
+      junior:
+        model: anthropic/claude-haiku-4-5
+      medior:
+        model: anthropic/claude-sonnet-4-5
       senior:
         model: anthropic/claude-opus-4-6
         maxWorkers: 1
   tester:
-    models:
-      junior: anthropic/claude-haiku-4-5
-      medior: anthropic/claude-sonnet-4-5
-      senior: anthropic/claude-opus-4-6
+    levels:
+      junior: { model: anthropic/claude-haiku-4-5 }
+      medior: { model: anthropic/claude-sonnet-4-5 }
+      senior: { model: anthropic/claude-opus-4-6 }
   architect:
-    models:
-      junior: anthropic/claude-sonnet-4-5
-      senior: anthropic/claude-opus-4-6
+    levels:
+      junior: { model: anthropic/claude-sonnet-4-5 }
+      senior: { model: anthropic/claude-opus-4-6 }
   # Disable a role entirely:
   # architect: false
 ```
@@ -52,44 +54,46 @@ roles:
 
 | Field | Type | Description |
 |---|---|---|
-| `levels` | string[] | Available levels for this role |
+| `levels` | Record<string, LevelConfig \| false> | Level definitions keyed by ID; `false` removes an inherited level |
 | `defaultLevel` | string | Default level when not specified |
-| `models` | Record<string, string \| object> | Model ID per level, or `{ model, maxWorkers }` for per-level concurrency |
-| `emoji` | Record<string, string> | Emoji per level for announcements |
 | `completion` | Record<string, WorkflowEvent> | Maps completion results to workflow events |
 
-Per-level worker capacity is resolved from `roles.<role>.models.<level>.maxWorkers`, then `workflow.maxWorkersPerLevel`, then the built-in default.
+Each level accepts `rank`, `model`, `maxWorkers`, and `emoji`. After all layers merge,
+`rank` and `model` are required. Worker capacity comes from the level's `maxWorkers`,
+then `workflow.maxWorkersPerLevel`, then the built-in default.
 
 Role and level identifiers are extensible. A custom role must provide a complete
-definition after workspace and project layers are merged. Custom levels can also
-replace the built-in levels of an existing role:
+definition after workspace and project layers are merged:
 
 ```yaml
 roles:
   security_auditor:
-    levels: [apprentice, principal]
-    defaultLevel: apprentice
-    models:
-      apprentice: model/audit-fast
+    levels:
+      apprentice:
+        rank: 1
+        model: model/audit-fast
+        emoji: "🔎"
       principal:
+        rank: 2
         model: model/audit-deep
         maxWorkers: 1
-    emoji:
-      apprentice: "🔎"
-      principal: "🔐"
+        emoji: "🔐"
+    defaultLevel: apprentice
     completion:
       done: COMPLETE
       blocked: BLOCKED
 ```
 
-Every configured level must have a model, `defaultLevel` must be listed in
-`levels`, and model or emoji keys outside `levels` are rejected. Runtime routing,
+Every active level must have a unique positive rank and a model. `defaultLevel`
+must name an active key in `levels`.
+Automatic selection uses the lowest-ranked level for simple tasks, the highest-ranked
+level for complex tasks, and `defaultLevel` otherwise. Runtime routing,
 worker slots, persisted issue state, and projected `role:level` labels all use
 the resolved role definition rather than the built-in registry.
 
 #### Place a custom role in the workflow
 
-Defining `roles.<role>` only configures the worker's levels, models, and
+Defining `roles.<role>` only configures the worker's levels and
 completion results. It does not determine when that worker runs. A custom role
 must also be placed in the workflow state graph:
 
@@ -105,11 +109,10 @@ For example, this places `designer` between `architect` and `developer`:
 ```yaml
 roles:
   designer:
-    levels: [standard, expert]
+    levels:
+      standard: { rank: 1, model: model/design-standard }
+      expert: { rank: 2, model: model/design-expert }
     defaultLevel: standard
-    models:
-      standard: model/design-standard
-      expert: model/design-expert
     completion:
       done: COMPLETE
       blocked: BLOCKED
@@ -171,8 +174,8 @@ without the outgoing transition, work cannot continue after it finishes.
 
 **Model resolution order:**
 
-1. Project `workflow.yaml` → `roles.<role>.models.<level>`
-2. Workspace `workflow.yaml` → `roles.<role>.models.<level>`
+1. Project `workflow.yaml` → `roles.<role>.levels.<level>.model`
+2. Workspace `workflow.yaml` → `roles.<role>.levels.<level>.model`
 3. Built-in defaults from `ROLE_REGISTRY`
 4. Passthrough — treat the level string as a raw model ID
 
@@ -439,11 +442,8 @@ In-progress creation lives separately in `<workspace>/devclaw/projects/<project>
       "name": "my-webapp",
       "agentId": "dev-agent",
       "repo": "~/git/my-webapp",
-      "repoRemote": "git@github.com:org/my-webapp.git",
-      "groupName": "Dev - My Webapp",
       "baseBranch": "development",
       "deployBranch": "development",
-      "deployUrl": "https://my-webapp.example.com",
       "provider": "github",
       "channels": [
         {
@@ -468,7 +468,7 @@ In-progress creation lives separately in `<workspace>/devclaw/projects/<project>
             "medior": [
               {
                 "active": true,
-                "issueId": "42",
+                "issueId": 42,
                 "sessionKey": "agent:orchestrator:subagent:my-webapp-developer-medior-0",
                 "startTime": "2026-06-01T12:00:00.000Z",
                 "previousLabel": "To Do",
@@ -499,11 +499,8 @@ In-progress creation lives separately in `<workspace>/devclaw/projects/<project>
 | `name` | string | Short project name |
 | `agentId` | string | OpenClaw agent that owns the project and every endpoint binding |
 | `repo` | string | Path to git repo (supports `~/` expansion) |
-| `repoRemote` | string | Optional detected git remote URL |
-| `groupName` | string | Group display name |
 | `baseBranch` | string | Base branch for development |
 | `deployBranch` | string | Branch that triggers deployment |
-| `deployUrl` | string | Deployment URL |
 | `channels` | Channel[] | Messaging endpoints linked to this project |
 | `provider` | `"github"` \| `"gitlab"` | Issue tracker provider (auto-detected, stored for reuse) |
 
@@ -565,7 +562,7 @@ Each slot has:
 - **Backfill boundary** — old issues without a local `issues.json` entry are treated as `projection_uninitialized` and must be explicitly initialized/backfilled before managed dispatch.
 - **Initial-state task creation** — `task_create` preserves `workflow.initial`, normally the `Planning` hold state; `task_start` explicitly releases held work into its first queue. A custom queue initial state remains immediately dispatchable.
 - **Dedicated issue archive** — terminal issues leave active `issues.json` immediately and are retained in adjacent `issues.archive.json`. Heartbeat performs bounded recovery, attachment retention, and archive retention. Provider deletion requires a typed, confirmed missing result and never relies on arbitrary `404` text.
-- **Per-level slots** — each level owns an array of slots. Capacity is configured through `workflow.maxWorkersPerLevel` and per-model `maxWorkers`.
+- **Per-level slots** — each level owns an array of slots. Capacity is configured through `workflow.maxWorkersPerLevel` and `roles.<role>.levels.<level>.maxWorkers`.
 - **Session-per-slot** — each slot preserves its own session key, accumulating context independently. Level selection plus slot index maps directly to a session key.
 - **Sessions preserved on completion** — when a worker completes a task, `sessionKey` is preserved while `active`, `issueId`, `startTime`, and `previousLabel` are cleared. This enables session reuse.
 - **Atomic writes** — all writes go through temp-file-then-rename to prevent corruption. File locking prevents concurrent read-modify-write races.

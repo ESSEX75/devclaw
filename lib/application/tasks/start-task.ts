@@ -71,7 +71,7 @@ async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> 
   }
 
   const issueSlot = Object.values(project.workers)
-    .some((roleWorker) => findSlotByIssue(roleWorker, String(issueId)) !== null);
+    .some((roleWorker) => findSlotByIssue(roleWorker, issueId) !== null);
 
   if (issueSlot) {
     throw new Error(`Issue #${issueId} is already assigned to a worker slot.`);

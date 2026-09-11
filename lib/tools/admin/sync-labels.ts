@@ -16,10 +16,11 @@ import {
   getLabelColors,
   getRoleLabels,
   getStateLabels,
+  getStepRoutingLabels,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { loadConfig } from "../../state/config/index.js";
-import { getProject,readProjects } from "../../state/projects/index.js";
+import { getProject, readProjects } from "../../state/projects/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createSyncLabelsTool(ctx: PluginContext) {
@@ -70,6 +71,7 @@ export function createSyncLabelsTool(ctx: PluginContext) {
         project: string;
         stateLabels: string[];
         roleLabels: string[];
+        routingLabels: string[];
         error?: string;
       }> = [];
 
@@ -99,10 +101,10 @@ export function createSyncLabelsTool(ctx: PluginContext) {
             await provider.ensureLabel(label, color);
           }
 
-          // Role:level + step routing labels
           const roleLabels = getRoleLabels(resolvedConfig.roles);
+          const routingLabels = getStepRoutingLabels();
 
-          for (const { name, color } of roleLabels) {
+          for (const { name, color } of [...roleLabels, ...routingLabels]) {
             await provider.ensureLabel(name, color);
           }
 
@@ -110,12 +112,14 @@ export function createSyncLabelsTool(ctx: PluginContext) {
             project: slug,
             stateLabels,
             roleLabels: roleLabels.map((r) => r.name),
+            routingLabels: routingLabels.map((label) => label.name),
           });
         } catch (err) {
           results.push({
             project: slug,
             stateLabels: [],
             roleLabels: [],
+            routingLabels: [],
             error: (err as Error).message,
           });
         }

@@ -3,11 +3,9 @@
  */
 import {
   type ActiveIssueWorker,
-  detectOwner,
   findStateKeyByLabel,
   getCurrentStateLabel,
   ISSUE_INTEGRITY_STATUS,
-  ISSUE_PROVIDER,
   type IssueIntegrityStatus,
   type IssueProviderId,
   type IssueRuntimeState,
@@ -48,7 +46,13 @@ type RoleLevel = {
   level: string;
 };
 
-export function detectRoleLevel(labels: string[]): RoleLevel | null {
+/**
+ * Detect a projected role-level label for first-time state initialization.
+ * Existing managed state never imports this provider-visible projection.
+ *
+ * @param labels - Provider labels available before local runtime state exists.
+ */
+function detectRoleLevel(labels: string[]): RoleLevel | null {
   for (const label of labels) {
     const parts = label.split(":");
 
@@ -77,6 +81,13 @@ function detectRouting(labels: string[], prefix: "review" | "test"): ReviewPolic
   return value === TEST_POLICY.AGENT || value === TEST_POLICY.SKIP ? value : null;
 }
 
+/**
+ * Write an issue runtime snapshot while preserving authoritative existing state.
+ * Provider labels are consulted only when no local state exists and the caller
+ * did not supply the corresponding semantic value explicitly.
+ *
+ * @param input - Validated lifecycle data and explicit state changes to persist.
+ */
 export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promise<IssueRuntimeState> {
   const labels = input.issue.labels;
   const detectedWorkflowLabel = input.workflowLabel ?? getCurrentStateLabel(labels, input.workflow);
@@ -107,13 +118,28 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       creationOperationId: input.creationOperationId ?? previous?.creationOperationId,
       workflowState,
       workflowLabel: detectedWorkflowLabel,
-      assignedRole: input.assignedRole !== undefined ? input.assignedRole : detectedRoleLevel?.role ?? previous?.assignedRole ?? null,
-      assignedLevel: input.assignedLevel !== undefined ? input.assignedLevel : detectedRoleLevel?.level ?? previous?.assignedLevel ?? null,
-      owner: input.owner !== undefined ? input.owner : detectOwner(labels) ?? previous?.owner ?? null,
-      reviewPolicy: input.reviewPolicy !== undefined ? input.reviewPolicy : detectRouting(labels, "review") ?? previous?.reviewPolicy ?? null,
-      testPolicy: input.testPolicy !== undefined ? input.testPolicy : detectRouting(labels, "test") ?? previous?.testPolicy ?? null,
+      assignedRole: input.assignedRole !== undefined
+        ? input.assignedRole
+        : previous
+          ? previous.assignedRole
+          : detectedRoleLevel?.role ?? null,
+      assignedLevel: input.assignedLevel !== undefined
+        ? input.assignedLevel
+        : previous
+          ? previous.assignedLevel
+          : detectedRoleLevel?.level ?? null,
+      owner: input.owner !== undefined ? input.owner : previous?.owner ?? null,
+      reviewPolicy: input.reviewPolicy !== undefined
+        ? input.reviewPolicy
+        : previous
+          ? previous.reviewPolicy
+          : detectRouting(labels, "review"),
+      testPolicy: input.testPolicy !== undefined
+        ? input.testPolicy
+        : previous
+          ? previous.testPolicy
+          : detectRouting(labels, "test"),
       notifyTarget: input.notifyTarget !== undefined ? input.notifyTarget : previous?.notifyTarget ?? null,
-      branchContract: previous?.branchContract ?? null,
       activeWorker: input.activeWorker !== undefined ? input.activeWorker : previous?.activeWorker ?? null,
       integrityStatus: input.integrityStatus ?? previous?.integrityStatus ?? ISSUE_INTEGRITY_STATUS.OK,
       integrityErrors: previous?.integrityErrors ?? [],
@@ -122,8 +148,6 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       updatedAt: now,
       closedAt: input.closedAt !== undefined ? input.closedAt : previous?.closedAt ?? null,
       providerMissing: previous?.providerMissing ?? null,
-      retryAt: previous?.retryAt ?? null,
-      retriesRemaining: previous?.retriesRemaining ?? 0,
       pipelineNotification: previous?.pipelineNotification ?? null,
     };
     store.issues[String(input.issue.iid)] = written;
@@ -197,10 +221,6 @@ export async function writeIssueRoleLevel(
 
     return state;
   });
-}
-
-export function providerKindFromProject(project: Pick<Project, "provider">): IssueProviderId {
-  return project.provider === ISSUE_PROVIDER.GITHUB ? ISSUE_PROVIDER.GITHUB : ISSUE_PROVIDER.GITLAB;
 }
 
 function isConfiguredIdentifier(value: string): boolean {

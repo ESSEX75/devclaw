@@ -1,15 +1,15 @@
 /**
  * projects/types.ts — Domain types for projects, worker slots, and notification channels.
  */
-import type { IssueProviderId } from "../issues/types.js";
-import type { NotificationEndpoint } from "../notifications/types.js";
+import type { IssueProviderId } from "../issues/index.js";
+import type { NotificationEndpoint } from "../notifications/index.js";
 
 /** Slot state. Level is structural (implied by position in the levels map). */
 export type SlotState = {
   /** Whether the slot is currently active and assigned to an issue. */
   active: boolean;
   /** Unique identifier of the currently assigned issue. */
-  issueId: string | null;
+  issueId: number | null;
   /** Unique session key of the active worker run. */
   sessionKey: string | null;
   /** ISO timestamp when work started in this slot. */
@@ -19,7 +19,7 @@ export type SlotState = {
   /** Deterministic fun name for this slot (e.g. "Ada", "Grace"). */
   name?: string;
   /** Last issue this slot worked on (preserved on deactivation for feedback cycle detection). */
-  lastIssueId?: string | null;
+  lastIssueId?: number | null;
 };
 
 /** Per-level worker state: levels map instead of flat slots array. */
@@ -46,12 +46,6 @@ export type Project = {
   agentId: string;
   /** Repository name or local path. */
   repo: string;
-  /** Git remote URL (e.g. https://github.com/.../repo.git). */
-  repoRemote?: string;
-  /** Group or organization name owning the project. */
-  groupName: string;
-  /** Deployment environment target URL. */
-  deployUrl: string;
   /** Target base branch for development (e.g. main/master). */
   baseBranch: string;
   /** Target branch for deployment releases. */
@@ -59,13 +53,7 @@ export type Project = {
   /** Channels registered for this project (notification endpoints). */
   channels: NotificationEndpoint[];
   /** Issue tracker provider type (github or gitlab). Auto-detected at registration, stored for reuse. */
-  provider?: IssueProviderId;
+  provider: IssueProviderId;
   /** Worker state per role (developer, tester, architect, etc.). Shared across all channels. */
   workers: Record<string, RoleWorkerState>;
-};
-
-/** Data structure for the projects registry store. */
-export type ProjectsData = {
-  /** Map of project slugs to project configurations. */
-  projects: Record<string, Project>;
 };

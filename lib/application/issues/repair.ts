@@ -462,7 +462,7 @@ function parseSingleRoleLevel(labels: string[], roles: Record<string, ResolvedRo
     const roleConfig = roles[role];
 
     if (!roleConfig) continue;
-    if (!roleConfig.levels.includes(level)) {
+    if (!roleConfig.levels[level]) {
       throw repairFailure(ISSUE_REPAIR_ERROR.SOURCE_INCOMPLETE, `Role "${role}" does not define level "${level}".`);
     }
 

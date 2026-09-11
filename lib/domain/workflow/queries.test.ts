@@ -1,3 +1,6 @@
+/**
+ * Verifies workflow queries through the workflow subpackage's supported API.
+ */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -21,7 +24,7 @@ import {
   type WorkflowConfig,
   type WorkflowLabel,
   type WorkflowStateKey,
-} from "../index.js";
+} from "./index.js";
 
 describe("getRevertLabel", () => {
   it("matches an object-form PICKUP transition target", () => {
@@ -99,7 +102,10 @@ describe("extensible workflow queries", () => {
     type CustomLevelId = "standard" | "expert";
 
     const customRole: RoleDefinition<CustomLevelId> = {
-      levels: ["standard", "expert"],
+      levels: {
+        standard: { rank: 1, model: "model/standard" },
+        expert: { rank: 2, model: "model/expert" },
+      },
       enabled: true,
     };
     const workflow: WorkflowDefinition<CustomRoleId, CustomStateKey, CustomLabel> = {
@@ -139,7 +145,7 @@ describe("extensible workflow queries", () => {
       WORKFLOW_EVENT.COMPLETE,
     );
 
-    assert.deepEqual(customRole.levels, ["standard", "expert"]);
+    assert.deepEqual(Object.keys(customRole.levels), ["standard", "expert"]);
     assert.equal(stateKey, "securityReview");
     assert.equal(role, "security_auditor");
     assert.equal(activeLabel, "Security Reviewing");

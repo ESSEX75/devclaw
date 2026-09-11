@@ -100,7 +100,7 @@ function buildOverview(dataDir: string): string {
 The config file is \`workflow.yaml\`. It has three top-level keys:
 
 \`\`\`yaml
-roles:      # Role and model configuration
+roles:      # Structured role level configuration
 workflow:   # State machine definition
 timeouts:   # Optional timeout overrides
 \`\`\`
@@ -115,16 +115,17 @@ Config is resolved by merging three layers (later layers override earlier):
 
 ### Merge semantics
 - **Objects**: deep merge (sparse override — only specify what you change, including completion mappings)
-- **Arrays**: replace entirely (levels)
 - **Primitives**: override
 - **\`false\` for a role**: disables it entirely
+- **\`false\` for a level**: removes that inherited level
 
 A project config only needs the keys it wants to override. Example project override:
 \`\`\`yaml
 roles:
   developer:
-    models:
-      senior: anthropic/claude-opus-4-6
+    levels:
+      senior:
+        model: anthropic/claude-opus-4-6
 workflow:
   reviewPolicy: agent
 \`\`\`
@@ -248,10 +249,8 @@ function buildRolesSection(): string {
 
 | Field              | Constrained?  | Notes |
 |-------------------|---------------|-------|
-| \`levels\`          | FREE — array of strings | Define your own level names. Default model routing uses these as keys. |
+| \`levels\`          | FREE — map of level ID→definition | Each definition owns rank, model, optional maxWorkers, and optional emoji. Use false to remove an inherited level. |
 | \`defaultLevel\`    | Must be one of \`levels\` | Used when no level specified on issue. |
-| \`models\`          | FREE — map of level→model ID or \`{ model, maxWorkers }\` | Model IDs are free-form; object form sets positive per-level capacity. |
-| \`emoji\`           | FREE — map of level→emoji | Used in announcements. Any emoji string. |
 | \`completion\` | Result-to-event mapping | Maps worker results to explicit events; each event needs a transition in the role's active states. |
 
 ## Default model assignments
@@ -279,11 +278,14 @@ Define the role with all required fields. The role key must also be referenced a
 \`\`\`yaml
 roles:
   security_auditor:
-    levels: [standard, expert]
+    levels:
+      standard:
+        rank: 1
+        model: anthropic/claude-sonnet-4-5
+      expert:
+        rank: 2
+        model: anthropic/claude-opus-4-6
     defaultLevel: standard
-    models:
-      standard: anthropic/claude-sonnet-4-5
-      expert: anthropic/claude-opus-4-6
     completion:
       done: COMPLETE
       blocked: BLOCKED
@@ -331,7 +333,7 @@ Set in \`workflow.reviewPolicy\`:
 2. Heartbeat checks \`reviewPolicy\` to decide routing:
    - \`human\`: issue stays in \`toReview\`, heartbeat polls PR for approval
    - \`agent\`: heartbeat dispatches a reviewer worker to check the PR
-   - \`auto\`: checks the developer level that worked on the issue
+   - \`skip\`: skips the reviewer worker and follows the configured transition
 3. The \`toReview\` state should have a \`check: prApproved\` field for human review flow
 
 ## Per-issue override labels (FIXED format, applied to individual issues)
@@ -486,8 +488,9 @@ workflow:
 \`\`\`yaml
 roles:
   developer:
-    models:
-      medior: anthropic/claude-opus-4-6
+    levels:
+      medior:
+        model: anthropic/claude-opus-4-6
 \`\`\`
 
 ### Disable tester for one project
@@ -500,17 +503,17 @@ roles:
 \`\`\`yaml
 roles:
   developer:
-    models:
-      junior: google/gemini-2.0-flash
-      medior: google/gemini-2.5-pro
-      senior: anthropic/claude-opus-4-6
+    levels:
+      junior: { model: google/gemini-2.0-flash }
+      medior: { model: google/gemini-2.5-pro }
+      senior: { model: anthropic/claude-opus-4-6 }
 \`\`\`
 
 ### Allow concurrent developers on a project
 \`\`\`yaml
 roles:
   developer:
-    models:
+    levels:
       medior:
         model: anthropic/claude-sonnet-4-5
         maxWorkers: 3  # Allow up to 3 medior developers in parallel

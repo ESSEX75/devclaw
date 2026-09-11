@@ -182,7 +182,6 @@ The agent calls `project_register`, which atomically:
       "agentId": "my-orchestrator",
       "name": "my-project",
       "repo": "~/git/my-project",
-      "groupName": "Project: my-project",
       "baseBranch": "development",
       "deployBranch": "development",
       "provider": "github",
