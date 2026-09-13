@@ -100,7 +100,12 @@ describe("models", () => {
   });
 
   it("should resolve from resolved role config override", () => {
-    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completion: {}, enabled: true };
+    const resolvedRole: ResolvedRoleConfig = {
+      levels: { junior: { rank: 1, model: "custom/model", maxWorkers: 2 } },
+      defaultLevel: "junior",
+      completion: {},
+      enabled: true,
+    };
 
     assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
   });
@@ -113,11 +118,27 @@ describe("models", () => {
     assert.strictEqual(resolveModel("developer", "anthropic/claude-opus-4-6"), "anthropic/claude-opus-4-6");
   });
 
+  it("should resolve a configured model for a custom level", () => {
+    const resolvedRole: ResolvedRoleConfig = {
+      levels: { principal: { rank: 1, model: "model/security-deep", maxWorkers: 1 } },
+      defaultLevel: "principal",
+      completion: {},
+      enabled: true,
+    };
+
+    assert.strictEqual(resolveModel("security_auditor", "principal", resolvedRole), "model/security-deep");
+  });
+
   it("should resolve with resolved role overriding defaults selectively", () => {
-    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, medior: 2, senior: 2 }, models: { junior: "custom/model" }, levels: ["junior", "medior", "senior"], defaultLevel: "medior", emoji: {}, completion: {}, enabled: true };
+    const resolvedRole: ResolvedRoleConfig = {
+      levels: { junior: { rank: 1, model: "custom/model", maxWorkers: 2 } },
+      defaultLevel: "junior",
+      completion: {},
+      enabled: true,
+    };
 
     assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
-    // Levels not overridden fall through to registry defaults
+    // Levels absent from a partial fixture fall through to registry defaults.
     assert.strictEqual(resolveModel("developer", "medior", resolvedRole), "anthropic/claude-sonnet-4-5");
   });
 });
@@ -184,19 +205,17 @@ describe("registry consistency", () => {
       const config = ROLE_REGISTRY[id];
       assert.strictEqual(config.id, id, `${id}: id mismatch`);
       assert.ok(config.displayName, `${id}: missing displayName`);
-      assert.ok(config.levels.length > 0, `${id}: empty levels`);
-      assert.ok(config.levels.includes(config.defaultLevel), `${id}: defaultLevel not in levels`);
+      const levels = Object.entries(config.levels);
+
+      assert.ok(levels.length > 0, `${id}: empty levels`);
+      assert.ok(config.levels[config.defaultLevel], `${id}: defaultLevel not in levels`);
       assert.ok(Object.keys(config.completion).length > 0, `${id}: empty completion mapping`);
       assert.ok(config.fallbackEmoji, `${id}: missing fallbackEmoji`);
 
-      // Every level should have a model
-      for (const level of config.levels) {
-        assert.ok(config.models[level], `${id}: missing model for level "${level}"`);
-      }
-
-      // Every level should have an emoji
-      for (const level of config.levels) {
-        assert.ok(config.emoji[level], `${id}: missing emoji for level "${level}"`);
+      for (const [level, definition] of levels) {
+        assert.ok(definition?.rank, `${id}: missing rank for level "${level}"`);
+        assert.ok(definition?.model, `${id}: missing model for level "${level}"`);
+        assert.ok(definition?.emoji, `${id}: missing emoji for level "${level}"`);
       }
     }
   });

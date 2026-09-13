@@ -14,12 +14,12 @@ import {
   emptySlot,
   findFreeSlot,
   findSlotByIssue,
+  ISSUE_PROVIDER,
   NOTIFICATION_CHANNEL,
-  type ProjectsData,
   reconcileSlots,
   type RoleWorkerState,
 } from "../../domain/index.js";
-import { getRoleWorker, parseProjectsData, readProjects, writeProjects } from "./index.js";
+import { getRoleWorker, parseProjectsData, type ProjectsData, readProjects, writeProjects } from "./index.js";
 
 describe("readProjects", () => {
   it("rejects projects without an owning agent", () => {
@@ -49,10 +49,9 @@ describe("readProjects", () => {
           name: "devclaw",
           agentId: "dev-agent",
           repo: "repo",
-          groupName: "DevClaw",
-          deployUrl: "",
           baseBranch: "main",
           deployBranch: "main",
+          provider: ISSUE_PROVIDER.GITHUB,
           channels: [{
             channelId: "chat-1",
             channel: NOTIFICATION_CHANNEL.TELEGRAM,
@@ -125,7 +124,7 @@ describe("readProjects", () => {
     assert.doesNotThrow(() => parseProjectsData(fixture));
   });
 
-  it("should read current project-first per-level format correctly", async () => {
+  it("normalizes removed project fields and string slot issue IDs", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-"));
     const dataDir = path.join(tmpDir, "devclaw");
 
@@ -139,9 +138,10 @@ describe("readProjects", () => {
           agentId: "test-agent",
           repo: "~/git/test",
           groupName: "Test",
-          deployUrl: "",
+          deployUrl: "https://example.test",
           baseBranch: "main",
           deployBranch: "main",
+          provider: ISSUE_PROVIDER.GITHUB,
           channels: [{
             channelId: "g1",
             channel: NOTIFICATION_CHANNEL.TELEGRAM,
@@ -173,8 +173,10 @@ describe("readProjects", () => {
     assert.ok(mediorSlots, "should have medior level");
     assert.strictEqual(mediorSlots.length, 2);
     assert.strictEqual(mediorSlots[0]!.active, true);
-    assert.strictEqual(mediorSlots[0]!.issueId, "5");
+    assert.strictEqual(mediorSlots[0]!.issueId, 5);
     assert.strictEqual(mediorSlots[1]!.active, false);
+    assert.strictEqual("groupName" in data.projects["g1"], false);
+    assert.strictEqual("deployUrl" in data.projects["g1"], false);
 
     await fs.rm(tmpDir, { recursive: true });
   });
@@ -195,10 +197,9 @@ function projectsFixture(channel: {
         name: "devclaw",
         agentId: "dev-agent",
         repo: "D:/web/devclaw",
-        groupName: "DevClaw",
-        deployUrl: "",
         baseBranch: "main",
         deployBranch: "main",
+        provider: ISSUE_PROVIDER.GITHUB,
         channels: [channel],
         workers: {},
       },
@@ -215,7 +216,7 @@ describe("per-level slot helpers", () => {
     const rw: RoleWorkerState = {
       levels: {
         medior: [
-          { active: true, issueId: "1", sessionKey: null, startTime: null },
+          { active: true, issueId: 1, sessionKey: null, startTime: null },
           { active: false, issueId: null, sessionKey: null, startTime: null },
           { active: false, issueId: null, sessionKey: null, startTime: null },
         ],
@@ -228,7 +229,7 @@ describe("per-level slot helpers", () => {
   it("findFreeSlot returns null when all active in the level", () => {
     const rw: RoleWorkerState = {
       levels: {
-        medior: [{ active: true, issueId: "1", sessionKey: null, startTime: null }],
+        medior: [{ active: true, issueId: 1, sessionKey: null, startTime: null }],
       },
     };
 
@@ -245,28 +246,28 @@ describe("per-level slot helpers", () => {
     const rw: RoleWorkerState = {
       levels: {
         medior: [
-          { active: true, issueId: "10", sessionKey: null, startTime: null },
+          { active: true, issueId: 10, sessionKey: null, startTime: null },
         ],
         junior: [
-          { active: true, issueId: "20", sessionKey: null, startTime: null },
+          { active: true, issueId: 20, sessionKey: null, startTime: null },
         ],
       },
     };
-    const result = findSlotByIssue(rw, "20");
+    const result = findSlotByIssue(rw, 20);
 
     assert.deepStrictEqual(result, { level: "junior", slotIndex: 0 });
-    assert.strictEqual(findSlotByIssue(rw, "99"), null);
+    assert.strictEqual(findSlotByIssue(rw, 99), null);
   });
 
   it("countActiveSlots counts across all levels", () => {
     const rw: RoleWorkerState = {
       levels: {
         medior: [
-          { active: true, issueId: "1", sessionKey: null, startTime: null },
+          { active: true, issueId: 1, sessionKey: null, startTime: null },
           { active: false, issueId: null, sessionKey: null, startTime: null },
         ],
         junior: [
-          { active: true, issueId: "3", sessionKey: null, startTime: null },
+          { active: true, issueId: 3, sessionKey: null, startTime: null },
         ],
       },
     };
@@ -289,10 +290,9 @@ describe("writeProjects round-trip", () => {
           name: "roundtrip",
           agentId: "test-agent",
           repo: "~/git/rt",
-          groupName: "RT",
-          deployUrl: "",
           baseBranch: "main",
           deployBranch: "main",
+          provider: ISSUE_PROVIDER.GITHUB,
       channels: [{
         channelId: "g1",
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
@@ -353,9 +353,9 @@ describe("reconcileSlots", () => {
     const rw: RoleWorkerState = {
       levels: {
         medior: [
-          { active: true, issueId: "1", sessionKey: null, startTime: null },
+          { active: true, issueId: 1, sessionKey: null, startTime: null },
           { active: false, issueId: null, sessionKey: null, startTime: null },
-          { active: true, issueId: "3", sessionKey: null, startTime: null },
+          { active: true, issueId: 3, sessionKey: null, startTime: null },
         ],
       },
     };
@@ -372,8 +372,8 @@ describe("reconcileSlots", () => {
     const rw: RoleWorkerState = {
       levels: {
         medior: [
-          { active: true, issueId: "1", sessionKey: null, startTime: null },
-          { active: true, issueId: "2", sessionKey: null, startTime: null },
+          { active: true, issueId: 1, sessionKey: null, startTime: null },
+          { active: true, issueId: 2, sessionKey: null, startTime: null },
           { active: false, issueId: null, sessionKey: null, startTime: null },
         ],
       },

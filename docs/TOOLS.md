@@ -335,10 +335,8 @@ One-time project setup. Creates state labels, scaffolds project directory with o
 | `repo` | string | Yes | Path to git repo (e.g. `~/git/my-project`) |
 | `channel` | string | No | Channel type. Defaults to `telegram` |
 | `threadId` | string | No | Optional thread/topic ID for forum-style channels |
-| `groupName` | string | No | Display name. Defaults to `Project: {name}`. |
 | `baseBranch` | string | Yes | Base branch for development |
 | `deployBranch` | string | No | Deploy branch. Defaults to baseBranch. |
-| `deployUrl` | string | No | Deployment URL |
 
 For a Telegram topic, pass the group ID in `channelId` and the topic ID in `threadId`. The encoded form `channelId:topic:threadId` is rejected.
 

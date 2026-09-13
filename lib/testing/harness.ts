@@ -18,13 +18,12 @@ import {
   ISSUE_PROVIDER,
   NOTIFICATION_CHANNEL,
   type Project,
-  type ProjectsData,
   type RoleWorkerState,
   type WorkflowConfig,
   type WorkflowLabel,
 } from "../domain/index.js";
 import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
-import { writeProjects } from "../state/projects/index.js";
+import { type ProjectsData, writeProjects } from "../state/projects/index.js";
 import { TestProvider } from "./test-provider.js";
 
 // ---------------------------------------------------------------------------
@@ -212,7 +211,7 @@ export type HarnessOptions = {
   workers?: Record<string, {
     level?: string;
     active?: boolean;
-    issueId?: string | null;
+    issueId?: number | null;
     sessionKey?: string | null;
     startTime?: string | null;
     previousLabel?: WorkflowLabel | null;
@@ -271,8 +270,6 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     name: projectName,
     agentId: "test-agent",
     repo,
-    groupName: "Test Group",
-    deployUrl: "",
     baseBranch,
     deployBranch: baseBranch,
     channels: [{

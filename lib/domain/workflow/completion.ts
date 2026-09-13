@@ -9,6 +9,10 @@ import { type CompletionRule, type WorkflowDefinition, type WorkflowEvent } from
 /**
  * Get completion rule for a role:result pair.
  * Derives entirely from workflow transitions — no hardcoded role:result mapping.
+ *
+ * @param workflow - Resolved workflow containing the active state and transitions.
+ * @param role - Runtime-configured role completing its active work.
+ * @param event - Validated workflow event produced by the completion result.
  */
 export function getCompletionRule<
   TRoleId extends string,
@@ -50,6 +54,10 @@ export function getCompletionRule<
 
 /**
  * Get human-readable next state description.
+ *
+ * @param workflow - Resolved workflow containing the target state metadata.
+ * @param role - Runtime-configured role completing its active work.
+ * @param event - Validated workflow event produced by the completion result.
  */
 export function getNextStateDescription<
   TRoleId extends string,
@@ -77,7 +85,12 @@ export function getNextStateDescription<
   return rule.to;
 }
 
-/** Get emoji for a completion result. */
+/**
+ * Get the configured emoji for a built-in completion result.
+ * Unknown results use the stable default emoji.
+ *
+ * @param result - Completion result identifier to present.
+ */
 export function getCompletionEmoji(result: string): string {
   return isCompletionResult(result)
     ? RESULT_EMOJI[result]

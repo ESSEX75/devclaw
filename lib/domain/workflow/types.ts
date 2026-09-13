@@ -30,9 +30,6 @@ export type RoleId = ValueOf<typeof DEFAULT_ROLES>;
 /** Unique identifier for a developer tier/level (e.g. "junior", "senior"). */
 export type LevelId = ValueOf<typeof DEFAULT_LEVELS>;
 
-/** Union type for built-in state types (e.g. queue, active, hold, terminal). */
-export type StateType = ValueOf<typeof STATE_TYPE>;
-
 /** Union type for execution mode (parallel or sequential). */
 export type ExecutionMode = ValueOf<typeof EXECUTION_MODE>;
 
@@ -49,8 +46,7 @@ export type WorkflowEvent = ValueOf<typeof WORKFLOW_EVENT>;
 export type CompletionResult = ValueOf<typeof COMPLETION_RESULT>;
 
 /** Explicit mapping from role completion results to workflow events. */
-export type CompletionEventMap<TResult extends string = string> =
-  Readonly<Record<TResult, WorkflowEvent>>;
+export type CompletionEventMap = Readonly<Record<string, WorkflowEvent>>;
 
 /** Action identifier executed during transitions (e.g. gitPull, mergePr). */
 export type TransitionAction = ValueOf<typeof ACTION>;
@@ -90,7 +86,7 @@ type StatefulTransitions<TStateKey extends string> = {
 };
 
 /** Queue state waiting for a role to pick up work. */
-export type QueueStateConfig<
+type QueueStateConfig<
   TRoleId extends string,
   TStateKey extends string,
   TLabel extends string,
@@ -104,7 +100,7 @@ export type QueueStateConfig<
 };
 
 /** Active state currently processed by a worker role. */
-export type ActiveStateConfig<
+type ActiveStateConfig<
   TRoleId extends string,
   TStateKey extends string,
   TLabel extends string,
@@ -118,7 +114,7 @@ export type ActiveStateConfig<
 };
 
 /** Hold state waiting for an external or human decision. */
-export type HoldStateConfig<
+type HoldStateConfig<
   TStateKey extends string,
   TLabel extends string,
 > = BaseStateConfig<TLabel> & StatefulTransitions<TStateKey> & {
@@ -131,7 +127,7 @@ export type HoldStateConfig<
 };
 
 /** Terminal state concluding the workflow. */
-export type TerminalStateConfig<
+type TerminalStateConfig<
   TLabel extends string,
 > = BaseStateConfig<TLabel> & {
   /** Terminal behavior discriminator. */
@@ -182,13 +178,6 @@ export type BuiltInWorkflowConfig = WorkflowDefinition<
   WorkflowLabel
 >;
 
-/** Strict state contract for the built-in workflow. */
-export type BuiltInWorkflowStateConfig = StateDefinition<
-  RoleId,
-  WorkflowStateKey,
-  WorkflowLabel
->;
-
 /** Workflow configuration after runtime validation and layer resolution. */
 export type WorkflowConfig = WorkflowDefinition<string, string, string>;
 
@@ -205,10 +194,30 @@ export type CompletionRule<TLabel extends string = WorkflowLabel> = {
   actions: TransitionAction[];
 };
 
+/** Provider-visible label definition generated from workflow semantics. */
+export type LabelDefinition = {
+  /** Exact label name presented by the issue provider. */
+  name: string;
+  /** Hex color assigned when the label is created. */
+  color: string;
+};
+
+/** Complete role-level definition before runtime concurrency defaults are resolved. */
+export type RoleLevelDefinition = {
+  /** Relative capability rank; larger values represent more capable workers. */
+  readonly rank: number;
+  /** Model identifier assigned to the level. */
+  readonly model: string;
+  /** Optional concurrency override; the workflow-wide limit applies when omitted. */
+  readonly maxWorkers?: number;
+  /** Optional emoji used when announcing work at this level. */
+  readonly emoji?: string;
+};
+
 /** Definition of a role including its active levels. */
 export type RoleDefinition<TLevelId extends string = LevelId> = {
-  /** List of active level identifiers (e.g. ["junior", "senior"]). */
-  levels: readonly TLevelId[];
+  /** Active level definitions keyed by identifier. */
+  levels: Readonly<Record<TLevelId, RoleLevelDefinition>>;
   /** Whether the role is enabled in the workflow pipeline. */
   enabled?: boolean;
 };

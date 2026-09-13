@@ -1,5 +1,5 @@
 /**
- * workflow/const.ts — Workflow labels and routing constants.
+ * Defines canonical built-in workflow identifiers and provider-visible metadata.
  */
 
 /** Known internal workflow state keys used across the pipeline. */
@@ -24,7 +24,7 @@ export const WORKFLOW_STATE_KEYS = {
   REJECTED: "rejected",
   /** Task failed review or testing; queued for developer fixes and improvements. */
   TO_IMPROVE: "toImprove",
-  /** Architect completed work but is blocked; queued for refinement. */
+  /** Work is awaiting clarification before returning to the developer queue. */
   REFINING: "refining",
   /** Task is queued for architect/researcher design and research phase. */
   TO_RESEARCH: "toResearch",
@@ -58,7 +58,7 @@ export const DEFAULT_ROLES = {
   ARCHITECT: "architect",
 } as const;
 
-/** Default built-in developer tier/level options. */
+/** Built-in worker level identifiers shared by role definitions. */
 export const DEFAULT_LEVELS = {
   /** Entry-level worker tier. */
   JUNIOR: "junior",
@@ -70,69 +70,41 @@ export const DEFAULT_LEVELS = {
 
 /** Display labels for states on the provider issue trackers. */
 export const WORKFLOW_STATE_LABELS = {
-  /** Display label for planning state. */
   PLANNING: "Planning",
-  /** Display label for todo state. */
   TODO: "To Do",
-  /** Display label for doing state. */
   DOING: "Doing",
-  /** Display label for to-review state. */
   TO_REVIEW: "To Review",
-  /** Display label for reviewing state. */
   REVIEWING: "Reviewing",
-  /** Display label for to-test state. */
   TO_TEST: "To Test",
-  /** Display label for testing state. */
   TESTING: "Testing",
-  /** Display label for done state. */
   DONE: "Done",
-  /** Display label for rejected state. */
   REJECTED: "Rejected",
-  /** Display label for to-improve state. */
   TO_IMPROVE: "To Improve",
-  /** Display label for refining state. */
   REFINING: "Refining",
-  /** Display label for to-research state. */
   TO_RESEARCH: "To Research",
-  /** Display label for researching state. */
   RESEARCHING: "Researching",
 } as const;
 
 /** Corresponding colors for workflow state labels. */
 export const WORKFLOW_STATE_COLORS = {
-  /** Hex color for planning label. */
   PLANNING: "#95a5a6",
-  /** Hex color for todo label. */
-  TODO: "#0366d6",
-  /** Hex color for doing label. */
+  TODO: "#428bca",
   DOING: "#f0ad4e",
-  /** Hex color for to-review label. */
   TO_REVIEW: "#7057ff",
-  /** Hex color for reviewing label. */
   REVIEWING: "#c5def5",
-  /** Hex color for to-test label. */
   TO_TEST: "#5bc0de",
-  /** Hex color for testing label. */
   TESTING: "#9b59b6",
-  /** Hex color for done label. */
   DONE: "#5cb85c",
-  /** Hex color for rejected label. */
   REJECTED: "#e11d48",
-  /** Hex color for to-improve label. */
   TO_IMPROVE: "#d9534f",
-  /** Hex color for refining label. */
   REFINING: "#f39c12",
-  /** Hex color for to-research label. */
   TO_RESEARCH: "#0075ca",
-  /** Hex color for researching label. */
   RESEARCHING: "#4a90e2",
 } as const;
 
 /** Built-in execution modes for role and project parallelism. */
 export const EXECUTION_MODE = {
-  /** Parallel execution mode. */
   PARALLEL: "parallel",
-  /** Sequential execution mode. */
   SEQUENTIAL: "sequential",
 } as const;
 

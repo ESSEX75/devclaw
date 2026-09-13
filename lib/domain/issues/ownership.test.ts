@@ -1,3 +1,6 @@
+/**
+ * Verifies the public issue-domain ownership-label behavior.
+ */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -6,7 +9,7 @@ import {
   getOwnerLabel,
   isOwnedByOrUnclaimed,
   OWNER_LABEL_PREFIX,
-} from "../index.js";
+} from "./index.js";
 
 describe("issue ownership labels", () => {
   it("builds and detects an instance owner label", () => {

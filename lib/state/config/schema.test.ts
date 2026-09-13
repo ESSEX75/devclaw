@@ -149,7 +149,7 @@ describe("workflow config schema", () => {
 
   it("rejects malformed identifiers and labels", () => {
     assert.throws(() => validateConfig({
-      roles: { "invalid role": { levels: ["standard"] } },
+      roles: { "invalid role": { levels: { standard: {} } } },
     }));
     assert.throws(() => validateConfig({
       workflow: {
@@ -197,26 +197,55 @@ describe("resolved workflow schema", () => {
 });
 
 describe("merged role integrity", () => {
-  it("reports missing custom-role fields and invalid level references", () => {
+  it("reports incomplete custom levels and role fields", () => {
     const errors = validateRoleIntegrity({
       security_auditor: {
-        levels: ["standard"],
-        defaultLevel: "expert",
-        models: {
-          expert: "model/expert",
+        levels: {
+          standard: {},
+          expert: { rank: 1 },
         },
-        emoji: {
-          expert: "🔐",
-        },
+        defaultLevel: "missing",
         completion: {},
       },
     }, new Set(["developer"]));
 
     assert.ok(errors.some((error) => error.includes("defaultLevel")));
-    assert.ok(errors.some((error) => error.includes("models.standard")));
-    assert.ok(errors.some((error) => error.includes("models.expert")));
-    assert.ok(errors.some((error) => error.includes("emoji.expert")));
+    assert.ok(errors.some((error) => error.includes("levels.standard.rank")));
+    assert.ok(errors.some((error) => error.includes("levels.standard.model")));
+    assert.ok(errors.some((error) => error.includes("levels.expert.model")));
     assert.ok(errors.some((error) => error.includes("completion")));
+  });
+
+  it("rejects removed parallel level maps", () => {
+    assert.throws(() => validateConfig({
+      roles: {
+        developer: {
+          models: { junior: "model/junior" },
+        },
+      },
+    }));
+    assert.throws(() => validateConfig({
+      roles: {
+        developer: {
+          levelRanks: { junior: 1 },
+        },
+      },
+    }));
+  });
+
+  it("rejects duplicate ranks within a role", () => {
+    const errors = validateRoleIntegrity({
+      security_auditor: {
+        levels: {
+          standard: { rank: 1, model: "model/standard" },
+          expert: { rank: 1, model: "model/expert" },
+        },
+        defaultLevel: "standard",
+        completion: { done: "COMPLETE" },
+      },
+    }, new Set(["developer"]));
+
+    assert.ok(errors.some((error) => error.includes("rank 1 is already used")));
   });
 
   it("rejects disabling an undefined custom role", () => {

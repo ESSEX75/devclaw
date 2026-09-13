@@ -14,14 +14,21 @@ function policyState(projectSlug: string): IssueRuntimeState {
     provider: ISSUE_PROVIDER.GITHUB,
     workflowState: "toReview",
     workflowLabel: "To Review",
+    assignedRole: null,
+    assignedLevel: null,
+    owner: null,
     reviewPolicy: "human",
     testPolicy: "skip",
+    notifyTarget: null,
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
     projectionVersion: 1,
     createdAt: "2026-07-01T00:00:00.000Z",
     updatedAt: "2026-07-01T00:00:00.000Z",
+    closedAt: null,
+    providerMissing: null,
+    pipelineNotification: null,
   };
 }
 

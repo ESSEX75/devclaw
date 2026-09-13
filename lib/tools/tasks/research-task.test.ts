@@ -11,6 +11,16 @@ import { getDefaultModel, getEmoji, isLevelForRole, resolveModel, roleForLevel }
 import { selectLevel } from "../../roles/model-selector.js";
 import type { ResolvedRoleConfig } from "../../state/config/index.js";
 
+const architectRole: ResolvedRoleConfig = {
+  levels: {
+    junior: { rank: 1, model: "anthropic/claude-sonnet-4-5", maxWorkers: 2 },
+    senior: { rank: 2, model: "anthropic/claude-opus-4-6", maxWorkers: 2 },
+  },
+  defaultLevel: "junior",
+  completion: {},
+  enabled: true,
+};
+
 describe("architect tiers", () => {
   it("should recognize architect levels", () => {
     assert.strictEqual(isLevelForRole("junior", "architect"), true);
@@ -31,7 +41,15 @@ describe("architect tiers", () => {
   });
 
   it("should resolve architect model from resolved role config", () => {
-    const resolvedRole: ResolvedRoleConfig = { levelMaxWorkers: { junior: 2, senior: 2 }, models: { senior: "custom/model" }, levels: ["junior", "senior"], defaultLevel: "junior", emoji: {}, completion: {}, enabled: true };
+    const resolvedRole: ResolvedRoleConfig = {
+      levels: {
+        junior: { rank: 1, model: "default/model", maxWorkers: 2 },
+        senior: { rank: 2, model: "custom/model", maxWorkers: 2 },
+      },
+      defaultLevel: "junior",
+      completion: {},
+      enabled: true,
+    };
 
     assert.strictEqual(resolveModel("architect", "senior", resolvedRole), "custom/model");
   });
@@ -111,13 +129,13 @@ describe("architect workflow — To Research / Researching states", () => {
 
 describe("architect model selection", () => {
   it("should select junior for standard design tasks", () => {
-    const result = selectLevel("Design: Add caching layer", "Simple caching strategy", "architect");
+    const result = selectLevel("Design: Add caching layer", "Simple caching strategy", "architect", architectRole);
 
     assert.strictEqual(result.level, "junior");
   });
 
   it("should select senior for complex design tasks", () => {
-    const result = selectLevel("Design: System-wide refactor", "Major migration and redesign of the architecture", "architect");
+    const result = selectLevel("Design: System-wide refactor", "Major migration and redesign of the architecture", "architect", architectRole);
 
     assert.strictEqual(result.level, "senior");
   });

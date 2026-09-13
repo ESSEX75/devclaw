@@ -192,7 +192,7 @@ export async function finishWork(input: FinishWorkInput) {
   let slotLevel: string | null = null;
   let issueId: number | null = null;
 
-  for (const level of resolvedRole.levels) {
+  for (const level of Object.keys(resolvedRole.levels)) {
     const slots = roleWorker.levels[level] ?? [];
 
     for (let i = 0; i < slots.length; i++) {

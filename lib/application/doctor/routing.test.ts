@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { NOTIFICATION_CHANNEL, type ProjectsData } from "../../domain/index.js";
+import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../domain/index.js";
+import type { ProjectsData } from "../../state/projects/index.js";
 import { DEVCLAW_AGENT_TOOLS } from "../setup/plugin-config.js";
 import { buildRoutingDoctorReport } from "./routing.js";
 
@@ -13,10 +14,9 @@ const projects: ProjectsData = {
       name: "DevClaw",
       agentId: "dev-agent",
       repo: "repo",
-      groupName: "DevClaw",
-      deployUrl: "",
       baseBranch: "develop",
       deployBranch: "develop",
+      provider: ISSUE_PROVIDER.GITHUB,
       channels: [{
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
         accountId: "dev",

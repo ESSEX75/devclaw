@@ -1,5 +1,5 @@
 /**
- * workflow/labels.ts — Label formatting, detection, and routing helpers.
+ * Builds provider-visible workflow labels from validated domain configuration.
  */
 import {
   DEFAULT_ROLE_LABEL_COLOR,
@@ -8,82 +8,63 @@ import {
   ROLE_LABEL_COLORS,
   ROUTING_LABELS,
   STEP_ROUTING_COLOR,
-  TEST_POLICY,
 } from "./const.js";
-import type { ReviewPolicy, RoleDefinition, RoleId, RoutingLabel, TestPolicy } from "./types.js";
-
-// ---------------------------------------------------------------------------
-// Step routing labels
-// ---------------------------------------------------------------------------
+import type { LabelDefinition, ReviewPolicy, RoleDefinition, RoutingLabel } from "./types.js";
 
 /** Known step routing labels (created on the provider during project registration). */
-const STEP_ROUTING_LABELS: readonly string[] = Object.values(ROUTING_LABELS);
+const STEP_ROUTING_LABELS: readonly RoutingLabel[] = Object.values(ROUTING_LABELS);
 
-// ---------------------------------------------------------------------------
-// Notify labels — channel routing for notifications
-// ---------------------------------------------------------------------------
+/** Exhaustive provider-label mapping for supported review policies. */
+const REVIEW_ROUTING_LABELS: Readonly<Record<ReviewPolicy, RoutingLabel>> = {
+  [REVIEW_POLICY.HUMAN]: ROUTING_LABELS.REVIEW_HUMAN,
+  [REVIEW_POLICY.AGENT]: ROUTING_LABELS.REVIEW_AGENT,
+  [REVIEW_POLICY.SKIP]: ROUTING_LABELS.REVIEW_SKIP,
+};
 
-
-// ---------------------------------------------------------------------------
-// Owner labels — instance identity on issues
-// ---------------------------------------------------------------------------
-
-
-// ---------------------------------------------------------------------------
-// Review routing
-// ---------------------------------------------------------------------------
 /**
- * Determine review routing label for an issue based on project policy and developer level.
+ * Determine the review routing label for an issue from its resolved policy.
+ *
+ * @param policy - Validated review policy selected for the issue.
  */
 export function resolveReviewRouting(policy: ReviewPolicy): RoutingLabel {
-  if (policy === REVIEW_POLICY.HUMAN) return ROUTING_LABELS.REVIEW_HUMAN;
-  if (policy === REVIEW_POLICY.AGENT) return ROUTING_LABELS.REVIEW_AGENT;
-  if (policy === REVIEW_POLICY.SKIP) return ROUTING_LABELS.REVIEW_SKIP;
-
-  return ROUTING_LABELS.REVIEW_HUMAN;
+  return REVIEW_ROUTING_LABELS[policy];
 }
-
-/**
- * Determine test routing label for an issue based on project policy.
- */
-export function resolveTestRouting(policy: TestPolicy): RoutingLabel {
-  if (policy === TEST_POLICY.AGENT) return ROUTING_LABELS.TEST_AGENT;
-
-  return ROUTING_LABELS.TEST_SKIP;
-}
-
-// ---------------------------------------------------------------------------
-// Role labels
-// ---------------------------------------------------------------------------
-
 
 /**
  * Generate all role:level label definitions from resolved config roles.
+ *
+ * @param roles - Resolved runtime role definitions used by the workflow.
  */
 export function getRoleLabels(
-  roles: Partial<Record<RoleId, RoleDefinition>>,
-): Array<{ name: string; color: string }> {
-  const labels: Array<{ name: string; color: string }> = [];
+  roles: Readonly<Record<string, RoleDefinition<string>>>,
+): LabelDefinition[] {
+  const labels: LabelDefinition[] = [];
 
   for (const [roleId, role] of Object.entries(roles)) {
-    if (!role) continue;
     if (role.enabled === false) continue;
-    for (const level of role.levels) {
+    const color = getRoleLabelColor(roleId);
+
+    for (const level of Object.keys(role.levels)) {
       labels.push({
         name: `${roleId}:${level}`,
-        color: getRoleLabelColor(roleId),
+        color,
       });
     }
-  }
-
-  for (const routingLabel of STEP_ROUTING_LABELS) {
-    labels.push({ name: routingLabel, color: STEP_ROUTING_COLOR });
   }
 
   return labels;
 }
 
-/** Get the label color for a role. Falls back to gray for unknown roles. */
+/** Generate the fixed review and test routing labels understood by the workflow engine. */
+export function getStepRoutingLabels(): LabelDefinition[] {
+  return STEP_ROUTING_LABELS.map((name) => ({ name, color: STEP_ROUTING_COLOR }));
+}
+
+/**
+ * Get the label color for a role. Falls back to gray for unknown roles.
+ *
+ * @param role - Runtime-configured role identifier to present.
+ */
 export function getRoleLabelColor(role: string): string {
   if (role === DEFAULT_ROLES.DEVELOPER) return ROLE_LABEL_COLORS.DEVELOPER;
   if (role === DEFAULT_ROLES.TESTER) return ROLE_LABEL_COLORS.TESTER;

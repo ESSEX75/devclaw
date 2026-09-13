@@ -3,9 +3,10 @@
  */
 import fs from "node:fs/promises";
 
-import type { Project,ProjectsData } from "../../domain/index.js";
+import type { Project } from "../../domain/index.js";
 import { projectsPath, resolveRepoPath } from "./paths.js";
 import { parseProjectsData } from "./schema.js";
+import type { ProjectsData } from "./types.js";
 
 
 // ---------------------------------------------------------------------------

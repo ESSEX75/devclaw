@@ -9,7 +9,6 @@ import { type Project } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { getConfiguredRoleIds } from "../../state/config/index.js";
 import type { ResolvedConfig } from "../../state/config/types.js";
-import { providerKindFromProject } from "../../state/issues/index.js";
 import { maintainIssueArchive, recoverTerminalIssueArchives } from "../issues/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
@@ -30,7 +29,19 @@ import { testSkipPass } from "./test-skip.js";
 // ---------------------------------------------------------------------------
 
 /**
- * Run health checks and auto-fix for a project (dev + qa roles).
+ * Run health checks and auto-fix for every enabled built-in or custom role.
+ *
+ * @param workspaceDir - Workspace containing project and issue state.
+ * @param projectSlug - Stable key of the project being checked.
+ * @param project - Persisted project definition and worker slots.
+ * @param sessions - Current OpenClaw session lookup, when available.
+ * @param provider - Issue provider used for health inspection and repair.
+ * @param resolvedConfig - Resolved role and workflow configuration.
+ * @param staleWorkerHours - Optional age threshold for stale-worker warnings.
+ * @param instanceName - Optional instance owner used to scope provider issues.
+ * @param runCommand - Command runner required for worker-session recovery.
+ * @param stallTimeoutMinutes - Optional inactivity threshold for stall detection.
+ * @param agentId - Optional OpenClaw agent receiving worker nudges.
  */
 export async function performHealthPass(
   workspaceDir: string,
@@ -57,6 +68,7 @@ export async function performHealthPass(
       sessions,
       autoFix: true,
       provider,
+      workflow: resolvedConfig.workflow,
       staleWorkerHours,
       stallTimeoutMinutes,
       runCommand: runCommand!,
@@ -73,6 +85,7 @@ export async function performHealthPass(
       role,
       autoFix: true,
       provider,
+      workflow: resolvedConfig.workflow,
       instanceName,
     });
 
@@ -85,6 +98,7 @@ export async function performHealthPass(
     projectSlug,
     project,
     provider,
+    workflow: resolvedConfig.workflow,
     autoFix: true,
     instanceName,
   });
@@ -124,7 +138,7 @@ export async function performIssueCreationPass(
   const result = await reconcileManagedTaskCreations({
     workspaceDir,
     project,
-    providerType: providerKindFromProject(project),
+    providerType: project.provider,
     provider,
     workflow: resolvedConfig.workflow,
     roles: Object.keys(resolvedConfig.roles),

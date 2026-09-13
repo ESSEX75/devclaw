@@ -16,7 +16,7 @@ import {
   NOTIFY_LABEL_COLOR,
   resolveNotifyBinding,
   type NotificationEndpoint,
-} from "../index.js";
+} from "./index.js";
 
 // ---------------------------------------------------------------------------
 // getNotifyLabel / constants

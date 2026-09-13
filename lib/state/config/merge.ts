@@ -5,9 +5,10 @@
  * - Objects: recursively merge (sparse override)
  * - Arrays: replace entirely (no merging array elements)
  * - `false` for a role: marks it as disabled
+ * - `false` for a level: removes that inherited level during resolution
  * - Primitives: override
  */
-import type { DevClawConfig, RoleOverride, StateOverride } from "./types.js";
+import type { DevClawConfig, LevelOverride, RoleOverride, StateOverride } from "./types.js";
 
 /**
  * Merge a config overlay on top of a base config.
@@ -105,31 +106,40 @@ function mergeRoleOverride(
   base: RoleOverride,
   overlay: RoleOverride,
 ): RoleOverride {
-  const levels = overlay.levels ?? base.levels;
-  const allowedLevels = levels ? new Set(levels) : undefined;
-  const baseModels = allowedLevels
-    ? Object.fromEntries(Object.entries(base.models ?? {}).filter(([level]) => allowedLevels.has(level)))
-    : base.models;
-  const baseEmoji = allowedLevels
-    ? Object.fromEntries(Object.entries(base.emoji ?? {}).filter(([level]) => allowedLevels.has(level)))
-    : base.emoji;
-
   return {
     ...base,
     ...overlay,
-    // Models: merge (don't replace)
-    models: baseModels || overlay.models
-      ? { ...baseModels, ...overlay.models }
-      : undefined,
-    // Emoji: merge (don't replace)
-    emoji: baseEmoji || overlay.emoji
-      ? { ...baseEmoji, ...overlay.emoji }
-      : undefined,
+    levels: mergeRoleLevels(base.levels, overlay.levels),
     // Completion mappings merge by result identifier
     completion: base.completion || overlay.completion
       ? { ...base.completion, ...overlay.completion }
       : undefined,
-    // Arrays replace entirely
-    ...(overlay.levels ? { levels: overlay.levels } : {}),
   };
+}
+
+/**
+ * Merge sparse level definitions while preserving explicit false removals.
+ *
+ * @param base - Level definitions inherited from the lower configuration layer.
+ * @param overlay - Sparse level changes from the higher configuration layer.
+ */
+function mergeRoleLevels(
+  base: Readonly<Record<string, LevelOverride | false>> | undefined,
+  overlay: Readonly<Record<string, LevelOverride | false>> | undefined,
+): Record<string, LevelOverride | false> | undefined {
+  if (!base && !overlay) return undefined;
+
+  const levels: Record<string, LevelOverride | false> = { ...base };
+
+  for (const [level, override] of Object.entries(overlay ?? {})) {
+    const inherited = levels[level];
+
+    levels[level] = override === false
+      ? false
+      : inherited
+        ? { ...inherited, ...override }
+        : { ...override };
+  }
+
+  return levels;
 }

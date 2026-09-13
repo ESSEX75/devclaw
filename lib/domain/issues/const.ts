@@ -48,8 +48,11 @@ export const ISSUE_ARCHIVE_REASON = {
 
 /** Retention state of attachments associated with an archived issue. */
 export const ATTACHMENT_DISPOSITION = {
+  /** Files are retained in storage after issue archive. */
   RETAINED: "retained",
+  /** Files have been explicitly purged from storage. */
   PURGED: "purged",
+  /** No attachments were associated with the issue. */
   NONE: "none",
 } as const;
 
@@ -71,14 +74,24 @@ export const ISSUE_CREATION_STATUS = {
 
 /** Stable creation saga failure identifiers. */
 export const ISSUE_CREATION_ERROR = {
+  /** Validation or preflight check failed before starting provider issue creation. */
   CREATE_PREFLIGHT_FAILED: "CREATE_PREFLIGHT_FAILED",
+  /** Concurrent issue creation request detected with conflicting parameters. */
   IDEMPOTENCY_CONFLICT: "IDEMPOTENCY_CONFLICT",
+  /** Provider API returned a definitive error during issue creation. */
   PROVIDER_CREATE_FAILED: "PROVIDER_CREATE_FAILED",
+  /** Provider response was ambiguous or request timed out during creation. */
   PROVIDER_CREATE_UNKNOWN: "PROVIDER_CREATE_UNKNOWN",
+  /** Provider issue creation request was blocked due to API rate limits. */
   PROVIDER_RATE_LIMITED: "PROVIDER_RATE_LIMITED",
+  /** Failed to apply initial projection labels/metadata to the created provider issue. */
   PROJECTION_APPLY_FAILED: "PROJECTION_APPLY_FAILED",
+  /** Verification read-back of provider issue projection did not match expected runtime state. */
   PROJECTION_VERIFICATION_FAILED: "PROJECTION_VERIFICATION_FAILED",
+  /** Provider issue created, but writing the initial local runtime state to disk failed. */
   LOCAL_COMMIT_FAILED: "LOCAL_COMMIT_FAILED",
+  /** Discrepancy between local state and provider state requires automated reconciliation pass. */
   RECONCILIATION_REQUIRED: "RECONCILIATION_REQUIRED",
+  /** Creation saga failed in a non-recoverable state requiring manual operator intervention. */
   MANUAL_REPAIR_REQUIRED: "MANUAL_REPAIR_REQUIRED",
 } as const;

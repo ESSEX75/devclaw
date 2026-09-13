@@ -116,11 +116,13 @@ const ResolvedWorkflowConfigSchema = z.object({
   states: z.record(IdentifierSchema, StateConfigSchema),
 }).strict();
 
-const ModelEntrySchema = z.union([
-  z.string().trim().min(1),
+const LevelOverrideSchema = z.union([
+  z.literal(false),
   z.object({
-    model: z.string().trim().min(1),
+    rank: z.number().int().positive().optional(),
+    model: z.string().trim().min(1).optional(),
     maxWorkers: z.number().int().positive().optional(),
+    emoji: z.string().min(1).optional(),
   }).strict(),
 ]);
 
@@ -128,10 +130,8 @@ const RoleOverrideSchema = z.union([
   z.literal(false),
   z.object({
     enabled: z.boolean().optional(),
-    levels: z.array(IdentifierSchema).min(1).optional(),
+    levels: z.record(IdentifierSchema, LevelOverrideSchema).optional(),
     defaultLevel: IdentifierSchema.optional(),
-    models: z.record(IdentifierSchema, ModelEntrySchema).optional(),
-    emoji: z.record(IdentifierSchema, z.string().min(1)).optional(),
     completion: z.record(IdentifierSchema, z.enum(WORKFLOW_EVENT)).optional(),
   }).strict(),
 ]);
@@ -181,12 +181,17 @@ export function parseResolvedWorkflowConfig(workflow: unknown): WorkflowConfig {
   return ResolvedWorkflowConfigSchema.parse(workflow);
 }
 
+type RoleIntegrityLevelInput = {
+  rank?: number;
+  model?: string;
+  maxWorkers?: number;
+  emoji?: string;
+};
+
 type RoleIntegrityInput = Record<string, false | {
   enabled?: boolean;
-  levels?: readonly string[];
+  levels?: Readonly<Record<string, false | RoleIntegrityLevelInput>>;
   defaultLevel?: string;
-  models?: Readonly<Record<string, unknown>>;
-  emoji?: Readonly<Record<string, string>>;
   completion?: Readonly<Record<string, string>>;
 }>;
 
@@ -208,39 +213,42 @@ export function validateRoleIntegrity(
       continue;
     }
 
-    if (!role.levels?.length) {
+    const activeLevels: Array<[string, RoleIntegrityLevelInput]> = [];
+
+    for (const [level, definition] of Object.entries(role.levels ?? {})) {
+      if (definition !== false) activeLevels.push([level, definition]);
+    }
+
+    if (activeLevels.length === 0) {
       errors.push(`${rolePath}.levels: at least one level is required`);
       continue;
     }
 
-    const levels = new Set(role.levels);
+    const levels = new Set(activeLevels.map(([level]) => level));
+    const seenRanks = new Map<number, string>();
+
+    for (const [level, definition] of activeLevels) {
+      if (definition.rank === undefined) {
+        errors.push(`${rolePath}.levels.${level}.rank: is required`);
+      } else {
+        const existingLevel = seenRanks.get(definition.rank);
+
+        if (existingLevel) {
+          errors.push(`${rolePath}.levels.${level}.rank: rank ${definition.rank} is already used by level "${existingLevel}"`);
+        } else {
+          seenRanks.set(definition.rank, level);
+        }
+      }
+
+      if (!definition.model) {
+        errors.push(`${rolePath}.levels.${level}.model: is required`);
+      }
+    }
 
     if (!role.defaultLevel) {
       errors.push(`${rolePath}.defaultLevel: is required`);
     } else if (!levels.has(role.defaultLevel)) {
       errors.push(`${rolePath}.defaultLevel: "${role.defaultLevel}" is not listed in levels`);
-    }
-
-    if (!role.models) {
-      errors.push(`${rolePath}.models: is required`);
-    } else {
-      for (const level of role.levels) {
-        if (!(level in role.models)) {
-          errors.push(`${rolePath}.models.${level}: a model is required for every configured level`);
-        }
-      }
-
-      for (const level of Object.keys(role.models)) {
-        if (!levels.has(level)) {
-          errors.push(`${rolePath}.models.${level}: level is not listed in ${rolePath}.levels`);
-        }
-      }
-    }
-
-    for (const level of Object.keys(role.emoji ?? {})) {
-      if (!levels.has(level)) {
-        errors.push(`${rolePath}.emoji.${level}: level is not listed in ${rolePath}.levels`);
-      }
     }
 
     if (!role.completion || Object.keys(role.completion).length === 0) {

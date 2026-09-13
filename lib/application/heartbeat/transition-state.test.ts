@@ -25,8 +25,6 @@ async function withProject<T>(fn: (ctx: {
     name: "test-project",
     agentId: "test-agent",
     repo: "/tmp/test-repo",
-    groupName: "Test Group",
-    deployUrl: "",
     baseBranch: "main",
     deployBranch: "main",
     channels: [{
@@ -56,6 +54,40 @@ async function withProject<T>(fn: (ctx: {
 }
 
 describe("heartbeat transition state sync", () => {
+  it("preserves local ownership when a provider owner label disagrees", async () => {
+    await withProject(async ({ workspaceDir, project, provider }) => {
+      const initialIssue = provider.seedIssue({
+        iid: 89,
+        title: "Ownership projection drift",
+        labels: ["To Do", "owner:provider"],
+      });
+      await writeIssueRuntimeState({
+        workspaceDir,
+        project,
+        issue: initialIssue,
+        providerType: ISSUE_PROVIDER.GITHUB,
+        workflow: DEFAULT_WORKFLOW,
+        workflowState: "todo",
+        workflowLabel: "To Do",
+        owner: "local",
+      });
+
+      await writeIssueRuntimeState({
+        workspaceDir,
+        project,
+        issue: initialIssue,
+        providerType: ISSUE_PROVIDER.GITHUB,
+        workflow: DEFAULT_WORKFLOW,
+        workflowState: "doing",
+        workflowLabel: "Doing",
+      });
+
+      const store = await readIssueStateStore(workspaceDir, project.slug);
+
+      assert.strictEqual(store.issues["89"]!.owner, "local");
+    });
+  });
+
   it("updates issues.json after human review transition so projection does not roll labels back", async () => {
     await withProject(async ({ workspaceDir, project, provider, runCommand }) => {
       const issue = provider.seedIssue({

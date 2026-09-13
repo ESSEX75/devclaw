@@ -1,5 +1,4 @@
 import {
-  isBuiltInRoleId,
   type IssueRuntimeState,
   STATE_TYPE,
   WORKFLOW_EVENT,
@@ -50,6 +49,12 @@ export function resolveHoldQueueTarget(
   return { stateKey: approveTransition.target, state: targetState };
 }
 
+/**
+ * Resolve the worker level for a task while preserving explicit or prepared assignments.
+ * Automatic selection uses the target role's resolved ranks for both built-in and custom roles.
+ *
+ * @param input - Runtime assignment, target role configuration, and issue text used for selection.
+ */
 export function resolveRoleLevel(input: {
   requestedLevel?: string;
   runtimeState: IssueRuntimeState;
@@ -73,14 +78,17 @@ export function resolveRoleLevel(input: {
   if (
     runtimeState.assignedRole === targetRole
     && runtimeState.assignedLevel
-    && roleConfig.levels.includes(runtimeState.assignedLevel)
+    && roleConfig.levels[runtimeState.assignedLevel]
   ) {
     return runtimeState.assignedLevel;
   }
 
-  const selectedLevel = isBuiltInRoleId(targetRole)
-    ? selectLevel(input.issueTitle, input.issueDescription, targetRole).level
-    : roleConfig.defaultLevel;
+  const selectedLevel = selectLevel(
+    input.issueTitle,
+    input.issueDescription,
+    targetRole,
+    roleConfig,
+  ).level;
 
   validateRoleLevel(targetRole, selectedLevel, roleConfig);
 
@@ -92,8 +100,8 @@ export function validateRoleLevel(
   level: string,
   roleConfig: ResolvedRoleConfig,
 ): void {
-  if (!roleConfig.levels.includes(level)) {
-    throw new Error(`Invalid level "${level}" for role "${role}". Valid: ${roleConfig.levels.join(", ")}`);
+  if (!roleConfig.levels[level]) {
+    throw new Error(`Invalid level "${level}" for role "${role}". Valid: ${Object.keys(roleConfig.levels).join(", ")}`);
   }
 }
 

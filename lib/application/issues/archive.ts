@@ -63,16 +63,6 @@ export async function archiveManagedIssue(opts: {
     return { issueId: opts.issueId, archived: false, reason: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR };
   }
 
-  const failedState = state.workflowState.toLowerCase() === "failed" || state.workflowLabel.toLowerCase() === "failed";
-
-  if (
-    opts.archiveReason === ISSUE_ARCHIVE_REASON.TERMINAL
-    && failedState
-    && (state.retryAt || (state.retriesRemaining ?? 0) > 0)
-  ) {
-    return { issueId: opts.issueId, archived: false, reason: "retry_pending" };
-  }
-
   const archivedAt = new Date().toISOString();
   const record = await archiveIssueState(opts.workspaceDir, opts.projectSlug, opts.issueId, (current) => ({
     projectSlug: current.projectSlug,
@@ -86,7 +76,6 @@ export async function archiveManagedIssue(opts: {
     providerDeletedAt: opts.providerDeletedAt,
     archivedAt,
     lastIntegrityStatus: current.integrityStatus,
-    branchContract: current.branchContract,
     attachmentDisposition: ATTACHMENT_DISPOSITION.RETAINED,
     sourceSnapshotHash: hashIssueState(current),
   }));
@@ -124,13 +113,6 @@ export async function recoverTerminalIssueArchives(opts: {
   for (const state of Object.values(store.issues)) {
     if (archived.length >= opts.maxItems) break;
     if (!terminalKeys.has(state.workflowState)) continue;
-    const failedState = state.workflowState.toLowerCase() === "failed" || state.workflowLabel.toLowerCase() === "failed";
-
-    if (failedState && (state.retryAt || (state.retriesRemaining ?? 0) > 0)) {
-      skipped.push({ issueId: state.issueId, reason: "retry_pending" });
-      continue;
-    }
-
     const result = await archiveManagedIssue({
       workspaceDir: opts.workspaceDir,
       projectSlug: opts.projectSlug,
@@ -333,7 +315,6 @@ export function buildArchivedIssueRecord(state: IssueRuntimeState, reason: Issue
     closedAt: state.closedAt,
     archivedAt,
     lastIntegrityStatus: state.integrityStatus,
-    branchContract: state.branchContract,
     attachmentDisposition: ATTACHMENT_DISPOSITION.RETAINED,
     sourceSnapshotHash: hashIssueState(state),
   };

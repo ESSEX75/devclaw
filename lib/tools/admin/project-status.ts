@@ -11,7 +11,7 @@ import { getIssueArchiveStatus } from "../../application/issues/index.js";
 import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, STATE_TYPE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
-import { loadConfig } from "../../state/config/index.js";
+import { getLevelMaxWorkers, loadConfig } from "../../state/config/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject } from "../helpers.js";
 
 export function createProjectStatusTool(ctx: PluginContext) {
@@ -58,13 +58,13 @@ export function createProjectStatusTool(ctx: PluginContext) {
       const workers: Record<string, {
         levelMaxWorkers: Partial<Record<string, number>>;
         activeSlots: number;
-        levels: Record<string, Array<{ active: boolean; issueId: string | null; startTime: string | null }>>;
+        levels: Record<string, Array<{ active: boolean; issueId: number | null; startTime: string | null }>>;
       }> = {};
 
       for (const [role, rw] of Object.entries(project.workers)) {
-        const levelMaxWorkers = projectConfig.roles[role]?.levelMaxWorkers ?? {};
+        const levelMaxWorkers = getLevelMaxWorkers(projectConfig.roles[role]);
         let activeSlots = 0;
-        const levels: Record<string, Array<{ active: boolean; issueId: string | null; startTime: string | null }>> = {};
+        const levels: Record<string, Array<{ active: boolean; issueId: number | null; startTime: string | null }>> = {};
 
         for (const [level, slots] of Object.entries(rw.levels)) {
           if (slots === undefined) continue;

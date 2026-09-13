@@ -1,5 +1,5 @@
 /**
- * workflow/defaults.ts — Default workflow configuration.
+ * Defines the built-in workflow state machine used as the base configuration layer.
  */
 import {
   ACTION,
@@ -16,6 +16,7 @@ import {
 } from "./const.js";
 import type { BuiltInWorkflowConfig } from "./types.js";
 
+/** Built-in workflow graph inherited by workspace and project overrides. */
 export const DEFAULT_WORKFLOW: BuiltInWorkflowConfig = {
   initial: WORKFLOW_STATE_KEYS.PLANNING,
   reviewPolicy: REVIEW_POLICY.HUMAN,
@@ -145,6 +146,5 @@ export const DEFAULT_WORKFLOW: BuiltInWorkflowConfig = {
         [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },
     },
-
   },
 };

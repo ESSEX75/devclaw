@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { NOTIFICATION_CHANNEL, type NotificationEndpoint } from "../../domain/index.js";
+import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type NotificationEndpoint } from "../../domain/index.js";
 import {
   inspectProjectRoute,
   ROUTE_DIAGNOSTIC_CODE,
@@ -62,10 +62,9 @@ describe("strict project route validation", () => {
           name: "First",
           agentId: "dev-agent",
           repo: "repo",
-          groupName: "First",
-          deployUrl: "",
           baseBranch: "main",
           deployBranch: "main",
+          provider: ISSUE_PROVIDER.GITHUB,
           channels: [endpoint],
           workers: {},
         },

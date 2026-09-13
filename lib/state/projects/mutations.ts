@@ -3,12 +3,12 @@
  */
 import type {
   Project,
-  ProjectsData,
   RoleWorkerState,
   SlotState,
 } from "../../domain/index.js";
 import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
 import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjects } from "./store.js";
+import type { ProjectsData } from "./types.js";
 
 /**
  * Get the RoleWorkerState for a given role.
@@ -74,7 +74,7 @@ export async function activateWorker(
   slugOrChannelId: string,
   role: string,
   params: {
-    issueId: string;
+    issueId: number;
     level: string;
     sessionKey?: string;
     startTime?: string;
@@ -137,7 +137,7 @@ export async function deactivateWorker(
   workspaceDir: string,
   slugOrChannelId: string,
   role: string,
-  opts?: { level?: string; slotIndex?: number; issueId?: string },
+  opts?: { level?: string; slotIndex?: number; issueId?: number },
 ): Promise<ProjectsData> {
   await acquireLock(workspaceDir);
   try {

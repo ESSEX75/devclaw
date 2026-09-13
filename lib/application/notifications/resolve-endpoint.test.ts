@@ -59,8 +59,6 @@ function projectFixture(): Project {
     name: "DevClaw",
     agentId: "test-agent",
     repo: "D:/web/devclaw",
-    groupName: "DevClaw",
-    deployUrl: "",
     baseBranch: "main",
     deployBranch: "main",
     channels: [
@@ -87,11 +85,18 @@ function issueState(): IssueRuntimeState {
     workflowLabel: "To Do",
     assignedRole: "developer",
     assignedLevel: "junior",
+    owner: null,
+    reviewPolicy: null,
+    testPolicy: null,
     notifyTarget: { channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "task-topic" },
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
     projectionVersion: 1,
     createdAt: "2026-08-23T00:00:00.000Z",
     updatedAt: "2026-08-23T00:00:00.000Z",
+    activeWorker: null,
+    closedAt: null,
+    providerMissing: null,
+    pipelineNotification: null,
   };
 }

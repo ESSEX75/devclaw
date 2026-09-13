@@ -68,6 +68,11 @@ describe("E2E pipeline", () => {
     if (h) await h.cleanup();
   });
 
+  /**
+   * Seed matching provider and local runtime state for a managed queue issue.
+   *
+   * @param args - Provider projection and authoritative runtime fields for the fixture.
+   */
   async function seedManagedQueueIssue(args: {
     iid: number;
     title: string;
@@ -78,6 +83,7 @@ describe("E2E pipeline", () => {
     assignedLevel: LevelId;
     reviewPolicy?: "human" | "agent" | "skip" | null;
     testPolicy?: "agent" | "skip" | null;
+    owner?: string | null;
     workflow?: WorkflowConfig;
   }) {
     const issue = h.provider.seedIssue(args);
@@ -91,6 +97,7 @@ describe("E2E pipeline", () => {
       workflowLabel: args.workflowLabel,
       assignedRole: args.assignedRole,
       assignedLevel: args.assignedLevel,
+      owner: args.owner ?? null,
       reviewPolicy: args.reviewPolicy ?? null,
       testPolicy: args.testPolicy ?? null,
     });
@@ -141,7 +148,7 @@ describe("E2E pipeline", () => {
       const rw = getRoleWorker(getProject(data, h.channelId)!, "developer");
       assert.ok(rw.levels.medior, "should have medior level");
       assert.strictEqual(rw.levels.medior[0]!.active, true);
-      assert.strictEqual(rw.levels.medior[0]!.issueId, "42");
+      assert.strictEqual(rw.levels.medior[0]!.issueId, 42);
 
       // Verify gateway commands were fired
       assert.ok(h.commands.sessionPatches().length > 0, "Should have patched session");
@@ -152,6 +159,43 @@ describe("E2E pipeline", () => {
       assert.ok(taskMsg.includes("Add login page"), "Task message should include title");
       assert.ok(taskMsg.includes(h.project.slug), "Task message should include project slug");
       assert.ok(taskMsg.includes("work_finish"), "Task message should reference work_finish");
+    });
+
+    it("preserves the local owner when the provider owner label has drifted", async () => {
+      await seedManagedQueueIssue({
+        iid: 43,
+        title: "Owner drift",
+        labels: ["To Do", "owner:provider"],
+        workflowState: "todo",
+        workflowLabel: "To Do",
+        assignedRole: "developer",
+        assignedLevel: "medior",
+        owner: "local",
+      });
+
+      await dispatchTask({
+        workspaceDir: h.workspaceDir,
+        agentId: "test-agent",
+        project: h.project,
+        issueId: 43,
+        issueTitle: "Owner drift",
+        issueDescription: "Verify local ownership",
+        issueUrl: "https://example.com/issues/43",
+        role: "developer",
+        level: "medior",
+        fromLabel: "To Do",
+        toLabel: "Doing",
+        provider: h.provider,
+        instanceName: "dispatcher",
+        runCommand: h.runCommand,
+      });
+
+      const store = await readIssueStateStore(h.workspaceDir, h.project.slug);
+      const projected = await h.provider.getIssue(43);
+
+      assert.strictEqual(store.issues["43"]!.owner, "local");
+      assert.ok(projected.labels.includes("owner:local"));
+      assert.ok(!projected.labels.includes("owner:provider"));
     });
 
     it("should set resolved model via sessions.patch, not agent RPC (#436)", async () => {
@@ -221,7 +265,7 @@ describe("E2E pipeline", () => {
         workers: {
           developer: {
             level: "medior",
-            issueId: "42",
+            issueId: 42,
             sessionKey: existingSessionKey,
           },
         },
@@ -256,7 +300,7 @@ describe("E2E pipeline", () => {
     beforeEach(async () => {
       h = await createTestHarness({
         workers: {
-          developer: { active: true, issueId: "10", level: "medior" },
+          developer: { active: true, issueId: 10, level: "medior" },
         },
       });
       h.provider.seedIssue({ iid: 10, title: "Build feature X", labels: ["Doing"] });
@@ -299,7 +343,7 @@ describe("E2E pipeline", () => {
     beforeEach(async () => {
       h = await createTestHarness({
         workers: {
-          reviewer: { active: true, issueId: "25", level: "junior" },
+          reviewer: { active: true, issueId: 25, level: "junior" },
         },
       });
       h.provider.seedIssue({ iid: 25, title: "Review PR", labels: ["Reviewing"] });
@@ -411,7 +455,7 @@ describe("E2E pipeline", () => {
     beforeEach(async () => {
       h = await createTestHarness({
         workers: {
-          tester: { active: true, issueId: "30", level: "medior" },
+          tester: { active: true, issueId: 30, level: "medior" },
         },
       });
       h.provider.seedIssue({ iid: 30, title: "Verify login", labels: ["Testing"] });
@@ -499,7 +543,7 @@ describe("E2E pipeline", () => {
     beforeEach(async () => {
       h = await createTestHarness({
         workers: {
-          tester: { active: true, issueId: "40", level: "medior" },
+          tester: { active: true, issueId: 40, level: "medior" },
         },
       });
       h.provider.seedIssue({ iid: 40, title: "Check signup", labels: ["Testing"] });
@@ -540,7 +584,7 @@ describe("E2E pipeline", () => {
     beforeEach(async () => {
       h = await createTestHarness({
         workers: {
-          developer: { active: true, issueId: "50", level: "junior" },
+          developer: { active: true, issueId: 50, level: "junior" },
         },
       });
       h.provider.seedIssue({ iid: 50, title: "Fix CSS", labels: ["Doing"] });
@@ -925,7 +969,7 @@ describe("E2E pipeline", () => {
       // 4. Reviewer dispatched → Reviewing → approve → To Test
       const { activateWorker } = await import("../../state/projects/index.js");
       await activateWorker(h.workspaceDir, h.channelId, "reviewer", {
-        issueId: "100", level: "junior",
+        issueId: 100, level: "junior",
       });
       await h.provider.transitionLabel(100, "To Review", "Reviewing");
 
@@ -948,7 +992,7 @@ describe("E2E pipeline", () => {
 
       // 5. Tester passes → Done
       await activateWorker(h.workspaceDir, h.channelId, "tester", {
-        issueId: "100", level: "medior",
+        issueId: 100, level: "medior",
       });
       await h.provider.transitionLabel(100, "To Test", "Testing");
 
@@ -1032,7 +1076,7 @@ describe("E2E pipeline", () => {
       // 4. Tester passes → Done
       const { activateWorker } = await import("../../state/projects/index.js");
       await activateWorker(h.workspaceDir, h.channelId, "tester", {
-        issueId: "200", level: "medior",
+        issueId: 200, level: "medior",
       });
       await h.provider.transitionLabel(200, "To Test", "Testing");
 
@@ -1097,7 +1141,7 @@ describe("E2E pipeline", () => {
       // 3. Reviewer REJECTS → To Improve
       const { activateWorker } = await import("../../state/projects/index.js");
       await activateWorker(h.workspaceDir, h.channelId, "reviewer", {
-        issueId: "300", level: "junior",
+        issueId: 300, level: "junior",
       });
       await h.provider.transitionLabel(300, "To Review", "Reviewing");
 
@@ -1154,7 +1198,7 @@ describe("E2E pipeline", () => {
 
       // 5. Reviewer approves this time → To Test
       await activateWorker(h.workspaceDir, h.channelId, "reviewer", {
-        issueId: "300", level: "junior",
+        issueId: 300, level: "junior",
       });
       await h.provider.transitionLabel(300, "To Review", "Reviewing");
 
@@ -1177,7 +1221,7 @@ describe("E2E pipeline", () => {
 
       // 6. Tester passes → Done
       await activateWorker(h.workspaceDir, h.channelId, "tester", {
-        issueId: "300", level: "medior",
+        issueId: 300, level: "medior",
       });
       await h.provider.transitionLabel(300, "To Test", "Testing");
 
@@ -1524,7 +1568,7 @@ describe("E2E pipeline", () => {
     it("should track all provider interactions during completion", async () => {
       h = await createTestHarness({
         workers: {
-          tester: { active: true, issueId: "90", level: "medior" },
+          tester: { active: true, issueId: 90, level: "medior" },
         },
       });
       h.provider.seedIssue({ iid: 90, title: "Test tracking", labels: ["Testing"] });

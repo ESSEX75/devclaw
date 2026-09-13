@@ -82,7 +82,7 @@ Example:
         complexity: {
           type: "string",
           enum: ["simple", "medium", "complex"],
-          description: "Suggests architect level: simple/medium → junior, complex → senior. Defaults to medium.",
+          description: "Suggests architect level: simple → lowest rank, medium → default, complex → highest rank. Defaults to medium.",
         },
         dryRun: {
           type: "boolean",
@@ -107,6 +107,12 @@ Example:
       const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const pluginConfig = ctx.pluginConfig;
       const role = "architect";
+      const resolvedConfig = await loadConfig(workspaceDir, project.name);
+      const resolvedRole = resolvedConfig.roles[role];
+
+      if (!resolvedRole?.enabled) {
+        throw new Error(`Role "${role}" is not configured or is disabled.`);
+      }
 
       // Build issue body with rich context for the architect to start from
       const bodyParts = ["## Background", "", description];
@@ -122,11 +128,12 @@ Example:
       });
 
       // Select level: use complexity hint to guide the heuristic
-      const level = complexity === "complex"
-        ? selectLevel(title, "system-wide " + description, role).level
-        : selectLevel(title, description, role).level;
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
-      const resolvedRole = resolvedConfig.roles[role];
+      const selectionDescription = complexity === "complex"
+        ? `system-wide ${description}`
+        : complexity === "simple"
+          ? `simple ${description}`
+          : description;
+      const level = selectLevel(title, selectionDescription, role, resolvedRole).level;
       const model = resolveModel(role, level, resolvedRole);
 
       if (dryRun) {

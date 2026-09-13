@@ -72,7 +72,7 @@ async function setTaskLevelLocked(input: SetTaskLevelInput): Promise<SetTaskLeve
   }
 
   const issueSlot = Object.values(project.workers)
-    .some((roleWorker) => findSlotByIssue(roleWorker, String(issueId)) !== null);
+    .some((roleWorker) => findSlotByIssue(roleWorker, issueId) !== null);
 
   if (issueSlot) throw new Error(`Issue #${issueId} is already assigned to a worker slot.`);
 

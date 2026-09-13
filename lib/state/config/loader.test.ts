@@ -51,10 +51,11 @@ workflow:
     const workspaceDir = await createWorkspace(`
 roles:
   security_auditor:
-    levels: [standard]
+    levels:
+      standard:
+        rank: 1
+        model: model/security
     defaultLevel: standard
-    models:
-      standard: model/security
     completion:
       done: COMPLETE
       blocked: BLOCKED
@@ -147,19 +148,38 @@ workflow:
 });
 
 describe("custom role resolution", () => {
+  it("inherits built-in level fields when overriding only its model", async () => {
+    const workspaceDir = await createWorkspace(`
+roles:
+  developer:
+    levels:
+      senior:
+        model: model/custom-senior
+`);
+
+    const role = getResolvedRole(await loadConfig(workspaceDir), "developer");
+
+    assert.equal(role?.levels.senior?.rank, 3);
+    assert.equal(role?.levels.senior?.model, "model/custom-senior");
+    assert.equal(role?.levels.senior?.maxWorkers, 2);
+    assert.ok(role?.levels.junior);
+    assert.ok(role?.levels.medior);
+  });
+
   it("resolves a complete custom role without adding it to the built-in registry", async () => {
     const workspaceDir = await createWorkspace(`
 roles:
   security_auditor:
-    levels: [junior, senior]
-    defaultLevel: junior
-    models:
-      junior: anthropic/claude-sonnet-4-5
+    levels:
+      junior:
+        rank: 1
+        model: anthropic/claude-sonnet-4-5
+        emoji: "🔐"
       senior:
+        rank: 2
         model: anthropic/claude-opus-4-6
         maxWorkers: 1
-    emoji:
-      junior: "🔐"
+    defaultLevel: junior
     completion:
       done: COMPLETE
       blocked: BLOCKED
@@ -169,10 +189,10 @@ roles:
     const role = getResolvedRole(config, "security_auditor");
 
     assert.ok(role);
-    assert.deepEqual(role.levels, ["junior", "senior"]);
+    assert.deepEqual(Object.keys(role.levels), ["junior", "senior"]);
     assert.equal(role.defaultLevel, "junior");
-    assert.equal(role.models.senior, "anthropic/claude-opus-4-6");
-    assert.equal(role.levelMaxWorkers.senior, 1);
+    assert.equal(role.levels.senior?.model, "anthropic/claude-opus-4-6");
+    assert.equal(role.levels.senior?.maxWorkers, 1);
     assert.equal(role.completion.done, "COMPLETE");
     assert.equal(isConfiguredRoleId(config, "security_auditor"), true);
     assert.ok(getConfiguredRoleIds(config).includes("security_auditor"));
@@ -195,11 +215,10 @@ roles:
     const workspaceDir = await createWorkspace(`
 roles:
   security_auditor:
-    levels: [junior, senior]
+    levels:
+      junior: { rank: 1, model: model/junior }
+      senior: { rank: 2, model: model/senior }
     defaultLevel: junior
-    models:
-      junior: model/junior
-      senior: model/senior
     completion:
       done: COMPLETE
 `);
@@ -209,7 +228,7 @@ roles:
     await fs.writeFile(path.join(projectDir, "workflow.yaml"), `
 roles:
   security_auditor:
-    models:
+    levels:
       senior:
         model: model/project-senior
         maxWorkers: 3
@@ -220,9 +239,9 @@ roles:
     const config = await loadConfig(workspaceDir, "secure-app");
     const role = getResolvedRole(config, "security_auditor");
 
-    assert.equal(role?.models.junior, "model/junior");
-    assert.equal(role?.models.senior, "model/project-senior");
-    assert.equal(role?.levelMaxWorkers.senior, 3);
+    assert.equal(role?.levels.junior?.model, "model/junior");
+    assert.equal(role?.levels.senior?.model, "model/project-senior");
+    assert.equal(role?.levels.senior?.maxWorkers, 3);
     assert.equal(role?.completion.done, "COMPLETE");
     assert.equal(role?.completion.blocked, "BLOCKED");
   });
@@ -231,7 +250,8 @@ roles:
     const workspaceDir = await createWorkspace(`
 roles:
   security_auditor:
-    levels: [junior]
+    levels:
+      junior: {}
 `);
 
     await assert.rejects(
@@ -244,26 +264,31 @@ roles:
     const workspaceDir = await createWorkspace(`
 roles:
   developer:
-    levels: [apprentice, principal]
-    defaultLevel: apprentice
-    models:
-      apprentice: model/apprentice
+    levels:
+      junior: false
+      medior: false
+      senior: false
+      apprentice:
+        rank: 1
+        model: model/apprentice
+        emoji: "A"
       principal:
+        rank: 2
         model: model/principal
         maxWorkers: 4
-    emoji:
-      apprentice: "A"
-      principal: "P"
+        emoji: "P"
+    defaultLevel: apprentice
 `);
 
     const config = await loadConfig(workspaceDir);
     const role = getResolvedRole(config, "developer");
 
-    assert.deepEqual(role?.levels, ["apprentice", "principal"]);
+    assert.deepEqual(Object.keys(role?.levels ?? {}), ["apprentice", "principal"]);
     assert.equal(role?.defaultLevel, "apprentice");
-    assert.equal(role?.models.apprentice, "model/apprentice");
-    assert.equal(role?.models.principal, "model/principal");
-    assert.equal(role?.levelMaxWorkers.principal, 4);
-    assert.equal(role?.emoji.principal, "P");
+    assert.equal(role?.levels.apprentice?.model, "model/apprentice");
+    assert.equal(role?.levels.principal?.model, "model/principal");
+    assert.equal(role?.levels.junior, undefined);
+    assert.equal(role?.levels.principal?.maxWorkers, 4);
+    assert.equal(role?.levels.principal?.emoji, "P");
   });
 });

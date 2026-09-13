@@ -1,3 +1,6 @@
+/**
+ * Owns canonical notification-channel values and provider-facing label metadata.
+ */
 /** Supported notification channel constants. */
 export const NOTIFICATION_CHANNEL = {
   /** Telegram messenger notification channel. */

@@ -27,7 +27,6 @@ import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/config/index.js";
 import {
   confirmPipelineNotification,
-  providerKindFromProject,
   reservePipelineNotification,
   withIssueOrchestrationLock,
   writeIssueRuntimeState,
@@ -154,7 +153,7 @@ async function executeCompletionLocked(opts: {
     throw new Error(`Project "${projectSlug}" not found.`);
   }
 
-  const providerType = providerKindFromProject(project);
+  const providerType = project.provider;
   let prUrl = opts.prUrl;
   let mergedPr = false;
   let prTitle: string | undefined;
@@ -256,7 +255,7 @@ async function executeCompletionLocked(opts: {
       owner: "pipeline_merge_failure",
     });
 
-    await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });
+    await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId });
 
     await auditLog(workspaceDir, "pipeline_transition", {
       project: projectName,
@@ -446,7 +445,7 @@ async function executeCompletionLocked(opts: {
   }
 
   // Deactivate worker last (non-critical — session cleanup)
-  await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId: String(issueId) });
+  await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId });
 
   // Send review routing notification when developer completes
   if (role === "developer" && result === COMPLETION_RESULT.DONE) {
@@ -494,7 +493,7 @@ async function executeCompletionLocked(opts: {
       correlationId: `terminal:${projectSlug}:${issueId}:${runtimeState.workflowState}`,
     });
 
-    if (!archived.archived && archived.reason !== "retry_pending") {
+    if (!archived.archived) {
       throw new Error(`Terminal issue #${issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
     }
   }

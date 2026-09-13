@@ -1,30 +1,42 @@
 /**
  * config/types.ts — Types for the unified DevClaw configuration.
  *
- * A single workflow.yaml combines roles, models, and workflow.
+ * A single workflow.yaml combines structured role levels and workflow behavior.
  * Three-layer resolution: built-in → workspace → per-project.
  */
 import type {
   CompletionEventMap,
   ReviewCheckType,
+  RoleLevelDefinition,
   TransitionTarget,
   WorkflowConfig,
   WorkflowEvent,
 } from "../../domain/index.js";
 
-/**
- * Role override in workflow.yaml. All fields optional — only override what you need.
- * Set to `false` to disable a role entirely for a project.
- */
-/** Model entry: plain string or object with per-level maxWorkers override. */
-export type ModelEntry = string | { model: string; maxWorkers?: number };
+/** Sparse level configuration accepted from one workflow.yaml layer. */
+export type LevelOverride = {
+  /** Relative capability rank; larger values represent more capable workers. */
+  rank?: number;
+  /** Model identifier assigned to the level. */
+  model?: string;
+  /** Optional per-level concurrency override. */
+  maxWorkers?: number;
+  /** Optional announcement emoji. */
+  emoji?: string;
+};
 
+/**
+ * Role override in workflow.yaml. Built-in roles may inherit omitted fields,
+ * while a custom role must resolve to a complete definition.
+ */
 export type RoleOverride = {
+  /** Whether orchestration may dispatch work to the role. */
   enabled?: boolean;
-  levels?: string[];
+  /** Level definitions keyed by identifier; false removes an inherited level. */
+  levels?: Record<string, LevelOverride | false>;
+  /** Level selected when issue complexity is neither explicitly simple nor complex. */
   defaultLevel?: string;
-  models?: Record<string, ModelEntry>;
-  emoji?: Record<string, string>;
+  /** Completion result to workflow event mappings. */
   completion?: CompletionEventMap;
 };
 
@@ -126,17 +138,20 @@ export type ResolvedConfig = {
   issueArchiveMaintenance: ResolvedIssueArchiveMaintenance;
 };
 
-/**
- * Fully resolved role config — all fields present.
- */
+/** Complete runtime configuration for one active worker level. */
+export type ResolvedLevelConfig = RoleLevelDefinition & {
+  /** Maximum concurrent workers for the level. */
+  maxWorkers: number;
+};
+
+/** Fully resolved role configuration used by runtime orchestration. */
 export type ResolvedRoleConfig = {
-  /** Per-level max workers. Resolved from: per-model maxWorkers → workflow maxWorkersPerLevel → default 2. */
-  levelMaxWorkers: Partial<Record<string, number>>;
-  levels: string[];
+  /** Complete active level definitions keyed by identifier. */
+  levels: Record<string, ResolvedLevelConfig>;
+  /** Level used for tasks with no explicit complexity signal. */
   defaultLevel: string;
-  /** Flattened model map (string IDs only, for existing consumers). */
-  models: Partial<Record<string, string>>;
-  emoji: Partial<Record<string, string>>;
+  /** Completion result to workflow event mappings. */
   completion: CompletionEventMap;
+  /** Whether orchestration may dispatch work to the role. */
   enabled: boolean;
 };

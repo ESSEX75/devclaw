@@ -176,7 +176,7 @@ export function buildAnnouncement(
   issueId: number, issueTitle: string, issueUrl: string,
   resolvedRole?: ResolvedRoleConfig, botName?: string,
 ): string {
-  const emoji = resolvedRole?.emoji[level] ?? getFallbackEmoji(role);
+  const emoji = resolvedRole?.levels[level]?.emoji ?? getFallbackEmoji(role);
   const actionVerb = sessionAction === "spawn" ? "Spawning" : "Sending";
   const nameTag = botName ? ` ${botName}` : "";
 

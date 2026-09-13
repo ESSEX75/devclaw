@@ -19,22 +19,33 @@ const baseState: IssueRuntimeState = {
   workflowLabel: "Planning",
   assignedRole: null,
   assignedLevel: null,
+  owner: null,
+  reviewPolicy: null,
+  testPolicy: null,
+  notifyTarget: null,
+  activeWorker: null,
   integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
   integrityErrors: [],
   projectionVersion: 1,
   createdAt: "2026-08-23T00:00:00.000Z",
   updatedAt: "2026-08-23T00:00:00.000Z",
+  closedAt: null,
+  providerMissing: null,
+  pipelineNotification: null,
 };
 
+/** Build a resolved test fixture from a built-in registry role. */
 function roleConfig(role: keyof typeof ROLE_REGISTRY): ResolvedRoleConfig {
   const definition = ROLE_REGISTRY[role];
+  const levels: ResolvedRoleConfig["levels"] = {};
+
+  for (const [level, config] of Object.entries(definition.levels)) {
+    if (config) levels[level] = { ...config, maxWorkers: 2 };
+  }
 
   return {
-    levels: [...definition.levels],
+    levels,
     defaultLevel: definition.defaultLevel,
-    levelMaxWorkers: {},
-    models: {},
-    emoji: {},
     completion: definition.completion,
     enabled: true,
   };
@@ -83,13 +94,13 @@ describe("task lifecycle decisions", () => {
     }), "junior");
   });
 
-  it("uses the configured default for a custom role", () => {
+  it("uses rank-based selection for a custom role", () => {
     const customRole: ResolvedRoleConfig = {
-      levels: ["apprentice", "principal"],
+      levels: {
+        apprentice: { rank: 1, model: "model/apprentice", maxWorkers: 2 },
+        principal: { rank: 2, model: "model/principal", maxWorkers: 1 },
+      },
       defaultLevel: "apprentice",
-      levelMaxWorkers: {},
-      models: {},
-      emoji: {},
       completion: {},
       enabled: true,
     };
@@ -98,8 +109,28 @@ describe("task lifecycle decisions", () => {
       runtimeState: baseState,
       targetRole: "security_auditor",
       roleConfig: customRole,
-      issueTitle: "Review security architecture",
+      issueTitle: "Refactor security architecture",
       issueDescription: "",
-    }), "apprentice");
+    }), "principal");
+  });
+
+  it("uses the configured default when task complexity has no strong signal", () => {
+    const customRole: ResolvedRoleConfig = {
+      levels: {
+        principal: { rank: 2, model: "model/principal", maxWorkers: 1 },
+        apprentice: { rank: 1, model: "model/apprentice", maxWorkers: 2 },
+      },
+      defaultLevel: "principal",
+      completion: {},
+      enabled: true,
+    };
+
+    assert.equal(resolveRoleLevel({
+      runtimeState: baseState,
+      targetRole: "security_auditor",
+      roleConfig: customRole,
+      issueTitle: "Review authentication",
+      issueDescription: "",
+    }), "principal");
   });
 });

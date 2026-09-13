@@ -1,22 +1,19 @@
 /**
- * Model selection heuristic fallback — used when the orchestrator doesn't specify a level.
- * Returns plain level names (junior, medior, senior).
- *
- * Adapts to any role's level count:
- * - 1 level: always returns that level
- * - 2 levels: simple binary (complex → last, else first)
- * - 3+ levels: full heuristic (simple → first, complex → last, default → middle)
+ * Selects a configured worker level from task complexity and explicit level ranks.
+ * The selector treats built-in and custom roles identically through resolved role configuration.
  */
-import { DEFAULT_LEVELS, type LevelId, type RoleId } from "../domain/index.js";
-import { getDefaultLevel, getLevelsForRole } from "./index.js";
+import type { ResolvedRoleConfig } from "../state/config/index.js";
 
 export type LevelSelection = {
-  level: LevelId;
+  /** Selected configured level identifier. */
+  level: string;
+  /** Human-readable explanation of the selection signal. */
   reason: string;
 };
 
 // Keywords that indicate simple tasks
 const SIMPLE_KEYWORDS = [
+  "simple",
   "typo",
   "fix typo",
   "rename",
@@ -45,62 +42,53 @@ const COMPLEX_KEYWORDS = [
 ];
 
 /**
- * Select appropriate level based on task description and role.
+ * Select the level appropriate for a task from a fully resolved role definition.
+ * Simple tasks use the lowest rank, complex tasks use the highest rank, and
+ * tasks without a strong signal use the role's configured default level.
  *
- * Adapts to the role's available levels:
- * - Roles with 1 level → always that level
- * - Roles with 2 levels → binary: complex keywords → highest, else lowest
- * - Roles with 3+ levels → full heuristic: simple → lowest, complex → highest, else default
+ * @param issueTitle - Provider title used for the complexity heuristic.
+ * @param issueDescription - Provider description used for the complexity heuristic.
+ * @param role - Configured role identifier used in the selection explanation.
+ * @param roleConfig - Resolved role whose levels and ranks define the available scale.
  */
 export function selectLevel(
   issueTitle: string,
   issueDescription: string,
-  role: RoleId,
+  role: string,
+  roleConfig: ResolvedRoleConfig,
 ): LevelSelection {
-  const levels = getLevelsForRole(role);
-  const defaultLvl = getDefaultLevel(role) ?? DEFAULT_LEVELS.MEDIOR;
+  const levels = Object.entries(roleConfig.levels).sort(
+    ([, left], [, right]) => left.rank - right.rank,
+  );
+  const lowest = levels[0]?.[0];
+  const highest = levels[levels.length - 1]?.[0];
 
-  // Roles with only 1 level — always return it
-  if (levels.length <= 1) {
-    const level = levels[0] ?? defaultLvl;
+  if (!lowest || !highest) {
+    throw new Error(`Role "${role}" has no configured levels.`);
+  }
 
-    return { level, reason: `Only level for ${role}` };
+  if (levels.length === 1) {
+    return { level: lowest, reason: `Only level for ${role}` };
   }
 
   const text = `${issueTitle} ${issueDescription}`.toLowerCase();
   const wordCount = text.split(/\s+/).length;
-  const isSimple = SIMPLE_KEYWORDS.some((kw) => text.includes(kw));
-  const isComplex = COMPLEX_KEYWORDS.some((kw) => text.includes(kw));
+  const simpleMatches = SIMPLE_KEYWORDS.filter((keyword) => text.includes(keyword));
+  const complexMatches = COMPLEX_KEYWORDS.filter((keyword) => text.includes(keyword));
 
-  const lowest = levels[0] ?? defaultLvl;
-  const highest = levels[levels.length - 1] ?? defaultLvl;
-
-  // Roles with 2 levels — binary decision
-  if (levels.length === 2) {
-    if (isComplex) {
-      return { level: highest, reason: `Complex task — using ${highest}` };
-    }
-
-    return { level: lowest, reason: `Standard task — using ${lowest}` };
-  }
-
-  // Roles with 3+ levels — full heuristic
-  if (isSimple && wordCount < 100) {
+  if (simpleMatches.length > 0 && wordCount < 100) {
     return {
       level: lowest,
-      reason: `Simple task detected (keywords: ${SIMPLE_KEYWORDS.filter((kw) => text.includes(kw)).join(", ")})`,
+      reason: `Simple task detected (keywords: ${simpleMatches.join(", ")})`,
     };
   }
 
-  if (isComplex || wordCount > 500) {
+  if (complexMatches.length > 0 || wordCount > 500) {
     return {
       level: highest,
-      reason: `Complex task detected (${isComplex ? "keywords: " + COMPLEX_KEYWORDS.filter((kw) => text.includes(kw)).join(", ") : "long description"})`,
+      reason: `Complex task detected (${complexMatches.length > 0 ? `keywords: ${complexMatches.join(", ")}` : "long description"})`,
     };
   }
 
-  // Default level for the role
-  const level = defaultLvl ?? levels[Math.floor(levels.length / 2)];
-
-  return { level, reason: `Standard ${role} task` };
+  return { level: roleConfig.defaultLevel, reason: `Standard ${role} task` };
 }

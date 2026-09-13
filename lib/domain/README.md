@@ -7,6 +7,10 @@ policies, IDs, and deterministic helper functions. Code here should be safe to
 execute without filesystem access, provider clients, OpenClaw runtime context, or
 CLI state.
 
+Domain may define the semantic issue and project records used by persistence,
+but versioned store envelopes and resumable operation records belong to
+`lib/state`.
+
 Package ownership is explicit: `notifications` owns messaging endpoints and
 notification routing labels, `issues` owns provider IDs and issue ownership,
 `projects` owns project and worker-slot structures, and `workflow` owns state

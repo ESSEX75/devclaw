@@ -4,8 +4,8 @@ import {
   ISSUE_PROVIDER,
   NOTIFICATION_CHANNEL,
   type NotificationEndpoint,
-  type ProjectsData,
 } from "../../domain/index.js";
+import type { ProjectsData } from "./types.js";
 
 const NonEmptyString = z.string().trim().min(1);
 
@@ -26,34 +26,36 @@ const NotificationEndpointSchema = z.object({
   threadId: NonEmptyString.optional(),
 }).strict();
 
+const LegacySlotIssueIdSchema = z.union([
+  z.number().int().positive(),
+  z.string().regex(/^\d+$/).transform(Number),
+]);
+
 const SlotStateSchema = z.object({
   active: z.boolean(),
-  issueId: z.string().nullable(),
+  issueId: LegacySlotIssueIdSchema.nullable(),
   sessionKey: z.string().nullable(),
   startTime: z.string().nullable(),
   previousLabel: z.string().nullable().optional(),
   name: z.string().optional(),
-  lastIssueId: z.string().nullable().optional(),
+  lastIssueId: LegacySlotIssueIdSchema.nullable().optional(),
 }).strict();
 
 const RoleWorkerStateSchema = z.object({
   levels: z.record(z.string(), z.array(SlotStateSchema).optional()),
 }).strict();
 
-const ProjectSchema = z.object({
+const ProjectSchema = z.preprocess(normalizeProject, z.object({
   slug: NonEmptyString,
   name: NonEmptyString,
   agentId: NonEmptyString,
   repo: NonEmptyString,
-  repoRemote: NonEmptyString.optional(),
-  groupName: z.string(),
-  deployUrl: z.string(),
   baseBranch: NonEmptyString,
   deployBranch: NonEmptyString,
   channels: z.array(NotificationEndpointSchema).min(1),
-  provider: z.enum(ISSUE_PROVIDER).optional(),
+  provider: z.enum(ISSUE_PROVIDER),
   workers: z.record(z.string(), RoleWorkerStateSchema),
-}).strict();
+}).strict());
 
 const ProjectsDataSchema = z.object({
   projects: z.record(z.string(), ProjectSchema),
@@ -89,4 +91,18 @@ export function parseProjectsData(value: unknown): ProjectsData {
 
 export function parseNotificationEndpoint(value: unknown): NotificationEndpoint {
   return NotificationEndpointSchema.parse(value);
+}
+
+function normalizeProject(value: unknown): unknown {
+  if (!isObjectRecord(value)) return value;
+  const normalized = { ...value };
+
+  delete normalized.groupName;
+  delete normalized.deployUrl;
+
+  return normalized;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -22,7 +22,6 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     reviewPolicy: "human",
     testPolicy: "skip",
     notifyTarget: null,
-    branchContract: null,
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
@@ -30,6 +29,8 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,
+    providerMissing: null,
+    pipelineNotification: null,
     ...overrides,
   };
 }
@@ -102,6 +103,40 @@ describe("findNextIssueForRole local state", () => {
 
       assert.strictEqual(next, null);
       assert.strictEqual(provider.callsTo("listIssuesByLabel").length, 0);
+    });
+  });
+
+  it("uses local ownership when the provider owner label disagrees", async () => {
+    await withStore([state({ owner: "primary" })], async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 123, labels: ["To Do", "owner:secondary"], description: "Body" });
+
+      const next = await findNextIssueForRole(
+        provider,
+        "developer",
+        DEFAULT_WORKFLOW,
+        "primary",
+        { workspaceDir: tmpDir, projectSlug: "devclaw" },
+      );
+
+      assert.strictEqual(next?.issue.iid, 123);
+      assert.strictEqual(next?.localState.owner, "primary");
+    });
+  });
+
+  it("does not dispatch an issue locally owned by another instance", async () => {
+    await withStore([state({ owner: "secondary" })], async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 123, labels: ["To Do", "owner:primary"], description: "Body" });
+
+      const next = await findNextIssueForRole(
+        provider,
+        "developer",
+        DEFAULT_WORKFLOW,
+        "primary",
+        { workspaceDir: tmpDir, projectSlug: "devclaw" },
+      );
+
+      assert.strictEqual(next, null);
+      assert.strictEqual(provider.callsTo("getIssue").length, 0);
     });
   });
 });

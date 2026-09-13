@@ -32,7 +32,6 @@ function state(projectSlug: string, overrides: Partial<IssueRuntimeState> = {}):
     reviewPolicy: "human",
     testPolicy: "skip",
     notifyTarget: { channel: NOTIFICATION_CHANNEL.TELEGRAM, name: "primary" },
-    branchContract: null,
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,
     integrityErrors: ["projection drift"],
@@ -40,6 +39,8 @@ function state(projectSlug: string, overrides: Partial<IssueRuntimeState> = {}):
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,
+    providerMissing: null,
+    pipelineNotification: null,
     ...overrides,
   };
 }
@@ -131,10 +132,10 @@ describe("repairManagedIssue", () => {
     }
   });
 
-  it("imports only allowed provider fields and preserves branch state", async () => {
+  it("imports only allowed provider fields", async () => {
     const h = await createTestHarness();
     try {
-      const local = state(h.project.slug, { branchContract: { branch: "feature/123" } });
+      const local = state(h.project.slug);
       await seedState(h.workspaceDir, local);
       h.provider.seedIssue({
         iid: 123,
@@ -158,7 +159,6 @@ describe("repairManagedIssue", () => {
       assert.equal(repaired.workflowState, "doing");
       assert.equal(repaired.assignedLevel, "senior");
       assert.equal(repaired.owner, "alice");
-      assert.deepEqual(repaired.branchContract, { branch: "feature/123" });
       assert.equal(repaired.activeWorker, null);
     } finally {
       await h.cleanup();

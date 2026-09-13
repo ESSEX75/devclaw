@@ -3,6 +3,21 @@
  */
 import type { ResolvedConfig, ResolvedRoleConfig } from "./types.js";
 
+/**
+ * Project a resolved role's structured levels into worker-slot capacities.
+ *
+ * @param role - Resolved role whose level concurrency should initialize or reconcile slots.
+ */
+export function getLevelMaxWorkers(role: ResolvedRoleConfig | undefined): Record<string, number> {
+  const capacities: Record<string, number> = {};
+
+  for (const [level, definition] of Object.entries(role?.levels ?? {})) {
+    capacities[level] = definition.maxWorkers;
+  }
+
+  return capacities;
+}
+
 /** Return configured role identifiers, optionally including disabled roles. */
 export function getConfiguredRoleIds(
   config: ResolvedConfig,
