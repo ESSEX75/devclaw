@@ -26,9 +26,7 @@ export type {
   IssueCreationInput,
   IssueCreationOperation,
   IssueCreationStore,
-  IssueRuntimeResolution,
   IssueStateStore,
-  IssueStateWriteInput,
 } from "./issues/index.js";
 export {
   archiveIssueState,
@@ -43,16 +41,15 @@ export {
   readIssueStateStore,
   reservePipelineNotification,
   resetIssueStores,
-  resolveIssueRuntimeState,
   updateIssueArchiveStore,
   updateIssueCreationStore,
+  updateIssueRuntimeRecord,
   updateIssueStateStore,
   withIssueCreationLock,
   withIssueOrchestrationLock,
   writeIssueArchiveStore,
   writeIssueCreationStore,
   writeIssueRoleLevel,
-  writeIssueRuntimeState,
   writeIssueStateStore,
 } from "./issues/index.js";
 export { DATA_DIR } from "./paths.js";

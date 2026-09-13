@@ -8,7 +8,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {
-  DEFAULT_WORKFLOW,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   PIPELINE_NOTIFICATION_STATUS,
@@ -24,10 +23,9 @@ import {
   reservePipelineNotification,
   updateIssueStateStore,
   writeIssueRoleLevel,
-  writeIssueRuntimeState,
   writeIssueStateStore,
 } from "./index.js";
-import { issueStatePath } from "./store.js";
+import { issueStatePath } from "./active/repository.js";
 
 function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
@@ -90,7 +88,7 @@ describe("issue state store", () => {
     }
   });
 
-  it("normalizes removed fields and missing nullable values from persisted runtime state", async () => {
+  it("rejects retired fields and missing current nullable values", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
     try {
       const filePath = issueStatePath(tmpDir, "devclaw");
@@ -110,13 +108,7 @@ describe("issue state store", () => {
         issues: { "123": persistedIssue },
       }), "utf-8");
 
-      const state = (await readIssueStateStore(tmpDir, "devclaw")).issues["123"]!;
-
-      assert.strictEqual(state.owner, null);
-      assert.strictEqual(state.pipelineNotification, null);
-      assert.strictEqual("branchContract" in state, false);
-      assert.strictEqual("retryAt" in state, false);
-      assert.strictEqual("retriesRemaining" in state, false);
+      await assert.rejects(readIssueStateStore(tmpDir, "devclaw"), /Cannot read active issue store/);
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
@@ -139,42 +131,13 @@ describe("issue state store", () => {
     }
   });
 
-  it("preserves local semantic state when provider projection labels drift", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
-
-    try {
-      const store = emptyIssueStateStore("devclaw");
-
-      store.issues["123"] = issue();
-      await writeIssueStateStore(tmpDir, "devclaw", store);
-
-      const updated = await writeIssueRuntimeState({
-        workspaceDir: tmpDir,
-        project: { slug: "devclaw", channels: [] },
-        issue: {
-          iid: 123,
-          labels: ["To Do", "tester:junior", "review:agent", "test:agent"],
-          state: "open",
-        },
-        providerType: ISSUE_PROVIDER.GITHUB,
-        workflow: DEFAULT_WORKFLOW,
-      });
-
-      assert.strictEqual(updated.assignedRole, "developer");
-      assert.strictEqual(updated.assignedLevel, "medior");
-      assert.strictEqual(updated.reviewPolicy, "human");
-      assert.strictEqual(updated.testPolicy, "skip");
-    } finally {
-      await fs.rm(tmpDir, { recursive: true });
-    }
-  });
-
   it("supports update-by-callback under lock", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
     try {
       const returned = await updateIssueStateStore(tmpDir, "devclaw", (store) => {
-        store.issues["123"] = issue();
-        return store.issues["123"]!.workflowState;
+        const state = issue();
+
+        return { store: { ...store, issues: { ...store.issues, "123": state } }, result: state.workflowState };
       });
       const loaded = await readIssueStateStore(tmpDir, "devclaw");
 
@@ -296,10 +259,16 @@ describe("issue state store", () => {
       await Promise.all([
         updateIssueStateStore(tmpDir, "devclaw", async (store) => {
           await new Promise((resolve) => setTimeout(resolve, 20));
-          store.issues["101"] = issue({ issueId: 101 });
+          return {
+            store: { ...store, issues: { ...store.issues, "101": issue({ issueId: 101 }) } },
+            result: undefined,
+          };
         }),
         updateIssueStateStore(tmpDir, "devclaw", async (store) => {
-          store.issues["102"] = issue({ issueId: 102 });
+          return {
+            store: { ...store, issues: { ...store.issues, "102": issue({ issueId: 102 }) } },
+            result: undefined,
+          };
         }),
       ]);
 

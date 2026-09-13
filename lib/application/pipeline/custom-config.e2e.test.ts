@@ -17,7 +17,8 @@ import {
   WORKFLOW_EVENT,
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/index.js";
-import { readIssueArchiveStore, readIssueStateStore, writeIssueRuntimeState } from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
+import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
 import { getProject, getRoleWorker, readProjects } from "../../state/index.js";
 import { createTestHarness, type TestHarness } from "../../testing/index.js";
 import { projectTick } from "../queue/tick.js";

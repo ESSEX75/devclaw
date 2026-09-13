@@ -23,12 +23,13 @@ import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { slotName } from "../../names.js";
 import { resolveModel } from "../../roles/index.js";
 import { loadConfig } from "../../state/index.js";
-import { readIssueStateStore, withIssueOrchestrationLock, writeIssueRuntimeState } from "../../state/index.js";
+import { readIssueStateStore, withIssueOrchestrationLock } from "../../state/index.js";
 import {
   activateWorker,
   getRoleWorker,
   updateSlot,
 } from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
@@ -298,7 +299,6 @@ export async function dispatchTaskLocked(
         labels: issue.labels
           .filter((label) => label !== fromLabel && !label.startsWith(`${role}:`))
           .concat(toLabel, `${role}:${level}`),
-        state: "open",
       },
       providerType: project.provider === ISSUE_PROVIDER.GITHUB
         ? ISSUE_PROVIDER.GITHUB

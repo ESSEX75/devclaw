@@ -29,9 +29,9 @@ import {
   confirmPipelineNotification,
   reservePipelineNotification,
   withIssueOrchestrationLock,
-  writeIssueRuntimeState,
 } from "../../state/index.js";
 import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { archiveManagedIssue } from "../issues/index.js";
 import {
   getNotificationConfig,

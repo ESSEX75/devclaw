@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import {
   issueOrchestrationLockPath,
   withIssueOrchestrationLock,
-} from "./orchestration-lock.js";
+} from "./orchestration/repository.js";
 
 describe("issue orchestration lock", () => {
   it("serializes operations for the same issue", async () => {

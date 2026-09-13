@@ -49,6 +49,8 @@ export async function migrateIssuePolicies(opts: {
   const skipped: Array<{ issueId: number; reason: string }> = [];
 
   await updateIssueStateStore(opts.workspaceDir, opts.projectSlug, (store) => {
+    const issues = { ...store.issues };
+
     for (const [key, state] of Object.entries(store.issues)) {
       if (selectedIds && !selectedIds.has(key)) continue;
       if (selectedStates && !selectedStates.has(state.workflowState)) continue;
@@ -73,11 +75,16 @@ export async function migrateIssuePolicies(opts: {
         after: { reviewPolicy: nextReviewPolicy, testPolicy: nextTestPolicy },
       });
       if (!opts.dryRun) {
-        state.reviewPolicy = nextReviewPolicy;
-        state.testPolicy = nextTestPolicy;
-        state.updatedAt = new Date().toISOString();
+        issues[key] = {
+          ...state,
+          reviewPolicy: nextReviewPolicy,
+          testPolicy: nextTestPolicy,
+          updatedAt: new Date().toISOString(),
+        };
       }
     }
+
+    return { store: { ...store, issues }, result: undefined };
   });
 
   if (!opts.dryRun && changed.length > 0) {

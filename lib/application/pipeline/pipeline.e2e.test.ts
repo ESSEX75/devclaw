@@ -29,7 +29,8 @@ import {
   type WorkflowStateKey,
 } from "../../domain/index.js";
 import { readProjects, getRoleWorker, getProject } from "../../state/index.js";
-import { readIssueArchiveStore, readIssueStateStore, writeIssueRuntimeState } from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
+import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
 import { slotName } from "../../names.js";
 import type { NotificationRuntime } from "../notifications/notify.js";
 

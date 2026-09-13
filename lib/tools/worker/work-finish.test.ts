@@ -17,7 +17,7 @@ import { tmpdir } from "node:os";
 import { rm } from "node:fs/promises";
 import { createTestHarness } from "../../testing/index.js";
 import { finishWork } from "../../application/workers/finish-work.js";
-import { writeIssueRuntimeState } from "../../state/index.js";
+import { writeIssueRuntimeState } from "../../application/issue-runtime/index.js";
 import { ISSUE_PROVIDER } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 

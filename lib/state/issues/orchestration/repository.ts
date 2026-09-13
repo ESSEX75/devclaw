@@ -3,8 +3,8 @@
  */
 import path from "node:path";
 
-import { withFileLock } from "../persistence/index.js";
-import { issueStatePath } from "./store.js";
+import { withFileLock } from "../../persistence/index.js";
+import { issueStatePath } from "../active/repository.js";
 
 const DEFAULT_STALE_MS = 30_000;
 const DEFAULT_RETRY_MS = 50;

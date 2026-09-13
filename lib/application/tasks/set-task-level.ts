@@ -7,11 +7,10 @@ import {
 } from "../../domain/index.js";
 import { loadConfig } from "../../state/index.js";
 import {
-  resolveIssueRuntimeState,
   withIssueOrchestrationLock,
-  writeIssueRuntimeState,
 } from "../../state/index.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
+import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { resolveHoldQueueTarget, validateRoleLevel } from "./lifecycle-decision.js";
 

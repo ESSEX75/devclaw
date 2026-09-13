@@ -153,9 +153,9 @@ async function setProjectionIntegrity(
   await updateIssueStateStore(input.workspaceDir, input.projectSlug, (store) => {
     const state = store.issues[String(input.issueId)];
 
-    if (!state) return;
-    state.integrityStatus = status;
-    state.integrityErrors = errors;
-    state.updatedAt = new Date().toISOString();
+    if (!state) return { store, result: undefined };
+    const updated = { ...state, integrityStatus: status, integrityErrors: errors, updatedAt: new Date().toISOString() };
+
+    return { store: { ...store, issues: { ...store.issues, [String(input.issueId)]: updated } }, result: undefined };
   });
 }

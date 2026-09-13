@@ -23,11 +23,12 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - `issues.archive.json` contains archived records and deletion tombstones only.
 - `issue-creations.json` contains resumable creation operations and idempotency
   keys; these records are not active runtime state.
+- `issues/active`, `issues/archive`, and `issues/creation` are separate internal repositories with their own types and strict schemas.
 - Both files share one per-project lock. Archival writes the archive record before
   removing active state so an interrupted operation can be recovered idempotently.
 - Stores accept only their current strict schema. Destructive reset is an explicit
   operator action and must never run automatically during startup or reads.
-- Stores validate the current schema at the filesystem boundary.
+- Stores accept only the current strict schema at the filesystem boundary; no legacy normalization or migration runs during reads.
 
 ## Boundary Rules
 

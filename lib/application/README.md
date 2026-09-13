@@ -7,6 +7,10 @@ capabilities. They should contain orchestration logic such as queue ticks,
 heartbeat passes, task lifecycle operations, worker dispatch, setup flows, and
 review handling.
 
+The `issue-runtime` application capability interprets provider label snapshots during explicit
+initialization and repair flows, then pass complete runtime records to state
+persistence. The state layer never interprets provider projections.
+
 Managed issue creation sagas, archival, retention, confirmed provider deletion, repair, and policy
 migration are application use cases. Adapters in `lib/tools` and `lib/cli` must
 call these shared operations instead of reproducing lifecycle decisions. Repair
