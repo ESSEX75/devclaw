@@ -17,6 +17,7 @@ import {
   TEST_POLICY,
 } from "../../domain/index.js";
 import { DATA_DIR } from "../paths.js";
+import { type FileLockOptions,isErrnoException, withFileLock, writeJsonAtomic } from "../persistence/index.js";
 import type { IssueCreationStore } from "./types.js";
 
 const LOCK_TIMEOUT_MS = 10_000;
@@ -96,7 +97,7 @@ export async function updateIssueCreationStore<T>(
   projectSlug: string,
   update: (store: IssueCreationStore) => T | Promise<T>,
 ): Promise<T> {
-  return withFileLock(`${issueCreationStorePath(workspaceDir, projectSlug)}.lock`, async () => {
+  return withFileLock(`${issueCreationStorePath(workspaceDir, projectSlug)}.lock`, creationLockOptions(), async () => {
     const store = await readIssueCreationStore(workspaceDir, projectSlug);
     const result = await update(store);
 
@@ -116,7 +117,7 @@ export async function withIssueCreationLock<T>(
   const keyHash = createHash("sha256").update(idempotencyKey).digest("hex");
   const lockPath = path.join(path.dirname(issueCreationStorePath(workspaceDir, projectSlug)), "creation-locks", `${keyHash}.lock`);
 
-  return withFileLock(lockPath, operation);
+  return withFileLock(lockPath, creationLockOptions(), operation);
 }
 
 /** Build identifiers shared by a newly requested creation operation. */
@@ -137,55 +138,7 @@ export async function isIssueCreationReady(
   return operation?.status === ISSUE_CREATION_STATUS.READY;
 }
 
-async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
-  const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
-
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, "utf-8");
-  await fs.rename(temporaryPath, filePath);
-}
-
-async function withFileLock<T>(lockPath: string, operation: () => T | Promise<T>): Promise<T> {
-  await acquireLock(lockPath);
-  try {
-    return await operation();
-  } finally {
-    await fs.rm(lockPath, { force: true });
-  }
-}
-
-async function acquireLock(lockPath: string): Promise<void> {
-  const deadline = Date.now() + LOCK_TIMEOUT_MS;
-
-  await fs.mkdir(path.dirname(lockPath), { recursive: true });
-  while (Date.now() < deadline) {
-    try {
-      await fs.writeFile(lockPath, String(Date.now()), { flag: "wx" });
-
-      return;
-    } catch (error) {
-      if (!isErrnoException(error) || error.code !== "EEXIST") throw error;
-      if (await removeStaleLock(lockPath)) continue;
-      await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS));
-    }
-  }
-
-  throw new Error(`Timed out waiting for issue creation lock ${lockPath}`);
-}
-
-async function removeStaleLock(lockPath: string): Promise<boolean> {
-  try {
-    const createdAt = Number(await fs.readFile(lockPath, "utf-8"));
-
-    if (Number.isFinite(createdAt) && Date.now() - createdAt <= LOCK_STALE_MS) return false;
-    await fs.rm(lockPath, { force: true });
-
-    return true;
-  } catch (error) {
-    return isErrnoException(error) && error.code === "ENOENT";
-  }
-}
-
-function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
+/** Return the lock timing policy owned by creation operation persistence. */
+function creationLockOptions(): FileLockOptions {
+  return { retryMs: LOCK_RETRY_MS, staleMs: LOCK_STALE_MS, timeoutMs: LOCK_TIMEOUT_MS };
 }

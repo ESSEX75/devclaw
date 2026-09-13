@@ -7,7 +7,7 @@ import type {
   SlotState,
 } from "../../domain/index.js";
 import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
-import { acquireLock, readProjects, releaseLock, resolveProjectSlug, writeProjects } from "./store.js";
+import { readProjects, resolveProjectSlug, withProjectsLock, writeProjects } from "./store.js";
 import type { ProjectsData } from "./types.js";
 
 /**
@@ -24,6 +24,13 @@ export function getRoleWorker(
 /**
  * Update a specific slot in a role's worker state.
  * Uses file locking to prevent concurrent read-modify-write races.
+ *
+ * @param workspaceDir - Workspace containing the project registry.
+ * @param slugOrChannelId - Project slug or routed channel identifier.
+ * @param role - Configured role whose slot is updated.
+ * @param level - Configured level containing the slot.
+ * @param slotIndex - Zero-based slot position to update.
+ * @param updater - Pure slot replacement operation.
  */
 export async function updateSlot(
   workspaceDir: string,
@@ -33,8 +40,7 @@ export async function updateSlot(
   slotIndex: number,
   updater: (slot: SlotState) => SlotState,
 ): Promise<ProjectsData> {
-  await acquireLock(workspaceDir);
-  try {
+  return withProjectsLock(workspaceDir, async () => {
     const data = await readProjects(workspaceDir);
     const slug = resolveProjectSlug(data, slugOrChannelId);
 
@@ -59,15 +65,18 @@ export async function updateSlot(
     await writeProjects(workspaceDir, data);
 
     return data;
-  } finally {
-    await releaseLock(workspaceDir);
-  }
+  });
 }
 
 /**
  * Mark a worker slot as active with a new task.
  * Routes by level to the correct slot array.
  * Accepts slug or channelId (dual-mode).
+ *
+ * @param workspaceDir - Workspace containing the project registry.
+ * @param slugOrChannelId - Project slug or routed channel identifier.
+ * @param role - Configured role whose worker becomes active.
+ * @param params - Worker assignment and slot-selection values.
  */
 export async function activateWorker(
   workspaceDir: string,
@@ -86,8 +95,7 @@ export async function activateWorker(
     name?: string;
   },
 ): Promise<ProjectsData> {
-  await acquireLock(workspaceDir);
-  try {
+  return withProjectsLock(workspaceDir, async () => {
     const data = await readProjects(workspaceDir);
     const slug = resolveProjectSlug(data, slugOrChannelId);
 
@@ -122,9 +130,7 @@ export async function activateWorker(
     await writeProjects(workspaceDir, data);
 
     return data;
-  } finally {
-    await releaseLock(workspaceDir);
-  }
+  });
 }
 
 /**
@@ -132,6 +138,11 @@ export async function activateWorker(
  * Preserves sessionKey for session reuse.
  * Finds the slot by issueId (searches across all levels), or by explicit level+slotIndex.
  * Accepts slug or channelId (dual-mode).
+ *
+ * @param workspaceDir - Workspace containing the project registry.
+ * @param slugOrChannelId - Project slug or routed channel identifier.
+ * @param role - Configured role whose worker becomes inactive.
+ * @param opts - Optional issue or explicit slot selector.
  */
 export async function deactivateWorker(
   workspaceDir: string,
@@ -139,8 +150,7 @@ export async function deactivateWorker(
   role: string,
   opts?: { level?: string; slotIndex?: number; issueId?: number },
 ): Promise<ProjectsData> {
-  await acquireLock(workspaceDir);
-  try {
+  return withProjectsLock(workspaceDir, async () => {
     const data = await readProjects(workspaceDir);
     const slug = resolveProjectSlug(data, slugOrChannelId);
 
@@ -188,7 +198,5 @@ export async function deactivateWorker(
     await writeProjects(workspaceDir, data);
 
     return data;
-  } finally {
-    await releaseLock(workspaceDir);
-  }
+  });
 }

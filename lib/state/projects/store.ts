@@ -4,6 +4,7 @@
 import fs from "node:fs/promises";
 
 import type { Project } from "../../domain/index.js";
+import { withFileLock, writeJsonAtomic } from "../persistence/index.js";
 import { projectsPath, resolveRepoPath } from "./paths.js";
 import { parseProjectsData } from "./schema.js";
 import type { ProjectsData } from "./types.js";
@@ -21,44 +22,18 @@ function lockPath(workspaceDir: string): string {
   return projectsPath(workspaceDir) + ".lock";
 }
 
-export async function acquireLock(workspaceDir: string): Promise<void> {
-  const lock = lockPath(workspaceDir);
-  const deadline = Date.now() + LOCK_TIMEOUT_MS;
-
-  while (Date.now() < deadline) {
-    try {
-      await fs.writeFile(lock, String(Date.now()), { flag: "wx" });
-
-      return;
-    } catch (err) {
-      const e = err as NodeJS.ErrnoException;
-
-      if (e.code !== "EEXIST") throw err;
-
-      // Check for stale lock
-      try {
-        const content = await fs.readFile(lock, "utf-8");
-        const lockTime = Number(content);
-
-        if (Date.now() - lockTime > LOCK_STALE_MS) {
-          try { await fs.unlink(lock); } catch { /* race */ }
-
-          continue;
-        }
-      } catch { /* lock disappeared — retry */ }
-
-      await new Promise((r) => setTimeout(r, LOCK_RETRY_MS));
-    }
-  }
-
-  // Last resort: force remove potentially stale lock
-  try { await fs.unlink(lockPath(workspaceDir)); } catch { /* ignore */ }
-
-  await fs.writeFile(lock, String(Date.now()), { flag: "wx" });
-}
-
-export async function releaseLock(workspaceDir: string): Promise<void> {
-  try { await fs.unlink(lockPath(workspaceDir)); } catch { /* already removed */ }
+/**
+ * Run a projects repository operation under its per-workspace lock.
+ *
+ * @param workspaceDir - Workspace containing the project registry.
+ * @param operation - Repository work to serialize.
+ */
+export async function withProjectsLock<T>(workspaceDir: string, operation: () => T | Promise<T>): Promise<T> {
+  return withFileLock(
+    lockPath(workspaceDir),
+    { retryMs: LOCK_RETRY_MS, staleMs: LOCK_STALE_MS, timeoutMs: LOCK_TIMEOUT_MS },
+    operation,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -78,11 +53,9 @@ export async function writeProjects(
   data: ProjectsData,
 ): Promise<void> {
   const filePath = projectsPath(workspaceDir);
-  const tmpPath = filePath + ".tmp";
   const validated = parseProjectsData(data);
 
-  await fs.writeFile(tmpPath, JSON.stringify(validated, null, 2) + "\n", "utf-8");
-  await fs.rename(tmpPath, filePath);
+  await writeJsonAtomic(filePath, validated);
 }
 
 /** Resolve a project by slug or channelId. Returns the slug of the found project. */

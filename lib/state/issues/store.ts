@@ -20,6 +20,7 @@ import {
   TEST_POLICY,
 } from "../../domain/index.js";
 import { DATA_DIR } from "../paths.js";
+import { isErrnoException, withFileLock, writeJsonAtomic } from "../persistence/index.js";
 import type { IssueArchiveStore, IssueStateStore } from "./types.js";
 
 const LOCK_STALE_MS = 30_000;
@@ -225,54 +226,19 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-async function writeJsonAtomic(filePath: string, data: unknown): Promise<void> {
-  const temporaryPath = `${filePath}.tmp`;
-
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(temporaryPath, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
-  await fs.rename(temporaryPath, filePath);
-}
-
+/**
+ * Run an active/archive operation under their shared project lock.
+ *
+ * @param workspaceDir - Workspace containing the project issue stores.
+ * @param projectSlug - Project whose active and archive files share the lock.
+ * @param operation - Store transaction to serialize.
+ */
 async function withIssueStoreLock<T>(workspaceDir: string, projectSlug: string, operation: () => Promise<T>): Promise<T> {
   const lockPath = `${issueStatePath(workspaceDir, projectSlug)}.lock`;
 
-  await acquireLock(lockPath);
-  try { return await operation(); } finally { await fs.rm(lockPath, { force: true }); }
-}
-
-async function acquireLock(lockPath: string): Promise<void> {
-  await fs.mkdir(path.dirname(lockPath), { recursive: true });
-  const deadline = Date.now() + LOCK_TIMEOUT_MS;
-
-  while (Date.now() < deadline) {
-    try {
-      await fs.writeFile(lockPath, String(Date.now()), { flag: "wx" });
-
-      return;
-    } catch (error) {
-      if (!isErrnoException(error) || error.code !== "EEXIST") throw error;
-      if (await isStaleLock(lockPath)) {
-        await fs.rm(lockPath, { force: true });
-        continue;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS));
-    }
-  }
-
-  throw new Error(`Timed out waiting for issue store lock ${lockPath}`);
-}
-
-async function isStaleLock(lockPath: string): Promise<boolean> {
-  try {
-    const lockTime = Number(await fs.readFile(lockPath, "utf-8"));
-
-    return !Number.isFinite(lockTime) || Date.now() - lockTime > LOCK_STALE_MS;
-  } catch (error) {
-    return isErrnoException(error) && error.code === "ENOENT";
-  }
-}
-
-function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
+  return withFileLock(
+    lockPath,
+    { retryMs: LOCK_RETRY_MS, staleMs: LOCK_STALE_MS, timeoutMs: LOCK_TIMEOUT_MS },
+    operation,
+  );
 }

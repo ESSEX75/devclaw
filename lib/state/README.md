@@ -15,6 +15,7 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - Internal state modules import implementation owners directly and never import the root entrypoint.
 - State schemas, parsers, filesystem locks, and persistence helpers stay private unless an exported operation is itself the required boundary API.
 - `lib/state/paths.ts` owns filesystem names shared by multiple state capabilities.
+- `lib/state/persistence` owns token-based file locking and atomic replacement used by state repositories; it is not exported from the root API.
 
 ## Managed Issue Stores
 
