@@ -15,7 +15,7 @@ import {
   readIssueStateStore,
   withIssueOrchestrationLock,
   writeIssueStateStore,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
 import { TestProvider } from "../../testing/index.js";
 import { reconcileManagedLabels } from "./reconcile-managed-labels.js";
 

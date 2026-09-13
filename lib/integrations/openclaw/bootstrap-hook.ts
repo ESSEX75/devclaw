@@ -16,8 +16,8 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
 import type { PluginContext } from "../../context.js";
 import { getSessionKeyRolePattern } from "../../roles/index.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
-import { DEFAULT_ROLE_INSTRUCTIONS } from "../../state/setup/templates.js";
+import { DATA_DIR } from "../../state/index.js";
+import { DEFAULT_ROLE_INSTRUCTIONS } from "../../state/index.js";
 
 /**
  * Parse a DevClaw subagent session key to extract project name and role.

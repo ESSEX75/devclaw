@@ -9,7 +9,7 @@ import { DEFAULT_WORKFLOW, getActiveLabel, getCompletionEmoji, getCompletionRule
 import { parseDevClawSessionKey } from "../../integrations/openclaw/bootstrap-hook.js";
 import { getDefaultModel, getEmoji, isLevelForRole, resolveModel, roleForLevel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
-import type { ResolvedRoleConfig } from "../../state/config/index.js";
+import type { ResolvedRoleConfig } from "../../state/index.js";
 
 const architectRole: ResolvedRoleConfig = {
   levels: {

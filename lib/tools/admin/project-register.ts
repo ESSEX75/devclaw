@@ -29,14 +29,14 @@ import {
   type RoleWorkerState,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/config/index.js";
+import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/index.js";
 import {
   parseNotificationEndpoint,
   readProjects,
   resolveRepoPath,
   writeProjects,
-} from "../../state/projects/index.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
+} from "../../state/index.js";
+import { DATA_DIR } from "../../state/index.js";
 
 /**
  * Scaffold project directory with prompts/ folder and a README explaining overrides.

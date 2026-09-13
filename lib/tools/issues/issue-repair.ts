@@ -11,7 +11,7 @@ import {
   repairManagedIssue,
 } from "../../application/issues/index.js";
 import type { PluginContext } from "../../context.js";
-import { readProjects } from "../../state/projects/index.js";
+import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 const INPUT_FIELDS = new Set([

@@ -6,9 +6,9 @@ import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import type { Project, ReviewPolicy, TestPolicy } from "../../domain/index.js";
 import { createProvider, type IssueProvider } from "../../integrations/providers/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { updateIssueStateStore } from "../../state/issues/index.js";
-import { readProjects } from "../../state/projects/index.js";
+import { loadConfig } from "../../state/index.js";
+import { updateIssueStateStore } from "../../state/index.js";
+import { readProjects } from "../../state/index.js";
 import { type ManagedProjectionResult,reconcileManagedLabels } from "../projection/index.js";
 
 /** One policy mutation with its optional provider reconciliation result. */

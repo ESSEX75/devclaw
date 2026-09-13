@@ -16,7 +16,7 @@ import {
   REVIEW_POLICY,
   TEST_POLICY,
 } from "../../domain/index.js";
-import { DATA_DIR } from "../setup/paths.js";
+import { DATA_DIR } from "../paths.js";
 import type { IssueCreationStore } from "./types.js";
 
 const LOCK_TIMEOUT_MS = 10_000;

@@ -5,7 +5,7 @@ import {
   type IssueCreationFailure,
   readIssueCreationStore,
   readIssueStateStore,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
 import {
   loadProjectionViewContext,
   summarizeLocalIssueStates,

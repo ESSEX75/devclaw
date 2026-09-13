@@ -14,9 +14,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { log as auditLog } from "../../audit.js";
 import { getAllRoleIds } from "../../roles/index.js";
-import { DATA_DIR } from "./paths.js";
+import { DATA_DIR } from "../paths.js";
 import {
   AGENTS_MD_TEMPLATE,
   DEFAULT_ROLE_INSTRUCTIONS,
@@ -31,6 +30,17 @@ import { detectUpgrade,writeVersionFile } from "./version.js";
 /** Sentinel file indicating the workspace has been initialized. */
 const INITIALIZED_SENTINEL = ".initialized";
 
+/** Version transition detected while refreshing workspace-owned files. */
+export type WorkspaceVersionUpgrade = {
+  /** Previously persisted plugin version. */
+  from: string;
+  /** Current plugin version written by the refresh. */
+  to: string;
+};
+
+/** Application callback that records a detected workspace version transition. */
+export type WorkspaceVersionUpgradeReporter = (upgrade: WorkspaceVersionUpgrade) => Promise<void>;
+
 /**
  * Ensure all workspace data files are up to date.
  *
@@ -40,8 +50,14 @@ const INITIALIZED_SENTINEL = ".initialized";
  *   - System instructions (AGENTS.md, HEARTBEAT.md, TOOLS.md): always overwrite
  *   - User-owned config (workflow.yaml, prompts, IDENTITY.md): create-only
  *   - Runtime state (projects.json): create-only
+ *
+ * @param workspacePath - Workspace whose managed files should be refreshed.
+ * @param reportUpgrade - Application-owned observer for a detected version transition.
  */
-export async function ensureDefaultFiles(workspacePath: string): Promise<void> {
+export async function ensureDefaultFiles(
+  workspacePath: string,
+  reportUpgrade?: WorkspaceVersionUpgradeReporter,
+): Promise<void> {
   const dataDir = path.join(workspacePath, DATA_DIR);
 
   await fs.mkdir(dataDir, { recursive: true });
@@ -90,12 +106,7 @@ export async function ensureDefaultFiles(workspacePath: string): Promise<void> {
   const upgrade = await detectUpgrade(dataDir);
 
   await writeVersionFile(dataDir);
-  if (upgrade) {
-    await auditLog(workspacePath, "version_upgrade", {
-      from: upgrade.from,
-      to: upgrade.to,
-    });
-  }
+  if (upgrade) await reportUpgrade?.(upgrade);
 
   // Mark workspace as initialized
   const sentinelPath = path.join(dataDir, INITIALIZED_SENTINEL);
@@ -107,10 +118,16 @@ export async function ensureDefaultFiles(workspacePath: string): Promise<void> {
  * Write all package defaults to workspace.
  * Used by setup --eject-defaults and --reset-defaults.
  *
- * @param force — If true, overwrite existing files (reset-defaults). If false, skip existing (eject-defaults).
+ * @param workspacePath - Workspace that receives the packaged defaults.
+ * @param force - Whether to overwrite existing files instead of preserving them.
+ * @param reportUpgrade - Application-owned observer for a detected version transition.
  * @returns List of files written.
  */
-export async function writeAllDefaults(workspacePath: string, force = false): Promise<string[]> {
+export async function writeAllDefaults(
+  workspacePath: string,
+  force = false,
+  reportUpgrade?: WorkspaceVersionUpgradeReporter,
+): Promise<string[]> {
   const dataDir = path.join(workspacePath, DATA_DIR);
   const written: string[] = [];
 
@@ -149,12 +166,7 @@ export async function writeAllDefaults(workspacePath: string, force = false): Pr
   const upgrade = await detectUpgrade(dataDir);
 
   await writeVersionFile(dataDir);
-  if (upgrade) {
-    await auditLog(workspacePath, "version_upgrade", {
-      from: upgrade.from,
-      to: upgrade.to,
-    });
-  }
+  if (upgrade) await reportUpgrade?.(upgrade);
 
   return written;
 }
@@ -163,9 +175,15 @@ export async function writeAllDefaults(workspacePath: string, force = false): Pr
  * Write all workspace files for a DevClaw agent.
  * Returns the list of files that were written (skips files that already exist).
  *
- * @param defaultWorkspacePath — If provided, USER.md is copied from here (only if not already present).
+ * @param workspacePath - Workspace to scaffold for the DevClaw agent.
+ * @param defaultWorkspacePath - Optional source workspace for a create-only USER.md copy.
+ * @param reportUpgrade - Application-owned observer for a detected version transition.
  */
-export async function scaffoldWorkspace(workspacePath: string, defaultWorkspacePath?: string): Promise<string[]> {
+export async function scaffoldWorkspace(
+  workspacePath: string,
+  defaultWorkspacePath?: string,
+  reportUpgrade?: WorkspaceVersionUpgradeReporter,
+): Promise<string[]> {
   // SOUL.md (create-only — never overwrite user customizations)
   const soulPath = path.join(workspacePath, "SOUL.md");
 
@@ -185,7 +203,7 @@ export async function scaffoldWorkspace(workspacePath: string, defaultWorkspaceP
   }
 
   // Ensure directories and missing structural files
-  await ensureDefaultFiles(workspacePath);
+  await ensureDefaultFiles(workspacePath, reportUpgrade);
 
   return ["AGENTS.md", "HEARTBEAT.md", "TOOLS.md"];
 }

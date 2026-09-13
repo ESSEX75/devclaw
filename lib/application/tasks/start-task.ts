@@ -5,13 +5,13 @@ import {
   findStateByLabel,
   ISSUE_INTEGRITY_STATUS,
 } from "../../domain/index.js";
-import { loadConfig } from "../../state/config/index.js";
+import { loadConfig } from "../../state/index.js";
 import {
   isIssueCreationReady,
   resolveIssueRuntimeState,
   withIssueOrchestrationLock,
   writeIssueRuntimeState,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { resolveStartTaskDecision } from "./lifecycle-decision.js";

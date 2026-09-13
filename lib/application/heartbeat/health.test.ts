@@ -19,8 +19,8 @@ import {
   type WorkflowConfig,
   WORKFLOW_EVENT,
 } from "../../domain/index.js";
-import { emptyIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
-import { type ProjectsData, writeProjects } from "../../state/projects/index.js";
+import { emptyIssueStateStore, writeIssueStateStore } from "../../state/index.js";
+import { type ProjectsData, writeProjects } from "../../state/index.js";
 
 const DESIGNER_WORKFLOW: WorkflowConfig = {
   initial: "toDesign",

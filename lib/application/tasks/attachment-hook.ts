@@ -18,7 +18,7 @@ import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import type { Project } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import { readProjects } from "../../state/projects/index.js";
+import { readProjects } from "../../state/index.js";
 import {
   extractIssueReferences,
   extractMediaAttachments,

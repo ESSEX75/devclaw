@@ -4,7 +4,7 @@
  * with configured agents, channel accounts, and bindings.
  */
 import type { NotificationEndpoint, Project } from "../../domain/index.js";
-import type { ProjectsData } from "../../state/projects/index.js";
+import type { ProjectsData } from "../../state/index.js";
 
 /** Read-only OpenClaw configuration surface required for route validation. */
 export type RouteConfig = {

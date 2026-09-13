@@ -18,7 +18,6 @@ import {
   confirmPipelineNotification,
   emptyIssueArchiveStore,
   emptyIssueStateStore,
-  issueStatePath,
   readIssueArchiveStore,
   resetIssueStores,
   readIssueStateStore,
@@ -28,6 +27,7 @@ import {
   writeIssueRuntimeState,
   writeIssueStateStore,
 } from "./index.js";
+import { issueStatePath } from "./store.js";
 
 function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {

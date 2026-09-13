@@ -12,7 +12,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { nameFromSeed } from "./names.js";
-import { DATA_DIR } from "./state/setup/paths.js";
+import { DATA_DIR } from "./state/index.js";
 
 export type InstanceIdentity = {
   name: string;

@@ -24,14 +24,14 @@ import {
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
-import { loadConfig } from "../../state/config/index.js";
+import { loadConfig } from "../../state/index.js";
 import {
   confirmPipelineNotification,
   reservePipelineNotification,
   withIssueOrchestrationLock,
   writeIssueRuntimeState,
-} from "../../state/issues/index.js";
-import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/projects/index.js";
+} from "../../state/index.js";
+import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/index.js";
 import { archiveManagedIssue } from "../issues/index.js";
 import {
   getNotificationConfig,

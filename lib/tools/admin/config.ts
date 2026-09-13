@@ -11,10 +11,11 @@ import path from "node:path";
 
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import { DATA_DIR } from "../../state/setup/paths.js";
-import { DEFAULT_ROLE_INSTRUCTIONS, WORKFLOW_YAML_TEMPLATE } from "../../state/setup/templates.js";
-import { getCurrentVersion, readVersionFile } from "../../state/setup/version.js";
-import { backupAndWrite, fileExists, writeAllDefaults } from "../../state/setup/workspace-files.js";
+import { log as auditLog } from "../../audit.js";
+import { DATA_DIR } from "../../state/index.js";
+import { DEFAULT_ROLE_INSTRUCTIONS, WORKFLOW_YAML_TEMPLATE } from "../../state/index.js";
+import { getCurrentVersion, readVersionFile } from "../../state/index.js";
+import { backupAndWrite, fileExists, writeAllDefaults } from "../../state/index.js";
 
 export function createConfigTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -79,7 +80,11 @@ async function handleReset(workspacePath: string, scope: string) {
   const written: string[] = [];
 
   if (scope === "all") {
-    const files = await writeAllDefaults(workspacePath, true);
+    const files = await writeAllDefaults(
+      workspacePath,
+      true,
+      (upgrade) => auditLog(workspacePath, "version_upgrade", upgrade),
+    );
 
     written.push(...files);
   } else if (scope === "workflow") {

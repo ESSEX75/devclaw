@@ -11,7 +11,7 @@ import {
   metadataMatches,
   type ProjectionDiff,
 } from "../../projection/index.js";
-import { isIssueCreationReady, readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore, updateIssueStateStore } from "../../state/index.js";
 import { archiveManagedIssue } from "../issues/index.js";
 import { reconcileManagedLabels } from "../projection/index.js";
 

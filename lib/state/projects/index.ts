@@ -1,5 +1,5 @@
-export * from "./mutations.js";
-export * from "./paths.js";
-export * from "./schema.js";
-export * from "./store.js";
-export * from "./types.js";
+export { activateWorker, deactivateWorker, getRoleWorker, updateSlot } from "./mutations.js";
+export { resolveRepoPath } from "./paths.js";
+export { parseNotificationEndpoint } from "./schema.js";
+export { getProject, loadProjectBySlug, readProjects, resolveProjectSlug, writeProjects } from "./store.js";
+export type { ProjectsData } from "./types.js";

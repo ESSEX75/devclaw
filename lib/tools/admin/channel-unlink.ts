@@ -8,7 +8,7 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
-import { readProjects, writeProjects } from "../../state/projects/index.js";
+import { readProjects, writeProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createChannelUnlinkTool() {

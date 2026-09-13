@@ -1,5 +1,5 @@
 import { type NotificationEndpoint, type Project,resolveNotifyBinding } from "../../domain/index.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { readIssueStateStore } from "../../state/index.js";
 
 /** Resolve the destination stored in managed local issue state. */
 export async function resolveIssueNotificationEndpoint(

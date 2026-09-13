@@ -18,7 +18,7 @@ import {
   readIssueStateStore,
   updateIssueStateStore,
   withIssueOrchestrationLock,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
 
 type ProjectionProvider = Pick<IssueReader, "getIssue">
   & Pick<LabelProjector, "ensureLabel" | "addLabel" | "removeLabels">;

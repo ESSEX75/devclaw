@@ -11,7 +11,7 @@ import {
   type IssueRuntimeState,
   type Project,
 } from "../../domain/index.js";
-import { emptyIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
+import { emptyIssueStateStore, writeIssueStateStore } from "../../state/index.js";
 import { resolveIssueNotificationEndpoint } from "./resolve-endpoint.js";
 
 describe("managed notification endpoint resolution", () => {

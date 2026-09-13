@@ -20,7 +20,7 @@ import {
   readIssueArchiveStore,
   readIssueStateStore,
   updateIssueArchiveStore,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
 import { listAttachments, purgeIssueAttachments } from "../tasks/index.js";
 
 /** Optional provider snapshot enriching an archive record without making provider data authoritative. */

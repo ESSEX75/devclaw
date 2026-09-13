@@ -19,9 +19,9 @@ import {
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
-import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/config/index.js";
-import { withIssueOrchestrationLock, writeIssueRoleLevel } from "../../state/issues/index.js";
-import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
+import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/index.js";
+import { withIssueOrchestrationLock, writeIssueRoleLevel } from "../../state/index.js";
+import { getProject, getRoleWorker, readProjects } from "../../state/index.js";
 import { resolveRoleLevel } from "../tasks/lifecycle-decision.js";
 import { dispatchTaskLocked } from "../workers/dispatch-task.js";
 import { findNextIssueForRole } from "./scan.js";

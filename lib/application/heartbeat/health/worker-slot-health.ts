@@ -44,7 +44,7 @@ import {
   deactivateWorker,
   getRoleWorker,
   updateSlot,
-} from "../../../state/projects/index.js";
+} from "../../../state/index.js";
 import { transitionHeartbeatIssue } from "../transition-state.js";
 import { isSessionAlive, type SessionLookup } from "./gateway-sessions.js";
 import { fetchIssue, isIssueClosed } from "./issue-utils.js";

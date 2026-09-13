@@ -11,7 +11,7 @@ import { getIssueArchiveStatus } from "../../application/issues/index.js";
 import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, STATE_TYPE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
-import { getLevelMaxWorkers, loadConfig } from "../../state/config/index.js";
+import { getLevelMaxWorkers, loadConfig } from "../../state/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject } from "../helpers.js";
 
 export function createProjectStatusTool(ctx: PluginContext) {

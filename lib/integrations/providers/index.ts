@@ -9,7 +9,7 @@ export * from "./operation-errors.js";
 export * from "./provider.js";
 export * from "./types.js";
 import type { RunCommand } from "../../context.js";
-import { resolveRepoPath } from "../../state/projects/index.js";
+import { resolveRepoPath } from "../../state/index.js";
 import { GitHubProvider } from "./github.js";
 import { GitLabProvider } from "./gitlab.js";
 

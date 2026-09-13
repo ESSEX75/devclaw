@@ -10,14 +10,15 @@ import path from "node:path";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import YAML from "yaml";
 
+import { log as auditLog } from "../../audit.js";
 import {
   type ExecutionMode,
   NOTIFICATION_CHANNEL,
   type NotificationChannel,
 } from "../../domain/index.js";
 import { getAllDefaultModels } from "../../roles/index.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
-import { scaffoldWorkspace, writeAllDefaults } from "../../state/setup/workspace-files.js";
+import { DATA_DIR } from "../../state/index.js";
+import { scaffoldWorkspace, writeAllDefaults } from "../../state/index.js";
 import {
   createAgent,
   getAgentId,
@@ -103,10 +104,11 @@ export async function runSetup(opts: SetupOpts): Promise<SetupResult> {
   await writePluginConfig(opts.runtime, agentId, opts.projectExecution);
 
   const defaultWorkspacePath = getDefaultWorkspacePath(opts.runtime);
-  const filesWritten = await scaffoldWorkspace(workspacePath, defaultWorkspacePath);
+  const reportUpgrade = (upgrade: { from: string; to: string }) => auditLog(workspacePath, "version_upgrade", upgrade);
+  const filesWritten = await scaffoldWorkspace(workspacePath, defaultWorkspacePath, reportUpgrade);
 
   if (opts.ejectDefaults) {
-    filesWritten.push(...await writeAllDefaults(workspacePath, false));
+    filesWritten.push(...await writeAllDefaults(workspacePath, false, reportUpgrade));
   }
 
   const models = buildModelConfig(opts.models);

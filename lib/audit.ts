@@ -6,7 +6,7 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname,join } from "node:path";
 
-import { DATA_DIR } from "./state/setup/paths.js";
+import { DATA_DIR } from "./state/index.js";
 
 const MAX_LOG_LINES = 50;
 

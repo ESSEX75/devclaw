@@ -22,13 +22,13 @@ import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "../
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { slotName } from "../../names.js";
 import { resolveModel } from "../../roles/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { readIssueStateStore, withIssueOrchestrationLock, writeIssueRuntimeState } from "../../state/issues/index.js";
+import { loadConfig } from "../../state/index.js";
+import { readIssueStateStore, withIssueOrchestrationLock, writeIssueRuntimeState } from "../../state/index.js";
 import {
   activateWorker,
   getRoleWorker,
   updateSlot,
-} from "../../state/projects/index.js";
+} from "../../state/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";

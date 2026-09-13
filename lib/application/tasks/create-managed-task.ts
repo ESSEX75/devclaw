@@ -34,14 +34,14 @@ import {
   renderIssueCreationMarker,
   replaceIssueMetadata,
 } from "../../projection/index.js";
-import type { IssueCreationFailure, IssueCreationOperation } from "../../state/issues/index.js";
+import type { IssueCreationFailure, IssueCreationOperation } from "../../state/index.js";
 import {
   newIssueCreationIdentity,
   readIssueCreationStore,
   updateIssueCreationStore,
   withIssueCreationLock,
   writeIssueRuntimeState,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
 import { applyManagedLabelDiff } from "../projection/index.js";
 import { withCreationPermit } from "./creation-governor.js";
 

@@ -19,7 +19,8 @@ import {
   reconcileSlots,
   type RoleWorkerState,
 } from "../../domain/index.js";
-import { getRoleWorker, parseProjectsData, type ProjectsData, readProjects, writeProjects } from "./index.js";
+import { getRoleWorker, type ProjectsData, readProjects, writeProjects } from "./index.js";
+import { parseProjectsData } from "./schema.js";
 
 describe("readProjects", () => {
   it("rejects projects without an owning agent", () => {

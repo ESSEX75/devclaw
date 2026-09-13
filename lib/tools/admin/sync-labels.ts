@@ -19,8 +19,8 @@ import {
   getStepRoutingLabels,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { getProject, readProjects } from "../../state/projects/index.js";
+import { loadConfig } from "../../state/index.js";
+import { getProject, readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createSyncLabelsTool(ctx: PluginContext) {

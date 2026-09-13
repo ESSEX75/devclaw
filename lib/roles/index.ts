@@ -33,4 +33,4 @@ export {
   resolveModel,
   roleForLevel,
 } from "./selectors.js";
-export type { RoleConfig, RoleLevelConfig } from "./types.js";
+export type { ResolvedRoleDefinition, RoleConfig, RoleLevelConfig } from "./types.js";

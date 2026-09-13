@@ -9,8 +9,8 @@ import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 import type { RunCommand } from "../context.js";
 import type { Project } from "../domain/index.js";
 import { createProvider, type ProviderWithType } from "../integrations/providers/index.js";
-import { loadConfig } from "../state/config/index.js";
-import { getProject, type ProjectsData, readProjects } from "../state/projects/index.js";
+import { loadConfig } from "../state/index.js";
+import { getProject, type ProjectsData, readProjects } from "../state/index.js";
 
 /**
  * Require workspaceDir from context or throw a clear error.

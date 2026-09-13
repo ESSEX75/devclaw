@@ -18,7 +18,7 @@ import {
   NOTIFICATION_CHANNEL,
   type NotificationEndpoint,
 } from "../../domain/index.js";
-import { readProjects, writeProjects } from "../../state/projects/index.js";
+import { readProjects, writeProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createChannelLinkTool(ctx: PluginContext) {

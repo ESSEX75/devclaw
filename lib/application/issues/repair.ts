@@ -40,13 +40,13 @@ import {
   type ProjectionMetadata,
   replaceIssueMetadata,
 } from "../../projection/index.js";
-import { loadConfig, type ResolvedRoleConfig } from "../../state/config/index.js";
+import { loadConfig, type ResolvedRoleConfig } from "../../state/index.js";
 import {
   readIssueStateStore,
   updateIssueStateStore,
   withIssueOrchestrationLock,
-} from "../../state/issues/index.js";
-import { readProjects } from "../../state/projects/index.js";
+} from "../../state/index.js";
+import { readProjects } from "../../state/index.js";
 import { applyManagedLabelDiff } from "../projection/index.js";
 
 /** Authoritative snapshot selected for a repair operation. */

@@ -17,9 +17,10 @@ import {
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
 } from "../../application/setup/scopes.js";
+import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
-import { writeAllDefaults } from "../../state/setup/workspace-files.js";
+import { writeAllDefaults } from "../../state/index.js";
 
 export function createSetupTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -87,7 +88,11 @@ export function createSetupTool(ctx: PluginContext) {
 
         if (!workspacePath) throw new Error("No workspace directory available");
         const force = !!params.resetDefaults;
-        const written = await writeAllDefaults(workspacePath, force);
+        const written = await writeAllDefaults(
+          workspacePath,
+          force,
+          (upgrade) => auditLog(workspacePath, "version_upgrade", upgrade),
+        );
         const action = force ? "Reset (force-wrote)" : "Ejected (wrote missing)";
 
         return jsonResult({

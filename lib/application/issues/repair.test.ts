@@ -9,7 +9,7 @@ import {
   type IssueRuntimeState,
 } from "../../domain/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
-import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
+import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore } from "../../state/index.js";
 import { createTestHarness } from "../../testing/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import {

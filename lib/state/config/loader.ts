@@ -15,7 +15,7 @@ import { ZodError } from "zod";
 
 import { DEFAULT_WORKFLOW, isBuiltInRoleId } from "../../domain/index.js";
 import { getAllRoleIds, ROLE_REGISTRY } from "../../roles/index.js";
-import { DATA_DIR } from "../setup/paths.js";
+import { DATA_DIR } from "../paths.js";
 import { mergeConfig } from "./merge.js";
 import { parseConfig, parseResolvedWorkflowConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
 import type {

@@ -17,8 +17,8 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import { checkWorkerHealth, fetchGatewaySessions, type HealthFix, scanOrphanedLabels } from "../../application/heartbeat/health.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
-import { getProject, readProjects } from "../../state/projects/index.js";
+import { getConfiguredRoleIds, loadConfig } from "../../state/index.js";
+import { getProject, readProjects } from "../../state/index.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
 
 export function createHealthTool(ctx: PluginContext) {

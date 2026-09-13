@@ -10,7 +10,7 @@ import {
   emptyIssueStateStore,
   withIssueOrchestrationLock,
   writeIssueStateStore,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
 import { createTestHarness } from "../../testing/index.js";
 import { projectTick } from "./tick.js";
 

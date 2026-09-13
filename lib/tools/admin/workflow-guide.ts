@@ -10,7 +10,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import { DATA_DIR } from "../../state/setup/paths.js";
+import { DATA_DIR } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 type WorkflowGuideTopic =

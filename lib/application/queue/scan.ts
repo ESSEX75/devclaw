@@ -15,7 +15,7 @@ import {
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue, StateLabel } from "../../integrations/providers/provider.js";
 import { ROLE_REGISTRY } from "../../roles/index.js";
-import { isIssueCreationReady, readIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore } from "../../state/index.js";
 
 // ---------------------------------------------------------------------------
 // Label detection

@@ -3,7 +3,7 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { emptyIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
+import { emptyIssueStateStore, writeIssueStateStore } from "../../state/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";

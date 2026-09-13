@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { loadInstanceName } from "./instance.js";
-import { DATA_DIR } from "./state/setup/paths.js";
+import { DATA_DIR } from "./state/index.js";
 
 describe("loadInstanceName", () => {
   let tmpDir: string;

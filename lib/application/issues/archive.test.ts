@@ -18,7 +18,7 @@ import {
   readIssueStateStore,
   writeIssueArchiveStore,
   writeIssueStateStore,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import {
   archiveManagedIssue,

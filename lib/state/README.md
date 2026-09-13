@@ -2,11 +2,19 @@
 
 This layer owns local persistence.
 
-State modules read, write, migrate, and lock DevClaw project files such as
+State modules read, write, and lock DevClaw project files such as
 project config, setup files, and managed issue runtime state. They may use domain
 types, but they should not contain queue scheduling or worker dispatch behavior.
 Versioned store envelopes and resumable operation records are state-owned public
-contracts exposed by the relevant state subpackage.
+contracts exposed to other layers only through `lib/state/index.ts`.
+
+## Package API
+
+- `lib/state/index.ts` is the only supported entrypoint for code outside this layer.
+- The root entrypoint explicitly exports supported operations and contracts; wildcard exports are forbidden.
+- Internal state modules import implementation owners directly and never import the root entrypoint.
+- State schemas, parsers, filesystem locks, and persistence helpers stay private unless an exported operation is itself the required boundary API.
+- `lib/state/paths.ts` owns filesystem names shared by multiple state capabilities.
 
 ## Managed Issue Stores
 
@@ -18,12 +26,11 @@ contracts exposed by the relevant state subpackage.
   removing active state so an interrupted operation can be recovered idempotently.
 - Stores accept only their current strict schema. Destructive reset is an explicit
   operator action and must never run automatically during startup or reads.
-- State-boundary normalization removes retired issue/project fields, fills required
-  nullable runtime values, and converts persisted numeric slot IDs before validation.
+- Stores validate the current schema at the filesystem boundary.
 
 ## Boundary Rules
 
-- Keep filesystem paths, serialization, migrations, and lock handling here.
+- Keep filesystem paths, serialization, and lock handling here.
 - Do not import `lib/tools` or `lib/cli`.
 - Do not call provider APIs or OpenClaw session APIs.
 - Do not own workflow transitions that require application orchestration.
