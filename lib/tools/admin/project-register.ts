@@ -34,7 +34,7 @@ import {
   parseNotificationEndpoint,
   readProjects,
   resolveRepoPath,
-  writeProjects,
+  updateProjects,
 } from "../../state/index.js";
 import { DATA_DIR } from "../../state/index.js";
 
@@ -311,7 +311,36 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         };
       }
 
-      await writeProjects(workspaceDir, data);
+      const preparedProject = data.projects[slug]!;
+
+      await updateProjects(workspaceDir, (current) => {
+        const next = structuredClone(current);
+        const currentProject = next.projects[slug];
+
+        if (currentProject && currentProject.agentId !== agentId) {
+          throw new Error(`Project "${currentProject.name}" belongs to agent "${currentProject.agentId}", not "${agentId}".`);
+        }
+
+        validateDestinationAvailability(next, slug, requestedEndpoint);
+
+        if (existing) {
+          if (!currentProject) throw new Error(`Project "${slug}" no longer exists.`);
+          const newChannel = preparedProject.channels[preparedProject.channels.length - 1]!;
+
+          if (currentProject.channels.some((candidate) => (
+            candidate.channel === newChannel.channel
+            && candidate.accountId === newChannel.accountId
+            && candidate.channelId === newChannel.channelId
+            && candidate.threadId === newChannel.threadId
+          ))) throw new Error(`Channel ${channelId} is already registered for project "${name}".`);
+          currentProject.channels.push(newChannel);
+        } else {
+          if (currentProject) throw new Error(`Project "${slug}" was registered concurrently.`);
+          next.projects[slug] = preparedProject;
+        }
+
+        return { data: next, result: undefined };
+      });
 
       // 6. Scaffold prompt files
       const promptsCreated = await scaffoldPromptFiles(

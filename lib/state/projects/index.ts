@@ -1,5 +1,6 @@
-export { activateWorker, deactivateWorker, getRoleWorker, updateSlot } from "./mutations.js";
+export { activateWorker, deactivateWorker, updateSlot } from "./mutations.js";
 export { resolveRepoPath } from "./paths.js";
+export { getProject, getRoleWorker, resolveProjectSlug } from "./queries.js";
+export { readProjects, replaceProjectsForTesting, updateProjects } from "./repository.js";
 export { parseNotificationEndpoint } from "./schema.js";
-export { getProject, loadProjectBySlug, readProjects, resolveProjectSlug, writeProjects } from "./store.js";
-export type { ProjectsData } from "./types.js";
+export type { ProjectsData, ProjectsUpdate } from "./types.js";

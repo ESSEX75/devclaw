@@ -30,6 +30,13 @@ contracts exposed to other layers only through `lib/state/index.ts`.
   operator action and must never run automatically during startup or reads.
 - Stores accept only the current strict schema at the filesystem boundary; no legacy normalization or migration runs during reads.
 
+## Projects Registry
+
+- `projects/paths` owns registry and repository path policy, including home-directory expansion.
+- `projects/repository` owns strict reads and immutable, locked atomic updates; raw production writes are not public.
+- `projects/queries` contains pure snapshot lookups, while `projects/mutations` owns worker-slot persistence operations.
+- The registry accepts only its current schema and performs no legacy field or identifier normalization.
+
 ## Boundary Rules
 
 - Keep filesystem paths, serialization, and lock handling here.

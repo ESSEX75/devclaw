@@ -53,19 +53,19 @@ export {
   writeIssueStateStore,
 } from "./issues/index.js";
 export { DATA_DIR } from "./paths.js";
-export type { ProjectsData } from "./projects/index.js";
+export type { ProjectsData, ProjectsUpdate } from "./projects/index.js";
 export {
   activateWorker,
   deactivateWorker,
   getProject,
   getRoleWorker,
-  loadProjectBySlug,
   parseNotificationEndpoint,
   readProjects,
+  replaceProjectsForTesting,
   resolveProjectSlug,
   resolveRepoPath,
+  updateProjects,
   updateSlot,
-  writeProjects,
 } from "./projects/index.js";
 export type { WorkspaceVersionUpgrade, WorkspaceVersionUpgradeReporter } from "./setup/index.js";
 export {

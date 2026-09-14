@@ -19,7 +19,13 @@ import {
   reconcileSlots,
   type RoleWorkerState,
 } from "../../domain/index.js";
-import { getRoleWorker, type ProjectsData, readProjects, writeProjects } from "./index.js";
+import {
+  getRoleWorker,
+  type ProjectsData,
+  readProjects,
+  replaceProjectsForTesting,
+  updateProjects,
+} from "./index.js";
 import { parseProjectsData } from "./schema.js";
 
 describe("readProjects", () => {
@@ -77,15 +83,16 @@ describe("readProjects", () => {
     assert.equal(data.projects.devclaw?.channels[0]?.threadId, "5");
   });
 
-  it("rejects legacy Telegram topic syntax with a replacement example", () => {
+  it("rejects unknown endpoint fields", () => {
     assert.throws(
       () => parseProjectsData(projectsFixture({
-        channelId: "-1003911014709:topic:5",
+        channelId: "-1003911014709",
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
         name: "primary",
         accountId: "dev",
+        topicId: "5",
       })),
-      /legacy Telegram topic syntax.*threadId/,
+      /unrecognized key/i,
     );
   });
 
@@ -125,7 +132,7 @@ describe("readProjects", () => {
     assert.doesNotThrow(() => parseProjectsData(fixture));
   });
 
-  it("normalizes removed project fields and string slot issue IDs", async () => {
+  it("rejects removed project fields and string slot issue IDs", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-"));
     const dataDir = path.join(tmpDir, "devclaw");
 
@@ -165,19 +172,7 @@ describe("readProjects", () => {
 
     await fs.writeFile(path.join(dataDir, "projects.json"), JSON.stringify(projectFirstData), "utf-8");
 
-    const data = await readProjects(tmpDir);
-    const rw = data.projects["g1"].workers.developer;
-
-    assert.ok(rw, "should have developer worker state");
-    const mediorSlots = rw.levels.medior;
-
-    assert.ok(mediorSlots, "should have medior level");
-    assert.strictEqual(mediorSlots.length, 2);
-    assert.strictEqual(mediorSlots[0]!.active, true);
-    assert.strictEqual(mediorSlots[0]!.issueId, 5);
-    assert.strictEqual(mediorSlots[1]!.active, false);
-    assert.strictEqual("groupName" in data.projects["g1"], false);
-    assert.strictEqual("deployUrl" in data.projects["g1"], false);
+    await assert.rejects(() => readProjects(tmpDir), /Cannot read projects registry.*(groupName|issueId)/s);
 
     await fs.rm(tmpDir, { recursive: true });
   });
@@ -190,6 +185,7 @@ function projectsFixture(channel: {
   name: string;
   accountId: string;
   threadId?: string;
+  topicId?: string;
 }): unknown {
   return {
     projects: {
@@ -277,7 +273,7 @@ describe("per-level slot helpers", () => {
   });
 });
 
-describe("writeProjects round-trip", () => {
+describe("projects repository round-trip", () => {
   it("should preserve per-level workers through write/read cycle", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-"));
     const dataDir = path.join(tmpDir, "devclaw");
@@ -309,7 +305,7 @@ describe("writeProjects round-trip", () => {
       },
     };
 
-    await writeProjects(tmpDir, data);
+    await replaceProjectsForTesting(tmpDir, data);
     const loaded = await readProjects(tmpDir);
     const project = loaded.projects["g1"];
 
@@ -319,6 +315,57 @@ describe("writeProjects round-trip", () => {
     assert.strictEqual(project.workers.developer.levels.medior[0]!.active, false);
     assert.strictEqual(project.workers.developer.levels.medior[1]!.active, false);
 
+    await fs.rm(tmpDir, { recursive: true });
+  });
+
+  it("serializes concurrent immutable updates without losing either change", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-concurrency-"));
+    const initial = parseProjectsData(projectsFixture({
+      channelId: "g1",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      accountId: "default",
+    }));
+
+    await fs.mkdir(path.join(tmpDir, "devclaw"), { recursive: true });
+    await replaceProjectsForTesting(tmpDir, initial);
+    await Promise.all(["first", "second"].map((name) => updateProjects(tmpDir, (current) => {
+      const data = structuredClone(current);
+
+      data.projects.devclaw!.channels.push({
+        channelId: name,
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        name,
+        accountId: "default",
+      });
+
+      return { data, result: undefined };
+    })));
+
+    const channels = (await readProjects(tmpDir)).projects.devclaw!.channels.map((channel) => channel.channelId);
+
+    assert.deepStrictEqual(channels, ["g1", "first", "second"]);
+    await fs.rm(tmpDir, { recursive: true });
+  });
+
+  it("does not persist a candidate mutated before a callback failure", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-failure-"));
+    const initial = parseProjectsData(projectsFixture({
+      channelId: "g1",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      accountId: "default",
+    }));
+
+    await fs.mkdir(path.join(tmpDir, "devclaw"), { recursive: true });
+    await replaceProjectsForTesting(tmpDir, initial);
+    await assert.rejects(() => updateProjects(tmpDir, (current) => {
+      const data = structuredClone(current);
+
+      data.projects.devclaw!.name = "not-persisted";
+      throw new Error("callback failed");
+    }), /callback failed/);
+    assert.equal((await readProjects(tmpDir)).projects.devclaw!.name, "devclaw");
     await fs.rm(tmpDir, { recursive: true });
   });
 });

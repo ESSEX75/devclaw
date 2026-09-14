@@ -20,7 +20,7 @@ import {
   WORKFLOW_EVENT,
 } from "../../domain/index.js";
 import { emptyIssueStateStore, writeIssueStateStore } from "../../state/index.js";
-import { type ProjectsData, writeProjects } from "../../state/index.js";
+import { type ProjectsData, replaceProjectsForTesting } from "../../state/index.js";
 
 const DESIGNER_WORKFLOW: WorkflowConfig = {
   initial: "toDesign",
@@ -94,7 +94,7 @@ describe("scanOrphanedLabels", () => {
           },
         },
       };
-      await writeProjects(h.workspaceDir, freshData);
+      await replaceProjectsForTesting(h.workspaceDir, freshData);
 
       // Pass the STALE project (no active slot) — scanOrphanedLabels should
       // re-read from disk and find the active slot, avoiding the false positive.

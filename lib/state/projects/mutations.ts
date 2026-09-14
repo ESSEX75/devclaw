@@ -1,25 +1,11 @@
 /**
  * projects/mutations.ts — State mutations for project worker slots.
  */
-import type {
-  Project,
-  RoleWorkerState,
-  SlotState,
-} from "../../domain/index.js";
+import type { SlotState } from "../../domain/index.js";
 import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
-import { readProjects, resolveProjectSlug, withProjectsLock, writeProjects } from "./store.js";
+import { resolveProjectSlug } from "./queries.js";
+import { updateProjects } from "./repository.js";
 import type { ProjectsData } from "./types.js";
-
-/**
- * Get the RoleWorkerState for a given role.
- * Returns an empty state if the role has no workers configured.
- */
-export function getRoleWorker(
-  project: Project,
-  role: string,
-): RoleWorkerState {
-  return project.workers[role] ?? { levels: {} };
-}
 
 /**
  * Update a specific slot in a role's worker state.
@@ -40,8 +26,8 @@ export async function updateSlot(
   slotIndex: number,
   updater: (slot: SlotState) => SlotState,
 ): Promise<ProjectsData> {
-  return withProjectsLock(workspaceDir, async () => {
-    const data = await readProjects(workspaceDir);
+  return updateProjects(workspaceDir, (current) => {
+    const data = structuredClone(current);
     const slug = resolveProjectSlug(data, slugOrChannelId);
 
     if (!slug) {
@@ -62,9 +48,7 @@ export async function updateSlot(
     slots[slotIndex] = updater(slots[slotIndex]!);
     project.workers[role] = rw;
 
-    await writeProjects(workspaceDir, data);
-
-    return data;
+    return { data, result: data };
   });
 }
 
@@ -95,8 +79,8 @@ export async function activateWorker(
     name?: string;
   },
 ): Promise<ProjectsData> {
-  return withProjectsLock(workspaceDir, async () => {
-    const data = await readProjects(workspaceDir);
+  return updateProjects(workspaceDir, (current) => {
+    const data = structuredClone(current);
     const slug = resolveProjectSlug(data, slugOrChannelId);
 
     if (!slug) {
@@ -127,9 +111,8 @@ export async function activateWorker(
     };
 
     project.workers[role] = rw;
-    await writeProjects(workspaceDir, data);
 
-    return data;
+    return { data, result: data };
   });
 }
 
@@ -150,8 +133,8 @@ export async function deactivateWorker(
   role: string,
   opts?: { level?: string; slotIndex?: number; issueId?: number },
 ): Promise<ProjectsData> {
-  return withProjectsLock(workspaceDir, async () => {
-    const data = await readProjects(workspaceDir);
+  return updateProjects(workspaceDir, (current) => {
+    const data = structuredClone(current);
     const slug = resolveProjectSlug(data, slugOrChannelId);
 
     if (!slug) {
@@ -195,8 +178,7 @@ export async function deactivateWorker(
     }
 
     project.workers[role] = rw;
-    await writeProjects(workspaceDir, data);
 
-    return data;
+    return { data, result: data };
   });
 }

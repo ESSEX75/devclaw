@@ -30,7 +30,7 @@ import {
   reservePipelineNotification,
   withIssueOrchestrationLock,
 } from "../../state/index.js";
-import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/index.js";
+import { deactivateWorker, getProject, getRoleWorker, readProjects } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { archiveManagedIssue } from "../issues/index.js";
 import {
@@ -147,7 +147,7 @@ async function executeCompletionLocked(opts: {
   if (!rule) throw new Error(`No completion rule for ${key}`);
 
   const { timeouts } = config;
-  const project = await loadProjectBySlug(workspaceDir, projectSlug);
+  const project = getProject(await readProjects(workspaceDir), projectSlug);
 
   if (!project) {
     throw new Error(`Project "${projectSlug}" not found.`);

@@ -8,7 +8,7 @@
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
-import { readProjects, writeProjects } from "../../state/index.js";
+import { readProjects, updateProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createChannelUnlinkTool() {
@@ -112,10 +112,21 @@ export function createChannelUnlinkTool() {
         });
       }
 
-      // Remove the channel
-      target.channels.splice(idx, 1);
+      const updatedTarget = await updateProjects(workspaceDir, (current) => {
+        const next = structuredClone(current);
+        const currentTarget = next.projects[target.slug];
 
-      await writeProjects(workspaceDir, data);
+        if (!currentTarget) throw new Error(`Project "${target.slug}" no longer exists.`);
+        const currentIndex = currentTarget.channels.findIndex((candidate) => (
+          candidate.channelId === channelId && candidate.threadId === threadId
+        ));
+
+        if (currentIndex === -1) throw new Error(`Channel ${channelId} is no longer linked.`);
+        if (currentTarget.channels.length === 1) throw new Error("Cannot remove the last project channel.");
+        currentTarget.channels.splice(currentIndex, 1);
+
+        return { data: next, result: currentTarget };
+      });
 
       await auditLog(workspaceDir, "channel_unlink", {
         project: target.name,
@@ -134,10 +145,10 @@ export function createChannelUnlinkTool() {
         threadId,
         channelName: channel.name,
         channelType: channel.channel,
-        remainingChannels: target.channels.length,
+        remainingChannels: updatedTarget.channels.length,
         announcement:
           `Channel "${channel.name}" (${channelId}) unlinked from project "${target.name}". ` +
-          `${target.channels.length} channel(s) remaining.`,
+          `${updatedTarget.channels.length} channel(s) remaining.`,
       });
     },
   });

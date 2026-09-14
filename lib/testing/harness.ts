@@ -23,7 +23,7 @@ import {
   type WorkflowLabel,
 } from "../domain/index.js";
 import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
-import { type ProjectsData, writeProjects } from "../state/index.js";
+import { type ProjectsData, replaceProjectsForTesting } from "../state/index.js";
 import { TestProvider } from "./test-provider.js";
 
 // ---------------------------------------------------------------------------
@@ -289,7 +289,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     },
   };
 
-  await writeProjects(workspaceDir, projectsData);
+  await replaceProjectsForTesting(workspaceDir, projectsData);
 
   // Install mock runCommand
   const { interceptor, handler } = createCommandInterceptor();
@@ -306,7 +306,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     project,
     workflow,
     async writeProjects(data: ProjectsData) {
-      await writeProjects(workspaceDir, data);
+      await replaceProjectsForTesting(workspaceDir, data);
     },
     async readProjects() {
       const { readProjects } = await import("../state/projects/index.js");

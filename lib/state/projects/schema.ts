@@ -10,42 +10,30 @@ import type { ProjectsData } from "./types.js";
 const NonEmptyString = z.string().trim().min(1);
 
 const NotificationEndpointSchema = z.object({
-  channelId: NonEmptyString.superRefine((value, context) => {
-    if (value.includes(":topic:")) {
-      const [channelId, threadId] = value.split(":topic:");
-
-      context.addIssue({
-        code: "custom",
-        message: `legacy Telegram topic syntax is not supported; use { channelId: "${channelId}", threadId: "${threadId}" }`,
-      });
-    }
-  }),
+  channelId: NonEmptyString,
   channel: z.enum(NOTIFICATION_CHANNEL),
   name: NonEmptyString,
   accountId: NonEmptyString,
   threadId: NonEmptyString.optional(),
 }).strict();
 
-const LegacySlotIssueIdSchema = z.union([
-  z.number().int().positive(),
-  z.string().regex(/^\d+$/).transform(Number),
-]);
+const SlotIssueIdSchema = z.number().int().positive();
 
 const SlotStateSchema = z.object({
   active: z.boolean(),
-  issueId: LegacySlotIssueIdSchema.nullable(),
+  issueId: SlotIssueIdSchema.nullable(),
   sessionKey: z.string().nullable(),
   startTime: z.string().nullable(),
   previousLabel: z.string().nullable().optional(),
   name: z.string().optional(),
-  lastIssueId: LegacySlotIssueIdSchema.nullable().optional(),
+  lastIssueId: SlotIssueIdSchema.nullable().optional(),
 }).strict();
 
 const RoleWorkerStateSchema = z.object({
   levels: z.record(z.string(), z.array(SlotStateSchema).optional()),
 }).strict();
 
-const ProjectSchema = z.preprocess(normalizeProject, z.object({
+const ProjectSchema = z.object({
   slug: NonEmptyString,
   name: NonEmptyString,
   agentId: NonEmptyString,
@@ -55,7 +43,7 @@ const ProjectSchema = z.preprocess(normalizeProject, z.object({
   channels: z.array(NotificationEndpointSchema).min(1),
   provider: z.enum(ISSUE_PROVIDER),
   workers: z.record(z.string(), RoleWorkerStateSchema),
-}).strict());
+}).strict();
 
 const ProjectsDataSchema = z.object({
   projects: z.record(z.string(), ProjectSchema),
@@ -91,18 +79,4 @@ export function parseProjectsData(value: unknown): ProjectsData {
 
 export function parseNotificationEndpoint(value: unknown): NotificationEndpoint {
   return NotificationEndpointSchema.parse(value);
-}
-
-function normalizeProject(value: unknown): unknown {
-  if (!isObjectRecord(value)) return value;
-  const normalized = { ...value };
-
-  delete normalized.groupName;
-  delete normalized.deployUrl;
-
-  return normalized;
-}
-
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
