@@ -112,5 +112,4 @@ async function cleanupWorkspace(workspacePath: string): Promise<void> {
   // New agent workspaces should start clean even if a template copied these.
   try { await fs.rm(path.join(workspacePath, ".git"), { recursive: true }); } catch { /* may not exist */ }
 
-  try { await fs.unlink(path.join(workspacePath, "BOOTSTRAP.md")); } catch { /* may not exist */ }
 }

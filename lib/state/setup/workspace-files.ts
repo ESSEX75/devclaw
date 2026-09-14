@@ -1,230 +1,128 @@
-/**
- * state/setup/workspace-files.ts — Workspace file scaffolding.
- *
- * On startup, ensureDefaultFiles() creates missing workspace files with curated
- * defaults. User-owned config files (workflow.yaml, prompts, IDENTITY.md) are
- * write-once: created if missing, never overwritten. System instruction files
- * (AGENTS.md, HEARTBEAT.md, TOOLS.md) are always refreshed.
- *
- * The runtime config loader (lib/state/config/loader.ts) uses a three-layer merge with
- * built-in fallbacks, so missing keys in workflow.yaml are handled automatically.
- *
- * To explicitly write/reset defaults, use setup --eject-defaults or --reset-defaults.
- */
+/** Provides explicit create-only, refresh, reset, and scaffold filesystem capabilities for setup. */
 import fs from "node:fs/promises";
 import path from "node:path";
 
 import { getAllRoleIds } from "../../roles/index.js";
 import { DATA_DIR } from "../paths.js";
-import {
-  AGENTS_MD_TEMPLATE,
-  DEFAULT_ROLE_INSTRUCTIONS,
-  HEARTBEAT_MD_TEMPLATE,
-  IDENTITY_MD_TEMPLATE,
-  SOUL_MD_TEMPLATE,
-  TOOLS_MD_TEMPLATE,
-  WORKFLOW_YAML_TEMPLATE,
-} from "./templates.js";
-import { detectUpgrade,writeVersionFile } from "./version.js";
+import { loadSetupTemplates } from "./templates.js";
 
-/** Sentinel file indicating the workspace has been initialized. */
-const INITIALIZED_SENTINEL = ".initialized";
-
-/** Version transition detected while refreshing workspace-owned files. */
-export type WorkspaceVersionUpgrade = {
-  /** Previously persisted plugin version. */
-  from: string;
-  /** Current plugin version written by the refresh. */
-  to: string;
+/** Structured record of filesystem paths actually written by a setup capability. */
+export type WorkspaceWriteResult = {
+  /** Workspace-relative paths created or replaced. */
+  written: string[];
 };
 
-/** Application callback that records a detected workspace version transition. */
-export type WorkspaceVersionUpgradeReporter = (upgrade: WorkspaceVersionUpgrade) => Promise<void>;
-
-/**
- * Ensure all workspace data files are up to date.
- *
- * Called on every heartbeat startup.
- *
- * File categories:
- *   - System instructions (AGENTS.md, HEARTBEAT.md, TOOLS.md): always overwrite
- *   - User-owned config (workflow.yaml, prompts, IDENTITY.md): create-only
- *   - Runtime state (projects.json): create-only
- *
- * @param workspacePath - Workspace whose managed files should be refreshed.
- * @param reportUpgrade - Application-owned observer for a detected version transition.
- */
-export async function ensureDefaultFiles(
-  workspacePath: string,
-  reportUpgrade?: WorkspaceVersionUpgradeReporter,
-): Promise<void> {
-  const dataDir = path.join(workspacePath, DATA_DIR);
-
-  await fs.mkdir(dataDir, { recursive: true });
-
-  // Ensure directories exist
-  await fs.mkdir(path.join(dataDir, "projects"), { recursive: true });
-  await fs.mkdir(path.join(dataDir, "prompts"), { recursive: true });
-  await fs.mkdir(path.join(dataDir, "log"), { recursive: true });
-
-  // --- System instruction files — always overwrite with latest ---
-  await backupAndWrite(path.join(workspacePath, "AGENTS.md"), AGENTS_MD_TEMPLATE);
-  await backupAndWrite(path.join(workspacePath, "HEARTBEAT.md"), HEARTBEAT_MD_TEMPLATE);
-  await backupAndWrite(path.join(workspacePath, "TOOLS.md"), TOOLS_MD_TEMPLATE);
-
-  // --- User-owned files — create-only, never overwrite ---
-
-  // IDENTITY.md
-  const identityPath = path.join(workspacePath, "IDENTITY.md");
-
-  if (!await fileExists(identityPath)) {
-    await fs.writeFile(identityPath, IDENTITY_MD_TEMPLATE, "utf-8");
-  }
-
-  // Remove BOOTSTRAP.md — one-time onboarding file, not needed after setup
-  try { await fs.unlink(path.join(workspacePath, "BOOTSTRAP.md")); } catch { /* already gone */ }
-
-  // devclaw/workflow.yaml — create-only (three-layer merge handles defaults for missing keys)
-  const workflowPath = path.join(dataDir, "workflow.yaml");
-
-  await writeIfMissing(workflowPath, WORKFLOW_YAML_TEMPLATE);
-
-  // devclaw/projects.json — create-only
-  const projectsJsonPath = path.join(dataDir, "projects.json");
-
-  await writeIfMissing(projectsJsonPath, JSON.stringify({ projects: {} }, null, 2) + "\n");
-
-  // devclaw/prompts/ — create-only per role (user customizations are preserved)
-  for (const role of getAllRoleIds()) {
-    const rolePath = path.join(dataDir, "prompts", `${role}.md`);
-    const content = DEFAULT_ROLE_INSTRUCTIONS[role];
-
-    if (content) await writeIfMissing(rolePath, content);
-  }
-
-  // Version tracking
-  const upgrade = await detectUpgrade(dataDir);
-
-  await writeVersionFile(dataDir);
-  if (upgrade) await reportUpgrade?.(upgrade);
-
-  // Mark workspace as initialized
-  const sentinelPath = path.join(dataDir, INITIALIZED_SENTINEL);
-
-  await writeIfMissing(sentinelPath, new Date().toISOString() + "\n");
-}
-
-/**
- * Write all package defaults to workspace.
- * Used by setup --eject-defaults and --reset-defaults.
- *
- * @param workspacePath - Workspace that receives the packaged defaults.
- * @param force - Whether to overwrite existing files instead of preserving them.
- * @param reportUpgrade - Application-owned observer for a detected version transition.
- * @returns List of files written.
- */
-export async function writeAllDefaults(
-  workspacePath: string,
-  force = false,
-  reportUpgrade?: WorkspaceVersionUpgradeReporter,
-): Promise<string[]> {
+/** @param workspacePath - Workspace whose missing current files should be created. */
+export async function initializeWorkspaceFiles(workspacePath: string): Promise<WorkspaceWriteResult> {
+  const templates = await loadSetupTemplates();
   const dataDir = path.join(workspacePath, DATA_DIR);
   const written: string[] = [];
 
-  // Ensure directories
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.mkdir(path.join(dataDir, "projects"), { recursive: true });
-  await fs.mkdir(path.join(dataDir, "prompts"), { recursive: true });
-  await fs.mkdir(path.join(dataDir, "log"), { recursive: true });
-
+  await ensureDirectories(dataDir);
   const files: Array<[string, string]> = [
-    [path.join(workspacePath, "AGENTS.md"), AGENTS_MD_TEMPLATE],
-    [path.join(workspacePath, "HEARTBEAT.md"), HEARTBEAT_MD_TEMPLATE],
-    [path.join(workspacePath, "IDENTITY.md"), IDENTITY_MD_TEMPLATE],
-    [path.join(workspacePath, "TOOLS.md"), TOOLS_MD_TEMPLATE],
-    [path.join(dataDir, "workflow.yaml"), WORKFLOW_YAML_TEMPLATE],
+    [path.join(workspacePath, "AGENTS.md"), templates.agents],
+    [path.join(workspacePath, "HEARTBEAT.md"), templates.heartbeat],
+    [path.join(workspacePath, "IDENTITY.md"), templates.identity],
+    [path.join(workspacePath, "TOOLS.md"), templates.tools],
+    [path.join(dataDir, "workflow.yaml"), templates.workflow],
+    [path.join(dataDir, "projects.json"), `${JSON.stringify({ projects: {} }, null, 2)}\n`],
+    ...getAllRoleIds().flatMap((role): Array<[string, string]> => {
+      const content = templates.roleInstructions[role];
+
+      return content ? [[path.join(dataDir, "prompts", `${role}.md`), content]] : [];
+    }),
   ];
 
-  for (const role of getAllRoleIds()) {
-    const content = DEFAULT_ROLE_INSTRUCTIONS[role];
-
-    if (content) files.push([path.join(dataDir, "prompts", `${role}.md`), content]);
-  }
-
   for (const [filePath, content] of files) {
-    if (force) {
-      await backupAndWrite(filePath, content);
-      written.push(path.relative(workspacePath, filePath));
-    } else {
-      if (await writeIfMissing(filePath, content)) {
-        written.push(path.relative(workspacePath, filePath));
-      }
-    }
+    if (await writeIfMissing(filePath, content)) written.push(path.relative(workspacePath, filePath));
   }
 
-  // Version tracking
-  const upgrade = await detectUpgrade(dataDir);
+  return { written };
+}
 
-  await writeVersionFile(dataDir);
-  if (upgrade) await reportUpgrade?.(upgrade);
+/** @param workspacePath - Workspace whose system instructions should be explicitly refreshed. */
+export async function refreshSystemInstructionFiles(workspacePath: string): Promise<WorkspaceWriteResult> {
+  const templates = await loadSetupTemplates();
+  const files: Array<[string, string]> = [["AGENTS.md", templates.agents], ["HEARTBEAT.md", templates.heartbeat], ["TOOLS.md", templates.tools]];
 
-  return written;
+  for (const [relativePath, content] of files) await backupAndWrite(path.join(workspacePath, relativePath), content);
+
+  return { written: files.map(([relativePath]) => relativePath) };
+}
+
+/** @param workspacePath - Workspace that receives only missing packaged defaults. */
+export async function ejectDefaults(workspacePath: string): Promise<WorkspaceWriteResult> {
+  return initializeWorkspaceFiles(workspacePath);
+}
+
+/** @param workspacePath - Workspace whose defaults are explicitly reset with recoverable backups. */
+export async function resetDefaults(workspacePath: string): Promise<WorkspaceWriteResult> {
+  const templates = await loadSetupTemplates();
+  const dataDir = path.join(workspacePath, DATA_DIR);
+
+  await ensureDirectories(dataDir);
+  const files: Array<[string, string]> = [
+    [path.join(workspacePath, "AGENTS.md"), templates.agents], [path.join(workspacePath, "HEARTBEAT.md"), templates.heartbeat],
+    [path.join(workspacePath, "IDENTITY.md"), templates.identity], [path.join(workspacePath, "TOOLS.md"), templates.tools],
+    [path.join(dataDir, "workflow.yaml"), templates.workflow],
+    ...Object.entries(templates.roleInstructions).map(([role, content]): [string, string] => [path.join(dataDir, "prompts", `${role}.md`), content]),
+  ];
+
+  for (const [filePath, content] of files) await backupAndWrite(filePath, content);
+
+  return { written: files.map(([filePath]) => path.relative(workspacePath, filePath)) };
 }
 
 /**
- * Write all workspace files for a DevClaw agent.
- * Returns the list of files that were written (skips files that already exist).
- *
- * @param workspacePath - Workspace to scaffold for the DevClaw agent.
- * @param defaultWorkspacePath - Optional source workspace for a create-only USER.md copy.
- * @param reportUpgrade - Application-owned observer for a detected version transition.
+ * @param workspacePath - New agent workspace to scaffold.
+ * @param defaultWorkspacePath - Optional source for a create-only USER.md copy.
  */
-export async function scaffoldWorkspace(
-  workspacePath: string,
-  defaultWorkspacePath?: string,
-  reportUpgrade?: WorkspaceVersionUpgradeReporter,
-): Promise<string[]> {
-  // SOUL.md (create-only — never overwrite user customizations)
-  const soulPath = path.join(workspacePath, "SOUL.md");
+export async function scaffoldWorkspace(workspacePath: string, defaultWorkspacePath?: string): Promise<WorkspaceWriteResult> {
+  const templates = await loadSetupTemplates();
+  const written: string[] = [];
 
-  if (!await fileExists(soulPath)) {
-    await fs.writeFile(soulPath, SOUL_MD_TEMPLATE, "utf-8");
-  }
+  if (await writeIfMissing(path.join(workspacePath, "SOUL.md"), templates.soul)) written.push("SOUL.md");
+  if (defaultWorkspacePath && !await fileExists(path.join(workspacePath, "USER.md"))) {
+    const source = path.join(defaultWorkspacePath, "USER.md");
 
-  // USER.md — copy from default workspace if available (create-only)
-  const userPath = path.join(workspacePath, "USER.md");
-
-  if (!await fileExists(userPath) && defaultWorkspacePath) {
-    const sourceUser = path.join(defaultWorkspacePath, "USER.md");
-
-    if (await fileExists(sourceUser)) {
-      await fs.copyFile(sourceUser, userPath);
+    if (await fileExists(source)) {
+      await fs.mkdir(workspacePath, { recursive: true });
+      await fs.copyFile(source, path.join(workspacePath, "USER.md"));
+      written.push("USER.md");
     }
   }
 
-  // Ensure directories and missing structural files
-  await ensureDefaultFiles(workspacePath, reportUpgrade);
+  const initialized = await initializeWorkspaceFiles(workspacePath);
 
-  return ["AGENTS.md", "HEARTBEAT.md", "TOOLS.md"];
+  return { written: [...written, ...initialized.written] };
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
+/**
+ * Replace a file while preserving its previous contents in an adjacent `.bak` file.
+ * @param filePath - Exact file to replace.
+ * @param content - Current packaged content to write.
+ */
 export async function backupAndWrite(filePath: string, content: string): Promise<void> {
-  try {
-    await fs.access(filePath);
-    await fs.copyFile(filePath, filePath + ".bak");
-  } catch {
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-  }
-
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  if (await fileExists(filePath)) await fs.copyFile(filePath, `${filePath}.bak`);
   await fs.writeFile(filePath, content, "utf-8");
 }
 
+/** @param filePath - Exact path whose existence should be queried. */
+export async function fileExists(filePath: string): Promise<boolean> {
+  try { await fs.access(filePath);
+
+ return true; } catch { return false; }
+}
+
+/** @param dataDir - DevClaw data directory whose current structure is required. */
+async function ensureDirectories(dataDir: string): Promise<void> {
+  await Promise.all([dataDir, path.join(dataDir, "projects"), path.join(dataDir, "prompts"), path.join(dataDir, "log")].map((dir) => fs.mkdir(dir, { recursive: true })));
+}
+
 /**
- * Write a file only if it doesn't exist. Returns true if file was written.
+ * @param filePath - Exact create-only destination.
+ * @param content - Content written only when the destination is absent.
  */
 async function writeIfMissing(filePath: string, content: string): Promise<boolean> {
   if (await fileExists(filePath)) return false;
@@ -232,14 +130,4 @@ async function writeIfMissing(filePath: string, content: string): Promise<boolea
   await fs.writeFile(filePath, content, "utf-8");
 
   return true;
-}
-
-export async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-
-    return true;
-  } catch {
-    return false;
-  }
 }

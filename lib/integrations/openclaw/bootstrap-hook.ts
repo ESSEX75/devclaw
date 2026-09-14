@@ -17,7 +17,7 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import type { PluginContext } from "../../context.js";
 import { getSessionKeyRolePattern } from "../../roles/index.js";
 import { DATA_DIR } from "../../state/index.js";
-import { DEFAULT_ROLE_INSTRUCTIONS } from "../../state/index.js";
+import { loadSetupTemplates } from "../../state/index.js";
 
 /**
  * Parse a DevClaw subagent session key to extract project name and role.
@@ -106,7 +106,7 @@ export async function loadRoleInstructions(
   }
 
   // Final fallback: package defaults (in-memory, always available)
-  const packageDefault = DEFAULT_ROLE_INSTRUCTIONS[role];
+  const packageDefault = (await loadSetupTemplates()).roleInstructions[role];
 
   if (packageDefault) {
     if (opts?.withSource) return { content: packageDefault, source: "package-default" };

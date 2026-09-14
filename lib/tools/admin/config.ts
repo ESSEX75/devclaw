@@ -4,18 +4,14 @@
  * Subcommands:
  * - reset: Reset config files to package defaults (with .bak backups)
  * - diff: Show differences between current workflow.yaml and package default
- * - version: Show current and workspace DevClaw versions
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import { log as auditLog } from "../../audit.js";
 import { DATA_DIR } from "../../state/index.js";
-import { DEFAULT_ROLE_INSTRUCTIONS, WORKFLOW_YAML_TEMPLATE } from "../../state/index.js";
-import { getCurrentVersion, readVersionFile } from "../../state/index.js";
-import { backupAndWrite, fileExists, writeAllDefaults } from "../../state/index.js";
+import { backupAndWrite, fileExists, loadSetupTemplates, resetDefaults } from "../../state/index.js";
 
 export function createConfigTool() {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -27,20 +23,18 @@ Actions:
 - **reset**: Reset config files to package defaults. Creates .bak backups of existing files.
   Scope: --prompts (prompts only), --workflow (workflow.yaml only), --all (everything).
 - **diff**: Show differences between current workflow.yaml and the package default template.
-- **version**: Show DevClaw package version and workspace tracked version.
 
 Examples:
   config({ action: "reset", scope: "workflow" })
   config({ action: "reset", scope: "all" })
-  config({ action: "diff" })
-  config({ action: "version" })`,
+  config({ action: "diff" })`,
     parameters: {
       type: "object",
       required: ["action"],
       properties: {
         action: {
           type: "string",
-          enum: ["reset", "diff", "version"],
+          enum: ["reset", "diff"],
           description: "Config action to perform.",
         },
         scope: {
@@ -62,8 +56,6 @@ Examples:
           return await handleReset(workspacePath, (params.scope as string) ?? "all");
         case "diff":
           return await handleDiff(workspacePath);
-        case "version":
-          return await handleVersion(workspacePath);
         default:
           throw new Error(`Unknown config action: ${action}`);
       }
@@ -78,24 +70,19 @@ Examples:
 async function handleReset(workspacePath: string, scope: string) {
   const dataDir = path.join(workspacePath, DATA_DIR);
   const written: string[] = [];
+  const templates = await loadSetupTemplates();
 
   if (scope === "all") {
-    const files = await writeAllDefaults(
-      workspacePath,
-      true,
-      (upgrade) => auditLog(workspacePath, "version_upgrade", upgrade),
-    );
-
-    written.push(...files);
+    written.push(...(await resetDefaults(workspacePath)).written);
   } else if (scope === "workflow") {
     const workflowPath = path.join(dataDir, "workflow.yaml");
 
-    await backupAndWrite(workflowPath, WORKFLOW_YAML_TEMPLATE);
+    await backupAndWrite(workflowPath, templates.workflow);
     written.push("devclaw/workflow.yaml");
   } else if (scope === "prompts") {
     const promptsDir = path.join(dataDir, "prompts");
 
-    for (const [role, content] of Object.entries(DEFAULT_ROLE_INSTRUCTIONS)) {
+    for (const [role, content] of Object.entries(templates.roleInstructions)) {
       if (!content) continue;
       const rolePath = path.join(promptsDir, `${role}.md`);
 
@@ -129,7 +116,7 @@ async function handleDiff(workspacePath: string) {
   }
 
   const current = await fs.readFile(workflowPath, "utf-8");
-  const template = WORKFLOW_YAML_TEMPLATE;
+  const template = (await loadSetupTemplates()).workflow;
 
   if (current.trim() === template.trim()) {
     return jsonResult({
@@ -167,26 +154,5 @@ async function handleDiff(workspacePath: string) {
     summary:
       `workflow.yaml differs from package default (${diffs.length} line(s)):\n\`\`\`diff\n${diffs.join("\n")}\n\`\`\`\n\n` +
       `Use \`config({ action: "reset", scope: "workflow" })\` to reset to defaults.`,
-  });
-}
-
-async function handleVersion(workspacePath: string) {
-  const packageVersion = getCurrentVersion();
-  const dataDir = path.join(workspacePath, DATA_DIR);
-  const workspaceVersion = await readVersionFile(dataDir);
-
-  const match = workspaceVersion === packageVersion;
-
-  return jsonResult({
-    success: true,
-    action: "version",
-    packageVersion,
-    workspaceVersion: workspaceVersion ?? "(not tracked)",
-    match,
-    summary: match
-      ? `DevClaw v${packageVersion} — workspace up to date.`
-      : workspaceVersion
-        ? `DevClaw v${packageVersion} (workspace tracked: v${workspaceVersion}) — version mismatch.`
-        : `DevClaw v${packageVersion} — workspace version not yet tracked.`,
   });
 }

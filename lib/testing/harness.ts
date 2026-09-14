@@ -23,7 +23,7 @@ import {
   type WorkflowLabel,
 } from "../domain/index.js";
 import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
-import { type ProjectsData, replaceProjectsForTesting } from "../state/index.js";
+import { type ProjectsData, readProjects, replaceProjectsForTesting } from "../state/index.js";
 import { TestProvider } from "./test-provider.js";
 
 // ---------------------------------------------------------------------------
@@ -309,8 +309,6 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
       await replaceProjectsForTesting(workspaceDir, data);
     },
     async readProjects() {
-      const { readProjects } = await import("../state/projects/index.js");
-
       return readProjects(workspaceDir);
     },
     async writePrompt(role: string, content: string, forProject?: string) {

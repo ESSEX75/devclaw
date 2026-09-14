@@ -24,7 +24,7 @@ Ambiguous provider outcomes require manual repair rather than a blind retry.
 ## Allowed Dependencies
 
 - `lib/domain/*` for pure workflow and task semantics.
-- `lib/state/*` for project, config, setup, and issue runtime stores.
+- `lib/state/index.ts` for project, config, setup, and issue runtime persistence APIs.
 - `lib/integrations/*` through focused adapter functions or capability types.
 - `lib/projection/*` when a use case needs provider-facing label/body projection.
 
@@ -34,5 +34,7 @@ Ambiguous provider outcomes require manual repair rather than a blind retry.
 - Do not import CLI command adapters from `lib/cli/commands/*`.
 - Do not format OpenClaw tool responses here; keep that in `lib/tools`.
 - Do not parse command-line arguments here; keep that in `lib/cli`.
+- Heartbeat may initialize missing workspace files but never refresh or overwrite system instructions.
+- Explicit setup orchestration owns system-instruction refresh and reset policy.
 
 Use `npm run arch:check:strict` after changing this layer.

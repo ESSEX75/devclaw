@@ -44,6 +44,13 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - Resolution completes runtime contracts before separate role/workflow cross-reference integrity checks.
 - Only `loadConfig` and resolved runtime selectors are public outside state; parsing details remain internal.
 
+## Setup Files
+
+- Template loading is explicit and asynchronous; import-time filesystem reads are forbidden.
+- Initialization is create-only, while system instruction refresh and default reset are explicit capabilities.
+- Reset preserves adjacent `.bak` files as a recovery feature, not as a compatibility mechanism.
+- Workspace version tracking and legacy onboarding-file cleanup are not part of the new-project contract.
+
 ## Boundary Rules
 
 - Keep filesystem paths, serialization, and lock handling here.

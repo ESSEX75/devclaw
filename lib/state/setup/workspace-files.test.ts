@@ -1,8 +1,7 @@
 /**
  * workspace.test.ts — Tests for write-once default file behavior.
  *
- * Verifies that ensureDefaultFiles() creates missing files but never
- * overwrites user-owned config (workflow.yaml, prompts, IDENTITY.md).
+ * Verifies that initialization creates missing files without hidden overwrites.
  *
  * Run: npx tsx --test lib/state/setup/workspace-files.test.ts
  */
@@ -11,7 +10,7 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { ensureDefaultFiles, fileExists } from "./workspace-files.js";
+import { fileExists, initializeWorkspaceFiles, refreshSystemInstructionFiles } from "./workspace-files.js";
 import { DATA_DIR } from "../paths.js";
 
 let tmpDir: string;
@@ -27,10 +26,10 @@ afterEach(async () => {
   if (tmpDir) await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
-describe("ensureDefaultFiles — write-once behavior", () => {
+describe("initializeWorkspaceFiles — write-once behavior", () => {
   it("should create workflow.yaml when missing", async () => {
     const ws = await makeTmpDir();
-    await ensureDefaultFiles(ws);
+    await initializeWorkspaceFiles(ws);
     const workflowPath = path.join(ws, DATA_DIR, "workflow.yaml");
     assert.ok(await fileExists(workflowPath), "workflow.yaml should be created");
   });
@@ -42,7 +41,7 @@ describe("ensureDefaultFiles — write-once behavior", () => {
     const customContent = "# My custom workflow\nroles:\n  developer:\n    levels:\n      junior:\n        model: openai/gpt-4\n";
     await fs.writeFile(workflowPath, customContent, "utf-8");
 
-    await ensureDefaultFiles(ws);
+    await initializeWorkspaceFiles(ws);
 
     const afterContent = await fs.readFile(workflowPath, "utf-8");
     assert.strictEqual(afterContent, customContent, "workflow.yaml should not be overwritten");
@@ -50,7 +49,7 @@ describe("ensureDefaultFiles — write-once behavior", () => {
 
   it("should create prompt files when missing", async () => {
     const ws = await makeTmpDir();
-    await ensureDefaultFiles(ws);
+    await initializeWorkspaceFiles(ws);
     const devPrompt = path.join(ws, DATA_DIR, "prompts", "developer.md");
     assert.ok(await fileExists(devPrompt), "developer.md prompt should be created");
   });
@@ -62,7 +61,7 @@ describe("ensureDefaultFiles — write-once behavior", () => {
     const customPrompt = "# My custom developer instructions\nAlways use TypeScript.";
     await fs.writeFile(devPrompt, customPrompt, "utf-8");
 
-    await ensureDefaultFiles(ws);
+    await initializeWorkspaceFiles(ws);
 
     const afterContent = await fs.readFile(devPrompt, "utf-8");
     assert.strictEqual(afterContent, customPrompt, "developer.md should not be overwritten");
@@ -75,7 +74,7 @@ describe("ensureDefaultFiles — write-once behavior", () => {
     const customPrompt = "# My App Developer\nUse React.";
     await fs.writeFile(projectPrompt, customPrompt, "utf-8");
 
-    await ensureDefaultFiles(ws);
+    await initializeWorkspaceFiles(ws);
 
     assert.ok(await fileExists(projectPrompt), "project-specific prompt should still exist");
     const afterContent = await fs.readFile(projectPrompt, "utf-8");
@@ -86,7 +85,7 @@ describe("ensureDefaultFiles — write-once behavior", () => {
     const ws = await makeTmpDir();
 
     // First run: creates it
-    await ensureDefaultFiles(ws);
+    await initializeWorkspaceFiles(ws);
     const identityPath = path.join(ws, "IDENTITY.md");
     assert.ok(await fileExists(identityPath), "IDENTITY.md should be created");
 
@@ -95,28 +94,30 @@ describe("ensureDefaultFiles — write-once behavior", () => {
     await fs.writeFile(identityPath, customIdentity, "utf-8");
 
     // Second run: should NOT overwrite
-    await ensureDefaultFiles(ws);
+    await initializeWorkspaceFiles(ws);
     const afterContent = await fs.readFile(identityPath, "utf-8");
     assert.strictEqual(afterContent, customIdentity, "IDENTITY.md should not be overwritten");
   });
 
-  it("should always overwrite AGENTS.md (system instructions)", async () => {
+  it("does not overwrite system instructions during initialization", async () => {
     const ws = await makeTmpDir();
     const agentsPath = path.join(ws, "AGENTS.md");
     await fs.writeFile(agentsPath, "# Old agents content", "utf-8");
 
-    await ensureDefaultFiles(ws);
+    await initializeWorkspaceFiles(ws);
 
     const afterContent = await fs.readFile(agentsPath, "utf-8");
-    assert.notStrictEqual(afterContent, "# Old agents content", "AGENTS.md should be overwritten");
+    assert.strictEqual(afterContent, "# Old agents content");
   });
 
-  it("should write .version file", async () => {
+  it("refreshes system instructions only through the explicit capability", async () => {
     const ws = await makeTmpDir();
-    await ensureDefaultFiles(ws);
-    const versionPath = path.join(ws, DATA_DIR, ".version");
-    assert.ok(await fileExists(versionPath), ".version file should be created");
-    const content = await fs.readFile(versionPath, "utf-8");
-    assert.ok(content.trim().length > 0, ".version should contain a version string");
+    const agentsPath = path.join(ws, "AGENTS.md");
+    await fs.writeFile(agentsPath, "# Old agents content", "utf-8");
+
+    const result = await refreshSystemInstructionFiles(ws);
+
+    assert.notStrictEqual(await fs.readFile(agentsPath, "utf-8"), "# Old agents content");
+    assert.ok(result.written.includes("AGENTS.md"));
   });
 });

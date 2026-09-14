@@ -67,20 +67,14 @@ export {
   updateProjects,
   updateSlot,
 } from "./projects/index.js";
-export type { WorkspaceVersionUpgrade, WorkspaceVersionUpgradeReporter } from "./setup/index.js";
+export type { SetupTemplates, WorkspaceWriteResult } from "./setup/index.js";
 export {
-  AGENTS_MD_TEMPLATE,
   backupAndWrite,
-  DEFAULT_ROLE_INSTRUCTIONS,
-  ensureDefaultFiles,
+  ejectDefaults,
   fileExists,
-  getCurrentVersion,
-  HEARTBEAT_MD_TEMPLATE,
-  IDENTITY_MD_TEMPLATE,
-  readVersionFile,
+  initializeWorkspaceFiles,
+  loadSetupTemplates,
+  refreshSystemInstructionFiles,
+  resetDefaults,
   scaffoldWorkspace,
-  SOUL_MD_TEMPLATE,
-  TOOLS_MD_TEMPLATE,
-  WORKFLOW_YAML_TEMPLATE,
-  writeAllDefaults,
 } from "./setup/index.js";
