@@ -37,6 +37,13 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - `projects/queries` contains pure snapshot lookups, while `projects/mutations` owns worker-slot persistence operations.
 - The registry accepts only its current schema and performs no legacy field or identifier normalization.
 
+## Configuration Pipeline
+
+- YAML boundary reads return `unknown`; only the strict current schema creates raw configuration values.
+- Pure merge preserves built-in → workspace → project precedence, including explicit role and level disabling.
+- Resolution completes runtime contracts before separate role/workflow cross-reference integrity checks.
+- Only `loadConfig` and resolved runtime selectors are public outside state; parsing details remain internal.
+
 ## Boundary Rules
 
 - Keep filesystem paths, serialization, and lock handling here.
