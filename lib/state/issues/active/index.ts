@@ -1,4 +1,5 @@
 /** Exposes active issue persistence to sibling state capabilities. */
-export { confirmPipelineNotification, reservePipelineNotification, updateIssueRuntimeRecord, writeIssueRoleLevel } from "./mutations.js";
-export { emptyIssueStateStore, readIssueStateStore, updateIssueStateStore, withIssueStoreLock, writeIssueStateStore } from "./repository.js";
-export type { IssueStateStore, IssueStateUpdate } from "./types.js";
+export { updateIssueRuntimeRecord, writeIssueRoleLevel } from "./mutations.js";
+export { confirmPipelineNotification, reservePipelineNotification } from "./pipeline-notification.js";
+export { readIssueStateStore, updateIssueStateStore } from "./repository.js";
+export type { IssueStateStore } from "./types.js";

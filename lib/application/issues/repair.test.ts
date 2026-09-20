@@ -9,8 +9,12 @@ import {
   type IssueRuntimeState,
 } from "../../domain/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
-import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore } from "../../state/index.js";
-import { createTestHarness } from "../../testing/index.js";
+import { readIssueStateStore } from "../../state/index.js";
+import {
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
+  createTestHarness,
+  replaceIssueStateStoreForTesting as writeIssueStateStore,
+} from "../../testing/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import {
   ISSUE_REPAIR_ERROR,

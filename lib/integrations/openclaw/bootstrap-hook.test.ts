@@ -4,7 +4,8 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { parseDevClawSessionKey, loadRoleInstructions } from "./bootstrap-hook.js";
+import { loadRoleInstructions } from "../../state/index.js";
+import { parseDevClawSessionKey } from "./bootstrap-hook.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -12,22 +13,22 @@ import os from "node:os";
 describe("parseDevClawSessionKey", () => {
   it("should parse a standard developer session key", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:my-project-developer-medior-ada");
-    assert.deepStrictEqual(result, { projectName: "my-project", role: "developer" });
+    assert.deepStrictEqual(result, { projectSlug: "my-project", role: "developer" });
   });
 
   it("should parse a tester session key", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:webapp-tester-medior-0");
-    assert.deepStrictEqual(result, { projectName: "webapp", role: "tester" });
+    assert.deepStrictEqual(result, { projectSlug: "webapp", role: "tester" });
   });
 
   it("should handle project names with hyphens", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:my-cool-project-developer-junior-1");
-    assert.deepStrictEqual(result, { projectName: "my-cool-project", role: "developer" });
+    assert.deepStrictEqual(result, { projectSlug: "my-cool-project", role: "developer" });
   });
 
   it("should handle project names with multiple hyphens and tester role", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:a-b-c-d-tester-junior-grace");
-    assert.deepStrictEqual(result, { projectName: "a-b-c-d", role: "tester" });
+    assert.deepStrictEqual(result, { projectSlug: "a-b-c-d", role: "tester" });
   });
 
   it("should return null for non-subagent session keys", () => {
@@ -52,7 +53,7 @@ describe("parseDevClawSessionKey", () => {
 
   it("should parse simple project name", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:api-developer-junior-0");
-    assert.deepStrictEqual(result, { projectName: "api", role: "developer" });
+    assert.deepStrictEqual(result, { projectSlug: "api", role: "developer" });
   });
 });
 

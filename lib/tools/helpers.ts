@@ -10,7 +10,7 @@ import type { RunCommand } from "../context.js";
 import type { Project } from "../domain/index.js";
 import { createProvider, type ProviderWithType } from "../integrations/providers/index.js";
 import { loadConfig } from "../state/index.js";
-import { getProject, type ProjectsData, readProjects } from "../state/index.js";
+import { type ProjectsData, readProjects } from "../state/index.js";
 
 /**
  * Require workspaceDir from context or throw a clear error.
@@ -37,15 +37,26 @@ export function resolveChannelId(_ctx: OpenClawPluginToolContext, explicitChanne
 }
 
 /**
- * Resolve project by channelId or project slug.
- * Throws with actionable guidance if not found.
+ * Resolve a project at the tool routing boundary from a notification channel identifier.
+ * Rejects ambiguous channel identifiers instead of allowing state queries to guess a project.
+ *
+ * @param workspaceDir - Workspace containing the projects registry.
+ * @param channelId - Provider channel identifier supplied by the tool caller.
  */
 export async function resolveProject(
   workspaceDir: string,
   channelId: string,
 ): Promise<{ data: ProjectsData; project: Project }> {
   const data = await readProjects(workspaceDir);
-  const project = getProject(data, channelId);
+  const matches = Object.values(data.projects).filter((project) => (
+    project.channels.some((channel) => channel.channelId === channelId)
+  ));
+
+  if (matches.length > 1) {
+    throw new Error(`Channel ID "${channelId}" is ambiguous across registered projects.`);
+  }
+
+  const project = matches[0];
 
   if (!project) {
     throw new Error(
@@ -66,7 +77,7 @@ export async function resolveProvider(
   project: Project,
   runCommand: RunCommand,
 ): Promise<ProviderWithType> {
-  const config = await loadConfig(workspaceDir, project.name);
+  const config = await loadConfig(workspaceDir, project.slug);
 
   return createProvider({
     repo: project.repo,

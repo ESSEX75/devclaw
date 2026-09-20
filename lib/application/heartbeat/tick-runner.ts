@@ -103,7 +103,7 @@ export async function tick(opts: {
 
       if (!project) continue;
 
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
+      const resolvedConfig = await loadConfig(workspaceDir, project.slug);
       const { provider } = await createProvider({
         repo: project.repo,
         provider: project.provider,
@@ -132,7 +132,11 @@ export async function tick(opts: {
       result.totalArchived += await performIssueArchivePass(
         workspaceDir,
         project,
+        provider,
         resolvedConfig,
+        pluginConfig,
+        runtime,
+        runCommand,
       );
 
       // Health pass: auto-fix zombies and stale workers

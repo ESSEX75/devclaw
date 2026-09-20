@@ -5,8 +5,6 @@ import type { IssueRuntimeState } from "../../../domain/index.js";
 
 /** Current project-local active issue store persisted in `issues.json`. */
 export type IssueStateStore = {
-  /** Storage schema version. */
-  version: 2;
   /** Project slug that owns every active issue. */
   projectSlug: string;
   /** Active managed issues keyed by provider-local issue ID. */

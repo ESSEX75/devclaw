@@ -5,7 +5,12 @@ import YAML from "yaml";
 
 import { isErrnoException } from "../persistence/index.js";
 
-/** @param filePath - Concrete optional YAML file to read. */
+/**
+ * Read and parse one optional YAML configuration file while preserving its value as unknown.
+ * Missing files produce null; malformed YAML and other filesystem failures retain path context.
+ *
+ * @param filePath - Concrete optional YAML file to read.
+ */
 export async function readYamlFile(filePath: string): Promise<unknown | null> {
   try {
     const parsed: unknown = YAML.parse(await fs.readFile(filePath, "utf-8"));

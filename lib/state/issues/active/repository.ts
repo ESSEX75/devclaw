@@ -4,24 +4,45 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { DATA_DIR } from "../../paths.js";
-import { isErrnoException, withFileLock, writeJsonAtomic } from "../../persistence/index.js";
+import { DATA_DIR, PROJECTS_DIRECTORY_NAME } from "../../paths.js";
+import { isErrnoException, writeJsonAtomic } from "../../persistence/index.js";
+import { parseProjectSlug } from "../../projects/schema.js";
+import { ACTIVE_ISSUES_FILE_NAME } from "../const.js";
+import { withIssueStoreLock } from "../persistence/index.js";
 import { parseIssueStateStore } from "./schema.js";
 import type { IssueStateStore, IssueStateUpdate } from "./types.js";
 
-const STORE_LOCK_OPTIONS = { retryMs: 50, staleMs: 30_000, timeoutMs: 10_000 };
-
-/** Resolve the current active issue store path. */
+/**
+ * Resolve the current active issue store path.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Project whose active store is addressed.
+ */
 export function issueStatePath(workspaceDir: string, projectSlug: string): string {
-  return path.join(workspaceDir, DATA_DIR, "projects", projectSlug, "issues.json");
+  return path.join(
+    workspaceDir,
+    DATA_DIR,
+    PROJECTS_DIRECTORY_NAME,
+    parseProjectSlug(projectSlug),
+    ACTIVE_ISSUES_FILE_NAME,
+  );
 }
 
-/** Create an empty current active issue store. */
+/**
+ * Create an empty current active issue store.
+ *
+ * @param projectSlug - Canonical project that owns the store.
+ */
 export function emptyIssueStateStore(projectSlug: string): IssueStateStore {
-  return { version: 2, projectSlug, issues: {} };
+  return { projectSlug, issues: {} };
 }
 
-/** Read current active issue state, creating an empty store when absent. */
+/**
+ * Read current active issue state without creating a file when the store is absent.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Canonical project whose active store is read.
+ */
 export async function readIssueStateStore(workspaceDir: string, projectSlug: string): Promise<IssueStateStore> {
   const filePath = issueStatePath(workspaceDir, projectSlug);
 
@@ -29,15 +50,18 @@ export async function readIssueStateStore(workspaceDir: string, projectSlug: str
     return parseIssueStateStore(JSON.parse(await fs.readFile(filePath, "utf-8")), projectSlug);
   } catch (error) {
     if (!isErrnoException(error) || error.code !== "ENOENT") throw contextualStoreError(filePath, error);
-    const empty = emptyIssueStateStore(projectSlug);
 
-    await writeIssueStateStore(workspaceDir, projectSlug, empty);
-
-    return empty;
+    return emptyIssueStateStore(projectSlug);
   }
 }
 
-/** Atomically replace validated active issue state. */
+/**
+ * Atomically replace validated active issue state for a state-owned transaction.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Canonical project whose active store is replaced.
+ * @param store - Complete validated replacement store.
+ */
 export async function writeIssueStateStore(
   workspaceDir: string,
   projectSlug: string,
@@ -46,7 +70,13 @@ export async function writeIssueStateStore(
   await writeJsonAtomic(issueStatePath(workspaceDir, projectSlug), parseIssueStateStore(store, projectSlug));
 }
 
-/** Apply an immutable active-store replacement under the shared issue-store lock. */
+/**
+ * Apply an immutable active-store replacement under the shared issue-store lock.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Canonical project whose active store is updated.
+ * @param update - Pure callback producing the complete replacement and caller result.
+ */
 export async function updateIssueStateStore<T>(
   workspaceDir: string,
   projectSlug: string,
@@ -61,16 +91,12 @@ export async function updateIssueStateStore<T>(
   });
 }
 
-/** Run an active/archive transaction under their shared project lock. */
-export async function withIssueStoreLock<T>(
-  workspaceDir: string,
-  projectSlug: string,
-  operation: () => Promise<T>,
-): Promise<T> {
-  return withFileLock(`${issueStatePath(workspaceDir, projectSlug)}.lock`, STORE_LOCK_OPTIONS, operation);
-}
-
-/** Add file context without obscuring the original parse or I/O failure. */
+/**
+ * Add file context without obscuring the original parse or I/O failure.
+ *
+ * @param filePath - Store path whose read or validation failed.
+ * @param error - Original filesystem, JSON, or schema failure.
+ */
 function contextualStoreError(filePath: string, error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
 

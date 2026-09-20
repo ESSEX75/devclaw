@@ -47,7 +47,7 @@ async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> 
 
   const { project } = await resolveProject(workspaceDir, channelId);
   const { provider, type: providerType } = await resolveProvider(workspaceDir, project, runCommand);
-  const resolvedConfig = await loadConfig(workspaceDir, project.name);
+  const resolvedConfig = await loadConfig(workspaceDir, project.slug);
   const workflow = resolvedConfig.workflow;
 
   const issue = await provider.getIssue(issueId);

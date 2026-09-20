@@ -5,12 +5,20 @@ import type { ArchivedIssueRecord, IssueRuntimeState } from "../../../domain/ind
 import {
   emptyIssueStateStore,
   readIssueStateStore,
-  withIssueStoreLock,
   writeIssueStateStore,
 } from "../active/repository.js";
-import { emptyIssueArchiveStore, issueArchiveKey, readIssueArchiveStore, writeIssueArchiveStore } from "./repository.js";
+import { withIssueStoreLock } from "../persistence/index.js";
+import { issueArchiveKey } from "./identity.js";
+import { emptyIssueArchiveStore, readIssueArchiveStore, writeIssueArchiveStore } from "./repository.js";
 
-/** Move one active issue into the archive using archive-first write order. */
+/**
+ * Move one active issue into the archive using archive-first write order.
+ *
+ * @param workspaceDir - Workspace containing project-local issue state.
+ * @param projectSlug - Canonical project that owns both stores.
+ * @param issueId - Provider-local issue moved out of active state.
+ * @param buildRecord - Application callback deriving the immutable archive record.
+ */
 export async function archiveIssueState(
   workspaceDir: string,
   projectSlug: string,
@@ -37,7 +45,12 @@ export async function archiveIssueState(
   });
 }
 
-/** Replace both issue stores after an explicit operator reset. */
+/**
+ * Replace both issue stores after an explicit operator reset.
+ *
+ * @param workspaceDir - Workspace containing project-local issue state.
+ * @param projectSlug - Canonical project whose stores are reset.
+ */
 export async function resetIssueStores(workspaceDir: string, projectSlug: string): Promise<void> {
   await withIssueStoreLock(workspaceDir, projectSlug, async () => {
     await writeIssueArchiveStore(workspaceDir, projectSlug, emptyIssueArchiveStore(projectSlug));

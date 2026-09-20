@@ -9,7 +9,10 @@ import { afterEach, describe, it } from "node:test";
 
 import { withFileLock } from "./file-lock.js";
 
+/** Lock policy used by ordinary persistence primitive tests. */
 const LOCK_OPTIONS = { retryMs: 5, staleMs: 1_000, timeoutMs: 500 };
+
+/** Temporary directories removed after each persistence primitive test. */
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -64,7 +67,29 @@ describe("withFileLock", () => {
     const lockPath = await createLockPath();
 
     await fs.writeFile(lockPath, JSON.stringify({ token: "abandoned", createdAt: Date.now() - 2_000 }), "utf-8");
+    const staleTime = new Date(Date.now() - 2_000);
+
+    await fs.utimes(lockPath, staleTime, staleTime);
     assert.equal(await withFileLock(lockPath, LOCK_OPTIONS, () => "recovered"), "recovered");
+  });
+
+  it("renews a live lease while an operation exceeds staleMs", async () => {
+    const lockPath = await createLockPath();
+    const options = { retryMs: 5, staleMs: 30, timeoutMs: 500 };
+    const events: string[] = [];
+    const first = withFileLock(lockPath, options, async () => {
+      events.push("first:start");
+      await new Promise((resolve) => setTimeout(resolve, 90));
+      events.push("first:end");
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 45));
+    const second = withFileLock(lockPath, options, () => {
+      events.push("second");
+    });
+
+    await Promise.all([first, second]);
+    assert.deepEqual(events, ["first:start", "first:end", "second"]);
   });
 
   it("does not remove a replacement lock owned by another token", async () => {

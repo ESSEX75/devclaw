@@ -8,7 +8,11 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { DEFAULT_WORKFLOW, ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
-import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore } from "../../state/index.js";
+import { readIssueStateStore } from "../../state/index.js";
+import {
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
+  replaceIssueStateStoreForTesting as writeIssueStateStore,
+} from "../../testing/index.js";
 import { writeIssueRuntimeState } from "./write.js";
 
 /** Build a complete current runtime record for projection-drift tests. */

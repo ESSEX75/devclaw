@@ -11,6 +11,7 @@ import type {
   TransitionTarget,
   WorkflowConfig,
   WorkflowEvent,
+  WorkflowStateConfig,
 } from "../../domain/index.js";
 
 /** Sparse level configuration accepted from one workflow.yaml layer. */
@@ -40,18 +41,35 @@ export type RoleOverride = {
   completion?: CompletionEventMap;
 };
 
+/**
+ * State override in workflow.yaml. Overrides specific state properties
+ * or adds custom state definitions to the workflow.
+ */
 export type StateOverride = {
-  type?: WorkflowConfig["states"][string]["type"];
+  /** State category determining execution semantics (e.g. queue, active, hold, terminal). */
+  type?: WorkflowStateConfig["type"];
+  /** Worker role responsible for processing issues in this state. */
   role?: string;
+  /** Provider-side display label matching this state. */
   label?: string;
+  /** Hex color code for the state label. */
   color?: string;
+  /** Human-readable explanation of this state's purpose. */
   description?: string;
+  /** Mandatory review gate or quality check required before transition. */
   check?: ReviewCheckType;
+  /** Dispatch priority ordering for queue states. */
   priority?: number;
+  /** Event-driven transition targets mapping workflow events to target states. */
   on?: Partial<Record<WorkflowEvent, TransitionTarget<string>>>;
 };
 
+/**
+ * Workflow override in workflow.yaml. Customizes global workflow settings
+ * and state definitions over built-in defaults.
+ */
 type WorkflowOverride = Omit<Partial<WorkflowConfig>, "states"> & {
+  /** Custom or overridden workflow states keyed by state identifier. */
   states?: Record<string, StateOverride>;
 };
 
@@ -59,11 +77,16 @@ type WorkflowOverride = Omit<Partial<WorkflowConfig>, "states"> & {
  * Configurable timeout values (in milliseconds).
  * All fields optional — defaults applied at resolution time.
  */
-export type TimeoutConfig = {
+type TimeoutConfig = {
+  /** Maximum duration allowed for a Git pull operation. */
   gitPullMs?: number;
+  /** Maximum duration allowed for an OpenClaw gateway request. */
   gatewayMs?: number;
+  /** Maximum duration allowed for patching a worker session. */
   sessionPatchMs?: number;
+  /** Maximum duration allowed for dispatching worker execution. */
   dispatchMs?: number;
+  /** Age after which an active worker may be treated as stale. */
   staleWorkerHours?: number;
   /** Context budget ratio (0-1). Clear session when context exceeds this fraction of the context window. Default: 0.6 */
   sessionContextBudget?: number;
@@ -72,18 +95,26 @@ export type TimeoutConfig = {
 };
 
 /** Retention and bounded heartbeat maintenance for the dedicated issue archive. */
-export type IssueArchiveMaintenanceConfig = {
+type IssueArchiveMaintenanceConfig = {
+  /** Retention duration for records whose provider issue was deleted. */
   deletedProviderRetention?: string;
+  /** General retention duration for archived issue records. */
   archiveRetention?: string;
+  /** Retention duration for attachments belonging to archived issues. */
   attachmentsRetention?: string;
+  /** Maximum archived records processed during one heartbeat pass. */
   maxPerHeartbeat?: number;
 };
 
 /** Fully resolved archive maintenance policy. */
-export type ResolvedIssueArchiveMaintenance = {
+type ResolvedIssueArchiveMaintenance = {
+  /** Effective retention duration for records whose provider issue was deleted. */
   deletedProviderRetention: string;
+  /** Effective general retention duration for archived issue records. */
   archiveRetention: string;
+  /** Effective retention duration for attachments belonging to archived issues. */
   attachmentsRetention: string;
+  /** Effective maximum archived records processed during one heartbeat pass. */
   maxPerHeartbeat: number;
 };
 
@@ -99,25 +130,32 @@ type InstanceConfig = {
  * The full workflow.yaml shape.
  * All fields optional — missing fields inherit from the layer below.
  */
-export type RawConfig = {
+export type DevClawConfig = {
+  /** Sparse role definitions keyed by configured role identifier. */
   roles?: Record<string, RoleOverride | false>;
+  /** Sparse workflow definition layered over lower-precedence configuration. */
   workflow?: WorkflowOverride;
+  /** Optional runtime timeout overrides. */
   timeouts?: TimeoutConfig;
+  /** Optional instance identity override. */
   instance?: InstanceConfig;
+  /** Optional archive maintenance overrides. */
   issueArchiveMaintenance?: IssueArchiveMaintenanceConfig;
 };
-
-type ValidatedConfig = RawConfig;
-export type DevClawConfig = ValidatedConfig;
 
 /**
  * Fully resolved timeout config — all fields present with defaults.
  */
 export type ResolvedTimeouts = {
+  /** Effective maximum duration allowed for a Git pull operation. */
   gitPullMs: number;
+  /** Effective maximum duration allowed for an OpenClaw gateway request. */
   gatewayMs: number;
+  /** Effective maximum duration allowed for patching a worker session. */
   sessionPatchMs: number;
+  /** Effective maximum duration allowed for dispatching worker execution. */
   dispatchMs: number;
+  /** Effective age after which an active worker may be treated as stale. */
   staleWorkerHours: number;
   /** Context budget ratio (0-1). Clear session when context exceeds this fraction of the context window. Default: 0.6 */
   sessionContextBudget: number;
@@ -130,11 +168,15 @@ export type ResolvedTimeouts = {
  * Built by merging three layers over the built-in defaults.
  */
 export type ResolvedConfig = {
+  /** Complete role definitions keyed by configured role identifier. */
   roles: Record<string, ResolvedRoleConfig>;
+  /** Complete validated workflow used by application orchestration. */
   workflow: WorkflowConfig;
+  /** Complete timeout policy with all defaults applied. */
   timeouts: ResolvedTimeouts;
   /** Instance name override from config. Undefined = use auto-generated from instance.json. */
   instanceName?: string;
+  /** Complete archive maintenance policy with all defaults applied. */
   issueArchiveMaintenance: ResolvedIssueArchiveMaintenance;
 };
 

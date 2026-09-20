@@ -12,6 +12,7 @@ import { getConfiguredRoleIds } from "../../state/index.js";
 import { maintainIssueArchive, recoverTerminalIssueArchives } from "../issues/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
+import { retryPendingPipelineNotifications } from "../notifications/retry-pipeline.js";
 import { reconcileManagedTaskCreations } from "../tasks/index.js";
 import {
   checkWorkerHealth,
@@ -148,12 +149,35 @@ export async function performIssueCreationPass(
   return { ready: result.ready.length, pending: result.pending.length, manual: result.manual.length };
 }
 
-/** Recover terminal issues left active by an interrupted archive transfer. */
+/**
+ * Retry durable terminal notifications, archive eligible terminal issues, and apply retention maintenance.
+ *
+ * @param workspaceDir - Workspace containing project-local issue and archive state.
+ * @param project - Project whose terminal issues are processed.
+ * @param provider - Provider used to rebuild retry notification context.
+ * @param resolvedConfig - Project configuration controlling archive maintenance limits.
+ * @param pluginConfig - Plugin notification toggles applied to retry delivery.
+ * @param runtime - OpenClaw runtime used for routed notification delivery.
+ * @param runCommand - Command runner available as the notification fallback path.
+ */
 export async function performIssueArchivePass(
   workspaceDir: string,
-  project: Pick<Project, "slug">,
+  project: Project,
+  provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
+  pluginConfig: Record<string, unknown> | undefined,
+  runtime: PluginRuntime | undefined,
+  runCommand: RunCommand,
 ): Promise<number> {
+  await retryPendingPipelineNotifications(
+    workspaceDir,
+    project,
+    provider,
+    pluginConfig,
+    runtime,
+    runCommand,
+    resolvedConfig.issueArchiveMaintenance.maxPerHeartbeat,
+  );
   const result = await recoverTerminalIssueArchives({
     workspaceDir,
     projectSlug: project.slug,

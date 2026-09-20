@@ -3,8 +3,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
-import { emptyIssueStateStore, readIssueStateStore, writeIssueStateStore } from "../../state/index.js";
-import { createTestHarness } from "../../testing/index.js";
+import { readIssueStateStore } from "../../state/index.js";
+import {
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
+  createTestHarness,
+  replaceIssueStateStoreForTesting as writeIssueStateStore,
+} from "../../testing/index.js";
 import { migrateIssuePolicies } from "./policy-migration.js";
 
 function policyState(projectSlug: string): IssueRuntimeState {

@@ -1,7 +1,8 @@
 /** Orchestrates the current three-layer configuration pipeline. */
 import path from "node:path";
 
-import { DATA_DIR } from "../paths.js";
+import { DATA_DIR, PROJECTS_DIRECTORY_NAME, WORKFLOW_FILE_NAME } from "../paths.js";
+import { parseProjectSlug } from "../projects/schema.js";
 import { readYamlFile } from "./boundary.js";
 import { buildDefaultConfig } from "./defaults.js";
 import { mergeConfig } from "./merge.js";
@@ -13,18 +14,23 @@ import type { DevClawConfig, ResolvedConfig } from "./types.js";
  * Load and resolve built-in, workspace, and optional project configuration layers.
  *
  * @param workspaceDir - Workspace containing the optional workspace layer.
- * @param projectName - Project whose optional layer has highest precedence.
+ * @param projectSlug - Canonical project whose optional layer has highest precedence.
  */
-export async function loadConfig(workspaceDir: string, projectName?: string): Promise<ResolvedConfig> {
+export async function loadConfig(workspaceDir: string, projectSlug?: string): Promise<ResolvedConfig> {
   const dataDir = path.join(workspaceDir, DATA_DIR);
   const layers: DevClawConfig[] = [buildDefaultConfig()];
-  const workspacePath = path.join(dataDir, "workflow.yaml");
+  const workspacePath = path.join(dataDir, WORKFLOW_FILE_NAME);
   const workspaceRaw = await readYamlFile(workspacePath);
 
   if (workspaceRaw !== null) layers.push(parseLayer(workspaceRaw, workspacePath));
 
-  if (projectName) {
-    const projectPath = path.join(dataDir, "projects", projectName, "workflow.yaml");
+  if (projectSlug) {
+    const projectPath = path.join(
+      dataDir,
+      PROJECTS_DIRECTORY_NAME,
+      parseProjectSlug(projectSlug),
+      WORKFLOW_FILE_NAME,
+    );
     const projectRaw = await readYamlFile(projectPath);
 
     if (projectRaw !== null) layers.push(parseLayer(projectRaw, projectPath));

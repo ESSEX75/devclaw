@@ -21,6 +21,10 @@ Creation is durable and idempotent: the application verifies provider read-back
 before publishing runtime state, and heartbeat resumes safe partial operations.
 Ambiguous provider outcomes require manual repair rather than a blind retry.
 
+Terminal pipeline notifications use active issue state as a durable outbox. An
+unconfirmed delivery keeps the terminal issue active; heartbeat retries expired
+attempt leases and archives the issue only after delivery is confirmed.
+
 ## Allowed Dependencies
 
 - `lib/domain/*` for pure workflow and task semantics.

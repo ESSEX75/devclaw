@@ -1,7 +1,11 @@
+/** Verifies strict raw, resolved, and semantic configuration validation boundaries. */
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
-import { parseResolvedWorkflowConfig, validateConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
+import { parseConfig, parseResolvedWorkflowConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
+
+/** Parser alias preserving validation-oriented wording in schema assertions. */
+const validateConfig = parseConfig;
 
 describe("workflow config schema", () => {
   it("validates bounded issue archive maintenance settings", () => {

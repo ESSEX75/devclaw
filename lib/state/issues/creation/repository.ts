@@ -7,26 +7,45 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { ISSUE_CREATION_STATUS } from "../../../domain/index.js";
-import { DATA_DIR } from "../../paths.js";
-import { type FileLockOptions,isErrnoException, withFileLock, writeJsonAtomic } from "../../persistence/index.js";
+import { DATA_DIR, PROJECTS_DIRECTORY_NAME } from "../../paths.js";
+import { isErrnoException, LOCK_FILE_SUFFIX, withFileLock, writeJsonAtomic } from "../../persistence/index.js";
+import { parseProjectSlug } from "../../projects/schema.js";
+import { CREATION_LOCKS_DIRECTORY_NAME, ISSUE_CREATION_LOCK_OPTIONS, ISSUE_CREATIONS_FILE_NAME } from "../const.js";
 import { parseIssueCreationStore } from "./schema.js";
 import type { IssueCreationStore, IssueCreationUpdate } from "./types.js";
 
-const LOCK_TIMEOUT_MS = 10_000;
-const LOCK_RETRY_MS = 50;
-const LOCK_STALE_MS = 5 * 60_000;
-
-/** Resolve the durable creation operation file for a project. */
-export function issueCreationStorePath(workspaceDir: string, projectSlug: string): string {
-  return path.join(workspaceDir, DATA_DIR, "projects", projectSlug, "issue-creations.json");
+/**
+ * Resolve the durable creation operation file for a project.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Project whose creation operations are addressed.
+ */
+function issueCreationStorePath(workspaceDir: string, projectSlug: string): string {
+  return path.join(
+    workspaceDir,
+    DATA_DIR,
+    PROJECTS_DIRECTORY_NAME,
+    parseProjectSlug(projectSlug),
+    ISSUE_CREATIONS_FILE_NAME,
+  );
 }
 
-/** Create an empty current-format creation operation store. */
+/**
+ * Create an empty current-format creation operation store.
+ *
+ * @param projectSlug - Project whose creation operations are initialized.
+ */
 export function emptyIssueCreationStore(projectSlug: string): IssueCreationStore {
-  return { version: 1, projectSlug, operations: {} };
+  return { projectSlug, operations: {} };
 }
 
-/** Read the strict creation operation store, creating it when absent. */
+/**
+ * Read the strict creation operation store, returning an in-memory empty store when absent.
+ * Missing stores are not persisted here so read-only callers cannot overwrite a concurrent locked update.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Project whose creation operations are read.
+ */
 export async function readIssueCreationStore(workspaceDir: string, projectSlug: string): Promise<IssueCreationStore> {
   const filePath = issueCreationStorePath(workspaceDir, projectSlug);
 
@@ -36,17 +55,32 @@ export async function readIssueCreationStore(workspaceDir: string, projectSlug: 
 
     return parseIssueCreationStore(parsed, projectSlug);
   } catch (error) {
-    if (!isErrnoException(error) || error.code !== "ENOENT") throw error;
-    const empty = emptyIssueCreationStore(projectSlug);
+    if (!isErrnoException(error) || error.code !== "ENOENT") throw contextualStoreError(filePath, error);
 
-    await writeIssueCreationStore(workspaceDir, projectSlug, empty);
-
-    return empty;
+    return emptyIssueCreationStore(projectSlug);
   }
 }
 
-/** Atomically replace a validated creation operation store. */
-export async function writeIssueCreationStore(
+/**
+ * Add file context without obscuring the original creation-store failure.
+ *
+ * @param filePath - Creation store path whose read or validation failed.
+ * @param error - Original filesystem, JSON, or schema failure.
+ */
+function contextualStoreError(filePath: string, error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return new Error(`Cannot read issue creation store ${filePath}: ${message}`, { cause: error });
+}
+
+/**
+ * Atomically replace a validated creation operation store.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Project whose creation operations are written.
+ * @param store - Creation operation store to persist.
+ */
+async function writeIssueCreationStore(
   workspaceDir: string,
   projectSlug: string,
   store: IssueCreationStore,
@@ -56,13 +90,19 @@ export async function writeIssueCreationStore(
   await writeJsonAtomic(issueCreationStorePath(workspaceDir, projectSlug), parsed);
 }
 
-/** Update creation operations under one per-project store lock. */
+/**
+ * Update creation operations under one per-project store lock.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Project whose creation operations are updated.
+ * @param update - Pure callback returning store replacement and caller result.
+ */
 export async function updateIssueCreationStore<T>(
   workspaceDir: string,
   projectSlug: string,
   update: (store: Readonly<IssueCreationStore>) => IssueCreationUpdate<T> | Promise<IssueCreationUpdate<T>>,
 ): Promise<T> {
-  return withFileLock(`${issueCreationStorePath(workspaceDir, projectSlug)}.lock`, creationLockOptions(), async () => {
+  return withFileLock(`${issueCreationStorePath(workspaceDir, projectSlug)}${LOCK_FILE_SUFFIX}`, ISSUE_CREATION_LOCK_OPTIONS, async () => {
     const store = await readIssueCreationStore(workspaceDir, projectSlug);
     const change = await update(store);
 
@@ -72,7 +112,14 @@ export async function updateIssueCreationStore<T>(
   });
 }
 
-/** Serialize all provider and local mutations sharing one idempotency key. */
+/**
+ * Serialize all provider and local mutations sharing one idempotency key.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Project whose creation operation is locked.
+ * @param idempotencyKey - Deduplication key shared by creation mutations.
+ * @param operation - Creation work serialized by the key lock.
+ */
 export async function withIssueCreationLock<T>(
   workspaceDir: string,
   projectSlug: string,
@@ -80,17 +127,32 @@ export async function withIssueCreationLock<T>(
   operation: () => T | Promise<T>,
 ): Promise<T> {
   const keyHash = createHash("sha256").update(idempotencyKey).digest("hex");
-  const lockPath = path.join(path.dirname(issueCreationStorePath(workspaceDir, projectSlug)), "creation-locks", `${keyHash}.lock`);
+  const lockPath = path.join(
+    path.dirname(issueCreationStorePath(workspaceDir, projectSlug)),
+    CREATION_LOCKS_DIRECTORY_NAME,
+    `${keyHash}${LOCK_FILE_SUFFIX}`,
+  );
 
-  return withFileLock(lockPath, creationLockOptions(), operation);
+  return withFileLock(lockPath, ISSUE_CREATION_LOCK_OPTIONS, operation);
 }
 
 /** Build identifiers shared by a newly requested creation operation. */
-export function newIssueCreationIdentity(): { operationId: string; auditCorrelationId: string } {
+export function newIssueCreationIdentity(): {
+  /** Stable identifier of the resumable creation operation. */
+  operationId: string;
+  /** Correlation identifier shared by audit records for the operation. */
+  auditCorrelationId: string;
+} {
   return { operationId: randomUUID(), auditCorrelationId: randomUUID() };
 }
 
-/** Check whether the creation saga owning a runtime state has published it for lifecycle use. */
+/**
+ * Check whether the creation saga owning a runtime state has published it for lifecycle use.
+ *
+ * @param workspaceDir - Workspace containing project-local state.
+ * @param projectSlug - Project whose creation operations are checked.
+ * @param operationId - Optional creation saga identifier to check.
+ */
 export async function isIssueCreationReady(
   workspaceDir: string,
   projectSlug: string,
@@ -101,9 +163,4 @@ export async function isIssueCreationReady(
   const operation = Object.values(store.operations).find((candidate) => candidate.operationId === operationId);
 
   return operation?.status === ISSUE_CREATION_STATUS.READY;
-}
-
-/** Return the lock timing policy owned by creation operation persistence. */
-function creationLockOptions(): FileLockOptions {
-  return { retryMs: LOCK_RETRY_MS, staleMs: LOCK_STALE_MS, timeoutMs: LOCK_TIMEOUT_MS };
 }

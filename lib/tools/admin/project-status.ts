@@ -43,7 +43,7 @@ export function createProjectStatusTool(ctx: PluginContext) {
       const pluginConfig = ctx.pluginConfig;
       const projectExecution = (pluginConfig?.projectExecution as string) ?? EXECUTION_MODE.PARALLEL;
 
-      const projectConfig = await loadConfig(workspaceDir, project.name);
+      const projectConfig = await loadConfig(workspaceDir, project.slug);
       const workflow = projectConfig.workflow;
       const instanceName = await loadInstanceName(workspaceDir, projectConfig.instanceName);
       const issueArchive = await getIssueArchiveStatus({

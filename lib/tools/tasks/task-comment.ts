@@ -69,7 +69,7 @@ Examples:
       }
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const config = await loadConfig(workspaceDir, project.name);
+      const config = await loadConfig(workspaceDir, project.slug);
 
       if (authorRole && authorRole !== "orchestrator" && !isConfiguredRoleId(config, authorRole)) {
         throw new Error(`Unknown comment author role "${authorRole}".`);

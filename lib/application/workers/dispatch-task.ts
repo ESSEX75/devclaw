@@ -1,14 +1,9 @@
 /**
- * dispatch/index.ts — Core dispatch logic used by projectTick (heartbeat).
- *
- * Handles: session lookup, spawn/reuse via Gateway RPC, task dispatch via CLI,
- * state update (activateWorker), and audit logging.
+ * Coordinates atomic worker reservation, provider transition, session dispatch, and runtime persistence.
+ * This application capability owns the dispatch use case while state retains worker-slot authority.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-
 import { log as auditLog } from "../../audit.js";
-import type { RunCommand } from "../../context.js";
-import { emptySlot, ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type Project } from "../../domain/index.js";
+import { emptySlot, ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import {
   hasReviewCheck,
   hasTestPhase,
@@ -17,18 +12,12 @@ import {
   REVIEW_POLICY,
   TEST_POLICY,
 } from "../../domain/index.js";
-import { loadRoleInstructions } from "../../integrations/openclaw/bootstrap-hook.js";
 import { ensureSessionFireAndForget, sendToAgent, shouldClearSession } from "../../integrations/openclaw/session.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { slotName } from "../../names.js";
 import { resolveModel } from "../../roles/index.js";
-import { loadConfig } from "../../state/index.js";
+import { loadConfig, loadRoleInstructions } from "../../state/index.js";
 import { readIssueStateStore, withIssueOrchestrationLock } from "../../state/index.js";
-import {
-  activateWorker,
-  getRoleWorker,
-  updateSlot,
-} from "../../state/index.js";
+import { activateWorker, deactivateWorker, getRoleWorker } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { getNotificationConfig, notify } from "../notifications/notify.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
@@ -37,59 +26,60 @@ import { acknowledgeComments, EYES_EMOJI } from "../review/acknowledge-comments.
 import { fetchPrContext, fetchPrFeedback } from "../review/pr-context.js";
 import { formatAttachmentsForTask } from "../tasks/attachments.js";
 import { buildAnnouncement, buildConflictFixMessage, buildTaskMessage, formatSessionLabel } from "../tasks/message-builder.js";
+import type { DispatchOpts, DispatchResult } from "./types.js";
 
-export type DispatchOpts = {
-  workspaceDir: string;
-  agentId?: string;
-  project: Project;
+/** Values persisted while reserving one concrete worker slot. */
+type WorkerReservation = {
+  /** Provider-local issue assigned to the slot. */
   issueId: number;
-  issueTitle: string;
-  issueDescription: string;
-  issueUrl: string;
-  role: string;
-  /** Developer level (junior, mid, senior) or raw model ID */
+  /** Configured worker level containing the slot. */
   level: string;
-  /** Label to transition FROM (e.g. "To Do", "To Test", "To Improve") */
-  fromLabel: string;
-  /** Label to transition TO (e.g. "Doing", "Testing") */
-  toLabel: string;
-  /** Issue provider for issue operations and label transitions */
-  provider: IssueProvider;
-  /** Plugin config for model resolution and notification config */
-  pluginConfig?: Record<string, unknown>;
-  /** Orchestrator's session key (used as spawnedBy for subagent tracking) */
-  sessionKey?: string;
-  /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
-  runtime?: PluginRuntime;
-  /** Slot index within the role's worker slots (defaults to 0 for single-worker compat) */
-  slotIndex?: number;
-  /** Instance name for ownership labels (auto-claimed on dispatch if not already owned) */
-  instanceName?: string;
-  /** Injected runCommand for dependency injection. */
-  runCommand: RunCommand;
+  /** Deterministic OpenClaw session key assigned to the slot. */
+  sessionKey: string;
+  /** Provider label consumed by dispatch. */
+  fromLabel?: string;
+  /** Human-readable deterministic worker name. */
+  name?: string;
 };
 
-export type DispatchResult = {
-  sessionAction: "spawn" | "send";
-  sessionKey: string;
+/** Structured metadata written to successful dispatch audit events. */
+type AuditDispatchOptions = {
+  /** Human-readable project name. */
+  project: string;
+  /** Provider-local issue identifier. */
+  issueId: number;
+  /** Current provider issue title. */
+  issueTitle: string;
+  /** Worker role assigned by dispatch. */
+  role: string;
+  /** Worker level assigned by dispatch. */
   level: string;
+  /** Resolved model assigned to the session. */
   model: string;
-  announcement: string;
+  /** Whether the worker session was created or reused. */
+  sessionAction: string;
+  /** Deterministic OpenClaw worker session key. */
+  sessionKey: string;
+  /** Provider workflow label consumed by dispatch. */
+  fromLabel: string;
+  /** Provider workflow label applied by dispatch. */
+  toLabel: string;
 };
 
 /**
  * Dispatch a task to a worker session.
  *
  * Flow:
- *   1. Resolve model, session key, build task message (setup — no side effects)
- *   2. Transition label (commitment point — issue leaves queue)
- *   3. Apply labels, send notification
- *   4. Ensure session (fire-and-forget) + send to agent
- *   5. Update worker state
- *   6. Audit
+ *   1. Resolve model, session key, and task context.
+ *   2. Atomically reserve the selected worker slot.
+ *   3. Transition the provider label and send notification.
+ *   4. Ensure the session and send the task to the agent.
+ *   5. Persist issue runtime state and audit the dispatch.
  *
- * If setup fails, the issue stays in its queue untouched.
- * On state update failure after dispatch: logs warning (session IS running).
+ * Failures before agent send release the slot and best-effort restore the provider label.
+ * State update failures after dispatch are audited because the session is already running.
+ *
+ * @param opts - Validated project, issue, worker, provider, and runtime dispatch dependencies.
  */
 export async function dispatchTask(
   opts: DispatchOpts,
@@ -102,7 +92,11 @@ export async function dispatchTask(
   );
 }
 
-/** Dispatch while the caller already owns this issue's orchestration lock. */
+/**
+ * Dispatch while the caller already owns this issue's orchestration lock.
+ *
+ * @param opts - Validated project, issue, worker, provider, and runtime dispatch dependencies.
+ */
 export async function dispatchTaskLocked(
   opts: DispatchOpts,
 ): Promise<DispatchResult> {
@@ -116,23 +110,21 @@ export async function dispatchTaskLocked(
   const rc = opts.runCommand;
 
   // ── Setup (no side effects — safe to fail) ──────────────────────────
-  const resolvedConfig = await loadConfig(workspaceDir, project.name);
+  const resolvedConfig = await loadConfig(workspaceDir, project.slug);
   const resolvedRole = resolvedConfig.roles[role];
   const { timeouts } = resolvedConfig;
   const model = resolveModel(role, level, resolvedRole);
   const roleWorker = getRoleWorker(project, role);
   const slot = roleWorker.levels[level]?.[slotIndex] ?? emptySlot();
   let existingSessionKey = slot.sessionKey;
+  let sessionKeyToDelete: string | null = null;
 
   // Deactivated slot: preserve session if same issue is returning (feedback cycle)
   if (existingSessionKey && !slot.issueId) {
     const isSameIssueReturn = slot.lastIssueId === issueId;
 
     if (!isSameIssueReturn) {
-      await rc(
-        ["openclaw", "gateway", "call", "sessions.delete", "--params", JSON.stringify({ key: existingSessionKey })],
-        { timeoutMs: 10_000 },
-      ).catch(() => { });
+      sessionKeyToDelete = existingSessionKey;
       existingSessionKey = null;
     }
   }
@@ -142,15 +134,7 @@ export async function dispatchTaskLocked(
     const shouldClear = await shouldClearSession(existingSessionKey, slot.issueId, issueId, timeouts, workspaceDir, project.name, rc);
 
     if (shouldClear) {
-      // Delete the gateway session (await to prevent race with later sessions.patch)
-      await rc(
-        ["openclaw", "gateway", "call", "sessions.delete", "--params", JSON.stringify({ key: existingSessionKey })],
-        { timeoutMs: 10_000 },
-      ).catch(() => { });
-      await updateSlot(workspaceDir, project.slug, role, level, slotIndex, (currentSlot) => ({
-        ...currentSlot,
-        sessionKey: null,
-      }));
+      sessionKeyToDelete = existingSessionKey;
       existingSessionKey = null;
     }
   }
@@ -158,16 +142,12 @@ export async function dispatchTaskLocked(
   // Compute session key deterministically (avoids waiting for gateway)
   // Slot name provides both collision prevention and human-readable identity
   const botName = slotName(project.name, role, level, slotIndex);
-  const sessionKey = `agent:${agentId ?? "unknown"}:subagent:${project.name}-${role}-${level}-${botName.toLowerCase()}`;
+  const sessionKey = `agent:${agentId ?? "unknown"}:subagent:${project.slug}-${role}-${level}-${botName.toLowerCase()}`;
 
   // Clear stale session key if it doesn't match the current deterministic key
-  // (handles migration from old numeric format like ...-0 to name-based ...-Cordelia)
+  // so a differently addressed gateway session cannot be reused.
   if (existingSessionKey && existingSessionKey !== sessionKey) {
-    // Delete the orphaned gateway session (await to prevent race with later sessions.patch)
-    await rc(
-      ["openclaw", "gateway", "call", "sessions.delete", "--params", JSON.stringify({ key: existingSessionKey })],
-      { timeoutMs: 10_000 },
-    ).catch(() => { });
+    sessionKeyToDelete = existingSessionKey;
     existingSessionKey = null;
   }
 
@@ -207,150 +187,201 @@ export async function dispatchTaskLocked(
     });
 
   // Load role-specific instructions to inject into the worker's system prompt
-  const roleInstructions = await loadRoleInstructions(workspaceDir, project.name, role);
+  const roleInstructions = await loadRoleInstructions(workspaceDir, project.slug, role);
 
-  // ── Commitment point — transition label (issue leaves queue) ────────
-  await provider.transitionLabel(issueId, fromLabel, toLabel);
-
-  // Mark issue + PR as managed and all consumed comments as seen (fire-and-forget)
-  provider.reactToIssue(issueId, EYES_EMOJI).catch(() => { });
-  provider.reactToPr(issueId, EYES_EMOJI).catch(() => { });
-  acknowledgeComments(provider, issueId, comments, prFeedback, workspaceDir).catch((err) => {
-    auditLog(workspaceDir, "dispatch_warning", {
-      step: "acknowledgeComments",
-      issue: issueId,
-      error: (err as Error).message ?? String(err),
-    }).catch(() => { });
+  await recordWorkerState(workspaceDir, project.slug, role, slotIndex, {
+    issueId, level, sessionKey, fromLabel, name: botName,
   });
+  let taskDispatched = false;
+  let providerTransitioned = false;
 
-  const issue = await provider.getIssue(issueId);
-  const reviewPolicyForState = producesReviewableWork(workflow, role)
-    ? workflow.reviewPolicy ?? REVIEW_POLICY.HUMAN
-    : null;
-  const testPolicyForState = hasTestPhase(workflow)
-    ? workflow.testPolicy ?? TEST_POLICY.SKIP
-    : null;
-  const issueStore = await readIssueStateStore(workspaceDir, project.slug);
-  const currentState = issueStore.issues[String(issueId)];
-  const ownerForState = currentState?.owner ?? opts.instanceName ?? null;
-
-  // Step 2: Send notification early (before session dispatch which can timeout)
-  // This ensures users see the notification even if gateway is slow
-  const notifyConfig = getNotificationConfig(pluginConfig);
-  const notifyTarget = await resolveIssueNotificationEndpoint(workspaceDir, project, issueId);
-
-  notify(
-    {
-      type: "workerStart",
-      project: project.name,
-      issueId,
-      issueTitle,
-      issueUrl,
-      role,
-      level,
-      name: botName,
-      sessionAction,
-    },
-    {
-      workspaceDir,
-      config: notifyConfig,
-      channelId: notifyTarget?.channelId,
-      channel: notifyTarget?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
-      threadId: notifyTarget?.threadId,
-      runtime,
-      accountId: notifyTarget?.accountId,
-      agentId: project.agentId,
-      runCommand: rc,
-    },
-  ).catch((err) => {
-    auditLog(workspaceDir, "dispatch_warning", {
-      step: "notify", issue: issueId, role,
-      error: (err as Error).message ?? String(err),
-    }).catch(() => { });
-  });
-
-  // Step 3: Ensure session exists (fire-and-forget — don't wait for gateway)
-  // Session key is deterministic, so we can proceed immediately
-  const sessionLabel = formatSessionLabel(project.name, role, level, botName);
-
-  ensureSessionFireAndForget(sessionKey, model, workspaceDir, rc, timeouts.sessionPatchMs, sessionLabel);
-
-  // Step 4: Send task to agent (fire-and-forget)
-  // Model is set on the session via sessions.patch (step 3), not on the agent RPC —
-  // the gateway's agent endpoint rejects unknown properties like 'model'.
-  sendToAgent(sessionKey, taskMessage, {
-    agentId, projectName: project.name, issueId, role, level, slotIndex, fromLabel,
-    orchestratorSessionKey: opts.sessionKey, workspaceDir,
-    dispatchTimeoutMs: timeouts.dispatchMs,
-    extraSystemPrompt: roleInstructions.trim() || undefined,
-    runCommand: rc,
-  });
-
-  // Step 5: Update worker state
   try {
-    await recordWorkerState(workspaceDir, project.slug, role, slotIndex, {
-      issueId, level, sessionKey, sessionAction, fromLabel, name: botName,
+    if (sessionKeyToDelete) {
+      await rc(
+        ["openclaw", "gateway", "call", "sessions.delete", "--params", JSON.stringify({ key: sessionKeyToDelete })],
+        { timeoutMs: 10_000 },
+      ).catch(() => { });
+    }
+
+    // ── Provider transition — compensated if agent send does not begin ──
+    await provider.transitionLabel(issueId, fromLabel, toLabel);
+    providerTransitioned = true;
+
+    // Mark issue + PR as managed and all consumed comments as seen (fire-and-forget)
+    provider.reactToIssue(issueId, EYES_EMOJI).catch(() => { });
+    provider.reactToPr(issueId, EYES_EMOJI).catch(() => { });
+    acknowledgeComments(provider, issueId, comments, prFeedback, workspaceDir).catch((err) => {
+      auditLog(workspaceDir, "dispatch_warning", {
+        step: "acknowledgeComments",
+        issue: issueId,
+        error: errorMessage(err),
+      }).catch(() => { });
     });
-    await writeIssueRuntimeState({
-      workspaceDir,
-      project,
-      issue: {
-        iid: issueId,
-        labels: issue.labels
-          .filter((label) => label !== fromLabel && !label.startsWith(`${role}:`))
-          .concat(toLabel, `${role}:${level}`),
-      },
-      providerType: project.provider === ISSUE_PROVIDER.GITHUB
-        ? ISSUE_PROVIDER.GITHUB
-        : ISSUE_PROVIDER.GITLAB,
-      workflow,
-      workflowLabel: toLabel,
-      assignedRole: role,
-      assignedLevel: level,
-      owner: ownerForState,
-      reviewPolicy: reviewPolicyForState,
-      testPolicy: testPolicyForState,
-      activeWorker: {
+
+    const issue = await provider.getIssue(issueId);
+    const reviewPolicyForState = producesReviewableWork(workflow, role)
+      ? workflow.reviewPolicy ?? REVIEW_POLICY.HUMAN
+      : null;
+    const testPolicyForState = hasTestPhase(workflow)
+      ? workflow.testPolicy ?? TEST_POLICY.SKIP
+      : null;
+    const issueStore = await readIssueStateStore(workspaceDir, project.slug);
+    const currentState = issueStore.issues[String(issueId)];
+    const ownerForState = currentState?.owner ?? opts.instanceName ?? null;
+
+    // Step 2: Send notification early (before session dispatch which can timeout)
+    // This ensures users see the notification even if gateway is slow
+    const notifyConfig = getNotificationConfig(pluginConfig);
+    const notifyTarget = await resolveIssueNotificationEndpoint(workspaceDir, project, issueId);
+
+    notify(
+      {
+        type: "workerStart",
+        project: project.name,
+        issueId,
+        issueTitle,
+        issueUrl,
         role,
         level,
-        slotIndex,
-        sessionKey,
-        startedAt: new Date().toISOString(),
+        name: botName,
+        sessionAction,
       },
+      {
+        workspaceDir,
+        config: notifyConfig,
+        channelId: notifyTarget?.channelId,
+        channel: notifyTarget?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
+        threadId: notifyTarget?.threadId,
+        runtime,
+        accountId: notifyTarget?.accountId,
+        agentId: project.agentId,
+        runCommand: rc,
+      },
+    ).catch((err) => {
+      auditLog(workspaceDir, "dispatch_warning", {
+        step: "notify", issue: issueId, role,
+        error: errorMessage(err),
+      }).catch(() => { });
     });
-    await reconcileManagedLabelsLocked({
-      workspaceDir,
-      projectSlug: project.slug,
-      issueId,
-      workflow,
-      roles: Object.keys(resolvedConfig.roles),
-      provider,
-      owner: "worker_dispatch",
+
+    // Step 3: Ensure session exists (fire-and-forget — don't wait for gateway)
+    // Session key is deterministic, so we can proceed immediately
+    const sessionLabel = formatSessionLabel(project.name, role, level, botName);
+
+    ensureSessionFireAndForget(sessionKey, model, workspaceDir, rc, timeouts.sessionPatchMs, sessionLabel);
+
+    // Step 4: Send task to agent (fire-and-forget)
+    // Model is set on the session via sessions.patch (step 3), not on the agent RPC —
+    // the gateway's agent endpoint rejects unknown properties like 'model'.
+    sendToAgent(sessionKey, taskMessage, {
+      agentId, projectName: project.name, issueId, role, level, slotIndex, fromLabel,
+      orchestratorSessionKey: opts.sessionKey, workspaceDir,
+      dispatchTimeoutMs: timeouts.dispatchMs,
+      extraSystemPrompt: roleInstructions.trim() || undefined,
+      runCommand: rc,
     });
-  } catch (err) {
-    // Session is already dispatched — log warning but don't fail
-    await auditLog(workspaceDir, "dispatch", {
-      project: project.name, issue: issueId, role,
-      warning: "State update failed after successful dispatch",
-      error: (err as Error).message, sessionKey,
+    taskDispatched = true;
+
+    // Step 5: Update worker state
+    try {
+      await writeIssueRuntimeState({
+        workspaceDir,
+        project,
+        issue: {
+          iid: issueId,
+          labels: issue.labels
+            .filter((label) => label !== fromLabel && !label.startsWith(`${role}:`))
+            .concat(toLabel, `${role}:${level}`),
+        },
+        providerType: project.provider === ISSUE_PROVIDER.GITHUB
+          ? ISSUE_PROVIDER.GITHUB
+          : ISSUE_PROVIDER.GITLAB,
+        workflow,
+        workflowLabel: toLabel,
+        assignedRole: role,
+        assignedLevel: level,
+        owner: ownerForState,
+        reviewPolicy: reviewPolicyForState,
+        testPolicy: testPolicyForState,
+        activeWorker: {
+          role,
+          level,
+          slotIndex,
+          sessionKey,
+          startedAt: new Date().toISOString(),
+        },
+      });
+      await reconcileManagedLabelsLocked({
+        workspaceDir,
+        projectSlug: project.slug,
+        issueId,
+        workflow,
+        roles: Object.keys(resolvedConfig.roles),
+        provider,
+        owner: "worker_dispatch",
+      });
+    } catch (err) {
+      // Session is already dispatched — log warning but don't fail
+      await auditLog(workspaceDir, "dispatch", {
+        project: project.name, issue: issueId, role,
+        warning: "State update failed after successful dispatch",
+        error: errorMessage(err), sessionKey,
+      });
+    }
+
+    // Step 6: Audit
+    await auditDispatch(workspaceDir, {
+      project: project.name, issueId, issueTitle,
+      role, level, model, sessionAction, sessionKey,
+      fromLabel, toLabel,
     });
+
+    const announcement = buildAnnouncement(level, role, sessionAction, issueId, issueTitle, issueUrl, resolvedRole, botName);
+
+    return { sessionAction, sessionKey, level, model, announcement };
+  } catch (error) {
+    if (!taskDispatched) {
+      if (providerTransitioned) {
+        try {
+          await provider.transitionLabel(issueId, toLabel, fromLabel);
+        } catch (rollbackError) {
+          await auditLog(workspaceDir, "dispatch_warning", {
+            step: "restoreProviderLabel",
+            issue: issueId,
+            role,
+            error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+          }).catch(() => { });
+        }
+      }
+
+      try {
+        await deactivateWorker(workspaceDir, project.slug, role, { level, slotIndex, issueId });
+      } catch (rollbackError) {
+        await auditLog(workspaceDir, "dispatch_warning", {
+          step: "releaseWorkerReservation",
+          issue: issueId,
+          role,
+          error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+        }).catch(() => { });
+      }
+    }
+
+    throw error;
   }
-
-  // Step 6: Audit
-  await auditDispatch(workspaceDir, {
-    project: project.name, issueId, issueTitle,
-    role, level, model, sessionAction, sessionKey,
-    fromLabel, toLabel,
-  });
-
-  const announcement = buildAnnouncement(level, role, sessionAction, issueId, issueTitle, issueUrl, resolvedRole, botName);
-
-  return { sessionAction, sessionKey, level, model, announcement };
 }
 
+/**
+ * Reserve one concrete worker slot before provider and gateway dispatch side effects begin.
+ *
+ * @param workspaceDir - Workspace containing the authoritative project registry.
+ * @param slug - Canonical project slug whose worker slot is reserved.
+ * @param role - Configured role receiving the issue.
+ * @param slotIndex - Concrete slot selected from a fresh queue snapshot.
+ * @param opts - Worker identity and session values persisted in the reservation.
+ */
 async function recordWorkerState(
   workspaceDir: string, slug: string, role: string, slotIndex: number,
-  opts: { issueId: number; level: string; sessionKey: string; sessionAction: "spawn" | "send"; fromLabel?: string; name?: string },
+  opts: WorkerReservation,
 ): Promise<void> {
   await activateWorker(workspaceDir, slug, role, {
     issueId: opts.issueId,
@@ -363,14 +394,13 @@ async function recordWorkerState(
   });
 }
 
-async function auditDispatch(
-  workspaceDir: string,
-  opts: {
-    project: string; issueId: number; issueTitle: string;
-    role: string; level: string; model: string; sessionAction: string;
-    sessionKey: string; fromLabel: string; toLabel: string;
-  },
-): Promise<void> {
+/**
+ * Record dispatch identity and model selection after the worker receives its task.
+ *
+ * @param workspaceDir - Workspace whose audit log receives the events.
+ * @param opts - Complete dispatch metadata persisted for diagnostics.
+ */
+async function auditDispatch(workspaceDir: string, opts: AuditDispatchOptions): Promise<void> {
   await auditLog(workspaceDir, "dispatch", {
     project: opts.project,
     issue: opts.issueId, issueTitle: opts.issueTitle,
@@ -381,4 +411,13 @@ async function auditDispatch(
   await auditLog(workspaceDir, "model_selection", {
     issue: opts.issueId, role: opts.role, level: opts.level, model: opts.model,
   });
+}
+
+/**
+ * Convert an unknown dispatch failure into a stable audit message.
+ *
+ * @param error - Unknown value caught from a provider, state, or gateway operation.
+ */
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

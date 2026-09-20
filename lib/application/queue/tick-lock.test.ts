@@ -7,11 +7,13 @@ import {
   type IssueRuntimeState,
 } from "../../domain/index.js";
 import {
-  emptyIssueStateStore,
   withIssueOrchestrationLock,
-  writeIssueStateStore,
 } from "../../state/index.js";
-import { createTestHarness } from "../../testing/index.js";
+import {
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
+  createTestHarness,
+  replaceIssueStateStoreForTesting as writeIssueStateStore,
+} from "../../testing/index.js";
 import { projectTick } from "./tick.js";
 
 describe("projectTick issue orchestration lock", () => {

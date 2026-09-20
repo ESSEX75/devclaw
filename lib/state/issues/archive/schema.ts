@@ -9,8 +9,10 @@ import {
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
 } from "../../../domain/index.js";
+import { issueArchiveKey } from "./identity.js";
 import type { IssueArchiveStore } from "./types.js";
 
+/** Strict schema for one immutable archived issue record. */
 const ArchivedIssueSchema = z.object({
   projectSlug: z.string(), issueId: z.number().int().positive(), provider: z.enum(ISSUE_PROVIDER),
   title: z.string().optional(), issueUrl: z.string().optional(), finalWorkflowState: z.string(),
@@ -20,8 +22,9 @@ const ArchivedIssueSchema = z.object({
   attachmentDisposition: z.enum(ATTACHMENT_DISPOSITION), sourceSnapshotHash: z.string().regex(/^[0-9a-f]{64}$/),
 }).strict();
 
+/** Strict schema for the current archived issue-store envelope. */
 const IssueArchiveStoreSchema = z.object({
-  version: z.literal(1), projectSlug: z.string(), issues: z.record(z.string(), ArchivedIssueSchema),
+  projectSlug: z.string(), issues: z.record(z.string(), ArchivedIssueSchema),
 }).strict();
 
 /**
@@ -35,6 +38,18 @@ export function parseIssueArchiveStore(value: unknown, projectSlug: string): Iss
 
   if (store.projectSlug !== projectSlug) {
     throw new Error(`Issue archive projectSlug mismatch: expected ${projectSlug}, got ${store.projectSlug}`);
+  }
+
+  for (const [archiveKey, record] of Object.entries(store.issues)) {
+    if (record.projectSlug !== projectSlug) {
+      throw new Error(`Archived issue #${record.issueId} projectSlug mismatch: expected ${projectSlug}, got ${record.projectSlug}`);
+    }
+
+    const expectedKey = issueArchiveKey(record);
+
+    if (archiveKey !== expectedKey) {
+      throw new Error(`Issue archive key mismatch: expected ${expectedKey}, got ${archiveKey}`);
+    }
   }
 
   return store;

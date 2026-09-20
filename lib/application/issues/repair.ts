@@ -300,7 +300,7 @@ async function resolveRepairContext(input: RepairManagedIssueInput): Promise<Rep
   const project = projects.projects[input.projectSlug];
 
   if (!project) throw repairFailure(ISSUE_REPAIR_ERROR.PROJECT_NOT_FOUND, `Project "${input.projectSlug}" not found.`);
-  const config = await loadConfig(input.workspaceDir, project.name);
+  const config = await loadConfig(input.workspaceDir, project.slug);
   const store = await readIssueStateStore(input.workspaceDir, project.slug);
   const local = store.issues[String(input.issueId)];
 

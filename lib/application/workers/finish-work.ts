@@ -171,7 +171,7 @@ export async function finishWork(input: FinishWorkInput) {
   } = input;
 
   const { project } = await resolveProject(workspaceDir, channelId);
-  const config = await loadConfig(workspaceDir, project.name);
+  const config = await loadConfig(workspaceDir, project.slug);
 
   if (!isConfiguredRoleId(config, role)) {
     throw new Error(`Unknown worker role "${role}".`);

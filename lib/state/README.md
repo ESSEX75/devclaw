@@ -5,7 +5,7 @@ This layer owns local persistence.
 State modules read, write, and lock DevClaw project files such as
 project config, setup files, and managed issue runtime state. They may use domain
 types, but they should not contain queue scheduling or worker dispatch behavior.
-Versioned store envelopes and resumable operation records are state-owned public
+Strict store envelopes and resumable operation records are state-owned public
 contracts exposed to other layers only through `lib/state/index.ts`.
 
 ## Package API
@@ -24,8 +24,11 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - `issue-creations.json` contains resumable creation operations and idempotency
   keys; these records are not active runtime state.
 - `issues/active`, `issues/archive`, and `issues/creation` are separate internal repositories with their own types and strict schemas.
-- Both files share one per-project lock. Archival writes the archive record before
+- `issues/persistence` owns the project lock shared by active/archive transactions; neither repository owns the other's synchronization policy.
+- Issue-store reads have no write side effects; only locked updates and explicit state-owned transactions initialize or replace durable stores.
+- Active and archive files share one per-project lock. Archival writes the archive record before
   removing active state so an interrupted operation can be recovered idempotently.
+- Terminal notification reservations use a bounded attempt lease: delivered events remain deduplicated, while an unconfirmed attempt becomes reservable again after the lease expires.
 - Stores accept only their current strict schema. Destructive reset is an explicit
   operator action and must never run automatically during startup or reads.
 - Stores accept only the current strict schema at the filesystem boundary; no legacy normalization or migration runs during reads.
@@ -35,6 +38,8 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - `projects/paths` owns registry and repository path policy, including home-directory expansion.
 - `projects/repository` owns strict reads and immutable, locked atomic updates; raw production writes are not public.
 - `projects/queries` contains pure snapshot lookups, while `projects/mutations` owns worker-slot persistence operations.
+- Project queries and mutations accept only the canonical project slug; notification routing is resolved before entering state.
+- Canonical slugs use strict lowercase kebab-case and must match their registry key; display names never address files or registry entries.
 - The registry accepts only its current schema and performs no legacy field or identifier normalization.
 
 ## Configuration Pipeline
@@ -42,6 +47,7 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - YAML boundary reads return `unknown`; only the strict current schema creates raw configuration values.
 - Pure merge preserves built-in → workspace → project precedence, including explicit role and level disabling.
 - Resolution completes runtime contracts before separate role/workflow cross-reference integrity checks.
+- Project configuration paths are addressed only by the validated canonical slug.
 - Only `loadConfig` and resolved runtime selectors are public outside state; parsing details remain internal.
 
 ## Setup Files
@@ -50,6 +56,7 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - Initialization is create-only, while system instruction refresh and default reset are explicit capabilities.
 - Reset preserves adjacent `.bak` files as a recovery feature, not as a compatibility mechanism.
 - Workspace version tracking and legacy onboarding-file cleanup are not part of the new-project contract.
+- Project-specific role prompts are addressed only by the validated canonical slug.
 
 ## Boundary Rules
 

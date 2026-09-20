@@ -9,7 +9,12 @@
  */
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
-import { createTestHarness, type TestHarness } from "../../testing/index.js";
+import {
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
+  createTestHarness,
+  replaceIssueStateStoreForTesting as writeIssueStateStore,
+  type TestHarness,
+} from "../../testing/index.js";
 import { checkWorkerHealth, scanOrphanedLabels, scanStatelessIssues } from "./health.js";
 import {
   ISSUE_INTEGRITY_STATUS,
@@ -19,8 +24,7 @@ import {
   type WorkflowConfig,
   WORKFLOW_EVENT,
 } from "../../domain/index.js";
-import { emptyIssueStateStore, writeIssueStateStore } from "../../state/index.js";
-import { type ProjectsData, replaceProjectsForTesting } from "../../state/index.js";
+import type { ProjectsData } from "../../state/index.js";
 
 const DESIGNER_WORKFLOW: WorkflowConfig = {
   initial: "toDesign",
@@ -94,7 +98,7 @@ describe("scanOrphanedLabels", () => {
           },
         },
       };
-      await replaceProjectsForTesting(h.workspaceDir, freshData);
+      await h.writeProjects(freshData);
 
       // Pass the STALE project (no active slot) — scanOrphanedLabels should
       // re-read from disk and find the active slot, avoiding the false positive.

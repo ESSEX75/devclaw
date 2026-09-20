@@ -23,8 +23,11 @@ import {
   type WorkflowLabel,
 } from "../domain/index.js";
 import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
-import { type ProjectsData, readProjects, replaceProjectsForTesting } from "../state/index.js";
+import { DATA_DIR, type ProjectsData, readProjects } from "../state/index.js";
 import { TestProvider } from "./test-provider.js";
+
+/** Filename used by the test harness for the projects-registry fixture. */
+const PROJECTS_FIXTURE_FILE_NAME = "projects.json";
 
 // ---------------------------------------------------------------------------
 // Bootstrap result type — represents the agent:bootstrap hook outcome
@@ -220,6 +223,19 @@ export type HarnessOptions = {
   extraProjects?: Record<string, Project>;
 };
 
+/**
+ * Persist a complete projects fixture without exposing raw writes through the production state API.
+ *
+ * @param workspaceDir - Isolated test workspace that owns the fixture.
+ * @param data - Complete projects-registry fixture to serialize.
+ */
+async function writeProjectsFixture(workspaceDir: string, data: ProjectsData): Promise<void> {
+  const dataDirectory = path.join(workspaceDir, DATA_DIR);
+
+  await fs.mkdir(dataDirectory, { recursive: true });
+  await fs.writeFile(path.join(dataDirectory, PROJECTS_FIXTURE_FILE_NAME), `${JSON.stringify(data, null, 2)}\n`, "utf-8");
+}
+
 export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarness> {
   const {
     projectName = "test-project",
@@ -289,7 +305,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     },
   };
 
-  await replaceProjectsForTesting(workspaceDir, projectsData);
+  await writeProjectsFixture(workspaceDir, projectsData);
 
   // Install mock runCommand
   const { interceptor, handler } = createCommandInterceptor();
@@ -306,7 +322,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
     project,
     workflow,
     async writeProjects(data: ProjectsData) {
-      await replaceProjectsForTesting(workspaceDir, data);
+      await writeProjectsFixture(workspaceDir, data);
     },
     async readProjects() {
       return readProjects(workspaceDir);

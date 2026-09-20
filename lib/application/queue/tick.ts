@@ -83,7 +83,7 @@ export async function projectTick(opts: {
 
   if (!project) return { pickups: [], skipped: [{ reason: `Project not found: ${projectSlug}` }] };
 
-  const resolvedConfig = await loadConfig(workspaceDir, project.name);
+  const resolvedConfig = await loadConfig(workspaceDir, project.slug);
   const workflow = opts.workflow ?? resolvedConfig.workflow;
 
   const provider = opts.provider ?? (await createProvider({

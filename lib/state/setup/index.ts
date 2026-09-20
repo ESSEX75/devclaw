@@ -1,9 +1,8 @@
-export type { SetupTemplates } from "./templates.js";
+/** Exposes supported workspace setup and instruction-loading capabilities to the state package. */
+export { loadRoleInstructions } from "./role-instructions.js";
 export { loadSetupTemplates } from "./templates.js";
-export type { WorkspaceWriteResult } from "./workspace-files.js";
 export {
   backupAndWrite,
-  ejectDefaults,
   fileExists,
   initializeWorkspaceFiles,
   refreshSystemInstructionFiles,

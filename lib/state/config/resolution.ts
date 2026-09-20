@@ -5,9 +5,15 @@ import { copyBuiltInLevels } from "./defaults.js";
 import { parseResolvedWorkflowConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
 import type { DevClawConfig, LevelOverride, ResolvedConfig, ResolvedLevelConfig, ResolvedRoleConfig, ResolvedTimeouts } from "./types.js";
 
+/** Built-in worker concurrency applied when no configuration layer overrides it. */
 const DEFAULT_MAX_WORKERS_PER_LEVEL = 2;
 
-/** @param config - Validated result of the layered merge. */
+/**
+ * Resolve a validated layered configuration into the complete application-facing runtime contract.
+ * Rejects incomplete roles and inconsistent workflow references before returning configuration.
+ *
+ * @param config - Validated result of the layered merge.
+ */
 export function resolveConfig(config: DevClawConfig): ResolvedConfig {
   const roles: Record<string, ResolvedRoleConfig> = {};
   const globalMaxWorkers = config.workflow?.maxWorkersPerLevel ?? DEFAULT_MAX_WORKERS_PER_LEVEL;
@@ -78,6 +84,8 @@ export function resolveConfig(config: DevClawConfig): ResolvedConfig {
 }
 
 /**
+ * Resolve one built-in role with registry defaults and an explicit enabled state.
+ *
  * @param role - Built-in role selected through the roles API.
  * @param globalMaxWorkers - Default capacity for its levels.
  * @param enabled - Whether dispatch is enabled.
@@ -87,6 +95,8 @@ function resolveBuiltInRole(role: ReturnType<typeof requireRole>, globalMaxWorke
 }
 
 /**
+ * Resolve sparse level definitions into complete runtime levels, omitting explicitly removed levels.
+ *
  * @param levels - Merged level definitions.
  * @param globalMaxWorkers - Capacity fallback for sparse levels.
  */

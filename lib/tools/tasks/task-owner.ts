@@ -58,7 +58,7 @@ export function createTaskOwnerTool(ctx: PluginContext) {
 
       const { project } = await resolveProject(workspaceDir, channelId);
       const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
+      const resolvedConfig = await loadConfig(workspaceDir, project.slug);
       const instanceName = await loadInstanceName(
         workspaceDir,
         resolvedConfig.instanceName,

@@ -145,12 +145,12 @@ describe("architect session key parsing", () => {
   it("should parse architect session key", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:my-project-architect-senior");
 
-    assert.deepStrictEqual(result, { projectName: "my-project", role: "architect" });
+    assert.deepStrictEqual(result, { projectSlug: "my-project", role: "architect" });
   });
 
   it("should parse architect junior session key", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:webapp-architect-junior");
 
-    assert.deepStrictEqual(result, { projectName: "webapp", role: "architect" });
+    assert.deepStrictEqual(result, { projectSlug: "webapp", role: "architect" });
   });
 });

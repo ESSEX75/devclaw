@@ -5,29 +5,13 @@ import type { Project, RoleWorkerState } from "../../domain/index.js";
 import type { ProjectsData } from "./types.js";
 
 /**
- * Resolve a project slug from either its slug or notification channel identifier.
+ * Find a project by its canonical registry slug.
  *
  * @param data - Registry snapshot to query.
- * @param slugOrChannelId - Slug or provider channel identifier.
+ * @param projectSlug - Canonical project slug used as the registry key.
  */
-export function resolveProjectSlug(data: ProjectsData, slugOrChannelId: string): string | undefined {
-  if (data.projects[slugOrChannelId]) return slugOrChannelId;
-
-  return Object.entries(data.projects).find(([, project]) => (
-    project.channels.some((channel) => channel.channelId === slugOrChannelId)
-  ))?.[0];
-}
-
-/**
- * Find a project by slug or notification channel identifier.
- *
- * @param data - Registry snapshot to query.
- * @param slugOrChannelId - Slug or provider channel identifier.
- */
-export function getProject(data: ProjectsData, slugOrChannelId: string): Project | undefined {
-  const slug = resolveProjectSlug(data, slugOrChannelId);
-
-  return slug ? data.projects[slug] : undefined;
+export function getProject(data: ProjectsData, projectSlug: string): Project | undefined {
+  return data.projects[projectSlug];
 }
 
 /**

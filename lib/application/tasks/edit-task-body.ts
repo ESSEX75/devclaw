@@ -35,7 +35,7 @@ export async function editTaskBody(input: EditTaskBodyInput) {
   const { project } = await resolveProject(workspaceDir, channelId);
   const { provider, type: providerType } = await resolveProvider(workspaceDir, project, runCommand);
 
-  const resolvedConfig = await loadConfig(workspaceDir, project.name);
+  const resolvedConfig = await loadConfig(workspaceDir, project.slug);
   const initialStateLabel = getInitialStateLabel(resolvedConfig.workflow);
   const architectActiveStates = Object.values(resolvedConfig.workflow.states)
     .filter((s) => s.type === "active" && s.role === "architect")

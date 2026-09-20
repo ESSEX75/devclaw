@@ -11,7 +11,7 @@ import type {
 } from "../../../domain/index.js";
 
 /** Persisted input required to resume issue creation. */
-export type IssueCreationInput = {
+type IssueCreationInput = {
   /** Provider issue title. */
   title: string;
   /** Provider issue body. */
@@ -39,7 +39,7 @@ export type IssueCreationInput = {
 };
 
 /** Provider identity retained after create succeeds. */
-export type CreatedProviderIssueRef = {
+type CreatedProviderIssueRef = {
   /** Provider-local issue identifier. */
   issueId: number;
   /** Canonical provider URL. */
@@ -100,8 +100,6 @@ export type IssueCreationOperation = {
 
 /** Current project-local creation operation store. */
 export type IssueCreationStore = {
-  /** Storage schema version. */
-  version: 1;
   /** Project slug that owns every operation. */
   projectSlug: string;
   /** Operations keyed by idempotency key. */

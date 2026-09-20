@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { TEMPORARY_FILE_SUFFIX } from "./const.js";
+
 /**
  * Replace a file by renaming a uniquely named sibling temporary file.
  * The temporary file is removed when writing or renaming fails.
@@ -12,8 +14,8 @@ import path from "node:path";
  * @param filePath - Destination file owned by a state repository.
  * @param content - Complete content that should replace the destination.
  */
-export async function writeFileAtomic(filePath: string, content: string): Promise<void> {
-  const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
+async function writeFileAtomic(filePath: string, content: string): Promise<void> {
+  const temporaryPath = `${filePath}.${randomUUID()}${TEMPORARY_FILE_SUFFIX}`;
 
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   try {

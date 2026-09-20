@@ -11,12 +11,14 @@ import {
   type IssueRuntimeState,
 } from "../../domain/index.js";
 import {
-  emptyIssueStateStore,
   readIssueStateStore,
   withIssueOrchestrationLock,
-  writeIssueStateStore,
 } from "../../state/index.js";
-import { TestProvider } from "../../testing/index.js";
+import {
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
+  replaceIssueStateStoreForTesting as writeIssueStateStore,
+  TestProvider,
+} from "../../testing/index.js";
 import { reconcileManagedLabels } from "./reconcile-managed-labels.js";
 
 describe("managed projection coordinator", () => {

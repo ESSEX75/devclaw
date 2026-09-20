@@ -49,7 +49,7 @@ async function setTaskLevelLocked(input: SetTaskLevelInput): Promise<SetTaskLeve
   const { workspaceDir, channelId, issueId, level, runCommand } = input;
   const { project } = await resolveProject(workspaceDir, channelId);
   const { provider, type: providerType } = await resolveProvider(workspaceDir, project, runCommand);
-  const resolvedConfig = await loadConfig(workspaceDir, project.name);
+  const resolvedConfig = await loadConfig(workspaceDir, project.slug);
   const issue = await provider.getIssue(issueId);
   const runtimeState = await resolveIssueRuntimeState({
     workspaceDir,

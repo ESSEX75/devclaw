@@ -5,8 +5,6 @@ import type { ArchivedIssueRecord } from "../../../domain/index.js";
 
 /** Current project-local archive persisted in `issues.archive.json`. */
 export type IssueArchiveStore = {
-  /** Storage schema version. */
-  version: 1;
   /** Project slug that owns every archived record. */
   projectSlug: string;
   /** Records keyed by stable provider/project/issue identity. */

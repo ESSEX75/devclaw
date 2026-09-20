@@ -12,6 +12,7 @@ import {
   ISSUE_INTEGRITY_STATUS,
   type IssueArchiveReason,
   type IssueRuntimeState,
+  PIPELINE_NOTIFICATION_STATUS,
   STATE_TYPE,
   type WorkflowConfig,
 } from "../../domain/index.js";
@@ -59,6 +60,10 @@ export async function archiveManagedIssue(opts: {
   }
 
   if (state.activeWorker) return { issueId: opts.issueId, archived: false, reason: "active_worker" };
+  if (state.pipelineNotification?.status === PIPELINE_NOTIFICATION_STATUS.ATTEMPTING) {
+    return { issueId: opts.issueId, archived: false, reason: "notification_pending" };
+  }
+
   if (state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) {
     return { issueId: opts.issueId, archived: false, reason: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR };
   }

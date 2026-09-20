@@ -13,20 +13,35 @@ import {
   PIPELINE_NOTIFICATION_STATUS,
   type IssueRuntimeState,
 } from "../../domain/index.js";
+import { DATA_DIR, PROJECTS_DIRECTORY_NAME } from "../paths.js";
+import {
+  ARCHIVED_ISSUES_FILE_NAME,
+  ISSUE_CREATIONS_FILE_NAME,
+  PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS,
+} from "./const.js";
 import {
   confirmPipelineNotification,
-  emptyIssueArchiveStore,
-  emptyIssueStateStore,
   readIssueArchiveStore,
+  readIssueCreationStore,
   resetIssueStores,
   readIssueStateStore,
   reservePipelineNotification,
+  updateIssueCreationStore,
   updateIssueStateStore,
   writeIssueRoleLevel,
-  writeIssueStateStore,
 } from "./index.js";
-import { issueStatePath } from "./active/repository.js";
+import { emptyIssueStateStore, issueStatePath, writeIssueStateStore } from "./active/repository.js";
+import { parseIssueStateStore } from "./active/schema.js";
+import { emptyIssueArchiveStore } from "./archive/repository.js";
+import { parseIssueArchiveStore } from "./archive/schema.js";
+import { emptyIssueCreationStore } from "./creation/repository.js";
+import { parseIssueCreationStore } from "./creation/schema.js";
 
+/**
+ * Build one complete active issue fixture with optional field overrides.
+ *
+ * @param overrides - Fixture fields replacing the current-contract defaults.
+ */
 function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug: "devclaw",
@@ -54,14 +69,44 @@ function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
 }
 
 describe("issue state store", () => {
-  it("creates an empty project-local issues.json when missing", async () => {
+  it("keeps a missing creation store in memory until a locked update persists it", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issue-creations-"));
+    const filePath = path.join(
+      tmpDir,
+      DATA_DIR,
+      PROJECTS_DIRECTORY_NAME,
+      "devclaw",
+      ISSUE_CREATIONS_FILE_NAME,
+    );
+
+    try {
+      const store = await readIssueCreationStore(tmpDir, "devclaw");
+
+      assert.deepStrictEqual(store, emptyIssueCreationStore("devclaw"));
+      await assert.rejects(fs.access(filePath), { code: "ENOENT" });
+
+      await updateIssueCreationStore(tmpDir, "devclaw", (current) => ({
+        store: { ...current, operations: { ...current.operations } },
+        result: undefined,
+      }));
+
+      assert.deepStrictEqual(
+        JSON.parse(await fs.readFile(filePath, "utf-8")),
+        emptyIssueCreationStore("devclaw"),
+      );
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("returns an in-memory active store without writing when missing", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
     try {
       const store = await readIssueStateStore(tmpDir, "devclaw");
       const filePath = issueStatePath(tmpDir, "devclaw");
 
       assert.deepStrictEqual(store, emptyIssueStateStore("devclaw"));
-      assert.strictEqual(await fs.readFile(filePath, "utf-8"), JSON.stringify(store, null, 2) + "\n");
+      await assert.rejects(fs.access(filePath), { code: "ENOENT" });
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
@@ -73,7 +118,6 @@ describe("issue state store", () => {
       const filePath = issueStatePath(tmpDir, "devclaw");
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(filePath, JSON.stringify({
-        version: 2,
         projectSlug: "devclaw",
         issues: {
           "123": issue(),
@@ -103,7 +147,6 @@ describe("issue state store", () => {
       delete persistedIssue.pipelineNotification;
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(filePath, JSON.stringify({
-        version: 2,
         projectSlug: "devclaw",
         issues: { "123": persistedIssue },
       }), "utf-8");
@@ -196,6 +239,45 @@ describe("issue state store", () => {
     }
   });
 
+  it("retries an unconfirmed pipeline notification only after its attempt lease expires", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
+    const firstAttempt = new Date("2026-06-22T00:00:00.000Z");
+
+    try {
+      await updateIssueStateStore(tmpDir, "devclaw", (store) => ({
+        store: { ...store, issues: { "123": issue() } },
+        result: undefined,
+      }));
+
+      assert.equal(
+        await reservePipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done", firstAttempt),
+        true,
+      );
+      assert.equal(
+        await reservePipelineNotification(
+          tmpDir,
+          "devclaw",
+          123,
+          "pipelineComplete:done",
+          new Date(firstAttempt.getTime() + PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS - 1),
+        ),
+        false,
+      );
+      assert.equal(
+        await reservePipelineNotification(
+          tmpDir,
+          "devclaw",
+          123,
+          "pipelineComplete:done",
+          new Date(firstAttempt.getTime() + PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS),
+        ),
+        true,
+      );
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
   it("rejects role-level writes for an uninitialized issue", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
     try {
@@ -208,12 +290,20 @@ describe("issue state store", () => {
     }
   });
 
-  it("creates a separate empty issues.archive.json", async () => {
+  it("returns an in-memory archive without writing when missing", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
     try {
       const archive = await readIssueArchiveStore(tmpDir, "devclaw");
+      const archivePath = path.join(
+        tmpDir,
+        DATA_DIR,
+        PROJECTS_DIRECTORY_NAME,
+        "devclaw",
+        ARCHIVED_ISSUES_FILE_NAME,
+      );
 
       assert.deepStrictEqual(archive, emptyIssueArchiveStore("devclaw"));
+      await assert.rejects(fs.access(archivePath), { code: "ENOENT" });
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
@@ -239,7 +329,6 @@ describe("issue state store", () => {
       const filePath = issueStatePath(tmpDir, "devclaw");
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(filePath, JSON.stringify({
-        version: 2,
         projectSlug: "other",
         issues: {},
       }), "utf-8");
@@ -251,6 +340,99 @@ describe("issue state store", () => {
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
+  });
+
+  it("rejects active records whose key or nested project identity disagrees with the envelope", () => {
+    assert.throws(
+      () => parseIssueStateStore({
+        projectSlug: "devclaw",
+        issues: { "999": issue() },
+      }, "devclaw"),
+      /Issue store key mismatch/,
+    );
+    assert.throws(
+      () => parseIssueStateStore({
+        projectSlug: "devclaw",
+        issues: { "123": issue({ projectSlug: "other-project" }) },
+      }, "devclaw"),
+      /Issue #123 projectSlug mismatch/,
+    );
+  });
+
+  it("rejects archive records whose key or nested project identity disagrees with the envelope", () => {
+    const record = {
+      projectSlug: "devclaw",
+      issueId: 123,
+      provider: ISSUE_PROVIDER.GITHUB,
+      finalWorkflowState: "done",
+      archiveReason: "terminal",
+      archivedAt: "2026-06-22T00:00:00.000Z",
+      lastIntegrityStatus: ISSUE_INTEGRITY_STATUS.OK,
+      attachmentDisposition: "none",
+      sourceSnapshotHash: "a".repeat(64),
+    };
+
+    assert.throws(
+      () => parseIssueArchiveStore({
+        projectSlug: "devclaw",
+        issues: { "github:devclaw:999": record },
+      }, "devclaw"),
+      /Issue archive key mismatch/,
+    );
+    assert.throws(
+      () => parseIssueArchiveStore({
+        projectSlug: "devclaw",
+        issues: { "github:other-project:123": { ...record, projectSlug: "other-project" } },
+      }, "devclaw"),
+      /Archived issue #123 projectSlug mismatch/,
+    );
+  });
+
+  it("rejects creation operations whose key or nested project identity disagrees with the envelope", () => {
+    const operation = {
+      operationId: "11111111-1111-4111-8111-111111111111",
+      idempotencyKey: "request-123",
+      payloadHash: "b".repeat(64),
+      projectSlug: "devclaw",
+      requestedBy: "tester",
+      requestedAt: "2026-06-22T00:00:00.000Z",
+      updatedAt: "2026-06-22T00:00:00.000Z",
+      status: "creating",
+      input: {
+        title: "Issue",
+        body: "Body",
+        assignees: [],
+        workflowState: "todo",
+        workflowLabel: "To Do",
+        assignedRole: "developer",
+        assignedLevel: "medior",
+        owner: "main",
+        reviewPolicy: "human",
+        testPolicy: "skip",
+        notifyTarget: null,
+        provider: ISSUE_PROVIDER.GITHUB,
+      },
+      expectedLabels: ["To Do"],
+      completedSteps: [],
+      pendingSteps: [],
+      attempts: 0,
+      auditCorrelationId: "22222222-2222-4222-8222-222222222222",
+    };
+
+    assert.throws(
+      () => parseIssueCreationStore({
+        projectSlug: "devclaw",
+        operations: { "wrong-key": operation },
+      }, "devclaw"),
+      /Issue creation key mismatch/,
+    );
+    assert.throws(
+      () => parseIssueCreationStore({
+        projectSlug: "devclaw",
+        operations: { "request-123": { ...operation, projectSlug: "other-project" } },
+      }, "devclaw"),
+      /Issue creation operation projectSlug mismatch/,
+    );
   });
 
   it("serializes concurrent updates through the lock", async () => {

@@ -59,7 +59,7 @@ export function createTaskListTool(ctx: PluginContext) {
 
       const { project } = await resolveProject(workspaceDir, channelId);
       const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
-      const projectConfig = await loadConfig(workspaceDir, project.name);
+      const projectConfig = await loadConfig(workspaceDir, project.slug);
       const result = await listManagedTasks({
         workspaceDir,
         projectSlug: project.slug,

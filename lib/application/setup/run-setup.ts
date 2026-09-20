@@ -17,7 +17,7 @@ import {
 } from "../../domain/index.js";
 import { getAllDefaultModels } from "../../roles/index.js";
 import { DATA_DIR } from "../../state/index.js";
-import { ejectDefaults, refreshSystemInstructionFiles, scaffoldWorkspace } from "../../state/index.js";
+import { refreshSystemInstructionFiles, scaffoldWorkspace } from "../../state/index.js";
 import {
   createAgent,
   getAgentId,
@@ -106,10 +106,6 @@ export async function runSetup(opts: SetupOpts): Promise<SetupResult> {
   const scaffolded = await scaffoldWorkspace(workspacePath, defaultWorkspacePath);
   const refreshed = await refreshSystemInstructionFiles(workspacePath);
   const filesWritten = [...scaffolded.written, ...refreshed.written];
-
-  if (opts.ejectDefaults) {
-    filesWritten.push(...(await ejectDefaults(workspacePath)).written);
-  }
 
   const models = buildModelConfig(opts.models);
 

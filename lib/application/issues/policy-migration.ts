@@ -42,7 +42,7 @@ export async function migrateIssuePolicies(opts: {
 }): Promise<IssuePolicyMigrationResult> {
   if (!opts.reviewPolicy && !opts.testPolicy) throw new Error("Policy migration requires reviewPolicy and/or testPolicy.");
   const project = await requireProject(opts.workspaceDir, opts.projectSlug);
-  const config = await loadConfig(opts.workspaceDir, project.name);
+  const config = await loadConfig(opts.workspaceDir, project.slug);
   const selectedIds = opts.issueIds ? new Set(opts.issueIds.map(String)) : null;
   const selectedStates = opts.workflowStates ? new Set(opts.workflowStates) : null;
   const changed: IssuePolicyMigrationChange[] = [];

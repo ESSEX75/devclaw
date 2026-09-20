@@ -3,13 +3,11 @@
  */
 import path from "node:path";
 
-import { withFileLock } from "../../persistence/index.js";
+import { LOCK_FILE_SUFFIX, withFileLock } from "../../persistence/index.js";
 import { issueStatePath } from "../active/repository.js";
+import { ISSUE_ORCHESTRATION_LOCK_OPTIONS, ORCHESTRATION_LOCKS_DIRECTORY_NAME } from "../const.js";
 
-const DEFAULT_STALE_MS = 30_000;
-const DEFAULT_RETRY_MS = 50;
-const DEFAULT_TIMEOUT_MS = 10_000;
-
+/** Optional per-call overrides for the default issue orchestration lock policy. */
 type IssueLockOptions = {
   /** Maximum age of a live orchestration lock. */
   staleMs?: number;
@@ -31,7 +29,11 @@ export function issueOrchestrationLockPath(
   projectSlug: string,
   issueId: number,
 ): string {
-  return path.join(path.dirname(issueStatePath(workspaceDir, projectSlug)), "locks", `${issueId}.lock`);
+  return path.join(
+    path.dirname(issueStatePath(workspaceDir, projectSlug)),
+    ORCHESTRATION_LOCKS_DIRECTORY_NAME,
+    `${issueId}${LOCK_FILE_SUFFIX}`,
+  );
 }
 
 /**
@@ -53,8 +55,8 @@ export async function withIssueOrchestrationLock<T>(
   const lockPath = issueOrchestrationLockPath(workspaceDir, projectSlug, issueId);
 
   return withFileLock(lockPath, {
-    retryMs: options.retryMs ?? DEFAULT_RETRY_MS,
-    staleMs: options.staleMs ?? DEFAULT_STALE_MS,
-    timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    retryMs: options.retryMs ?? ISSUE_ORCHESTRATION_LOCK_OPTIONS.retryMs,
+    staleMs: options.staleMs ?? ISSUE_ORCHESTRATION_LOCK_OPTIONS.staleMs,
+    timeoutMs: options.timeoutMs ?? ISSUE_ORCHESTRATION_LOCK_OPTIONS.timeoutMs,
   }, operation);
 }

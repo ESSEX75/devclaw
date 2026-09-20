@@ -3,36 +3,40 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Complete packaged template set consumed by setup and runtime fallbacks. */
-export type SetupTemplates = {
-  /** Root agent instructions. */
-  agents: string;
-  /** Heartbeat instructions. */
-  heartbeat: string;
-  /** Initial identity document. */
-  identity: string;
-  /** Agent persona document. */
-  soul: string;
-  /** Tool instructions. */
-  tools: string;
-  /** Current workflow configuration example. */
-  workflow: string;
-  /** Role instructions indexed by built-in role identifier. */
-  roleInstructions: Record<string, string>;
-};
+import type { RoleId } from "../../domain/index.js";
+import {
+  AGENTS_FILE_NAME,
+  HEARTBEAT_FILE_NAME,
+  IDENTITY_FILE_NAME,
+  ROLE_TEMPLATE_PATHS,
+  SOUL_FILE_NAME,
+  TOOLS_FILE_NAME,
+  WORKFLOW_TEMPLATE_PATH,
+} from "./const.js";
+import { resolveDefaultsDirectory } from "./package-root.js";
+import type { SetupTemplates } from "./types.js";
 
+/** Active or fulfilled template load shared by concurrent and later setup operations. */
 let cachedTemplates: Promise<SetupTemplates> | undefined;
 
-/** Load and cache all packaged templates after the caller explicitly enters a setup-dependent flow. */
-export function loadSetupTemplates(): Promise<SetupTemplates> {
-  cachedTemplates ??= loadTemplates();
+/**
+ * Load and cache packaged templates, clearing a failed attempt so a later call can retry disk access.
+ */
+export async function loadSetupTemplates(): Promise<SetupTemplates> {
+  const loading = cachedTemplates ??= loadTemplates();
 
-  return cachedTemplates;
+  try {
+    return await loading;
+  } catch (error) {
+    if (cachedTemplates === loading) cachedTemplates = undefined;
+
+    throw error;
+  }
 }
 
 /** Read the packaged template set from the source or bundled runtime layout. */
 async function loadTemplates(): Promise<SetupTemplates> {
-  const defaultsDir = await resolveDefaultsDir();
+  const defaultsDir = await resolveDefaultsDirectory(path.dirname(fileURLToPath(import.meta.url)));
   const read = async (name: string): Promise<string> => {
     const filePath = path.join(defaultsDir, name);
 
@@ -45,27 +49,20 @@ async function loadTemplates(): Promise<SetupTemplates> {
     }
   };
 
-  const [agents, heartbeat, identity, soul, tools, workflow, developer, tester, architect, reviewer] = await Promise.all([
-    read("AGENTS.md"), read("HEARTBEAT.md"), read("IDENTITY.md"), read("SOUL.md"), read("TOOLS.md"),
-    read("devclaw/workflow.yaml"), read("devclaw/prompts/developer.md"), read("devclaw/prompts/tester.md"),
-    read("devclaw/prompts/architect.md"), read("devclaw/prompts/reviewer.md"),
+  const [agents, heartbeat, identity, soul, tools, workflow] = await Promise.all([
+    read(AGENTS_FILE_NAME),
+    read(HEARTBEAT_FILE_NAME),
+    read(IDENTITY_FILE_NAME),
+    read(SOUL_FILE_NAME),
+    read(TOOLS_FILE_NAME),
+    read(WORKFLOW_TEMPLATE_PATH),
   ]);
+  const roleInstructions: Record<RoleId, string> = {
+    developer: await read(ROLE_TEMPLATE_PATHS.developer),
+    tester: await read(ROLE_TEMPLATE_PATHS.tester),
+    architect: await read(ROLE_TEMPLATE_PATHS.architect),
+    reviewer: await read(ROLE_TEMPLATE_PATHS.reviewer),
+  };
 
-  return { agents, heartbeat, identity, soul, tools, workflow, roleInstructions: { developer, tester, architect, reviewer } };
-}
-
-/** Resolve the defaults directory across source and bundled runtime layouts. */
-async function resolveDefaultsDir(): Promise<string> {
-  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [path.join(moduleDir, "..", "defaults"), path.join(moduleDir, "..", "..", "defaults"), path.join(moduleDir, "..", "..", "..", "defaults")];
-
-  for (const candidate of candidates) {
-    try {
-      await fs.access(candidate);
-
-      return candidate;
-    } catch { /* inspect the next supported runtime layout */ }
-  }
-
-  return candidates[0]!;
+  return { agents, heartbeat, identity, soul, tools, workflow, roleInstructions };
 }

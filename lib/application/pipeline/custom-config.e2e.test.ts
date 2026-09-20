@@ -112,7 +112,7 @@ workflow:
 `, "utf8");
     await harness.writePrompt(CUSTOM_ROLE, "Perform a complete security audit.");
 
-    const resolvedConfig = await loadConfig(harness.workspaceDir, harness.project.name);
+    const resolvedConfig = await loadConfig(harness.workspaceDir, harness.project.slug);
     const roleLabels = getRoleLabels(resolvedConfig.roles);
 
     assert.equal(roleLabels.some((label) => label.name === `${CUSTOM_ROLE}:apprentice`), true);

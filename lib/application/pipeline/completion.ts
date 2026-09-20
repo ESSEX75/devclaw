@@ -135,7 +135,7 @@ async function executeCompletionLocked(opts: {
   } = opts;
 
   const key = `${role}:${result}`;
-  const config = await loadConfig(workspaceDir, projectName);
+  const config = await loadConfig(workspaceDir, projectSlug);
   const completionEvent = config.roles[role]?.completion[result];
 
   if (!completionEvent) {
@@ -493,7 +493,7 @@ async function executeCompletionLocked(opts: {
       correlationId: `terminal:${projectSlug}:${issueId}:${runtimeState.workflowState}`,
     });
 
-    if (!archived.archived) {
+    if (!archived.archived && archived.reason !== "notification_pending") {
       throw new Error(`Terminal issue #${issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
     }
   }

@@ -51,7 +51,7 @@ export async function runRoutingDoctor(
   const report = buildRoutingDoctorReport(config, projects);
 
   for (const project of Object.values(projects.projects)) {
-    const resolved = await loadConfig(workspaceDir, project.name);
+    const resolved = await loadConfig(workspaceDir, project.slug);
 
     report.archives.push({ projectSlug: project.slug, ...await getIssueArchiveStatus({
       workspaceDir,

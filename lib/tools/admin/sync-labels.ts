@@ -20,7 +20,7 @@ import {
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { loadConfig } from "../../state/index.js";
-import { getProject, readProjects } from "../../state/index.js";
+import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createSyncLabelsTool(ctx: PluginContext) {
@@ -34,31 +34,31 @@ export function createSyncLabelsTool(ctx: PluginContext) {
     parameters: {
       type: "object",
       properties: {
-        channelId: {
+        projectSlug: {
           type: "string",
           description:
-            "Channel ID identifying the project. Omit to sync all registered projects.",
+            "Canonical project slug to sync. Omit to sync all registered projects.",
         },
       },
     },
 
     async execute(_id: string, params: Record<string, unknown>) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
-      const targetChannelId = params.channelId as string | undefined;
+      const projectSlug = params.projectSlug as string | undefined;
 
       const data = await readProjects(workspaceDir);
       let slugs: string[];
 
-      if (targetChannelId) {
-        const project = getProject(data, targetChannelId);
+      if (projectSlug) {
+        const project = data.projects[projectSlug];
 
         if (!project) {
           throw new Error(
-            `No project found for "${targetChannelId}". Register a new project with project_register first.`,
+            `No project found for slug "${projectSlug}". Register a new project with project_register first.`,
           );
         }
 
-        slugs = [project.slug];
+        slugs = [projectSlug];
       } else {
         slugs = Object.keys(data.projects);
       }
@@ -81,7 +81,7 @@ export function createSyncLabelsTool(ctx: PluginContext) {
         if (!project) continue;
 
         try {
-          const resolvedConfig = await loadConfig(workspaceDir, project.name);
+          const resolvedConfig = await loadConfig(workspaceDir, project.slug);
 
           const { provider } = await createProvider({
             repo: project.repo,

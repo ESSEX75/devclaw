@@ -107,7 +107,7 @@ Example:
       const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const pluginConfig = ctx.pluginConfig;
       const role = "architect";
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
+      const resolvedConfig = await loadConfig(workspaceDir, project.slug);
       const resolvedRole = resolvedConfig.roles[role];
 
       if (!resolvedRole?.enabled) {

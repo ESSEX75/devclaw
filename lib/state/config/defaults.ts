@@ -16,7 +16,11 @@ export function buildDefaultConfig(): DevClawConfig {
   return { roles, workflow: DEFAULT_WORKFLOW };
 }
 
-/** @param levels - Registry-owned built-in level definitions. */
+/**
+ * Copy defined built-in levels into mutable configuration-owned override records.
+ *
+ * @param levels - Registry-owned built-in level definitions.
+ */
 export function copyBuiltInLevels(levels: Readonly<Record<string, LevelOverride | undefined>>): Record<string, LevelOverride> {
   const result: Record<string, LevelOverride> = {};
 

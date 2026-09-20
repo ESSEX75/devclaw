@@ -19,7 +19,7 @@ import {
 } from "../../application/setup/scopes.js";
 import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
-import { ejectDefaults, resetDefaults } from "../../state/index.js";
+import { initializeWorkspaceFiles, resetDefaults } from "../../state/index.js";
 
 export function createSetupTool(ctx: PluginContext) {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -87,7 +87,7 @@ export function createSetupTool(ctx: PluginContext) {
 
         if (!workspacePath) throw new Error("No workspace directory available");
         const force = !!params.resetDefaults;
-        const written = (force ? await resetDefaults(workspacePath) : await ejectDefaults(workspacePath)).written;
+        const written = (force ? await resetDefaults(workspacePath) : await initializeWorkspaceFiles(workspacePath)).written;
         const action = force ? "Reset (force-wrote)" : "Ejected (wrote missing)";
 
         return jsonResult({

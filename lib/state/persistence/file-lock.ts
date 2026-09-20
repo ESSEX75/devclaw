@@ -5,20 +5,15 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { LOCK_RENEWAL_INTERVAL_DIVISOR } from "./const.js";
 import { isErrnoException } from "./guards.js";
+import type { FileLockOptions } from "./types.js";
 
-/** Timing policy selected by the repository that owns a lock. */
-export type FileLockOptions = {
-  /** Maximum time to wait before rejecting lock acquisition. */
-  timeoutMs: number;
-  /** Delay between attempts while another valid owner holds the lock. */
-  retryMs: number;
-  /** Maximum lock age before recovery may remove it. */
-  staleMs: number;
-};
-
+/** Ownership record persisted inside a filesystem lock. */
 type LockRecord = {
+  /** Unique token proving which caller owns the lock. */
   token: string;
+  /** Acquisition timestamp used to determine whether ownership is stale. */
   createdAt: number;
 };
 
@@ -37,9 +32,32 @@ export async function withFileLock<T>(
   const owner: LockRecord = { token: randomUUID(), createdAt: Date.now() };
 
   await acquireLock(lockPath, owner, options);
+  let renewalFailure: unknown;
+  let pendingRenewal = Promise.resolve();
+  const renewalTimer = setInterval(() => {
+    pendingRenewal = pendingRenewal.then(async () => {
+      if (!await renewLockOwnedBy(lockPath, owner.token)) {
+        throw new Error(`Lost ownership of state lock: ${lockPath}`);
+      }
+    }).catch((error: unknown) => {
+      renewalFailure ??= error;
+    });
+  }, Math.max(1, Math.floor(options.staleMs / LOCK_RENEWAL_INTERVAL_DIVISOR)));
+
+  renewalTimer.unref();
   try {
-    return await operation();
+    const result = await operation();
+
+    if (renewalFailure) {
+      throw new Error(`Cannot safely complete operation after losing state lock: ${lockPath}`, {
+        cause: renewalFailure,
+      });
+    }
+
+    return result;
   } finally {
+    clearInterval(renewalTimer);
+    await pendingRenewal;
     await removeLockOwnedBy(lockPath, owner.token);
   }
 }
@@ -85,15 +103,41 @@ async function acquireLock(
  */
 async function removeStaleLock(lockPath: string, staleMs: number): Promise<boolean> {
   try {
-    const record = parseLockRecord(await fs.readFile(lockPath, "utf-8"));
+    const [raw, stats] = await Promise.all([
+      fs.readFile(lockPath, "utf-8"),
+      fs.stat(lockPath),
+    ]);
+    const record = parseLockRecord(raw);
 
-    if (record && Date.now() - record.createdAt <= staleMs) return false;
+    if (Date.now() - stats.mtimeMs <= staleMs) return false;
     if (record) return removeLockOwnedBy(lockPath, record.token);
     await fs.rm(lockPath, { force: true });
 
     return true;
   } catch (error) {
     return isErrnoException(error) && error.code === "ENOENT";
+  }
+}
+
+/**
+ * Refresh one live lock lease only while its ownership token is still current.
+ *
+ * @param lockPath - Lock file whose modification time represents the live lease.
+ * @param ownerToken - Ownership token allowed to renew the lease.
+ */
+async function renewLockOwnedBy(lockPath: string, ownerToken: string): Promise<boolean> {
+  try {
+    const record = parseLockRecord(await fs.readFile(lockPath, "utf-8"));
+
+    if (record?.token !== ownerToken) return false;
+    const now = new Date();
+
+    await fs.utimes(lockPath, now, now);
+
+    return true;
+  } catch (error) {
+    if (isErrnoException(error) && error.code === "ENOENT") return false;
+    throw error;
   }
 }
 

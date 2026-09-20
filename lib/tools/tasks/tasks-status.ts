@@ -40,7 +40,7 @@ export function createTasksStatusTool(ctx: PluginContext) {
       const { project } = await resolveProject(workspaceDir, channelId);
       const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
 
-      const projectConfig = await loadConfig(workspaceDir, project.name);
+      const projectConfig = await loadConfig(workspaceDir, project.slug);
       const status = await getManagedTaskStatus({
         workspaceDir,
         projectSlug: project.slug,

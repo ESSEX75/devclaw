@@ -13,6 +13,7 @@ import {
 } from "../../../domain/index.js";
 import type { IssueStateStore } from "./types.js";
 
+/** Strict schema for one authoritative active issue runtime record. */
 const RuntimeIssueSchema = z.object({
   projectSlug: z.string(), issueId: z.number().int().positive(), provider: z.enum(ISSUE_PROVIDER),
   creationOperationId: z.string().uuid().optional(),
@@ -36,8 +37,9 @@ const RuntimeIssueSchema = z.object({
   }).strict().nullable(),
 }).strict();
 
+/** Strict schema for the current active issue-store envelope. */
 const IssueStateStoreSchema = z.object({
-  version: z.literal(2), projectSlug: z.string(), issues: z.record(z.string(), RuntimeIssueSchema),
+  projectSlug: z.string(), issues: z.record(z.string(), RuntimeIssueSchema),
 }).strict();
 
 /**
@@ -51,6 +53,16 @@ export function parseIssueStateStore(value: unknown, projectSlug: string): Issue
 
   if (store.projectSlug !== projectSlug) {
     throw new Error(`Issue store projectSlug mismatch: expected ${projectSlug}, got ${store.projectSlug}`);
+  }
+
+  for (const [issueKey, issue] of Object.entries(store.issues)) {
+    if (issueKey !== String(issue.issueId)) {
+      throw new Error(`Issue store key mismatch: key ${issueKey} contains issue #${issue.issueId}`);
+    }
+
+    if (issue.projectSlug !== projectSlug) {
+      throw new Error(`Issue #${issue.issueId} projectSlug mismatch: expected ${projectSlug}, got ${issue.projectSlug}`);
+    }
   }
 
   return store;

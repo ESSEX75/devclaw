@@ -1,3 +1,4 @@
+/** Verifies serialization, independence, cleanup, and stale recovery for issue orchestration locks. */
 import assert from "node:assert";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -106,6 +107,11 @@ describe("issue orchestration lock", () => {
   });
 });
 
+/**
+ * Poll a test predicate until it succeeds or reaches a short deterministic deadline.
+ *
+ * @param predicate - Condition indicating that the asynchronous test setup is ready.
+ */
 async function waitUntil(predicate: () => boolean | Promise<boolean>): Promise<void> {
   const deadline = Date.now() + 1_000;
 

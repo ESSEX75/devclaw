@@ -9,6 +9,7 @@ import { afterEach, describe, it } from "node:test";
 
 import { writeJsonAtomic } from "./atomic-file.js";
 
+/** Temporary directories removed after each atomic-write test. */
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
