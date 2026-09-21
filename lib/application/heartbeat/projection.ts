@@ -11,7 +11,7 @@ import {
   metadataMatches,
   type ProjectionDiff,
 } from "../../projection/index.js";
-import { isIssueCreationReady, readIssueStateStore, updateIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore, updateIssueStateStore } from "../../state/index.js";
 import { archiveManagedIssue } from "../issues/index.js";
 import { reconcileManagedLabels } from "../projection/index.js";
 
@@ -197,12 +197,15 @@ async function recordProviderMissing(
       ? { ...issue.providerMissing, confirmations: issue.providerMissing.confirmations + 1, lastConfirmedAt: timestamp }
       : { confirmations: 1, firstConfirmedAt: timestamp, lastConfirmedAt: timestamp };
 
-    issue.providerMissing = missing;
-    issue.integrityStatus = ISSUE_INTEGRITY_STATUS.PROJECTION_DRIFT;
-    issue.integrityErrors = [`provider_missing_pending:${missing.confirmations}`];
-    issue.updatedAt = timestamp;
+    const updated = {
+      ...issue,
+      providerMissing: missing,
+      integrityStatus: ISSUE_INTEGRITY_STATUS.PROJECTION_DRIFT,
+      integrityErrors: [`provider_missing_pending:${missing.confirmations}`],
+      updatedAt: timestamp,
+    };
 
-    return missing;
+    return { store: { ...data, issues: { ...data.issues, [String(issueId)]: updated } }, result: missing };
   });
 }
 
@@ -210,14 +213,17 @@ async function clearProviderMissing(workspaceDir: string, projectSlug: string, i
   await updateIssueStateStore(workspaceDir, projectSlug, (data) => {
     const issue = data.issues[String(issueId)];
 
-    if (!issue) return;
-    issue.providerMissing = null;
-    if (issue.integrityErrors.every((message) => message.startsWith("provider_missing_pending:"))) {
-      issue.integrityStatus = ISSUE_INTEGRITY_STATUS.OK;
-      issue.integrityErrors = [];
-    }
+    if (!issue) return { store: data, result: undefined };
+    const clearIntegrity = issue.integrityErrors.every((message) => message.startsWith("provider_missing_pending:"));
+    const updated = {
+      ...issue,
+      providerMissing: null,
+      integrityStatus: clearIntegrity ? ISSUE_INTEGRITY_STATUS.OK : issue.integrityStatus,
+      integrityErrors: clearIntegrity ? [] : issue.integrityErrors,
+      updatedAt: new Date().toISOString(),
+    };
 
-    issue.updatedAt = new Date().toISOString();
+    return { store: { ...data, issues: { ...data.issues, [String(issueId)]: updated } }, result: undefined };
   });
 }
 
@@ -240,9 +246,9 @@ async function setIntegrityStatus(
   await updateIssueStateStore(workspaceDir, projectSlug, (data) => {
     const issue = data.issues[String(issueId)];
 
-    if (!issue) return;
-    issue.integrityStatus = integrityStatus;
-    issue.integrityErrors = integrityErrors;
-    issue.updatedAt = new Date().toISOString();
+    if (!issue) return { store: data, result: undefined };
+    const updated = { ...issue, integrityStatus, integrityErrors, updatedAt: new Date().toISOString() };
+
+    return { store: { ...data, issues: { ...data.issues, [String(issueId)]: updated } }, result: undefined };
   });
 }

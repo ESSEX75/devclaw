@@ -13,7 +13,7 @@
 import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { PluginContext, RunCommand } from "../../context.js";
-import { ensureDefaultFiles } from "../../state/setup/workspace-files.js";
+import { initializeWorkspaceFiles } from "../../state/index.js";
 import type { Agent } from "./agent-discovery.js";
 import { discoverAgents } from "./agent-discovery.js";
 import type { HeartbeatConfig } from "./config.js";
@@ -177,14 +177,14 @@ async function processAllAgents(
     totalCreationsManual: 0,
   };
 
-  // Ensure defaults are fresh on every startup (prompts, workflow, etc.)
+  // Create missing structural files without overwriting workspace-owned content.
   const refreshedWorkspaces = new Set<string>();
 
   for (const { workspace } of agents) {
     if (refreshedWorkspaces.has(workspace)) continue;
     refreshedWorkspaces.add(workspace);
     try {
-      await ensureDefaultFiles(workspace);
+      await initializeWorkspaceFiles(workspace);
     } catch (err) {
       logger.warn(`Workspace refresh failed for ${workspace}: ${(err as Error).message}`);
     }

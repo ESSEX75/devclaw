@@ -6,10 +6,10 @@ import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import { getActiveLabel } from "../../domain/index.js";
-import { isConfiguredRoleId, loadConfig } from "../../state/config/index.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
-import { getRoleWorker, resolveRepoPath } from "../../state/projects/index.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
+import { isConfiguredRoleId, loadConfig } from "../../state/index.js";
+import { readIssueStateStore } from "../../state/index.js";
+import { getRoleWorker, resolveRepoPath } from "../../state/index.js";
+import { DATA_DIR } from "../../state/index.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { executeCompletion, getRule } from "../pipeline/completion.js";
 
@@ -171,7 +171,7 @@ export async function finishWork(input: FinishWorkInput) {
   } = input;
 
   const { project } = await resolveProject(workspaceDir, channelId);
-  const config = await loadConfig(workspaceDir, project.name);
+  const config = await loadConfig(workspaceDir, project.slug);
 
   if (!isConfiguredRoleId(config, role)) {
     throw new Error(`Unknown worker role "${role}".`);

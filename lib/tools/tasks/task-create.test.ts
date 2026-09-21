@@ -3,7 +3,7 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { readIssueStateStore } from "../../state/index.js";
 import { extractIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, STATE_TYPE, type WorkflowConfig, WORKFLOW_EVENT } from "../../domain/index.js";

@@ -174,6 +174,14 @@ function checkImportBoundary({ sourceFile, sourceLayer, targetFile, targetLayer,
     return "production modules must not import lib/testing";
   }
 
+  if (
+    targetLayer === "state" &&
+    sourceLayer !== "state" &&
+    targetFile !== path.join(root, "lib", "state", "index.ts")
+  ) {
+    return "code outside state must import its public API through lib/state/index.ts";
+  }
+
   if (sourceLayer === "domain" && ["application", "state", "integrations", "tools", "cli"].includes(targetLayer)) {
     return "domain must not import application, state, integrations, tools, or cli";
   }

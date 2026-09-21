@@ -12,6 +12,7 @@ import {
   ISSUE_INTEGRITY_STATUS,
   type IssueArchiveReason,
   type IssueRuntimeState,
+  PIPELINE_NOTIFICATION_STATUS,
   STATE_TYPE,
   type WorkflowConfig,
 } from "../../domain/index.js";
@@ -20,7 +21,7 @@ import {
   readIssueArchiveStore,
   readIssueStateStore,
   updateIssueArchiveStore,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
 import { listAttachments, purgeIssueAttachments } from "../tasks/index.js";
 
 /** Optional provider snapshot enriching an archive record without making provider data authoritative. */
@@ -59,6 +60,10 @@ export async function archiveManagedIssue(opts: {
   }
 
   if (state.activeWorker) return { issueId: opts.issueId, archived: false, reason: "active_worker" };
+  if (state.pipelineNotification?.status === PIPELINE_NOTIFICATION_STATUS.ATTEMPTING) {
+    return { issueId: opts.issueId, archived: false, reason: "notification_pending" };
+  }
+
   if (state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) {
     return { issueId: opts.issueId, archived: false, reason: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR };
   }
@@ -214,9 +219,9 @@ export async function purgeIssueArchive(opts: {
     }
 
     await updateIssueArchiveStore(opts.workspaceDir, opts.projectSlug, (current) => {
-      for (const [key, record] of Object.entries(current.issues)) {
-        if (selected.has(record.issueId)) delete current.issues[key];
-      }
+      const issues = Object.fromEntries(Object.entries(current.issues).filter(([, record]) => !selected.has(record.issueId)));
+
+      return { store: { ...current, issues }, result: undefined };
     });
     await auditLog(opts.workspaceDir, "issue_archive_purged", {
       projectSlug: opts.projectSlug,
@@ -259,7 +264,7 @@ export async function maintainIssueArchive(opts: {
   }
 
   if (attachmentsPurged.length > 0) await updateIssueArchiveStore(opts.workspaceDir, opts.projectSlug, (current) => {
-    for (const [key, record] of Object.entries(archive.issues)) current.issues[key] = record;
+    return { store: { ...current, issues: { ...current.issues, ...archive.issues } }, result: undefined };
   });
 
   const refreshed = await readIssueArchiveStore(opts.workspaceDir, opts.projectSlug);
@@ -277,7 +282,9 @@ export async function maintainIssueArchive(opts: {
     const keys = new Set(eligible.map((record) => `${record.provider}:${record.projectSlug}:${record.issueId}`));
 
     await updateIssueArchiveStore(opts.workspaceDir, opts.projectSlug, (current) => {
-      for (const key of keys) delete current.issues[key];
+      const issues = Object.fromEntries(Object.entries(current.issues).filter(([key]) => !keys.has(key)));
+
+      return { store: { ...current, issues }, result: undefined };
     });
     await auditLog(opts.workspaceDir, "issue_archive_purged", {
       projectSlug: opts.projectSlug, issueIds: recordsPurged,

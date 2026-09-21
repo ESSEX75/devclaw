@@ -35,3 +35,11 @@ export type RoleConfig = {
     onComplete: boolean;
   };
 };
+
+/** Minimal resolved role shape accepted by role-selection behavior. */
+export type ResolvedRoleDefinition = {
+  /** Runtime levels keyed by configured identifier. */
+  levels: Record<string, RoleLevelDefinition>;
+  /** Level selected when no complexity signal overrides it. */
+  defaultLevel: string;
+};

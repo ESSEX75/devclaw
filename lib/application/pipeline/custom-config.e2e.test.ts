@@ -16,9 +16,10 @@ import {
   type WorkflowConfig,
   WORKFLOW_EVENT,
 } from "../../domain/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { readIssueArchiveStore, readIssueStateStore, writeIssueRuntimeState } from "../../state/issues/index.js";
-import { getProject, getRoleWorker, readProjects } from "../../state/projects/index.js";
+import { loadConfig } from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
+import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
+import { getProject, getRoleWorker, readProjects } from "../../state/index.js";
 import { createTestHarness, type TestHarness } from "../../testing/index.js";
 import { projectTick } from "../queue/tick.js";
 import { executeCompletion } from "./completion.js";
@@ -111,7 +112,7 @@ workflow:
 `, "utf8");
     await harness.writePrompt(CUSTOM_ROLE, "Perform a complete security audit.");
 
-    const resolvedConfig = await loadConfig(harness.workspaceDir, harness.project.name);
+    const resolvedConfig = await loadConfig(harness.workspaceDir, harness.project.slug);
     const roleLabels = getRoleLabels(resolvedConfig.roles);
 
     assert.equal(roleLabels.some((label) => label.name === `${CUSTOM_ROLE}:apprentice`), true);

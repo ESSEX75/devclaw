@@ -9,16 +9,19 @@ import {
   ISSUE_ARCHIVE_REASON,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
+  PIPELINE_NOTIFICATION_STATUS,
   type IssueRuntimeState,
   DEFAULT_WORKFLOW,
 } from "../../domain/index.js";
 import {
-  emptyIssueStateStore,
   readIssueArchiveStore,
   readIssueStateStore,
-  writeIssueArchiveStore,
-  writeIssueStateStore,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
+import {
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
+  replaceIssueArchiveStoreForTesting as writeIssueArchiveStore,
+  replaceIssueStateStoreForTesting as writeIssueStateStore,
+} from "../../testing/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import {
   archiveManagedIssue,
@@ -79,6 +82,31 @@ describe("managed issue archive", () => {
       });
       assert.equal(result.reason, "active_worker");
       assert.ok((await readIssueStateStore(workspaceDir, "devclaw")).issues["42"]);
+    });
+  });
+
+  it("keeps terminal state active while its durable notification remains unconfirmed", async () => {
+    await withIssueStore(async (workspaceDir) => {
+      const store = await readIssueStateStore(workspaceDir, "devclaw");
+
+      store.issues["42"].pipelineNotification = {
+        eventKey: "pipelineComplete:done",
+        status: PIPELINE_NOTIFICATION_STATUS.ATTEMPTING,
+        attemptedAt: "2026-01-01T00:00:00.000Z",
+      };
+      await writeIssueStateStore(workspaceDir, "devclaw", store);
+      const result = await archiveManagedIssue({
+        workspaceDir,
+        projectSlug: "devclaw",
+        issueId: 42,
+        archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
+        actor: "test",
+        correlationId: "pending-notification-test",
+      });
+
+      assert.equal(result.reason, "notification_pending");
+      assert.ok((await readIssueStateStore(workspaceDir, "devclaw")).issues["42"]);
+      assert.equal(Object.keys((await readIssueArchiveStore(workspaceDir, "devclaw")).issues).length, 0);
     });
   });
 

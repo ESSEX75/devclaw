@@ -13,6 +13,9 @@ import type { DevClawConfig, LevelOverride, RoleOverride, StateOverride } from "
 /**
  * Merge a config overlay on top of a base config.
  * Returns a new config — does not mutate inputs.
+ *
+ * @param base - Lower-precedence configuration inherited by the result.
+ * @param overlay - Higher-precedence configuration applied over the base.
  */
 export function mergeConfig(
   base: DevClawConfig,
@@ -78,6 +81,12 @@ export function mergeConfig(
   return merged;
 }
 
+/**
+ * Merge workflow-state overrides while combining nested transition maps by event.
+ *
+ * @param base - State overrides inherited from the lower configuration layer.
+ * @param overlay - State overrides supplied by the higher configuration layer.
+ */
 function mergeWorkflowStates(
   base: Readonly<Record<string, StateOverride>> | undefined,
   overlay: Readonly<Record<string, StateOverride>> | undefined,
@@ -102,6 +111,12 @@ function mergeWorkflowStates(
   return states;
 }
 
+/**
+ * Merge one role override while combining nested levels and completion mappings.
+ *
+ * @param base - Role definition inherited from the lower configuration layer.
+ * @param overlay - Role changes supplied by the higher configuration layer.
+ */
 function mergeRoleOverride(
   base: RoleOverride,
   overlay: RoleOverride,

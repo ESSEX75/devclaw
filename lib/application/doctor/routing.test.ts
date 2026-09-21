@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../domain/index.js";
-import type { ProjectsData } from "../../state/projects/index.js";
+import type { ProjectsData } from "../../state/index.js";
 import { DEVCLAW_AGENT_TOOLS } from "../setup/plugin-config.js";
 import { buildRoutingDoctorReport } from "./routing.js";
 

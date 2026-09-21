@@ -34,14 +34,14 @@ import {
   renderIssueCreationMarker,
   replaceIssueMetadata,
 } from "../../projection/index.js";
-import type { IssueCreationFailure, IssueCreationOperation } from "../../state/issues/index.js";
+import type { IssueCreationFailure, IssueCreationOperation } from "../../state/index.js";
 import {
   newIssueCreationIdentity,
   readIssueCreationStore,
   updateIssueCreationStore,
   withIssueCreationLock,
-  writeIssueRuntimeState,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { applyManagedLabelDiff } from "../projection/index.js";
 import { withCreationPermit } from "./creation-governor.js";
 
@@ -195,7 +195,7 @@ async function ensureCreationOperation(opts: CreateManagedTaskInput): Promise<Is
         });
       }
 
-      return existing;
+      return { store, result: existing };
     }
 
     const now = new Date().toISOString();
@@ -223,9 +223,10 @@ async function ensureCreationOperation(opts: CreateManagedTaskInput): Promise<Is
       attempts: 0,
     };
 
-    store.operations[opts.idempotencyKey] = operation;
-
-    return operation;
+    return {
+      store: { ...store, operations: { ...store.operations, [opts.idempotencyKey]: operation } },
+      result: operation,
+    };
   });
 }
 
@@ -515,13 +516,18 @@ async function updateOperation(
   update: (operation: IssueCreationOperation) => void,
 ): Promise<IssueCreationOperation> {
   return updateIssueCreationStore(opts.workspaceDir, opts.project.slug, (store) => {
-    const operation = store.operations[idempotencyKey];
+    const persisted = store.operations[idempotencyKey];
 
-    if (!operation) throw new Error(`Issue creation operation "${idempotencyKey}" disappeared.`);
+    if (!persisted) throw new Error(`Issue creation operation "${idempotencyKey}" disappeared.`);
+    const operation = structuredClone(persisted);
+
     update(operation);
     operation.updatedAt = new Date().toISOString();
 
-    return operation;
+    return {
+      store: { ...store, operations: { ...store.operations, [idempotencyKey]: operation } },
+      result: operation,
+    };
   });
 }
 

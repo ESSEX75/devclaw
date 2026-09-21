@@ -3,7 +3,11 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { emptyIssueStateStore, readIssueArchiveStore, readIssueStateStore, writeIssueStateStore } from "../../state/issues/index.js";
+import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
+import {
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
+  replaceIssueStateStoreForTesting as writeIssueStateStore,
+} from "../../testing/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../integrations/providers/index.js";

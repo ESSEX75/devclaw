@@ -5,7 +5,7 @@ import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type Wo
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { diffIssueProjection } from "../../projection/index.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { readIssueStateStore } from "../../state/index.js";
 
 export type TaskIssueProjectionView = {
   providerLabels: string[];

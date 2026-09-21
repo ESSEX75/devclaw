@@ -11,7 +11,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { getFallbackEmoji } from "../../roles/index.js";
-import { isConfiguredRoleId, loadConfig } from "../../state/config/index.js";
+import { isConfiguredRoleId, loadConfig } from "../../state/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 type AuthorRole = string;
@@ -69,7 +69,7 @@ Examples:
       }
 
       const { project } = await resolveProject(workspaceDir, channelId);
-      const config = await loadConfig(workspaceDir, project.name);
+      const config = await loadConfig(workspaceDir, project.slug);
 
       if (authorRole && authorRole !== "orchestrator" && !isConfiguredRoleId(config, authorRole)) {
         throw new Error(`Unknown comment author role "${authorRole}".`);

@@ -17,8 +17,8 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import { checkWorkerHealth, fetchGatewaySessions, type HealthFix, scanOrphanedLabels } from "../../application/heartbeat/health.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { getConfiguredRoleIds, loadConfig } from "../../state/config/index.js";
-import { getProject, readProjects } from "../../state/projects/index.js";
+import { getConfiguredRoleIds, loadConfig } from "../../state/index.js";
+import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
 
 export function createHealthTool(ctx: PluginContext) {
@@ -29,7 +29,7 @@ export function createHealthTool(ctx: PluginContext) {
     parameters: {
       type: "object",
       properties: {
-        channelId: { type: "string", description: "Channel ID identifying the project. Omit for all." },
+        projectSlug: { type: "string", description: "Canonical project slug to scan. Omit for all projects." },
         fix: { type: "boolean", description: "Apply fixes for detected issues. Default: false (read-only)." },
       },
     },
@@ -38,21 +38,14 @@ export function createHealthTool(ctx: PluginContext) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
       const fix = (params.fix as boolean) ?? false;
 
-      const slugOrChannelId = params.channelId as string | undefined;
+      const projectSlug = params.projectSlug as string | undefined;
 
       const data = await readProjects(workspaceDir);
 
-      // Resolve slug from slugOrChannelId
       let slugs = Object.keys(data.projects);
 
-      if (slugOrChannelId) {
-        const project = getProject(data, slugOrChannelId);
-        const slug = project ?
-          (data.projects[slugOrChannelId] ? slugOrChannelId :
-            Object.keys(data.projects).find(s => data.projects[s].channels.some(ch => ch.channelId === slugOrChannelId)))
-          : undefined;
-
-        slugs = slug ? [slug] : [];
+      if (projectSlug) {
+        slugs = data.projects[projectSlug] ? [projectSlug] : [];
       }
 
       // Fetch gateway sessions once for all projects
@@ -64,8 +57,8 @@ export function createHealthTool(ctx: PluginContext) {
         const project = data.projects[slug];
 
         if (!project) continue;
-      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
-        const resolvedConfig = await loadConfig(workspaceDir, project.name);
+        const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
+        const resolvedConfig = await loadConfig(workspaceDir, project.slug);
 
         for (const role of getConfiguredRoleIds(resolvedConfig)) {
           // Worker health check (session liveness, label consistency, etc)

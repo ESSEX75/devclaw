@@ -1,9 +1,9 @@
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import { getInitialStateLabel } from "../../domain/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { resolveIssueRuntimeState } from "../../state/issues/index.js";
+import { loadConfig } from "../../state/index.js";
 import { resolveProject, resolveProvider } from "../../tools/helpers.js";
+import { resolveIssueRuntimeState } from "../issue-runtime/index.js";
 
 export type EditTaskBodyInput = {
   workspaceDir: string;
@@ -35,7 +35,7 @@ export async function editTaskBody(input: EditTaskBodyInput) {
   const { project } = await resolveProject(workspaceDir, channelId);
   const { provider, type: providerType } = await resolveProvider(workspaceDir, project, runCommand);
 
-  const resolvedConfig = await loadConfig(workspaceDir, project.name);
+  const resolvedConfig = await loadConfig(workspaceDir, project.slug);
   const initialStateLabel = getInitialStateLabel(resolvedConfig.workflow);
   const architectActiveStates = Object.values(resolvedConfig.workflow.states)
     .filter((s) => s.type === "active" && s.role === "architect")

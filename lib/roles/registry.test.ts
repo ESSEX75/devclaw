@@ -5,7 +5,7 @@
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
-import type { ResolvedRoleConfig } from "../state/config/index.js";
+import type { ResolvedRoleConfig } from "../state/index.js";
 import { getAllDefaultModels, getAllLevels, getAllRoleIds, getCompletionResults, getDefaultLevel, getDefaultModel, getEmoji, getFallbackEmoji, getLevelsForRole, getRole, getSessionKeyRolePattern, isLevelForRole, isValidResult, isValidRole, requireRole, resolveModel, ROLE_REGISTRY, roleForLevel } from "./index.js";
 
 describe("role registry", () => {

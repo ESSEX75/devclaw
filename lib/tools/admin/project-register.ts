@@ -29,25 +29,30 @@ import {
   type RoleWorkerState,
 } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";
-import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/config/index.js";
+import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/index.js";
 import {
   parseNotificationEndpoint,
+  parseProjectSlug,
   readProjects,
   resolveRepoPath,
-  writeProjects,
-} from "../../state/projects/index.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
+  updateProjects,
+} from "../../state/index.js";
+import { DATA_DIR, PROJECTS_DIRECTORY_NAME } from "../../state/index.js";
 
 /**
- * Scaffold project directory with prompts/ folder and a README explaining overrides.
- * Returns true if files were created, false if they already existed.
+ * Scaffold a canonical project directory with a prompts folder and override documentation.
+ * Reports whether the project documentation was created by this call.
+ *
+ * @param workspaceDir - Workspace receiving the project-local configuration directory.
+ * @param projectSlug - Canonical lowercase kebab-case project slug used for the directory.
+ * @param roleIds - Configured roles listed in the generated override documentation.
  */
 async function scaffoldPromptFiles(
   workspaceDir: string,
-  projectName: string,
+  projectSlug: string,
   roleIds: readonly string[],
 ): Promise<boolean> {
-  const projectDir = path.join(workspaceDir, DATA_DIR, "projects", projectName);
+  const projectDir = path.join(workspaceDir, DATA_DIR, PROJECTS_DIRECTORY_NAME, projectSlug);
   const promptsDir = path.join(projectDir, "prompts");
 
   await fs.mkdir(promptsDir, { recursive: true });
@@ -82,7 +87,7 @@ Only include the keys you want to override — everything else inherits from the
 
 1. **Built-in defaults** (code)
 2. **Workspace** — \`devclaw/workflow.yaml\`
-3. **Project** — \`devclaw/projects/${projectName}/workflow.yaml\` (this directory)
+3. **Project** — \`devclaw/projects/${projectSlug}/workflow.yaml\` (this directory)
 
 Example — use a different review policy for this project:
 
@@ -197,7 +202,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
       }
 
       // Generate slug from project name
-      const slug = name.toLowerCase().replace(/\s+/g, "-");
+      const slug = parseProjectSlug(name.toLowerCase().trim().replace(/\s+/g, "-"));
 
       // 1. Check project exists or can be created
       const data = await readProjects(workspaceDir);
@@ -228,7 +233,7 @@ export function createProjectRegisterTool(ctx: PluginContext) {
 
       // 2. Resolve repo path
       const repoPath = resolveRepoPath(repo);
-      const resolvedConfig = await loadConfig(workspaceDir, name);
+      const resolvedConfig = await loadConfig(workspaceDir, slug);
 
       // 3. Create provider and verify it works
       const { provider, type: providerType } = await createProvider({
@@ -311,12 +316,41 @@ export function createProjectRegisterTool(ctx: PluginContext) {
         };
       }
 
-      await writeProjects(workspaceDir, data);
+      const preparedProject = data.projects[slug]!;
+
+      await updateProjects(workspaceDir, (current) => {
+        const next = structuredClone(current);
+        const currentProject = next.projects[slug];
+
+        if (currentProject && currentProject.agentId !== agentId) {
+          throw new Error(`Project "${currentProject.name}" belongs to agent "${currentProject.agentId}", not "${agentId}".`);
+        }
+
+        validateDestinationAvailability(next, slug, requestedEndpoint);
+
+        if (existing) {
+          if (!currentProject) throw new Error(`Project "${slug}" no longer exists.`);
+          const newChannel = preparedProject.channels[preparedProject.channels.length - 1]!;
+
+          if (currentProject.channels.some((candidate) => (
+            candidate.channel === newChannel.channel
+            && candidate.accountId === newChannel.accountId
+            && candidate.channelId === newChannel.channelId
+            && candidate.threadId === newChannel.threadId
+          ))) throw new Error(`Channel ${channelId} is already registered for project "${name}".`);
+          currentProject.channels.push(newChannel);
+        } else {
+          if (currentProject) throw new Error(`Project "${slug}" was registered concurrently.`);
+          next.projects[slug] = preparedProject;
+        }
+
+        return { data: next, result: undefined };
+      });
 
       // 6. Scaffold prompt files
       const promptsCreated = await scaffoldPromptFiles(
         workspaceDir,
-        name,
+        slug,
         getConfiguredRoleIds(resolvedConfig),
       );
 

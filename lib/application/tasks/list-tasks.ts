@@ -5,7 +5,7 @@ import {
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
-import { isIssueCreationReady, readIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore } from "../../state/index.js";
 import {
   loadProjectionViewContext,
   summarizeLocalIssueStates,

@@ -18,7 +18,12 @@ export function getLevelMaxWorkers(role: ResolvedRoleConfig | undefined): Record
   return capacities;
 }
 
-/** Return configured role identifiers, optionally including disabled roles. */
+/**
+ * Return configured role identifiers, excluding disabled roles unless explicitly requested.
+ *
+ * @param config - Fully resolved configuration containing the authoritative role registry.
+ * @param includeDisabled - Whether explicitly disabled roles should remain in the result.
+ */
 export function getConfiguredRoleIds(
   config: ResolvedConfig,
   includeDisabled = false,
@@ -28,18 +33,15 @@ export function getConfiguredRoleIds(
     .map(([roleId]) => roleId);
 }
 
-/** Resolve a role definition from the authoritative runtime configuration. */
+/**
+ * Resolve one role definition from the authoritative runtime configuration.
+ *
+ * @param config - Fully resolved configuration containing the authoritative role registry.
+ * @param roleId - Configured role identifier to look up.
+ */
 export function getResolvedRole(
   config: ResolvedConfig,
   roleId: string,
 ): ResolvedRoleConfig | undefined {
   return config.roles[roleId];
-}
-
-/** Check whether a role exists in resolved configuration. */
-export function isConfiguredRoleId(
-  config: ResolvedConfig,
-  value: unknown,
-): value is string {
-  return typeof value === "string" && value in config.roles;
 }

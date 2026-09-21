@@ -24,14 +24,14 @@ import {
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
-import { loadConfig } from "../../state/config/index.js";
+import { loadConfig } from "../../state/index.js";
 import {
   confirmPipelineNotification,
   reservePipelineNotification,
   withIssueOrchestrationLock,
-  writeIssueRuntimeState,
-} from "../../state/issues/index.js";
-import { deactivateWorker, getRoleWorker, loadProjectBySlug } from "../../state/projects/index.js";
+} from "../../state/index.js";
+import { deactivateWorker, getProject, getRoleWorker, readProjects } from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { archiveManagedIssue } from "../issues/index.js";
 import {
   getNotificationConfig,
@@ -135,7 +135,7 @@ async function executeCompletionLocked(opts: {
   } = opts;
 
   const key = `${role}:${result}`;
-  const config = await loadConfig(workspaceDir, projectName);
+  const config = await loadConfig(workspaceDir, projectSlug);
   const completionEvent = config.roles[role]?.completion[result];
 
   if (!completionEvent) {
@@ -147,7 +147,7 @@ async function executeCompletionLocked(opts: {
   if (!rule) throw new Error(`No completion rule for ${key}`);
 
   const { timeouts } = config;
-  const project = await loadProjectBySlug(workspaceDir, projectSlug);
+  const project = getProject(await readProjects(workspaceDir), projectSlug);
 
   if (!project) {
     throw new Error(`Project "${projectSlug}" not found.`);
@@ -493,7 +493,7 @@ async function executeCompletionLocked(opts: {
       correlationId: `terminal:${projectSlug}:${issueId}:${runtimeState.workflowState}`,
     });
 
-    if (!archived.archived) {
+    if (!archived.archived && archived.reason !== "notification_pending") {
       throw new Error(`Terminal issue #${issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
     }
   }

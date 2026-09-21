@@ -22,8 +22,8 @@ import { countActiveSlots, findStateKeyByLabel, getActiveLabel } from "../../dom
 import { loadInstanceName } from "../../instance.js";
 import { resolveModel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
-import { loadConfig } from "../../state/config/index.js";
-import { getRoleWorker } from "../../state/projects/index.js";
+import { loadConfig } from "../../state/index.js";
+import { getRoleWorker } from "../../state/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 /** Queue label for research tasks. */
@@ -107,7 +107,7 @@ Example:
       const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const pluginConfig = ctx.pluginConfig;
       const role = "architect";
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
+      const resolvedConfig = await loadConfig(workspaceDir, project.slug);
       const resolvedRole = resolvedConfig.roles[role];
 
       if (!resolvedRole?.enabled) {

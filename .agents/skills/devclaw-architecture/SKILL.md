@@ -66,15 +66,35 @@ Create files according to real responsibilities, not a mandatory template. Use t
 
 Prefer focused names that communicate the file's owned responsibility.
 
+### Exported type placement
+
+- Declare every exported TypeScript `type` and `interface` in the owning package or subpackage's `types.ts`.
+- Implementation files such as `repository.ts`, `templates.ts`, `queries.ts`, and `workspace-files.ts` may declare file-local types only when those types are not exported.
+- When a file-local type becomes shared or exported, move its declaration to the nearest owning `types.ts` and import it with a top-level `import type` declaration.
+- A package `index.ts` may re-export supported types from `types.ts`, but must not own their declarations or re-export their declarations from implementation files.
+- Keep each `types.ts` cohesive to its owning package or subpackage; do not use this rule to create a cross-package type dumping ground.
+
+### Constant placement and string literals
+
+- Move filesystem and resource identifiers into documented constants even when a value currently appears only once. This includes filenames, directory names, extensions, backup suffixes, relative paths, template paths, and path-segment collections.
+- Move repeated or architecturally meaningful protocol identifiers, prefixes, event names, labels, and policy values into documented constants instead of embedding string literals in implementation code.
+- Put constants shared within a package or subpackage in its `const.ts`. Keep a constant in an implementation file only when it is private to that file and does not represent a filesystem path, resource name, or shared architectural identifier.
+- Build dynamic names and paths from the smallest meaningful constants, such as a role identifier plus a filename-extension constant.
+- Do not export internal constants from a package entrypoint unless external consumers are intentionally supported users of that contract.
+- Ordinary user-facing prose, error messages, log messages, and isolated test descriptions do not need constants unless code compares, parses, or otherwise relies on their exact value.
+
 ## File and API documentation
 
-- Start every new source file with a concise file-level JSDoc comment.
+- Start every source file, including existing production and test files, with a concise file-level JSDoc comment.
 - Explain why the file exists, what responsibility it owns, and where it sits in the architecture.
-- Add concise JSDoc to every newly exported type, interface, class, and constant, and to every newly created or materially changed function declaration or class/object method, including non-exported and private functions. Inline callbacks do not require separate JSDoc.
+- Add meaningful JSDoc to every type, interface, class, module-level constant, named function declaration, and class/object method, including non-exported and private declarations. Inline callbacks and ordinary local variable bindings do not require separate JSDoc.
+- Document every declaration even when its purpose appears obvious from its name or signature; triviality is not a reason to omit documentation.
+- Begin every function or method JSDoc with a concise description of its purpose and behavior. A block containing only tags such as `@param` is incomplete.
 - Give every property declared by an interface or object-shaped type alias its own JSDoc comment, even when the property appears self-explanatory. This applies to nested declared contract objects as well as top-level fields.
 - Document function behavior, important guarantees, side effects, and failure conditions that are not obvious from the signature.
 - Include one `@param name - Description.` tag for every parameter of every documented function or method. Because every new or materially changed function declaration and method must be documented, none of their parameters may be omitted. Describe semantic purpose, constraints, defaults, ownership, or lifecycle role; do not repeat the TypeScript type.
 - Keep `@param` tags in signature order. Document destructured parameters by their signature name when one exists; otherwise name the meaningful destructured path, such as `@param input.projectSlug`.
+- Do not add `@returns` tags. Describe relevant result semantics in the prose description when they are not already clear from the signature.
 - Avoid comments that merely restate an identifier or narrate individual code statements.
 - Update comments when behavior or ownership changes; stale documentation is an architectural defect.
 
@@ -129,12 +149,16 @@ Before completing an architectural change, verify that:
 - affected package README contracts were read and remain accurate;
 - dependency direction follows package boundaries;
 - public entities are exported from the correct owner API;
+- every exported `type` and `interface` is declared in the owning package or subpackage's `types.ts`;
+- filesystem/resource strings and shared architectural identifiers are owned by documented constants in the appropriate `const.ts`;
 - private helpers remain private;
 - imports use the appropriate public entrypoint without creating cycles;
-- new files have a meaningful file-level JSDoc header;
-- new exported entities and new or materially changed named functions have useful JSDoc;
+- every source file has a meaningful file-level JSDoc header;
+- every type, interface, class, module-level constant, named function, and method has useful JSDoc;
+- every function and method JSDoc contains prose describing behavior rather than tags alone;
 - every interface and object-shaped type property has its own JSDoc comment;
 - every documented function or method parameter has an ordered `@param` entry without a duplicated TypeScript type;
+- no JSDoc contains an `@returns` tag;
 - comments describe current behavior rather than historical implementation;
 - relevant tests cover the changed behavior.
 

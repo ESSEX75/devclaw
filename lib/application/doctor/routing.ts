@@ -4,8 +4,8 @@
  */
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
-import { loadConfig } from "../../state/config/index.js";
-import { type ProjectsData, readProjects } from "../../state/projects/index.js";
+import { loadConfig } from "../../state/index.js";
+import { type ProjectsData, readProjects } from "../../state/index.js";
 import { getIssueArchiveStatus, parseDuration } from "../issues/index.js";
 import { DEVCLAW_AGENT_TOOLS } from "../setup/plugin-config.js";
 import { inspectConfiguredProjectRoutes } from "../setup/route-validation.js";
@@ -51,7 +51,7 @@ export async function runRoutingDoctor(
   const report = buildRoutingDoctorReport(config, projects);
 
   for (const project of Object.values(projects.projects)) {
-    const resolved = await loadConfig(workspaceDir, project.name);
+    const resolved = await loadConfig(workspaceDir, project.slug);
 
     report.archives.push({ projectSlug: project.slug, ...await getIssueArchiveStatus({
       workspaceDir,

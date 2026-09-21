@@ -4,7 +4,7 @@
 import { ISSUE_INTEGRITY_STATUS, type IssueRuntimeState } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
-import { isIssueCreationReady, readIssueStateStore } from "../../state/issues/index.js";
+import { isIssueCreationReady, readIssueStateStore } from "../../state/index.js";
 
 export async function getHeartbeatCandidates(opts: {
   workspaceDir: string;

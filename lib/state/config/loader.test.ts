@@ -1,3 +1,4 @@
+/** Verifies layered configuration loading and resolution for custom workflows and roles. */
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -7,8 +8,14 @@ import { afterEach, describe, it } from "node:test";
 import { getLabelColors, getStateLabels } from "../../domain/index.js";
 import { getConfiguredRoleIds, getResolvedRole, isConfiguredRoleId, loadConfig } from "./index.js";
 
+/** Temporary workspaces removed after each configuration loader test. */
 const temporaryWorkspaces: string[] = [];
 
+/**
+ * Create an isolated workspace containing one workflow configuration document.
+ *
+ * @param workflowYaml - Complete YAML content written as the workspace configuration layer.
+ */
 async function createWorkspace(workflowYaml: string): Promise<string> {
   const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-custom-role-"));
   const configDir = path.join(workspaceDir, "devclaw");
@@ -143,6 +150,12 @@ workflow:
     assert.equal(state?.color, "#223344");
     assert.equal(state?.label, "Product Designing");
     assert.equal(state?.on?.COMPLETE?.target, "toReview");
+  });
+
+  it("rejects a non-canonical project slug before resolving a project config path", async () => {
+    const workspaceDir = await createWorkspace("{}");
+
+    await assert.rejects(loadConfig(workspaceDir, "../outside"), /lowercase kebab-case/);
   });
 
 });

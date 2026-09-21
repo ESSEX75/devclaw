@@ -19,7 +19,60 @@ import {
   reconcileSlots,
   type RoleWorkerState,
 } from "../../domain/index.js";
-import { getRoleWorker, parseProjectsData, type ProjectsData, readProjects, writeProjects } from "./index.js";
+import {
+  activateWorker,
+  deactivateWorker,
+  getProject,
+  getRoleWorker,
+  type ProjectsData,
+  readProjects,
+  updateProjects,
+} from "./index.js";
+import { projectsPath } from "./paths.js";
+import { parseProjectsData } from "./schema.js";
+
+/** Notification endpoint fragment accepted by the projects fixture builder. */
+type ProjectFixtureChannel = {
+  /** Provider-local channel identifier. */
+  channelId: string;
+  /** Transport used by the fixture endpoint. */
+  channel: typeof NOTIFICATION_CHANNEL.TELEGRAM;
+  /** Human-readable binding name. */
+  name: string;
+  /** OpenClaw account that owns the endpoint. */
+  accountId: string;
+  /** Optional transport thread identifier. */
+  threadId?: string;
+  /** Removed legacy field used by rejection tests. */
+  topicId?: string;
+};
+
+/**
+ * Persist a validated projects fixture directly for repository tests.
+ *
+ * @param workspaceDir - Isolated test workspace that owns the fixture.
+ * @param data - Complete projects-registry fixture to serialize.
+ */
+async function writeProjectsFixture(workspaceDir: string, data: ProjectsData): Promise<void> {
+  const filePath = projectsPath(workspaceDir);
+
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
+}
+
+describe("project queries", () => {
+  it("looks up projects only by their canonical slug", () => {
+    const data = parseProjectsData(projectsFixture({
+      channelId: "chat-1",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      accountId: "dev",
+    }));
+
+    assert.equal(getProject(data, "devclaw")?.slug, "devclaw");
+    assert.equal(getProject(data, "chat-1"), undefined);
+  });
+});
 
 describe("readProjects", () => {
   it("rejects projects without an owning agent", () => {
@@ -76,15 +129,16 @@ describe("readProjects", () => {
     assert.equal(data.projects.devclaw?.channels[0]?.threadId, "5");
   });
 
-  it("rejects legacy Telegram topic syntax with a replacement example", () => {
+  it("rejects unknown endpoint fields", () => {
     assert.throws(
       () => parseProjectsData(projectsFixture({
-        channelId: "-1003911014709:topic:5",
+        channelId: "-1003911014709",
         channel: NOTIFICATION_CHANNEL.TELEGRAM,
         name: "primary",
         accountId: "dev",
+        topicId: "5",
       })),
-      /legacy Telegram topic syntax.*threadId/,
+      /unrecognized key/i,
     );
   });
 
@@ -124,7 +178,7 @@ describe("readProjects", () => {
     assert.doesNotThrow(() => parseProjectsData(fixture));
   });
 
-  it("normalizes removed project fields and string slot issue IDs", async () => {
+  it("rejects removed project fields and string slot issue IDs", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-"));
     const dataDir = path.join(tmpDir, "devclaw");
 
@@ -132,7 +186,7 @@ describe("readProjects", () => {
 
     const projectFirstData = {
       projects: {
-        "g1": {
+        "test": {
           slug: "test",
           name: "test",
           agentId: "test-agent",
@@ -164,32 +218,40 @@ describe("readProjects", () => {
 
     await fs.writeFile(path.join(dataDir, "projects.json"), JSON.stringify(projectFirstData), "utf-8");
 
-    const data = await readProjects(tmpDir);
-    const rw = data.projects["g1"].workers.developer;
-
-    assert.ok(rw, "should have developer worker state");
-    const mediorSlots = rw.levels.medior;
-
-    assert.ok(mediorSlots, "should have medior level");
-    assert.strictEqual(mediorSlots.length, 2);
-    assert.strictEqual(mediorSlots[0]!.active, true);
-    assert.strictEqual(mediorSlots[0]!.issueId, 5);
-    assert.strictEqual(mediorSlots[1]!.active, false);
-    assert.strictEqual("groupName" in data.projects["g1"], false);
-    assert.strictEqual("deployUrl" in data.projects["g1"], false);
+    await assert.rejects(() => readProjects(tmpDir), /Cannot read projects registry.*(groupName|issueId)/s);
 
     await fs.rm(tmpDir, { recursive: true });
   });
 
+  it("rejects non-canonical slugs and registry-key mismatches", () => {
+    const traversalFixture = projectsFixture({
+      channelId: "chat-1",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      accountId: "dev",
+    });
+
+    if (!isObjectRecord(traversalFixture) || !isObjectRecord(traversalFixture.projects)) {
+      throw new Error("Invalid traversal fixture.");
+    }
+    const project = traversalFixture.projects.devclaw;
+
+    if (!isObjectRecord(project)) throw new Error("Invalid traversal project fixture.");
+    project.slug = "../devclaw";
+    assert.throws(() => parseProjectsData(traversalFixture), /lowercase kebab-case/);
+
+    project.slug = "other-project";
+    assert.throws(() => parseProjectsData(traversalFixture), /must match registry key/);
+  });
+
 });
 
-function projectsFixture(channel: {
-  channelId: string;
-  channel: typeof NOTIFICATION_CHANNEL.TELEGRAM;
-  name: string;
-  accountId: string;
-  threadId?: string;
-}): unknown {
+/**
+ * Build a valid current projects-registry fixture around one notification endpoint.
+ *
+ * @param channel - Notification endpoint assigned to the fixture project.
+ */
+function projectsFixture(channel: ProjectFixtureChannel): unknown {
   return {
     projects: {
       devclaw: {
@@ -207,6 +269,11 @@ function projectsFixture(channel: {
   };
 }
 
+/**
+ * Narrow an unknown fixture fragment to a mutable object record.
+ *
+ * @param value - Fixture fragment to inspect before a deliberate invalid mutation.
+ */
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -276,7 +343,7 @@ describe("per-level slot helpers", () => {
   });
 });
 
-describe("writeProjects round-trip", () => {
+describe("projects repository round-trip", () => {
   it("should preserve per-level workers through write/read cycle", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-"));
     const dataDir = path.join(tmpDir, "devclaw");
@@ -285,7 +352,7 @@ describe("writeProjects round-trip", () => {
 
     const data: ProjectsData = {
       projects: {
-        "g1": {
+        "roundtrip": {
           slug: "roundtrip",
           name: "roundtrip",
           agentId: "test-agent",
@@ -308,9 +375,9 @@ describe("writeProjects round-trip", () => {
       },
     };
 
-    await writeProjects(tmpDir, data);
+    await writeProjectsFixture(tmpDir, data);
     const loaded = await readProjects(tmpDir);
-    const project = loaded.projects["g1"];
+    const project = loaded.projects.roundtrip;
 
     assert.ok(project.workers.developer);
     assert.ok(project.workers.developer.levels.medior);
@@ -318,6 +385,132 @@ describe("writeProjects round-trip", () => {
     assert.strictEqual(project.workers.developer.levels.medior[0]!.active, false);
     assert.strictEqual(project.workers.developer.levels.medior[1]!.active, false);
 
+    await fs.rm(tmpDir, { recursive: true });
+  });
+
+  it("rejects activation and deactivation when a slot belongs to another issue", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-ownership-"));
+    const initial = parseProjectsData(projectsFixture({
+      channelId: "g1",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      accountId: "default",
+    }));
+
+    initial.projects.devclaw!.workers.developer = emptyRoleWorkerState({ medior: 1 });
+    await writeProjectsFixture(tmpDir, initial);
+    await activateWorker(tmpDir, "devclaw", "developer", {
+      issueId: 101,
+      level: "medior",
+      slotIndex: 0,
+    });
+
+    await assert.rejects(
+      activateWorker(tmpDir, "devclaw", "developer", {
+        issueId: 102,
+        level: "medior",
+        slotIndex: 0,
+      }),
+      /already assigned to issue #101/,
+    );
+    await assert.rejects(
+      deactivateWorker(tmpDir, "devclaw", "developer", {
+        issueId: 102,
+        level: "medior",
+        slotIndex: 0,
+      }),
+      /belongs to issue #101, not #102/,
+    );
+    assert.equal(
+      (await readProjects(tmpDir)).projects.devclaw!.workers.developer!.levels.medior![0]!.issueId,
+      101,
+    );
+    await fs.rm(tmpDir, { recursive: true });
+  });
+
+  it("allows first-slot creation and idempotent activation by the same issue", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-idempotent-"));
+    const initial = parseProjectsData(projectsFixture({
+      channelId: "g1",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      accountId: "default",
+    }));
+
+    const project = initial.projects.devclaw;
+
+    assert.ok(project);
+    project.workers.developer = emptyRoleWorkerState({});
+    await writeProjectsFixture(tmpDir, initial);
+    await activateWorker(tmpDir, "devclaw", "developer", {
+      issueId: 101,
+      level: "medior",
+      sessionKey: "first-session",
+    });
+    await activateWorker(tmpDir, "devclaw", "developer", {
+      issueId: 101,
+      level: "medior",
+      sessionKey: "replacement-session",
+    });
+
+    const loadedProject = (await readProjects(tmpDir)).projects.devclaw;
+    const worker = loadedProject?.workers.developer;
+    const slot = worker?.levels.medior?.[0];
+
+    assert.ok(slot);
+    assert.equal(slot.issueId, 101);
+    assert.equal(slot.sessionKey, "replacement-session");
+    await fs.rm(tmpDir, { recursive: true });
+  });
+
+  it("serializes concurrent immutable updates without losing either change", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-concurrency-"));
+    const initial = parseProjectsData(projectsFixture({
+      channelId: "g1",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      accountId: "default",
+    }));
+
+    await fs.mkdir(path.join(tmpDir, "devclaw"), { recursive: true });
+    await writeProjectsFixture(tmpDir, initial);
+    await Promise.all(["first", "second"].map((name) => updateProjects(tmpDir, (current) => {
+      const data = structuredClone(current);
+
+      data.projects.devclaw!.channels.push({
+        channelId: name,
+        channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        name,
+        accountId: "default",
+      });
+
+      return { data, result: undefined };
+    })));
+
+    const channels = (await readProjects(tmpDir)).projects.devclaw!.channels.map((channel) => channel.channelId);
+
+    assert.deepStrictEqual([...channels].sort(), ["first", "g1", "second"]);
+    await fs.rm(tmpDir, { recursive: true });
+  });
+
+  it("does not persist a candidate mutated before a callback failure", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-proj-failure-"));
+    const initial = parseProjectsData(projectsFixture({
+      channelId: "g1",
+      channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      name: "primary",
+      accountId: "default",
+    }));
+
+    await fs.mkdir(path.join(tmpDir, "devclaw"), { recursive: true });
+    await writeProjectsFixture(tmpDir, initial);
+    await assert.rejects(() => updateProjects(tmpDir, (current) => {
+      const data = structuredClone(current);
+
+      data.projects.devclaw!.name = "not-persisted";
+      throw new Error("callback failed");
+    }), /callback failed/);
+    assert.equal((await readProjects(tmpDir)).projects.devclaw!.name, "devclaw");
     await fs.rm(tmpDir, { recursive: true });
   });
 });

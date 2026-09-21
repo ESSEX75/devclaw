@@ -6,7 +6,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
-import { readProjects } from "../../state/projects/index.js";
+import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createChannelListTool() {

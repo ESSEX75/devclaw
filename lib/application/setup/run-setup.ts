@@ -16,8 +16,8 @@ import {
   type NotificationChannel,
 } from "../../domain/index.js";
 import { getAllDefaultModels } from "../../roles/index.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
-import { scaffoldWorkspace, writeAllDefaults } from "../../state/setup/workspace-files.js";
+import { DATA_DIR } from "../../state/index.js";
+import { refreshSystemInstructionFiles, scaffoldWorkspace } from "../../state/index.js";
 import {
   createAgent,
   getAgentId,
@@ -103,11 +103,9 @@ export async function runSetup(opts: SetupOpts): Promise<SetupResult> {
   await writePluginConfig(opts.runtime, agentId, opts.projectExecution);
 
   const defaultWorkspacePath = getDefaultWorkspacePath(opts.runtime);
-  const filesWritten = await scaffoldWorkspace(workspacePath, defaultWorkspacePath);
-
-  if (opts.ejectDefaults) {
-    filesWritten.push(...await writeAllDefaults(workspacePath, false));
-  }
+  const scaffolded = await scaffoldWorkspace(workspacePath, defaultWorkspacePath);
+  const refreshed = await refreshSystemInstructionFiles(workspacePath);
+  const filesWritten = [...scaffolded.written, ...refreshed.written];
 
   const models = buildModelConfig(opts.models);
 

@@ -5,9 +5,8 @@
  * No other file should access ROLE_REGISTRY directly for role logic.
  */
 import { isBuiltInLevelId, isBuiltInRoleId, type LevelId, type RoleId, type WorkflowEvent } from "../domain/index.js";
-import type { ResolvedRoleConfig } from "../state/config/types.js";
 import { ROLE_REGISTRY } from "./registry.js";
-import type { RoleConfig } from "./types.js";
+import type { ResolvedRoleDefinition, RoleConfig } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Role IDs
@@ -124,7 +123,7 @@ export function getAllDefaultModels(): Record<string, Record<string, string>> {
 export function resolveModel(
   role: string,
   level: string,
-  resolvedRole?: ResolvedRoleConfig,
+  resolvedRole?: ResolvedRoleDefinition,
 ): string {
   const configuredModel = resolvedRole?.levels[level]?.model;
 

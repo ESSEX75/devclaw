@@ -9,7 +9,7 @@ import { DEFAULT_WORKFLOW, getActiveLabel, getCompletionEmoji, getCompletionRule
 import { parseDevClawSessionKey } from "../../integrations/openclaw/bootstrap-hook.js";
 import { getDefaultModel, getEmoji, isLevelForRole, resolveModel, roleForLevel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
-import type { ResolvedRoleConfig } from "../../state/config/index.js";
+import type { ResolvedRoleConfig } from "../../state/index.js";
 
 const architectRole: ResolvedRoleConfig = {
   levels: {
@@ -145,12 +145,12 @@ describe("architect session key parsing", () => {
   it("should parse architect session key", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:my-project-architect-senior");
 
-    assert.deepStrictEqual(result, { projectName: "my-project", role: "architect" });
+    assert.deepStrictEqual(result, { projectSlug: "my-project", role: "architect" });
   });
 
   it("should parse architect junior session key", () => {
     const result = parseDevClawSessionKey("agent:devclaw:subagent:webapp-architect-junior");
 
-    assert.deepStrictEqual(result, { projectName: "webapp", role: "architect" });
+    assert.deepStrictEqual(result, { projectSlug: "webapp", role: "architect" });
   });
 });

@@ -11,7 +11,7 @@ import {
   getStateLabels,
 } from "../../../domain/index.js";
 import type { IssueProvider } from "../../../integrations/providers/provider.js";
-import { readIssueStateStore } from "../../../state/issues/index.js";
+import { readIssueStateStore } from "../../../state/index.js";
 import { reconcileManagedLabels } from "../../projection/index.js";
 import type { HealthFix } from "./types.js";
 

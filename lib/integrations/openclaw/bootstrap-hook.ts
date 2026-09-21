@@ -5,118 +5,43 @@
  *   1. agent:bootstrap (internal hook) — replaces the orchestrator's AGENTS.md
  *      with role-specific instructions so the worker sees its own prompt on
  *      every turn. Requires hooks.internal.enabled in config.
- *   2. loadRoleInstructions() — loads role-specific prompt files from workspace.
- *      Used by both the bootstrap hook (persistent per-turn injection) and
- *      dispatch.ts (extraSystemPrompt fallback for the dispatch turn).
+ *   2. Resolves state-owned role instructions for persistent per-turn injection.
  */
-import fs from "node:fs/promises";
-import path from "node:path";
-
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
 import type { PluginContext } from "../../context.js";
 import { getSessionKeyRolePattern } from "../../roles/index.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
-import { DEFAULT_ROLE_INSTRUCTIONS } from "../../state/setup/templates.js";
+import { loadRoleInstructions } from "../../state/index.js";
 
 /**
- * Parse a DevClaw subagent session key to extract project name and role.
+ * Parse a DevClaw subagent session key to extract canonical project slug and role.
  *
- * Session key format (named): `agent:{agentId}:subagent:{projectName}-{role}-{level}-{name}` (name is lowercase)
- * Session key format (numeric): `agent:{agentId}:subagent:{projectName}-{role}-{level}-{slotIndex}`
+ * Session key format (named): `agent:{agentId}:subagent:{projectSlug}-{role}-{level}-{name}` (name is lowercase)
+ * Session key format (numeric): `agent:{agentId}:subagent:{projectSlug}-{role}-{level}-{slotIndex}`
  * Examples:
- *   - `agent:devclaw:subagent:my-project-developer-medior-ada`  → { projectName: "my-project", role: "developer" }
- *   - `agent:devclaw:subagent:my-project-developer-medior-0`    → { projectName: "my-project", role: "developer" }
+ *   - `agent:devclaw:subagent:my-project-developer-medior-ada`  → { projectSlug: "my-project", role: "developer" }
+ *   - `agent:devclaw:subagent:my-project-developer-medior-0`    → { projectSlug: "my-project", role: "developer" }
  *
- * Note: projectName may contain hyphens, so we match role from the end.
+ * Note: projectSlug may contain hyphens, so we match role from the end.
  */
 export function parseDevClawSessionKey(
   sessionKey: string,
-): { projectName: string; role: string } | null {
+): { projectSlug: string; role: string } | null {
   const rolePattern = getSessionKeyRolePattern();
   // Named/numeric format: ...-{role}-{level}-{nameOrIndex}
   const newMatch = sessionKey.match(
     new RegExp(`:subagent:(.+)-(${rolePattern})-[^-]+-[^-]+$`),
   );
 
-  if (newMatch) return { projectName: newMatch[1], role: newMatch[2] };
+  if (newMatch) return { projectSlug: newMatch[1], role: newMatch[2] };
 
   // Architect research sessions are role-level scoped and do not occupy a
   // named worker slot, so their keys end at `{project}-architect-{level}`.
   const architectMatch = sessionKey.match(/:subagent:(.+)-(architect)-[^-]+$/);
 
-  if (architectMatch) return { projectName: architectMatch[1], role: architectMatch[2] };
+  if (architectMatch) return { projectSlug: architectMatch[1], role: architectMatch[2] };
 
   return null;
-}
-
-/**
- * Result of loading role instructions — includes the source for traceability.
- */
-export type RoleInstructionsResult = {
-  content: string;
-  /** Which file the instructions were loaded from, or null if none found. */
-  source: string | null;
-};
-
-/**
- * Load role-specific instructions from workspace.
- * Tries project-specific file first, then workspace default, then package default.
- * Returns both the content and the source path for logging/traceability.
- *
- * Resolution order:
- *   1. devclaw/projects/<project>/prompts/<role>.md  (project-specific override)
- *   2. devclaw/prompts/<role>.md                      (workspace default)
- *   3. Package default from templates.ts              (in-memory fallback)
- */
-export async function loadRoleInstructions(
-  workspaceDir: string,
-  projectName: string,
-  role: string,
-): Promise<string>;
-export async function loadRoleInstructions(
-  workspaceDir: string,
-  projectName: string,
-  role: string,
-  opts: { withSource: true },
-): Promise<RoleInstructionsResult>;
-export async function loadRoleInstructions(
-  workspaceDir: string,
-  projectName: string,
-  role: string,
-  opts?: { withSource: true },
-): Promise<string | RoleInstructionsResult> {
-  const dataDir = path.join(workspaceDir, DATA_DIR);
-
-  const candidates = [
-    path.join(dataDir, "projects", projectName, "prompts", `${role}.md`),
-    path.join(dataDir, "prompts", `${role}.md`),
-  ];
-
-  for (const filePath of candidates) {
-    try {
-      const content = await fs.readFile(filePath, "utf-8");
-
-      if (opts?.withSource) return { content, source: filePath };
-
-      return content;
-    } catch {
-      /* not found, try next */
-    }
-  }
-
-  // Final fallback: package defaults (in-memory, always available)
-  const packageDefault = DEFAULT_ROLE_INSTRUCTIONS[role];
-
-  if (packageDefault) {
-    if (opts?.withSource) return { content: packageDefault, source: "package-default" };
-
-    return packageDefault;
-  }
-
-  if (opts?.withSource) return { content: "", source: null };
-
-  return "";
 }
 
 /**
@@ -169,7 +94,7 @@ export function registerBootstrapHook(api: OpenClawPluginApi, ctx: PluginContext
         agentsEntry.content = "";
         agentsEntry.missing = true;
         ctx.logger.info(
-          `agent:bootstrap: stripped AGENTS.md for ${parsed.role} worker in "${parsed.projectName}" (no workspaceDir)`,
+          `agent:bootstrap: stripped AGENTS.md for ${parsed.role} worker in "${parsed.projectSlug}" (no workspaceDir)`,
         );
 
         return;
@@ -177,7 +102,7 @@ export function registerBootstrapHook(api: OpenClawPluginApi, ctx: PluginContext
 
       const { content, source } = await loadRoleInstructions(
         workspaceDir,
-        parsed.projectName,
+        parsed.projectSlug,
         parsed.role,
         { withSource: true },
       );
@@ -186,13 +111,13 @@ export function registerBootstrapHook(api: OpenClawPluginApi, ctx: PluginContext
         agentsEntry.content = content;
         agentsEntry.missing = false;
         ctx.logger.info(
-          `agent:bootstrap: injected ${parsed.role} instructions for "${parsed.projectName}" from ${source}`,
+          `agent:bootstrap: injected ${parsed.role} instructions for "${parsed.projectSlug}" from ${source}`,
         );
       } else {
         agentsEntry.content = "";
         agentsEntry.missing = true;
         ctx.logger.info(
-          `agent:bootstrap: stripped AGENTS.md for ${parsed.role} worker in "${parsed.projectName}" (no role instructions found)`,
+          `agent:bootstrap: stripped AGENTS.md for ${parsed.role} worker in "${parsed.projectSlug}" (no role instructions found)`,
         );
       }
     },

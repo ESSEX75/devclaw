@@ -3,7 +3,7 @@
  */
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
-import type { ResolvedTimeouts } from "../../state/config/types.js";
+import type { ResolvedTimeouts } from "../../state/index.js";
 import { fetchGatewaySessions } from "./gateway-sessions.js";
 
 // ---------------------------------------------------------------------------

@@ -13,8 +13,8 @@ import type { IssueProvider } from "../../integrations/providers/provider.js";
 import {
   readIssueStateStore,
   withIssueOrchestrationLock,
-  writeIssueRuntimeState,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { archiveManagedIssue } from "../issues/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 

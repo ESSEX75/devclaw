@@ -1,66 +1,68 @@
-/**
- * Shared templates for workspace files.
- * Used by setup and project_register.
- *
- * All templates are loaded from defaults/ at the repo root.
- * These files serve as both documentation and the runtime source of truth.
- */
-import fs from "node:fs";
+/** Loads packaged setup templates explicitly so filesystem failures stay in the calling use case. */
+import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-// ---------------------------------------------------------------------------
-// File loader — reads from defaults/ (single source of truth)
-// ---------------------------------------------------------------------------
 
-// esbuild bundles everything into dist/index.js, so import.meta.url points to
-// dist/index.js -> one level up reaches the repo root where defaults/ lives.
-// Source tests execute from lib/state/setup/*.ts, where defaults/ is three levels up.
-const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULTS_DIR = [
-  path.join(MODULE_DIR, "..", "defaults"),
-  path.join(MODULE_DIR, "..", "..", "defaults"),
-  path.join(MODULE_DIR, "..", "..", "..", "defaults"),
-].find((candidate) => fs.existsSync(candidate)) ?? path.join(MODULE_DIR, "..", "defaults");
+import type { RoleId } from "../../domain/index.js";
+import {
+  AGENTS_FILE_NAME,
+  HEARTBEAT_FILE_NAME,
+  IDENTITY_FILE_NAME,
+  ROLE_TEMPLATE_PATHS,
+  SOUL_FILE_NAME,
+  TOOLS_FILE_NAME,
+  WORKFLOW_TEMPLATE_PATH,
+} from "./const.js";
+import { resolveDefaultsDirectory } from "./package-root.js";
+import type { SetupTemplates } from "./types.js";
 
-function loadDefault(filename: string): string {
-  const filePath = path.join(DEFAULTS_DIR, filename);
+/** Active or fulfilled template load shared by concurrent and later setup operations. */
+let cachedTemplates: Promise<SetupTemplates> | undefined;
+
+/**
+ * Load and cache packaged templates, clearing a failed attempt so a later call can retry disk access.
+ */
+export async function loadSetupTemplates(): Promise<SetupTemplates> {
+  const loading = cachedTemplates ??= loadTemplates();
 
   try {
-    return fs.readFileSync(filePath, "utf-8");
-  } catch (err) {
-    throw new Error(`Failed to load default file: ${filePath} (${(err as Error).message})`, { cause: err });
+    return await loading;
+  } catch (error) {
+    if (cachedTemplates === loading) cachedTemplates = undefined;
+
+    throw error;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Role prompts — defaults/developer.md, defaults/tester.md, etc.
-// ---------------------------------------------------------------------------
+/** Read the packaged template set from the source or bundled runtime layout. */
+async function loadTemplates(): Promise<SetupTemplates> {
+  const defaultsDir = await resolveDefaultsDirectory(path.dirname(fileURLToPath(import.meta.url)));
+  const read = async (name: string): Promise<string> => {
+    const filePath = path.join(defaultsDir, name);
 
-const DEFAULT_DEV_INSTRUCTIONS = loadDefault("devclaw/prompts/developer.md");
-const DEFAULT_QA_INSTRUCTIONS = loadDefault("devclaw/prompts/tester.md");
-const DEFAULT_ARCHITECT_INSTRUCTIONS = loadDefault("devclaw/prompts/architect.md");
-const DEFAULT_REVIEWER_INSTRUCTIONS = loadDefault("devclaw/prompts/reviewer.md");
+    try {
+      return await fs.readFile(filePath, "utf-8");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
 
-/** Default role instructions indexed by role ID. Used by project scaffolding. */
-export const DEFAULT_ROLE_INSTRUCTIONS: Record<string, string> = {
-  developer: DEFAULT_DEV_INSTRUCTIONS,
-  tester: DEFAULT_QA_INSTRUCTIONS,
-  architect: DEFAULT_ARCHITECT_INSTRUCTIONS,
-  reviewer: DEFAULT_REVIEWER_INSTRUCTIONS,
-};
+      throw new Error(`Cannot load setup template ${filePath}: ${message}`, { cause: error });
+    }
+  };
 
-// ---------------------------------------------------------------------------
-// Workspace templates — defaults/AGENTS.md, defaults/SOUL.md, etc.
-// ---------------------------------------------------------------------------
+  const [agents, heartbeat, identity, soul, tools, workflow] = await Promise.all([
+    read(AGENTS_FILE_NAME),
+    read(HEARTBEAT_FILE_NAME),
+    read(IDENTITY_FILE_NAME),
+    read(SOUL_FILE_NAME),
+    read(TOOLS_FILE_NAME),
+    read(WORKFLOW_TEMPLATE_PATH),
+  ]);
+  const roleInstructions: Record<RoleId, string> = {
+    developer: await read(ROLE_TEMPLATE_PATHS.developer),
+    tester: await read(ROLE_TEMPLATE_PATHS.tester),
+    architect: await read(ROLE_TEMPLATE_PATHS.architect),
+    reviewer: await read(ROLE_TEMPLATE_PATHS.reviewer),
+  };
 
-export const AGENTS_MD_TEMPLATE = loadDefault("AGENTS.md");
-export const HEARTBEAT_MD_TEMPLATE = loadDefault("HEARTBEAT.md");
-export const IDENTITY_MD_TEMPLATE = loadDefault("IDENTITY.md");
-export const SOUL_MD_TEMPLATE = loadDefault("SOUL.md");
-export const TOOLS_MD_TEMPLATE = loadDefault("TOOLS.md");
-
-// ---------------------------------------------------------------------------
-// Workflow YAML — roles generated from registry + workflow section from file
-// ---------------------------------------------------------------------------
-
-export const WORKFLOW_YAML_TEMPLATE = loadDefault("devclaw/workflow.yaml");
+  return { agents, heartbeat, identity, soul, tools, workflow, roleInstructions };
+}

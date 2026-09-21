@@ -8,7 +8,7 @@ import {
   type IssueRuntimeState,
 } from "../../domain/index.js";
 import { ROLE_REGISTRY } from "../../roles/index.js";
-import type { ResolvedRoleConfig } from "../../state/config/index.js";
+import type { ResolvedRoleConfig } from "../../state/index.js";
 import { resolveRoleLevel, resolveStartTaskDecision } from "./lifecycle-decision.js";
 
 const baseState: IssueRuntimeState = {

@@ -18,7 +18,7 @@ import {
   NOTIFICATION_CHANNEL,
   type NotificationEndpoint,
 } from "../../domain/index.js";
-import { readProjects, writeProjects } from "../../state/projects/index.js";
+import { readProjects, updateProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 export function createChannelLinkTool(ctx: PluginContext) {
@@ -144,13 +144,26 @@ export function createChannelLinkTool(ctx: PluginContext) {
         });
       }
 
-      target.channels.push(newChannel);
+      const updatedTarget = await updateProjects(workspaceDir, (current) => {
+        const next = structuredClone(current);
+        const currentTarget = next.projects[target.slug];
 
-      await writeProjects(workspaceDir, data);
+        if (!currentTarget) throw new Error(`Project "${target.slug}" no longer exists.`);
+
+        validateDestinationAvailability(next, currentTarget.slug, newChannel);
+        if (!currentTarget.channels.some((candidate) => (
+          candidate.channel === newChannel.channel
+          && candidate.accountId === newChannel.accountId
+          && candidate.channelId === newChannel.channelId
+          && candidate.threadId === newChannel.threadId
+        ))) currentTarget.channels.push(newChannel);
+
+        return { data: next, result: currentTarget };
+      });
 
       await auditLog(workspaceDir, "channel_link", {
-        project: target.name,
-        projectSlug: target.slug,
+        project: updatedTarget.name,
+        projectSlug: updatedTarget.slug,
         channelId,
         accountId,
         agentId,
@@ -162,12 +175,12 @@ export function createChannelLinkTool(ctx: PluginContext) {
       return jsonResult({
         success: true,
         changed: true,
-        project: target.name,
-        projectSlug: target.slug,
+        project: updatedTarget.name,
+        projectSlug: updatedTarget.slug,
         channelId,
         threadId,
         channelName: newChannel.name,
-        announcement: `Channel linked to "${target.name}".`,
+        announcement: `Channel linked to "${updatedTarget.name}".`,
       });
     },
   });

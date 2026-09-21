@@ -8,7 +8,7 @@ import { deleteManagedIssue } from "../../application/issues/index.js";
 import { validateProjectRoute } from "../../application/setup/index.js";
 import type { PluginContext } from "../../context.js";
 import { isNotificationChannel } from "../../domain/index.js";
-import { readProjects } from "../../state/projects/index.js";
+import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
 
 /** Create the capability-aware issue_delete tool. */

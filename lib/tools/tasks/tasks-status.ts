@@ -9,7 +9,7 @@ import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/
 import { getManagedTaskStatus } from "../../application/tasks/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { loadConfig } from "../../state/config/index.js";
+import { loadConfig } from "../../state/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTasksStatusTool(ctx: PluginContext) {
@@ -40,7 +40,7 @@ export function createTasksStatusTool(ctx: PluginContext) {
       const { project } = await resolveProject(workspaceDir, channelId);
       const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
 
-      const projectConfig = await loadConfig(workspaceDir, project.name);
+      const projectConfig = await loadConfig(workspaceDir, project.slug);
       const status = await getManagedTaskStatus({
         workspaceDir,
         projectSlug: project.slug,

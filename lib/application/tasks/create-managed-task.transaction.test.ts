@@ -15,8 +15,8 @@ import {
   type CreateIssueInput,
   type Issue,
 } from "../../integrations/providers/index.js";
-import { readIssueCreationStore, readIssueStateStore } from "../../state/issues/index.js";
-import { writeIssueRuntimeState } from "../../state/issues/index.js";
+import { readIssueCreationStore, readIssueStateStore } from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { findNextIssueForRole } from "../queue/scan.js";
 import { createManagedTaskIssue, reconcileManagedTaskCreations } from "./create-managed-task.js";

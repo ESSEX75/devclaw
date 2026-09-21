@@ -13,4 +13,9 @@ export {
   type HarnessOptions,
   type TestHarness,
 } from "./harness.js";
-export { type ProviderCall,TestProvider } from "./test-provider.js";
+export {
+  createEmptyIssueStateStoreForTesting,
+  replaceIssueArchiveStoreForTesting,
+  replaceIssueStateStoreForTesting,
+} from "./state-fixtures.js";
+export { type ProviderCall, TestProvider } from "./test-provider.js";

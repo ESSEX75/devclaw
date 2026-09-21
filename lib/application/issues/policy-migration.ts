@@ -6,9 +6,9 @@ import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import type { Project, ReviewPolicy, TestPolicy } from "../../domain/index.js";
 import { createProvider, type IssueProvider } from "../../integrations/providers/index.js";
-import { loadConfig } from "../../state/config/index.js";
-import { updateIssueStateStore } from "../../state/issues/index.js";
-import { readProjects } from "../../state/projects/index.js";
+import { loadConfig } from "../../state/index.js";
+import { updateIssueStateStore } from "../../state/index.js";
+import { readProjects } from "../../state/index.js";
 import { type ManagedProjectionResult,reconcileManagedLabels } from "../projection/index.js";
 
 /** One policy mutation with its optional provider reconciliation result. */
@@ -42,13 +42,15 @@ export async function migrateIssuePolicies(opts: {
 }): Promise<IssuePolicyMigrationResult> {
   if (!opts.reviewPolicy && !opts.testPolicy) throw new Error("Policy migration requires reviewPolicy and/or testPolicy.");
   const project = await requireProject(opts.workspaceDir, opts.projectSlug);
-  const config = await loadConfig(opts.workspaceDir, project.name);
+  const config = await loadConfig(opts.workspaceDir, project.slug);
   const selectedIds = opts.issueIds ? new Set(opts.issueIds.map(String)) : null;
   const selectedStates = opts.workflowStates ? new Set(opts.workflowStates) : null;
   const changed: IssuePolicyMigrationChange[] = [];
   const skipped: Array<{ issueId: number; reason: string }> = [];
 
   await updateIssueStateStore(opts.workspaceDir, opts.projectSlug, (store) => {
+    const issues = { ...store.issues };
+
     for (const [key, state] of Object.entries(store.issues)) {
       if (selectedIds && !selectedIds.has(key)) continue;
       if (selectedStates && !selectedStates.has(state.workflowState)) continue;
@@ -73,11 +75,16 @@ export async function migrateIssuePolicies(opts: {
         after: { reviewPolicy: nextReviewPolicy, testPolicy: nextTestPolicy },
       });
       if (!opts.dryRun) {
-        state.reviewPolicy = nextReviewPolicy;
-        state.testPolicy = nextTestPolicy;
-        state.updatedAt = new Date().toISOString();
+        issues[key] = {
+          ...state,
+          reviewPolicy: nextReviewPolicy,
+          testPolicy: nextTestPolicy,
+          updatedAt: new Date().toISOString(),
+        };
       }
     }
+
+    return { store: { ...store, issues }, result: undefined };
   });
 
   if (!opts.dryRun && changed.length > 0) {

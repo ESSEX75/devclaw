@@ -4,8 +4,8 @@ import {
   isIssueCreationReady,
   readIssueStateStore,
   withIssueOrchestrationLock,
-  writeIssueRuntimeState,
-} from "../../state/issues/index.js";
+} from "../../state/index.js";
+import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 
 export type ClaimManagedTaskResult =

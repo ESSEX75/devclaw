@@ -40,13 +40,13 @@ import {
   type ProjectionMetadata,
   replaceIssueMetadata,
 } from "../../projection/index.js";
-import { loadConfig, type ResolvedRoleConfig } from "../../state/config/index.js";
+import { loadConfig, type ResolvedRoleConfig } from "../../state/index.js";
 import {
   readIssueStateStore,
   updateIssueStateStore,
   withIssueOrchestrationLock,
-} from "../../state/issues/index.js";
-import { readProjects } from "../../state/projects/index.js";
+} from "../../state/index.js";
+import { readProjects } from "../../state/index.js";
 import { applyManagedLabelDiff } from "../projection/index.js";
 
 /** Authoritative snapshot selected for a repair operation. */
@@ -300,7 +300,7 @@ async function resolveRepairContext(input: RepairManagedIssueInput): Promise<Rep
   const project = projects.projects[input.projectSlug];
 
   if (!project) throw repairFailure(ISSUE_REPAIR_ERROR.PROJECT_NOT_FOUND, `Project "${input.projectSlug}" not found.`);
-  const config = await loadConfig(input.workspaceDir, project.name);
+  const config = await loadConfig(input.workspaceDir, project.slug);
   const store = await readIssueStateStore(input.workspaceDir, project.slug);
   const local = store.issues[String(input.issueId)];
 
@@ -566,18 +566,22 @@ async function applyProviderSourceRepair(
     const state = store.issues[String(input.issueId)];
 
     if (!state) throw repairFailure(ISSUE_REPAIR_ERROR.LOCAL_STATE_NOT_FOUND, "Local state disappeared during repair.");
+    let updated = { ...state };
+
     for (const change of plan.localChanges) {
-      if (change.field === "workflowState") state.workflowState = imported.workflowState;
-      else if (change.field === "workflowLabel") state.workflowLabel = imported.workflowLabel;
-      else if (change.field === "assignedRole") state.assignedRole = imported.assignedRole;
-      else if (change.field === "assignedLevel") state.assignedLevel = imported.assignedLevel;
-      else if (change.field === "owner") state.owner = imported.owner;
-      else if (change.field === "reviewPolicy") state.reviewPolicy = imported.reviewPolicy;
-      else if (change.field === "testPolicy") state.testPolicy = imported.testPolicy;
-      else state.notifyTarget = imported.notifyTarget;
+      if (change.field === "workflowState") updated = { ...updated, workflowState: imported.workflowState };
+      else if (change.field === "workflowLabel") updated = { ...updated, workflowLabel: imported.workflowLabel };
+      else if (change.field === "assignedRole") updated = { ...updated, assignedRole: imported.assignedRole };
+      else if (change.field === "assignedLevel") updated = { ...updated, assignedLevel: imported.assignedLevel };
+      else if (change.field === "owner") updated = { ...updated, owner: imported.owner };
+      else if (change.field === "reviewPolicy") updated = { ...updated, reviewPolicy: imported.reviewPolicy };
+      else if (change.field === "testPolicy") updated = { ...updated, testPolicy: imported.testPolicy };
+      else updated = { ...updated, notifyTarget: imported.notifyTarget };
     }
 
-    state.updatedAt = new Date().toISOString();
+    updated.updatedAt = new Date().toISOString();
+
+    return { store: { ...store, issues: { ...store.issues, [String(input.issueId)]: updated } }, result: undefined };
   });
 
   return plan.localChanges.length ? ["update_allowed_local_fields"] : [];
@@ -599,10 +603,10 @@ async function setRepairIntegrity(input: RepairManagedIssueInput, status: IssueI
   await updateIssueStateStore(input.workspaceDir, input.projectSlug, (store) => {
     const state = store.issues[String(input.issueId)];
 
-    if (!state) return;
-    state.integrityStatus = status;
-    state.integrityErrors = errors;
-    state.updatedAt = new Date().toISOString();
+    if (!state) return { store, result: undefined };
+    const updated = { ...state, integrityStatus: status, integrityErrors: errors, updatedAt: new Date().toISOString() };
+
+    return { store: { ...store, issues: { ...store.issues, [String(input.issueId)]: updated } }, result: undefined };
   });
 }
 

@@ -12,12 +12,12 @@ import {
   hasWorkflowStates,
 } from "../../../domain/index.js";
 import type { IssueProvider } from "../../../integrations/providers/provider.js";
-import { readIssueStateStore } from "../../../state/issues/index.js";
+import { readIssueStateStore } from "../../../state/index.js";
 import {
   getProject,
   getRoleWorker,
-} from "../../../state/projects/index.js";
-import { readProjects } from "../../../state/projects/index.js";
+} from "../../../state/index.js";
+import { readProjects } from "../../../state/index.js";
 import { reconcileManagedLabels } from "../../projection/index.js";
 import type { HealthFix } from "./types.js";
 

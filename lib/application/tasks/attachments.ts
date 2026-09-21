@@ -18,7 +18,7 @@ import path from "node:path";
 
 import { log as auditLog } from "../../audit.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
-import { DATA_DIR } from "../../state/setup/paths.js";
+import { DATA_DIR } from "../../state/index.js";
 
 // ---------------------------------------------------------------------------
 // Types

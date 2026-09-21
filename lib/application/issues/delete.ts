@@ -11,7 +11,7 @@ import {
   type IssueProvider,
   PROVIDER_ISSUE_LOOKUP_ERROR,
 } from "../../integrations/providers/index.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { readIssueStateStore } from "../../state/index.js";
 import { archiveManagedIssue } from "./archive.js";
 
 /** Structured result for dry-run, success, or recoverable partial failure. */

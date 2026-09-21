@@ -6,7 +6,7 @@ import {
   type WorkflowStateConfig,
 } from "../../domain/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
-import type { ResolvedRoleConfig } from "../../state/config/index.js";
+import type { ResolvedRoleConfig } from "../../state/index.js";
 
 export type QueueTarget = {
   stateKey: string;

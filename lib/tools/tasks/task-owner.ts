@@ -15,8 +15,8 @@ import {
   ISSUE_INTEGRITY_STATUS,
 } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
-import { loadConfig } from "../../state/config/index.js";
-import { readIssueStateStore } from "../../state/issues/index.js";
+import { loadConfig } from "../../state/index.js";
+import { readIssueStateStore } from "../../state/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
 export function createTaskOwnerTool(ctx: PluginContext) {
@@ -58,7 +58,7 @@ export function createTaskOwnerTool(ctx: PluginContext) {
 
       const { project } = await resolveProject(workspaceDir, channelId);
       const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
-      const resolvedConfig = await loadConfig(workspaceDir, project.name);
+      const resolvedConfig = await loadConfig(workspaceDir, project.slug);
       const instanceName = await loadInstanceName(
         workspaceDir,
         resolvedConfig.instanceName,

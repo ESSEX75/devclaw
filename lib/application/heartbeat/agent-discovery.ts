@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { DATA_DIR } from "../../state/setup/paths.js";
+import { DATA_DIR } from "../../state/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
