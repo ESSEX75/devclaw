@@ -56,7 +56,7 @@ export type PipelineNotificationState = {
 
 /** Local state details for issue synchronization and validation. */
 export type IssueProjectionState = {
-  /** Health status of the projection. **/
+  /** Health status of the projection. */
   integrityStatus: IssueIntegrityStatus;
   /** List of drift or integrity errors detected. */
   integrityErrors: string[];
@@ -94,7 +94,7 @@ export type IssueRuntimeState = IssueProjectionState & {
   workflowLabel: string;
   /** Role currently assigned to resolve the issue. */
   assignedRole: string | null;
-  /** Developer level currently assigned. */
+  /** Worker level currently assigned for the selected role. */
   assignedLevel: string | null;
   /** User name of the currently assigned human owner. */
   owner: string | null;

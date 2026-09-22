@@ -286,4 +286,75 @@ describe("resolved workflow integrity", () => {
     assert.ok(errors.some((error) => error.includes("reserved")));
     assert.ok(errors.some((error) => error.includes("duplicates")));
   });
+
+  it("rejects multiple active states for one role", () => {
+    const errors = validateWorkflowIntegrity({
+      initial: "queue",
+      states: {
+        queue: {
+          type: "queue",
+          role: "developer",
+          label: "Queue",
+          on: { PICKUP: { target: "working" } },
+        },
+        working: { type: "active", role: "developer", label: "Working" },
+        fixing: { type: "active", role: "developer", label: "Fixing" },
+      },
+    }, new Set(["developer"]));
+
+    assert.ok(errors.some((error) => error.includes("multiple active states")));
+  });
+
+  it("rejects a queue without an active state or pickup transition", () => {
+    const errors = validateWorkflowIntegrity({
+      initial: "queue",
+      states: {
+        queue: { type: "queue", role: "developer", label: "Queue" },
+      },
+    }, new Set(["developer"]));
+
+    assert.ok(errors.some((error) => error.includes("has no active state")));
+    assert.ok(errors.some((error) => error.includes("must define a pickup transition")));
+  });
+
+  it("rejects pickup into another role's active state", () => {
+    const errors = validateWorkflowIntegrity({
+      initial: "developerQueue",
+      states: {
+        developerQueue: {
+          type: "queue",
+          role: "developer",
+          label: "Developer Queue",
+          on: { PICKUP: { target: "testing" } },
+        },
+        developing: { type: "active", role: "developer", label: "Developing" },
+        testing: { type: "active", role: "tester", label: "Testing" },
+      },
+    }, new Set(["developer", "tester"]));
+
+    assert.ok(errors.some((error) => error.includes("must be an active state for role \"developer\"")));
+  });
+
+  it("accepts multiple queues that pick up into one active state", () => {
+    const errors = validateWorkflowIntegrity({
+      initial: "todo",
+      states: {
+        todo: {
+          type: "queue",
+          role: "developer",
+          label: "To Do",
+          on: { PICKUP: { target: "doing" } },
+        },
+        improve: {
+          type: "queue",
+          role: "developer",
+          label: "To Improve",
+          on: { PICKUP: { target: "doing" } },
+        },
+        doing: { type: "active", role: "developer", label: "Doing" },
+      },
+    }, new Set(["developer"]));
+
+    assert.deepEqual(errors, []);
+  });
 });

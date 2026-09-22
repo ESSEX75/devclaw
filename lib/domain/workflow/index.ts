@@ -1,10 +1,81 @@
-/**
- * domain/workflow/index.ts — Barrel re-export for workflow domain helpers.
- */
-export * from "./completion.js";
-export * from "./const.js";
-export * from "./defaults.js";
-export * from "./guards.js";
-export * from "./labels.js";
-export * from "./queries.js";
-export * from "./types.js";
+/** Exposes the supported workflow state-machine API to the domain package. */
+export { getCompletionEmoji, getCompletionRule, getNextStateDescription } from "./completion.js";
+export {
+  ACTION,
+  COMPLETION_RESULT,
+  DEFAULT_LEVELS,
+  DEFAULT_RESULT_EMOJI,
+  DEFAULT_ROLE_LABEL_COLOR,
+  DEFAULT_ROLES,
+  EXECUTION_MODE,
+  RESULT_EMOJI,
+  REVIEW_CHECK,
+  REVIEW_POLICY,
+  ROLE_LABEL_COLORS,
+  ROUTING_LABELS,
+  STATE_TYPE,
+  STEP_ROUTING_COLOR,
+  TEST_POLICY,
+  WORKFLOW_EVENT,
+  WORKFLOW_STATE_COLORS,
+  WORKFLOW_STATE_KEYS,
+  WORKFLOW_STATE_LABELS,
+} from "./const.js";
+export { DEFAULT_WORKFLOW } from "./defaults.js";
+export {
+  isBuiltInLevelId,
+  isBuiltInRoleId,
+  isCompletionResult,
+  isReviewPolicy,
+  isTestPolicy,
+  isWorkflowEvent,
+} from "./guards.js";
+export {
+  getRoleLabelColor,
+  getRoleLabels,
+  getStepRoutingLabels,
+  resolveReviewRouting,
+} from "./labels.js";
+export {
+  detectRoleFromLabel,
+  findStateByLabel,
+  findStateKeyByLabel,
+  getActiveLabel,
+  getAllQueueLabels,
+  getCurrentStateLabel,
+  getInitialStateLabel,
+  getLabelColors,
+  getQueueLabels,
+  getRevertLabel,
+  getStateLabels,
+  hasReviewCheck,
+  hasTestPhase,
+  hasWorkflowStates,
+  isFeedbackState,
+  producesReviewableWork,
+} from "./queries.js";
+export type {
+  BuiltInWorkflowConfig,
+  CompletionEventMap,
+  CompletionResult,
+  CompletionRule,
+  ExecutionMode,
+  LabelDefinition,
+  LevelId,
+  ReviewCheckType,
+  ReviewPolicy,
+  RoleDefinition,
+  RoleId,
+  RoleLevelDefinition,
+  RoutingLabel,
+  StateDefinition,
+  TestPolicy,
+  TransitionAction,
+  TransitionTarget,
+  WorkflowConfig,
+  WorkflowDefinition,
+  WorkflowEvent,
+  WorkflowLabel,
+  WorkflowStateConfig,
+  WorkflowStateKey,
+} from "./types.js";

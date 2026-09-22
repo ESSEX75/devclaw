@@ -20,6 +20,7 @@ function getWorkflowStates<
   const states: Array<StateDefinition<TRoleId, TStateKey, TLabel>> = [];
 
   for (const stateKey in workflow.states) {
+    if (!Object.hasOwn(workflow.states, stateKey)) continue;
     states.push(workflow.states[stateKey]);
   }
 
@@ -62,7 +63,7 @@ export function getCurrentStateLabel<
 }
 
 /**
- * Get the initial state label (the first state in the workflow, e.g. "Planning").
+ * Get the label of the state selected by the workflow's explicit initial key.
  *
  * @param workflow - Workflow whose configured initial state should be resolved.
  */
@@ -154,8 +155,8 @@ export function getActiveLabel<
 }
 
 /**
- * Get the revert label for a role (first queue state for that role).
- * Throws when the workflow has no queue state for the role.
+ * Get the queue label that picks up into the role's active state.
+ * Falls back to the role's highest-priority queue and throws when none exists.
  *
  * @param workflow - Workflow defining role-owned queue transitions.
  * @param role - Runtime-configured role whose revert label is required.
@@ -242,6 +243,7 @@ export function findStateKeyByLabel<
   label: string,
 ): TStateKey | null {
   for (const stateKey in workflow.states) {
+    if (!Object.hasOwn(workflow.states, stateKey)) continue;
     if (workflow.states[stateKey].label === label) return stateKey;
   }
 

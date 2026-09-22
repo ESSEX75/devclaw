@@ -36,7 +36,7 @@ export type SlotLocation = {
   slotIndex: number;
 };
 
-/** Project configuration schema. */
+/** Runtime project definition shared by domain and persistence consumers. */
 export type Project = {
   /** Unique project slug. */
   slug: string;

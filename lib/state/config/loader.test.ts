@@ -110,11 +110,20 @@ workflow:
 
   it("deep-merges project state overrides over workspace custom states", async () => {
     const workspaceDir = await createWorkspace(`
+roles:
+  designer:
+    levels:
+      standard:
+        rank: 1
+        model: model/designer
+    defaultLevel: standard
+    completion:
+      done: COMPLETE
 workflow:
   states:
     designQueue:
       type: queue
-      role: developer
+      role: designer
       label: Design Queue
       color: "#112233"
       on:
@@ -122,7 +131,7 @@ workflow:
           target: designing
     designing:
       type: active
-      role: developer
+      role: designer
       label: Designing
       color: "#223344"
       on:
@@ -146,7 +155,7 @@ workflow:
     const state = config.workflow.states.designing;
 
     assert.equal(state?.type, "active");
-    assert.equal(state?.role, "developer");
+    assert.equal(state?.role, "designer");
     assert.equal(state?.color, "#223344");
     assert.equal(state?.label, "Product Designing");
     assert.equal(state?.on?.COMPLETE?.target, "toReview");

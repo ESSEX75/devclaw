@@ -27,7 +27,7 @@ export type WorkflowLabel = ValueOf<typeof WORKFLOW_STATE_LABELS>;
 /** Unique identifier for a role (e.g. "developer", "tester"). */
 export type RoleId = ValueOf<typeof DEFAULT_ROLES>;
 
-/** Unique identifier for a developer tier/level (e.g. "junior", "senior"). */
+/** Unique identifier for a worker capability level (e.g. "junior", "senior"). */
 export type LevelId = ValueOf<typeof DEFAULT_LEVELS>;
 
 /** Union type for execution mode (parallel or sequential). */

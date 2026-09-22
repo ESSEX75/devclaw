@@ -31,6 +31,7 @@ outside `lib/domain`.
 
 - `lib/domain/index.ts` is the public entrypoint for the complete domain package.
 - Every domain subpackage exposes its supported API through its own `index.ts`.
+- Root and subpackage entrypoints enumerate supported value and type exports explicitly; wildcard exports are forbidden.
 - Code outside `lib/domain` imports domain entities from `lib/domain/index.ts`.
 - Cross-subpackage imports use the target subpackage's `index.ts`.
 - Domain internals never import from the root `lib/domain/index.ts` barrel.
