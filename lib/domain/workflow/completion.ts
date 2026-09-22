@@ -1,7 +1,7 @@
 /**
  * workflow/completion.ts — Completion rules derived from workflow transitions.
  */
-import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI, STATE_TYPE } from "./const.js";
+import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI } from "./const.js";
 import { isCompletionResult } from "./guards.js";
 import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";
 import { type CompletionRule, type WorkflowDefinition, type WorkflowEvent } from "./types.js";
@@ -53,7 +53,8 @@ export function getCompletionRule<
 }
 
 /**
- * Get human-readable next state description.
+ * Get the target state's human-readable description, falling back to its label.
+ * Returns an empty string when the completion event has no valid target.
  *
  * @param workflow - Resolved workflow containing the target state metadata.
  * @param role - Runtime-configured role completing its active work.
@@ -76,13 +77,7 @@ export function getNextStateDescription<
 
   if (!targetState) return "";
 
-  if (targetState.type === STATE_TYPE.TERMINAL) return "Done!";
-  if (targetState.type === STATE_TYPE.HOLD) return "awaiting human decision";
-  if (targetState.type === STATE_TYPE.QUEUE && targetState.role) {
-    return `${targetState.role.toUpperCase()} queue`;
-  }
-
-  return rule.to;
+  return targetState.description ?? targetState.label;
 }
 
 /**

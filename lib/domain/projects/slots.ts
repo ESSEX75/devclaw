@@ -59,6 +59,7 @@ export function findFreeSlot(roleWorker: RoleWorkerState, level: string): number
 /**
  * Reconcile a role's levels with the configured per-level maxWorkers.
  * - Adds missing levels, expands short arrays, shrinks idle trailing slots.
+ * - Removes unconfigured levels after all of their slots become inactive.
  * Active workers are never removed — they finish naturally.
  * Mutates roleWorker in place. Returns true if any changes were made.
  *
@@ -70,9 +71,11 @@ export function reconcileSlots(
   levelMaxWorkers: Partial<Record<string, number>>,
 ): boolean {
   let changed = false;
+  const configuredLevels = new Set<string>();
 
   for (const [level, max] of Object.entries(levelMaxWorkers)) {
     if (max === undefined) continue;
+    configuredLevels.add(level);
 
     if (!roleWorker.levels[level]) {
       roleWorker.levels[level] = [];
@@ -92,6 +95,14 @@ export function reconcileSlots(
       slots.pop();
       changed = true;
     }
+  }
+
+  for (const [level, slots] of Object.entries(roleWorker.levels)) {
+    if (configuredLevels.has(level) || slots === undefined) continue;
+    if (slots.some((slot) => slot.active)) continue;
+
+    delete roleWorker.levels[level];
+    changed = true;
   }
 
   return changed;

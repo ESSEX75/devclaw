@@ -316,7 +316,7 @@ function isReservedLabel(label: string): boolean {
 }
 
 /**
- * Validate workflow references, label uniqueness, and reserved routing formats after merging.
+ * Validate workflow references, label uniqueness, dispatch topology, and reserved routing formats after merging.
  *
  * @param workflow - Fully shaped workflow whose semantic references must be consistent.
  * @param configuredRoleIds - Role identifiers available to actionable workflow states.
@@ -342,6 +342,7 @@ export function validateWorkflowIntegrity(
   const errors: string[] = [];
   const stateKeys = new Set(Object.keys(workflow.states));
   const labels = new Map<string, string>();
+  const activeStateKeysByRole = new Map<string, string[]>();
 
   if (!stateKeys.has(workflow.initial)) {
     errors.push(`workflow.initial: state "${workflow.initial}" does not exist`);
@@ -369,12 +370,51 @@ export function validateWorkflowIntegrity(
       errors.push(`${statePath}.role: role "${state.role}" is not configured`);
     }
 
+    if (state.type === STATE_TYPE.ACTIVE && state.role) {
+      const activeStateKeys = activeStateKeysByRole.get(state.role) ?? [];
+
+      activeStateKeys.push(key);
+      activeStateKeysByRole.set(state.role, activeStateKeys);
+    }
+
     if (state.on) {
       for (const [event, transition] of Object.entries(state.on)) {
         if (!stateKeys.has(transition.target)) {
           errors.push(`${statePath}.on.${event}.target: state "${transition.target}" does not exist`);
         }
       }
+    }
+  }
+
+  for (const [role, activeStateKeys] of activeStateKeysByRole) {
+    if (activeStateKeys.length <= 1) continue;
+
+    errors.push(`workflow role "${role}": multiple active states are not supported (${activeStateKeys.join(", ")})`);
+  }
+
+  for (const [key, state] of Object.entries(workflow.states)) {
+    if (state.type !== STATE_TYPE.QUEUE || !state.role) continue;
+    const statePath = `workflow.states.${key}`;
+    const activeStateKeys = activeStateKeysByRole.get(state.role) ?? [];
+
+    if (activeStateKeys.length === 0) {
+      errors.push(`${statePath}.role: role "${state.role}" has no active state`);
+    }
+
+    const pickup = state.on?.[WORKFLOW_EVENT.PICKUP];
+
+    if (!pickup) {
+      errors.push(`${statePath}.on.${WORKFLOW_EVENT.PICKUP}: queue state must define a pickup transition`);
+      continue;
+    }
+
+    const targetState = workflow.states[pickup.target];
+
+    if (!targetState) continue;
+    if (targetState.type !== STATE_TYPE.ACTIVE || targetState.role !== state.role) {
+      errors.push(
+        `${statePath}.on.${WORKFLOW_EVENT.PICKUP}.target: state "${pickup.target}" must be an active state for role "${state.role}"`,
+      );
     }
   }
 

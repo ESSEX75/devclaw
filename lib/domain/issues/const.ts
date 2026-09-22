@@ -42,8 +42,6 @@ export const ISSUE_ARCHIVE_REASON = {
   TERMINAL: "terminal",
   /** The provider confirmed that the issue was deleted. */
   PROVIDER_DELETED: "provider_deleted",
-  /** An explicit project cleanup archived the issue. */
-  PROJECT_CLEANUP: "project_cleanup",
 } as const;
 
 /** Retention state of attachments associated with an archived issue. */
@@ -74,8 +72,6 @@ export const ISSUE_CREATION_STATUS = {
 
 /** Stable creation saga failure identifiers. */
 export const ISSUE_CREATION_ERROR = {
-  /** Validation or preflight check failed before starting provider issue creation. */
-  CREATE_PREFLIGHT_FAILED: "CREATE_PREFLIGHT_FAILED",
   /** Concurrent issue creation request detected with conflicting parameters. */
   IDEMPOTENCY_CONFLICT: "IDEMPOTENCY_CONFLICT",
   /** Provider API returned a definitive error during issue creation. */
@@ -90,8 +86,6 @@ export const ISSUE_CREATION_ERROR = {
   PROJECTION_VERIFICATION_FAILED: "PROJECTION_VERIFICATION_FAILED",
   /** Provider issue created, but writing the initial local runtime state to disk failed. */
   LOCAL_COMMIT_FAILED: "LOCAL_COMMIT_FAILED",
-  /** Discrepancy between local state and provider state requires automated reconciliation pass. */
-  RECONCILIATION_REQUIRED: "RECONCILIATION_REQUIRED",
   /** Creation saga failed in a non-recoverable state requiring manual operator intervention. */
   MANUAL_REPAIR_REQUIRED: "MANUAL_REPAIR_REQUIRED",
 } as const;
