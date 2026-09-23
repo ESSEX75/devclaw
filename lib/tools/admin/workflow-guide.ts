@@ -8,7 +8,7 @@
  *
  * No parameters, no side effects — pure documentation.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { DATA_DIR } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
@@ -37,7 +37,7 @@ function isWorkflowGuideTopic(value: unknown): value is WorkflowGuideTopic {
     && WORKFLOW_GUIDE_TOPICS.some((topic) => topic === value);
 }
 
-export function createWorkflowGuideTool() {
+export function createWorkflowGuideTool(): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "workflow_guide",
     label: "Workflow Guide",

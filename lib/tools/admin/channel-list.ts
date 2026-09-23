@@ -4,12 +4,12 @@
  * Shows registered channels with their type, ID, and name.
  * Can list channels for a specific project or all projects.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createChannelListTool() {
+export function createChannelListTool(): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_list",
     label: "Channel List",

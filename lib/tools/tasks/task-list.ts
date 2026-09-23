@@ -4,7 +4,7 @@
  * Lists issues grouped by state label with optional filtering by state type,
  * specific label, or text search. Supports terminal (closed) issues.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { listManagedTasks } from "../../application/tasks/index.js";
 import { log as auditLog } from "../../audit.js";
@@ -12,7 +12,7 @@ import type { PluginContext } from "../../context.js";
 import { loadConfig } from "../../state/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
-export function createTaskListTool(ctx: PluginContext) {
+export function createTaskListTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_list",
     label: "Task List",

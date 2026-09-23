@@ -2,7 +2,7 @@
  * Exposes explicit bulk review/test policy migration to an agent.
  * The adapter validates JSON input and delegates state and projection changes to application code.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { migrateIssuePolicies } from "../../application/issues/index.js";
 import type { PluginContext } from "../../context.js";
@@ -10,7 +10,7 @@ import { isReviewPolicy, isTestPolicy, type ReviewPolicy, type TestPolicy } from
 import { requireWorkspaceDir } from "../helpers.js";
 
 /** Create the issue_policy_migrate administrative tool. */
-export function createIssuePolicyMigrationTool(ctx: PluginContext) {
+export function createIssuePolicyMigrationTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "issue_policy_migrate",
     label: "Issue Policy Migration",

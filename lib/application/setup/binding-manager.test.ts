@@ -4,7 +4,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import { ensureChannelBinding } from "./binding-manager.js";

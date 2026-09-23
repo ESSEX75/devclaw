@@ -9,7 +9,7 @@
  * - A sub-agent finds a bug and needs to file a follow-up issue
  * - Breaking down an epic into smaller tasks
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 import type { PluginContext } from "../../context.js";
@@ -18,7 +18,7 @@ import { loadInstanceName } from "../../instance.js";
 import { loadConfig } from "../../state/index.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
-export function createTaskCreateTool(ctx: PluginContext) {
+export function createTaskCreateTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_create",
     label: "Task Create",

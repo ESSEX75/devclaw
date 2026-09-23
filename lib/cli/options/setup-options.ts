@@ -1,5 +1,4 @@
-import type { OpenClawConfig } from "openclaw/plugin-sdk";
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import {
   isSetupNotificationChannel,

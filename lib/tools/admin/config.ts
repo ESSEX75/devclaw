@@ -8,12 +8,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { DATA_DIR } from "../../state/index.js";
 import { backupAndWrite, fileExists, loadSetupTemplates, resetDefaults } from "../../state/index.js";
 
-export function createConfigTool() {
+export function createConfigTool(): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "config",
     label: "Config",

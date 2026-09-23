@@ -4,7 +4,7 @@
  * Creates agent, configures model levels, writes workspace files.
  * Thin wrapper around application setup orchestration.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import {
   isSetupNotificationChannel,
@@ -21,7 +21,7 @@ import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
 import { initializeWorkspaceFiles, resetDefaults } from "../../state/index.js";
 
-export function createSetupTool(ctx: PluginContext) {
+export function createSetupTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "setup",
     label: "Setup",

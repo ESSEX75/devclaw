@@ -2,7 +2,7 @@
  * Exposes managed-issue repair to authorized project agents.
  * This adapter validates untrusted tool input and delegates repair semantics to the application layer.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import {
   isIssueRepairFailure,
@@ -19,7 +19,7 @@ const INPUT_FIELDS = new Set([
 ]);
 
 /** Create the safe-by-default issue_repair plugin tool. */
-export function createIssueRepairTool(ctx: PluginContext) {
+export function createIssueRepairTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "issue_repair",
     label: "Issue Repair",

@@ -44,7 +44,7 @@ export type BootstrapResult = {
 
 export type CapturedCommand = {
   argv: string[];
-  opts: { timeoutMs: number; cwd?: string };
+  opts: { timeoutMs?: number; cwd?: string };
   /** Extracted from gateway `agent` call params, if applicable. */
   taskMessage?: string;
   /** Extracted from gateway `agent` call params, if applicable. */
@@ -78,10 +78,7 @@ function createCommandInterceptor(): {
 } {
   const commands: CapturedCommand[] = [];
 
-  const handler: RunCommand = async (
-    argv: string[],
-    optsOrTimeout: number | { timeoutMs: number; cwd?: string },
-  ) => {
+  const handler: RunCommand = async (argv, optsOrTimeout) => {
     const opts = typeof optsOrTimeout === "number"
       ? { timeoutMs: optsOrTimeout }
       : optsOrTimeout;

@@ -6,7 +6,7 @@
  * - Developer worker posts implementation notes
  * - Orchestrator adds summary comments
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
@@ -16,7 +16,7 @@ import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider 
 
 type AuthorRole = string;
 
-export function createTaskCommentTool(ctx: PluginContext) {
+export function createTaskCommentTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_comment",
     label: "Task Comment",

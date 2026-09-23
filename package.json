@@ -23,19 +23,20 @@
     "multi-project"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=24.16.0 <25"
   },
+  "packageManager": "npm@11.19.0",
   "openclaw": {
     "extensions": [
       "./dist/index.js"
     ],
     "compat": {
-      "pluginApi": ">=2026.3.2",
-      "minGatewayVersion": "2026.3.2"
+      "pluginApi": ">=2026.9.5",
+      "minGatewayVersion": "2026.9.5"
     },
     "build": {
-      "openclawVersion": "2026.5.20",
-      "pluginSdkVersion": "2026.5.20"
+      "openclawVersion": "2026.9.5",
+      "pluginSdkVersion": "2026.9.5"
     }
   },
   "main": "./dist/index.js",
@@ -65,27 +66,27 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "openclaw": "^2026.3.2"
+    "openclaw": "^2026.9.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "@types/node": "^25.2.3",
-    "cockatiel": "^3.2.1",
-    "commander": "^14.0.3",
-    "esbuild": "^0.25.0",
-    "eslint": "^10.6.0",
-    "eslint-plugin-simple-import-sort": "^13.0.0",
-    "globals": "^17.7.0",
-    "knip": "^6.25.0",
-    "openclaw": "^2026.5.20",
+    "@types/node": "^24.13.6",
+    "cockatiel": "^4.0.0",
+    "commander": "^15.0.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.11.0",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "globals": "^17.12.0",
+    "knip": "^6.38.0",
+    "openclaw": "2026.9.5",
     "ts-prune": "^0.10.3",
-    "tsx": "^4.23.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.63.0",
+    "typescript-eslint": "^8.70.1",
     "unique-names-generator": "^4.7.1",
-    "vitest": "^4.1.7",
-    "yaml": "^2.8.2",
-    "zod": "^4.3.6"
+    "vitest": "^5.0.1",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
   }
 }

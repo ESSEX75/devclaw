@@ -1,14 +1,14 @@
 /**
  * work_finish — Complete active worker work through the worker application use case.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { finishWork } from "../../application/workers/finish-work.js";
 import type { PluginContext } from "../../context.js";
 import { COMPLETION_RESULT } from "../../domain/index.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
-export function createWorkFinishTool(ctx: PluginContext) {
+export function createWorkFinishTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "work_finish",
     label: "Work Finish",
