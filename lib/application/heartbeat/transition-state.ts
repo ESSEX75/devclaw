@@ -15,7 +15,7 @@ import {
   withIssueOrchestrationLock,
 } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { archiveManagedIssue } from "../issues/index.js";
+import { archiveManagedIssueLocked } from "../issues/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 
 export async function transitionHeartbeatIssue(opts: {
@@ -50,7 +50,7 @@ export async function transitionHeartbeatIssue(opts: {
     });
 
     if (opts.workflow.states[opts.workflowState]?.type === STATE_TYPE.TERMINAL) {
-      const archived = await archiveManagedIssue({
+      const archived = await archiveManagedIssueLocked({
         workspaceDir: opts.workspaceDir,
         projectSlug: opts.project.slug,
         issueId: opts.issueId,

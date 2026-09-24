@@ -209,6 +209,34 @@ describe("managed issue archive", () => {
       const archive = await readIssueArchiveStore(workspaceDir, "devclaw");
       assert.equal(result.deleted, true);
       assert.equal(Object.values(archive.issues)[0]?.archiveReason, ISSUE_ARCHIVE_REASON.PROVIDER_DELETED);
+      const retried = await deleteManagedIssue({ workspaceDir, projectSlug: "devclaw", issueId: 42, confirmIssueId: 42, dryRun: false, provider, actor: "test" });
+      assert.equal(retried.archived, true);
+      assert.equal(provider.callsTo("deleteIssue").length, 1);
+    });
+  });
+
+  it("recovers when provider deletion succeeded but local archival did not", async () => {
+    await withIssueStore(async (workspaceDir) => {
+      const provider = new TestProvider();
+      const result = await deleteManagedIssue({ workspaceDir, projectSlug: "devclaw", issueId: 42, confirmIssueId: 42, dryRun: false, provider, actor: "test" });
+
+      assert.equal(result.archived, true);
+      assert.equal(provider.callsTo("deleteIssue").length, 0);
+      assert.equal((await readIssueStateStore(workspaceDir, "devclaw")).issues["42"], undefined);
+      assert.equal(Object.values((await readIssueArchiveStore(workspaceDir, "devclaw")).issues)[0]?.archiveReason, ISSUE_ARCHIVE_REASON.PROVIDER_DELETED);
+    });
+  });
+
+  it("blocks deletion while a worker is active", async () => {
+    await withIssueStore(async (workspaceDir) => {
+      const store = await readIssueStateStore(workspaceDir, "devclaw");
+      store.issues["42"].activeWorker = { role: "developer", level: "senior", slotIndex: 0, sessionKey: "s", startedAt: new Date().toISOString() };
+      await writeIssueStateStore(workspaceDir, "devclaw", store);
+      const provider = new TestProvider();
+      provider.seedIssue({ iid: 42 });
+
+      await assert.rejects(deleteManagedIssue({ workspaceDir, projectSlug: "devclaw", issueId: 42, confirmIssueId: 42, dryRun: false, provider, actor: "test" }), /active worker/);
+      assert.equal(provider.callsTo("deleteIssue").length, 0);
     });
   });
 });

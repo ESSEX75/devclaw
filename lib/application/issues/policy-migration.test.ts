@@ -10,6 +10,7 @@ import {
   replaceIssueStateStoreForTesting as writeIssueStateStore,
 } from "../../testing/index.js";
 import { migrateIssuePolicies } from "./policy-migration.js";
+import { TestProvider } from "../../testing/test-provider.js";
 
 function policyState(projectSlug: string): IssueRuntimeState {
   return {
@@ -87,6 +88,69 @@ describe("migrateIssuePolicies", () => {
       assert.ok(providerIssue.labels.includes("review:agent"));
       assert.ok(providerIssue.labels.includes("test:agent"));
       assert.ok(!providerIssue.labels.includes("review:human"));
+    } finally {
+      await h.cleanup();
+    }
+  });
+
+  it("retries projection after a partial provider failure without changing policy again", async () => {
+    const h = await createTestHarness();
+    try {
+      const store = emptyIssueStateStore(h.project.slug);
+      store.issues["75"] = policyState(h.project.slug);
+      await writeIssueStateStore(h.workspaceDir, h.project.slug, store);
+      class FailingProvider extends TestProvider {
+        failNextAdd = true;
+
+        override async addLabel(issueId: number, label: string): Promise<void> {
+          if (this.failNextAdd) {
+            this.failNextAdd = false;
+            throw new Error("provider write failed");
+          }
+          await super.addLabel(issueId, label);
+        }
+      }
+      const provider = new FailingProvider();
+      provider.seedIssue({ iid: 75, labels: ["To Review", "review:human", "test:skip"] });
+      const options: Parameters<typeof migrateIssuePolicies>[0] = {
+        workspaceDir: h.workspaceDir, projectSlug: h.project.slug,
+        reviewPolicy: "agent", testPolicy: "agent",
+        provider, runCommand: h.runCommand,
+      };
+
+      await assert.rejects(migrateIssuePolicies(options), /provider write failed/);
+      const failed = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["75"];
+      assert.equal(failed.reviewPolicy, "agent");
+      assert.equal(failed.integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
+
+      const recovered = await migrateIssuePolicies(options);
+      const local = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["75"];
+      const providerIssue = await provider.getIssue(75);
+      assert.deepEqual(recovered.changed, []);
+      assert.equal(recovered.skipped[0]?.reason, "no_change");
+      assert.equal(local.integrityStatus, ISSUE_INTEGRITY_STATUS.OK);
+      assert.ok(providerIssue.labels.includes("review:agent"));
+      assert.ok(providerIssue.labels.includes("test:agent"));
+    } finally {
+      await h.cleanup();
+    }
+  });
+
+  it("skips policy changes while a worker is active", async () => {
+    const h = await createTestHarness();
+    try {
+      const store = emptyIssueStateStore(h.project.slug);
+      store.issues["75"] = policyState(h.project.slug);
+      store.issues["75"].activeWorker = { role: "developer", level: "senior", slotIndex: 0, sessionKey: "s", startedAt: new Date().toISOString() };
+      await writeIssueStateStore(h.workspaceDir, h.project.slug, store);
+      const result = await migrateIssuePolicies({
+        workspaceDir: h.workspaceDir, projectSlug: h.project.slug,
+        reviewPolicy: "agent", provider: h.provider, runCommand: h.runCommand,
+      });
+
+      assert.deepEqual(result.changed, []);
+      assert.equal(result.skipped[0]?.reason, "active_worker");
+      assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["75"].reviewPolicy, "human");
     } finally {
       await h.cleanup();
     }

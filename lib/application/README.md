@@ -45,6 +45,9 @@ migration are application use cases. Adapters in `lib/tools` and `lib/cli` must
 call these shared operations instead of reproducing lifecycle decisions. Repair
 owns snapshot comparison, plan-token validation, issue locking, minimal mutation,
 and post-apply integrity verification.
+The `issues/repair` capability loads fresh local/provider snapshots, builds a
+deterministic plan, validates its token under the issue lock, applies the chosen
+source strategy, and verifies the result before clearing integrity errors.
 
 Creation is durable and idempotent: the application verifies provider read-back
 before publishing runtime state, and heartbeat resumes safe partial operations.

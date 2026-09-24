@@ -21,7 +21,7 @@ import {
   ISSUE_REPAIR_SOURCE,
   isIssueRepairFailure,
   repairManagedIssue,
-} from "./repair.js";
+} from "./repair/index.js";
 
 function state(projectSlug: string, overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {

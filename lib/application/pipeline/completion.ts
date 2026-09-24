@@ -32,7 +32,7 @@ import {
 } from "../../state/index.js";
 import { deactivateWorker, getProject, getRoleWorker, readProjects } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { archiveManagedIssue } from "../issues/index.js";
+import { archiveManagedIssueLocked } from "../issues/index.js";
 import {
   getNotificationConfig,
   type NotificationRuntime,
@@ -483,7 +483,7 @@ async function executeCompletionLocked(opts: {
   }
 
   if (targetState?.type === STATE_TYPE.TERMINAL) {
-    const archived = await archiveManagedIssue({
+    const archived = await archiveManagedIssueLocked({
       workspaceDir,
       projectSlug,
       issueId,

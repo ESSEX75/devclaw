@@ -21,6 +21,7 @@ import {
   readIssueArchiveStore,
   readIssueStateStore,
   updateIssueArchiveStore,
+  withIssueOrchestrationLock,
 } from "../../state/index.js";
 import { listAttachments, purgeIssueAttachments } from "../tasks/index.js";
 
@@ -39,7 +40,7 @@ export type ArchiveIssueResult = {
 };
 
 /** Archive one inactive, healthy issue through the lossless archive-first protocol. */
-export async function archiveManagedIssue(opts: {
+export function archiveManagedIssue(opts: {
   workspaceDir: string;
   projectSlug: string;
   issueId: number;
@@ -49,6 +50,11 @@ export async function archiveManagedIssue(opts: {
   actor: string;
   correlationId: string;
 }): Promise<ArchiveIssueResult> {
+  return withIssueOrchestrationLock(opts.workspaceDir, opts.projectSlug, opts.issueId, () => archiveManagedIssueLocked(opts));
+}
+
+/** Archive while the caller already holds this issue's orchestration lock. */
+export async function archiveManagedIssueLocked(opts: Parameters<typeof archiveManagedIssue>[0]): Promise<ArchiveIssueResult> {
   const active = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
   const state = active.issues[String(opts.issueId)];
 
@@ -59,31 +65,39 @@ export async function archiveManagedIssue(opts: {
     return { issueId: opts.issueId, archived: record !== undefined, reason: record ? "already_archived" : "not_found", record };
   }
 
-  if (state.activeWorker) return { issueId: opts.issueId, archived: false, reason: "active_worker" };
-  if (state.pipelineNotification?.status === PIPELINE_NOTIFICATION_STATUS.ATTEMPTING) {
-    return { issueId: opts.issueId, archived: false, reason: "notification_pending" };
-  }
+  const blocked = archiveBlockReason(state);
 
-  if (state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) {
-    return { issueId: opts.issueId, archived: false, reason: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR };
-  }
+  if (blocked) return { issueId: opts.issueId, archived: false, reason: blocked };
 
   const archivedAt = new Date().toISOString();
-  const record = await archiveIssueState(opts.workspaceDir, opts.projectSlug, opts.issueId, (current) => ({
-    projectSlug: current.projectSlug,
-    issueId: current.issueId,
-    provider: current.provider,
-    ...opts.snapshot,
-    finalWorkflowState: current.workflowState,
-    finalWorkflowLabel: current.workflowLabel,
-    archiveReason: opts.archiveReason,
-    closedAt: current.closedAt,
-    providerDeletedAt: opts.providerDeletedAt,
-    archivedAt,
-    lastIntegrityStatus: current.integrityStatus,
-    attachmentDisposition: ATTACHMENT_DISPOSITION.RETAINED,
-    sourceSnapshotHash: hashIssueState(current),
-  }));
+  let record: ArchivedIssueRecord | null;
+
+  try {
+    record = await archiveIssueState(opts.workspaceDir, opts.projectSlug, opts.issueId, (current) => {
+      const reason = archiveBlockReason(current);
+
+      if (reason) throw new ArchiveBlockedError(reason);
+
+      return {
+        projectSlug: current.projectSlug,
+        issueId: current.issueId,
+        provider: current.provider,
+        ...opts.snapshot,
+        finalWorkflowState: current.workflowState,
+        finalWorkflowLabel: current.workflowLabel,
+        archiveReason: opts.archiveReason,
+        closedAt: current.closedAt,
+        providerDeletedAt: opts.providerDeletedAt,
+        archivedAt,
+        lastIntegrityStatus: current.integrityStatus,
+        attachmentDisposition: ATTACHMENT_DISPOSITION.RETAINED,
+        sourceSnapshotHash: hashIssueState(current),
+      };
+    });
+  } catch (error) {
+    if (error instanceof ArchiveBlockedError) return { issueId: opts.issueId, archived: false, reason: error.reason };
+    throw error;
+  }
 
   if (!record) return { issueId: opts.issueId, archived: false, reason: "not_found" };
   await auditLog(opts.workspaceDir, opts.archiveReason === ISSUE_ARCHIVE_REASON.PROVIDER_DELETED
@@ -98,6 +112,22 @@ export async function archiveManagedIssue(opts: {
   });
 
   return { issueId: opts.issueId, archived: true, record };
+}
+
+/** Explain why a fresh issue snapshot cannot leave active state. */
+function archiveBlockReason(state: IssueRuntimeState): string | null {
+  if (state.activeWorker) return "active_worker";
+  if (state.pipelineNotification?.status === PIPELINE_NOTIFICATION_STATUS.ATTEMPTING) return "notification_pending";
+  if (state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) return ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR;
+
+  return null;
+}
+
+/** Carries a fresh-state archive rejection out of the atomic store transaction. */
+class ArchiveBlockedError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+  }
 }
 
 /** Recover terminal states left active by an interrupted terminal transition. */

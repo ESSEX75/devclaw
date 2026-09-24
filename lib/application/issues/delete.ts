@@ -11,8 +11,8 @@ import {
   type IssueProvider,
   PROVIDER_ISSUE_LOOKUP_ERROR,
 } from "../../integrations/providers/index.js";
-import { readIssueStateStore } from "../../state/index.js";
-import { archiveManagedIssue } from "./archive.js";
+import { readIssueArchiveStore, readIssueStateStore, withIssueOrchestrationLock } from "../../state/index.js";
+import { archiveManagedIssueLocked } from "./archive.js";
 
 /** Structured result for dry-run, success, or recoverable partial failure. */
 export type DeleteManagedIssueResult = {
@@ -26,7 +26,7 @@ export type DeleteManagedIssueResult = {
 };
 
 /** Delete one provider issue only after exact numeric confirmation and archive its local tombstone. */
-export async function deleteManagedIssue(opts: {
+export function deleteManagedIssue(opts: {
   workspaceDir: string;
   projectSlug: string;
   issueId: number;
@@ -35,12 +35,29 @@ export async function deleteManagedIssue(opts: {
   provider: IssueProvider;
   actor: string;
 }): Promise<DeleteManagedIssueResult> {
+  return withIssueOrchestrationLock(opts.workspaceDir, opts.projectSlug, opts.issueId, () => deleteManagedIssueLocked(opts));
+}
+
+/** Execute confirmed deletion while holding the issue orchestration lock. */
+async function deleteManagedIssueLocked(opts: Parameters<typeof deleteManagedIssue>[0]): Promise<DeleteManagedIssueResult> {
   const correlationId = randomUUID();
   const dryRun = opts.dryRun !== false;
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
   const state = store.issues[String(opts.issueId)];
 
-  if (!state) throw new Error(`Issue #${opts.issueId} has no active local runtime state.`);
+  if (!state) {
+    const archive = await readIssueArchiveStore(opts.workspaceDir, opts.projectSlug);
+    const tombstone = Object.values(archive.issues).find(
+      (record) => record.issueId === opts.issueId && record.archiveReason === ISSUE_ARCHIVE_REASON.PROVIDER_DELETED,
+    );
+
+    if (tombstone && !dryRun && opts.confirmIssueId === opts.issueId) {
+      return { issueId: opts.issueId, dryRun: false, deleted: true, archived: true, correlationId, plan: [] };
+    }
+
+    throw new Error(`Issue #${opts.issueId} has no active local runtime state.`);
+  }
+
   if (state.activeWorker) throw new Error(`Issue #${opts.issueId} has an active worker and cannot be deleted.`);
   if (state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) {
     throw new Error(`Issue #${opts.issueId} has integrity_error and cannot be deleted until repaired.`);
@@ -51,7 +68,14 @@ export async function deleteManagedIssue(opts: {
     throw new Error(`confirmIssueId must exactly match issueId (${opts.issueId}).`);
   }
 
-  const issue = await opts.provider.getIssue(opts.issueId);
+  let issue: Awaited<ReturnType<typeof opts.provider.getIssue>> | undefined;
+
+  try {
+    issue = await opts.provider.getIssue(opts.issueId);
+  } catch (error) {
+    if (dryRun || !isProviderIssueLookupError(error) || error.code !== PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND) throw error;
+  }
+
   const plan = [
     `Delete provider issue #${opts.issueId}`,
     `Archive provider-deleted tombstone for ${opts.projectSlug}#${opts.issueId}`,
@@ -70,19 +94,21 @@ export async function deleteManagedIssue(opts: {
 
   if (dryRun) return { issueId: opts.issueId, dryRun: true, deleted: false, archived: false, correlationId, plan };
 
-  try {
-    await opts.provider.deleteIssue(opts.issueId);
-    await auditLog(opts.workspaceDir, "issue_delete_provider_succeeded", {
-      projectSlug: opts.projectSlug, issueId: opts.issueId, provider: state.provider,
-      actor: opts.actor, reason: "explicit_user_request", correlationId,
-    });
-  } catch (error) {
-    await auditLog(opts.workspaceDir, "issue_delete_provider_failed", {
-      projectSlug: opts.projectSlug, issueId: opts.issueId, provider: state.provider,
-      actor: opts.actor, reason: "provider_delete_failed", correlationId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
+  if (issue) {
+    try {
+      await opts.provider.deleteIssue(opts.issueId);
+      await auditLog(opts.workspaceDir, "issue_delete_provider_succeeded", {
+        projectSlug: opts.projectSlug, issueId: opts.issueId, provider: state.provider,
+        actor: opts.actor, reason: "explicit_user_request", correlationId,
+      });
+    } catch (error) {
+      await auditLog(opts.workspaceDir, "issue_delete_provider_failed", {
+        projectSlug: opts.projectSlug, issueId: opts.issueId, provider: state.provider,
+        actor: opts.actor, reason: "provider_delete_failed", correlationId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   try {
@@ -101,12 +127,12 @@ export async function deleteManagedIssue(opts: {
     if (!isProviderIssueLookupError(error) || error.code !== PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND) throw error;
   }
 
-  const archive = await archiveManagedIssue({
+  const archive = await archiveManagedIssueLocked({
     workspaceDir: opts.workspaceDir,
     projectSlug: opts.projectSlug,
     issueId: opts.issueId,
     archiveReason: ISSUE_ARCHIVE_REASON.PROVIDER_DELETED,
-    snapshot: { title: issue.title, issueUrl: issue.web_url },
+    snapshot: issue ? { title: issue.title, issueUrl: issue.web_url } : undefined,
     providerDeletedAt: new Date().toISOString(),
     actor: opts.actor,
     correlationId,
