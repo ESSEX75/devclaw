@@ -31,7 +31,10 @@
       "autoconfigure_models",
       "research_task",
       "workflow_guide",
-      "config"
+      "config",
+      "issue_repair",
+      "issue_policy_migrate",
+      "issue_delete"
     ]
   },
   "configSchema": {
