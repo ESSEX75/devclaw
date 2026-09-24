@@ -49,6 +49,10 @@ and post-apply integrity verification.
 Creation is durable and idempotent: the application verifies provider read-back
 before publishing runtime state, and heartbeat resumes safe partial operations.
 Ambiguous provider outcomes require manual repair rather than a blind retry.
+The `tasks/creation` capability owns the command, operation runner, reconciliation,
+durable checkpoint transitions, provider failure mapping, result formatting, and
+creation audit. `issue-runtime` builds the complete initial runtime draft used
+for projection and persists the authoritative record only after verification.
 
 Terminal pipeline notifications use active issue state as a durable outbox. An
 unconfirmed delivery keeps the terminal issue active; heartbeat retries expired

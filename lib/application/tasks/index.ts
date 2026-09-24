@@ -8,7 +8,7 @@ export {
   saveAttachment,
 } from "./attachments.js";
 export { claimManagedTask } from "./claim-task.js";
-export { createManagedTaskIssue, reconcileManagedTaskCreations } from "./create-managed-task.js";
+export { createManagedTaskIssue, reconcileManagedTaskCreations } from "./creation/index.js";
 export { editTaskBody } from "./edit-task-body.js";
 export { getManagedTaskStatus } from "./get-task-status.js";
 export { listManagedTasks } from "./list-tasks.js";

@@ -15,11 +15,12 @@ import {
   type CreateIssueInput,
   type Issue,
 } from "../../integrations/providers/index.js";
-import { readIssueCreationStore, readIssueStateStore } from "../../state/index.js";
+import { readIssueCreationStore, readIssueStateStore, updateIssueCreationStore } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { findNextIssueForRole } from "../queue/scan.js";
-import { createManagedTaskIssue, reconcileManagedTaskCreations } from "./create-managed-task.js";
+import { createManagedTaskIssue, reconcileManagedTaskCreations } from "./creation/index.js";
+import { CREATION_STEPS } from "./creation/const.js";
 
 const project = {
   slug: "devclaw",
@@ -81,6 +82,48 @@ class ReadBackFailureProvider extends TestProvider {
 class LimitedProvider extends TestProvider {
   async getRateLimitStatus(): Promise<{ remaining: number; resetAt: string }> {
     return { remaining: 0, resetAt: new Date(Date.now() + 60_000).toISOString() };
+  }
+}
+
+class KnownFailureProvider extends TestProvider {
+  failNextCreate = true;
+
+  override async createIssue(createInput: CreateIssueInput): Promise<Issue> {
+    if (this.failNextCreate) {
+      this.failNextCreate = false;
+      this.calls.push({ method: "createIssue", args: createInput });
+      throw new ProviderOperationError({
+        code: PROVIDER_OPERATION_ERROR.TRANSIENT,
+        message: "Provider rejected the first request before creating an issue",
+        retryable: true,
+        outcomeUnknown: false,
+      });
+    }
+
+    return super.createIssue(createInput);
+  }
+}
+
+class ProjectionMismatchProvider extends TestProvider {
+  mismatchReadBack = true;
+
+  override async getIssue(issueId: number): Promise<Issue> {
+    const issue = await super.getIssue(issueId);
+
+    return this.mismatchReadBack ? { ...issue, title: "Wrong provider title" } : issue;
+  }
+}
+
+class LocalCommitReadFailureProvider extends TestProvider {
+  reads = 0;
+  failCommitRead = true;
+
+  override async getIssue(issueId: number): Promise<Issue> {
+    this.reads += 1;
+
+    if (this.failCommitRead && this.reads === 3) throw new Error("local commit read-back failed");
+
+    return super.getIssue(issueId);
   }
 }
 
@@ -192,6 +235,97 @@ describe("managed issue creation transaction", () => {
       assert.strictEqual(second.status, "manual_repair_required");
       assert.strictEqual(provider.calls.filter((call) => call.method === "createIssue").length, 1);
       assert.deepStrictEqual((await readIssueStateStore(workspaceDir, project.slug)).issues, {});
+    });
+  });
+
+  it("does not reissue a create when a started mutation has no persisted provider identity", async () => {
+    await withWorkspace(async (workspaceDir) => {
+      const provider = new LimitedProvider();
+      await createManagedTaskIssue(input(workspaceDir, provider, "ambiguous-start"));
+      await updateIssueCreationStore(workspaceDir, project.slug, (store) => {
+        const operation = store.operations["ambiguous-start"];
+
+        if (!operation) throw new Error("Expected durable creation operation.");
+        const started = {
+          ...operation,
+          status: ISSUE_CREATION_STATUS.CREATING,
+          lastError: undefined,
+          retryAfter: undefined,
+          completedSteps: [...operation.completedSteps, CREATION_STEPS.PROVIDER_STARTED],
+          pendingSteps: operation.pendingSteps.filter((step) => step !== CREATION_STEPS.PROVIDER_STARTED),
+        };
+
+        return {
+          store: { ...store, operations: { ...store.operations, "ambiguous-start": started } },
+          result: undefined,
+        };
+      });
+
+      const result = await createManagedTaskIssue(input(workspaceDir, provider, "ambiguous-start"));
+
+      assert.strictEqual(result.status, "manual_repair_required");
+      assert.strictEqual(result.error?.code, "PROVIDER_CREATE_UNKNOWN");
+      assert.strictEqual(provider.calls.some((call) => call.method === "createIssue"), false);
+    });
+  });
+
+  it("retries a known provider failure without treating it as an ambiguous create", async () => {
+    await withWorkspace(async (workspaceDir) => {
+      const provider = new KnownFailureProvider();
+      const first = await createManagedTaskIssue(input(workspaceDir, provider, "known-failure"));
+      const second = await createManagedTaskIssue(input(workspaceDir, provider, "known-failure"));
+
+      assert.strictEqual(first.status, "pending");
+      assert.strictEqual(first.error?.code, "PROVIDER_CREATE_FAILED");
+      assert.strictEqual(second.status, "ready");
+      assert.strictEqual(provider.issues.size, 1);
+    });
+  });
+
+  it("keeps a mismatched projection unpublished until a verified reconciliation", async () => {
+    await withWorkspace(async (workspaceDir) => {
+      const provider = new ProjectionMismatchProvider();
+      const first = await createManagedTaskIssue(input(workspaceDir, provider, "projection-mismatch"));
+
+      assert.strictEqual(first.status, "pending");
+      assert.strictEqual(first.error?.code, "PROJECTION_VERIFICATION_FAILED");
+      assert.deepStrictEqual((await readIssueStateStore(workspaceDir, project.slug)).issues, {});
+
+      provider.mismatchReadBack = false;
+      const recovered = await reconcileManagedTaskCreations({
+        workspaceDir,
+        project,
+        providerType: ISSUE_PROVIDER.GITHUB,
+        provider,
+        workflow: DEFAULT_WORKFLOW,
+        maxItems: 1,
+      });
+
+      assert.deepStrictEqual(recovered.ready, [1]);
+    });
+  });
+
+  it("resumes after local commit read-back fails without creating another provider issue", async () => {
+    await withWorkspace(async (workspaceDir) => {
+      const provider = new LocalCommitReadFailureProvider();
+      const first = await createManagedTaskIssue(input(workspaceDir, provider, "commit-read"));
+
+      assert.strictEqual(first.status, "pending");
+      assert.strictEqual((await readIssueCreationStore(workspaceDir, project.slug)).operations["commit-read"]?.status, ISSUE_CREATION_STATUS.PROJECTION_VERIFIED);
+      assert.deepStrictEqual((await readIssueStateStore(workspaceDir, project.slug)).issues, {});
+
+      provider.failCommitRead = false;
+      const recovered = await reconcileManagedTaskCreations({
+        workspaceDir,
+        project,
+        providerType: ISSUE_PROVIDER.GITHUB,
+        provider,
+        workflow: DEFAULT_WORKFLOW,
+        maxItems: 1,
+      });
+
+      assert.deepStrictEqual(recovered.ready, [1]);
+      assert.strictEqual(provider.calls.filter((call) => call.method === "createIssue").length, 1);
     });
   });
 });
