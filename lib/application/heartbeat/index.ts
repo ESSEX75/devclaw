@@ -23,6 +23,8 @@ import {
 } from "./health.js";
 
 export { HEARTBEAT_DEFAULTS };
+export type { HealthFix } from "./health.js";
+export { checkWorkerHealth, fetchGatewaySessions, scanOrphanedLabels } from "./health.js";
 import type { HeartbeatTickResult } from "./tick-runner.js";
 import { tick } from "./tick-runner.js";
 

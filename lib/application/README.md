@@ -2,6 +2,35 @@
 
 This layer owns DevClaw use cases.
 
+## Capability ownership
+
+| Subpackage | Responsibility | Supported entrypoint |
+| --- | --- | --- |
+| `doctor` | Read-only routing diagnostics and reports. | `doctor/index.ts`: `runRoutingDoctor` |
+| `heartbeat` | Periodic service, health passes, and recovery coordination. | `heartbeat/index.ts`: service registration and health operations used by adapters |
+| `issue-runtime` | Interpretation of issue projections and complete runtime state writes. | `issue-runtime/index.ts`: resolution and write operations |
+| `issues` | Repair, archive, deletion, retention, and policy migration. | `issues/index.ts`: lifecycle commands and repair source |
+| `notifications` | Exact endpoint resolution, delivery, and retry of terminal events. | `notifications/index.ts`: delivery and retry operations for sibling use cases |
+| `pipeline` | Completion transitions and provider effects. | `pipeline/index.ts`: completion command and rule query for sibling use cases |
+| `projection` | Applying deterministic projection diffs to a provider. | `projection/index.ts`: reconcile and apply operations for sibling use cases |
+| `queue` | Local-state candidate selection and queue ticks. | `queue/index.ts`: candidate query and project tick for sibling use cases |
+| `review` | PR feedback/context and comment acknowledgement. | `review/index.ts`: review context operations for sibling use cases |
+| `setup` | Agent setup, route validation, and explicit scope preflight. | `setup/index.ts`: setup and routing operations for adapters |
+| `tasks` | Task creation, attachment, status, claim, and edit operations. | `tasks/index.ts`: managed task commands and attachment operations |
+| `workers` | Session dispatch and worker completion. | `workers/index.ts`: dispatch and completion commands |
+
+Code outside `lib/application` imports only the supported subpackage entrypoints.
+Implementation files within this layer may import sibling implementation files when
+the capability is not part of a supported public API. Avoid importing a
+subpackage's own entrypoint from that subpackage. Do not create an application
+root barrel: each use case has a specific owner.
+
+Use existing narrow external contracts where they already match a consumer:
+provider issue reads use the integrations `IssueReader` capability, and
+notification delivery uses the application `NotificationRuntime` surface.
+Create additional capability types only when a concrete caller needs them;
+keep provider error classification and session transport details in integrations.
+
 Application modules coordinate domain decisions, persisted state, and integration
 capabilities. They should contain orchestration logic such as queue ticks,
 heartbeat passes, task lifecycle operations, worker dispatch, setup flows, and

@@ -1,7 +1,7 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
 import { registerHeartbeatService } from "./lib/application/heartbeat/index.js";
-import { registerAttachmentHook } from "./lib/application/tasks/attachment-hook.js";
+import { registerAttachmentHook } from "./lib/application/tasks/index.js";
 // Infrastructure
 import { registerCli } from "./lib/cli/register.js";
 import { createPluginContext } from "./lib/context.js";

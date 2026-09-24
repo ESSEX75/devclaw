@@ -3,7 +3,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { finishWork } from "../../application/workers/finish-work.js";
+import { finishWork } from "../../application/workers/index.js";
 import type { PluginContext } from "../../context.js";
 import { COMPLETION_RESULT } from "../../domain/index.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";

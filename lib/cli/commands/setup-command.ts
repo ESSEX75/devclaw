@@ -5,7 +5,7 @@ import {
   ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
-} from "../../application/setup/scopes.js";
+} from "../../application/setup/index.js";
 import type { PluginContext } from "../../context.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import {

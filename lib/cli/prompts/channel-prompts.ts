@@ -5,7 +5,7 @@ import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
 import {
   SETUP_NOTIFICATION_CHANNELS,
   type SetupNotificationChannel,
-} from "../../application/setup/run-setup.js";
+} from "../../application/setup/index.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import {
   formatAgentLabel,

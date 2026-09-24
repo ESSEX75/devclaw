@@ -182,6 +182,15 @@ function checkImportBoundary({ sourceFile, sourceLayer, targetFile, targetLayer,
     return "code outside state must import its public API through lib/state/index.ts";
   }
 
+  if (
+    targetLayer === "application" &&
+    sourceLayer !== "application" &&
+    targetFile &&
+    !/^lib\/application\/[^/]+\/index\.ts$/.test(targetRelative.split(path.sep).join("/"))
+  ) {
+    return "code outside application must import a supported application subpackage entrypoint";
+  }
+
   if (sourceLayer === "domain" && ["application", "state", "integrations", "tools", "cli"].includes(targetLayer)) {
     return "domain must not import application, state, integrations, tools, or cli";
   }

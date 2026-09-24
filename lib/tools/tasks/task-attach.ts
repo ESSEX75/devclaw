@@ -16,7 +16,7 @@ import {
   getAttachmentPath,
   listAttachments,
   saveAttachment,
-} from "../../application/tasks/attachments.js";
+} from "../../application/tasks/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";

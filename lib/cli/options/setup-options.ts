@@ -3,7 +3,7 @@ import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
 import {
   isSetupNotificationChannel,
   type SetupNotificationChannel,
-} from "../../application/setup/run-setup.js";
+} from "../../application/setup/index.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
 
 export type SetupCliOptions = {

@@ -16,7 +16,7 @@ import {
   ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
-} from "../../application/setup/scopes.js";
+} from "../../application/setup/index.js";
 import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
 import { initializeWorkspaceFiles, resetDefaults } from "../../state/index.js";
