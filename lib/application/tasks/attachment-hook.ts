@@ -11,7 +11,7 @@
 import { homedir } from "node:os";
 import path from "node:path";
 
-import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";

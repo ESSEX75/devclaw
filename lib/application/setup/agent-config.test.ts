@@ -7,7 +7,7 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 import { createAgent } from "./agent-config.js";
 import { runSetup } from "./run-setup.js";

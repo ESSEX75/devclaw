@@ -9,7 +9,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import {
   validateDestinationAvailability,
@@ -118,7 +118,7 @@ Call \`workflow_guide\` for the full config reference.
  *
  * @param ctx - Plugin services used for commands, provider access, and audit logging.
  */
-export function createProjectRegisterTool(ctx: PluginContext) {
+export function createProjectRegisterTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "project_register",
     label: "Project Register",

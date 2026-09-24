@@ -4,13 +4,13 @@
  * Restricted to HOLD states only (Planning, Refining). The assignment is
  * stored locally for the target queue role and projected as a provider label.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { setTaskLevel } from "../../application/tasks/index.js";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
-export function createTaskSetLevelTool(ctx: PluginContext) {
+export function createTaskSetLevelTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_set_level",
     label: "Task Set Level",

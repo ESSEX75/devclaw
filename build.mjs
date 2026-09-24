@@ -19,6 +19,9 @@ await esbuild.build({
   target: "es2022",
   external: ["openclaw", "openclaw/*"],
   sourcemap: true,
+  banner: {
+    js: 'import { createRequire as __createRequire } from "node:module"; const require = __createRequire(import.meta.url);',
+  },
   define: {
     __PLUGIN_VERSION__: JSON.stringify(pkg.version),
     __PACKAGE_NAME__: JSON.stringify(pkg.name),

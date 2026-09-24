@@ -2,7 +2,7 @@
  * Exposes explicitly confirmed single-issue deletion to an agent conversation.
  * The adapter resolves the bound project and delegates every destructive decision to application code.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { deleteManagedIssue } from "../../application/issues/index.js";
 import { validateProjectRoute } from "../../application/setup/index.js";
@@ -12,7 +12,7 @@ import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
 
 /** Create the capability-aware issue_delete tool. */
-export function createIssueDeleteTool(ctx: PluginContext) {
+export function createIssueDeleteTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "issue_delete",
     label: "Delete Issue",

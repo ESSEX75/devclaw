@@ -9,7 +9,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import {
   formatAttachmentComment,
@@ -21,7 +21,7 @@ import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
 
-export function createTaskAttachTool(ctx: PluginContext) {
+export function createTaskAttachTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_attach",
     label: "Task Attach",

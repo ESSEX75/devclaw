@@ -4,8 +4,11 @@
  * Handles detection of existing channel bindings, channel availability,
  * and safe migration of bindings between agents.
  */
-import type { OpenClawConfig } from "openclaw/plugin-sdk";
-import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
+import type {
+  OpenClawConfig,
+  OpenClawPluginApi,
+  PluginRuntime,
+} from "openclaw/plugin-sdk/core";
 
 import { validateExactRoute } from "./route-validation.js";
 

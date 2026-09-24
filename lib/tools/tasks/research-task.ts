@@ -12,7 +12,7 @@
  *   → architect calls work_finish(result="done") → "Researching" → "Done" (issue closed)
  *   → heartbeat dispatches queued implementation tasks
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 import { dispatchTask } from "../../application/workers/dispatch-task.js";
@@ -29,7 +29,7 @@ import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider 
 /** Queue label for research tasks. */
 const TO_RESEARCH_LABEL = "To Research";
 
-export function createResearchTaskTool(ctx: PluginContext) {
+export function createResearchTaskTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "research_task",
     label: "Research Task",

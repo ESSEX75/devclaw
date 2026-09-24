@@ -3,7 +3,7 @@
  *
  * Queries available authenticated models and intelligently assigns them to DevClaw roles.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import type { PluginContext, RunCommand } from "../../context.js";
 import { fetchAuthenticatedModels } from "../../roles/model-fetcher.js";
@@ -39,7 +39,7 @@ async function getAuthenticatedModels(runCommand: RunCommand): Promise<Array<{ m
 /**
  * Create the autoconfigure_models tool.
  */
-export function createAutoConfigureModelsTool(ctx: PluginContext) {
+export function createAutoConfigureModelsTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "autoconfigure_models",
     label: "Auto-Configure Models",

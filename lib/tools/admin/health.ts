@@ -12,7 +12,7 @@
  *
  * Read-only by default (surfaces issues). Pass fix=true to apply fixes.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { checkWorkerHealth, fetchGatewaySessions, type HealthFix, scanOrphanedLabels } from "../../application/heartbeat/health.js";
 import { log as auditLog } from "../../audit.js";
@@ -21,7 +21,7 @@ import { getConfiguredRoleIds, loadConfig } from "../../state/index.js";
 import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
 
-export function createHealthTool(ctx: PluginContext) {
+export function createHealthTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "health",
     label: "Health",

@@ -5,7 +5,7 @@
  * its owning agent and OpenClaw binding. Existing project ownership is never
  * changed implicitly.
  */
-import { jsonResult, type OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
+import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import {
   validateDestinationAvailability,
@@ -21,7 +21,7 @@ import {
 import { readProjects, updateProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
-export function createChannelLinkTool(ctx: PluginContext) {
+export function createChannelLinkTool(ctx: PluginContext): OpenClawPluginToolFactory {
 
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "channel_link",
