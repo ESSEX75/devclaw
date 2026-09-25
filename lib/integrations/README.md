@@ -16,6 +16,9 @@ is unknown. Creation must never blindly retry an outcome-unknown mutation.
 Adapters may expose a typed rate-limit snapshot for planned mutations. GitHub
 repair preflight reads the core API budget; providers without a reliable quota
 endpoint leave the optional capability unavailable and callers report that fact.
+The OpenClaw session adapter exposes a typed worker-turn submission outcome.
+Command timeouts and lost responses remain unknown; application orchestration
+decides whether to retain or release its worker reservation.
 
 ## Boundary Rules
 

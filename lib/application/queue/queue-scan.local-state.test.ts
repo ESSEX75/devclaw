@@ -92,6 +92,25 @@ describe("findNextIssueForRole local state", () => {
     });
   });
 
+  it("skips issues with an active worker or unpublished creation operation", async () => {
+    const active = state({ issueId: 124, activeWorker: {
+      role: "developer", level: "senior", slotIndex: 0, sessionKey: "s", startedAt: new Date().toISOString(),
+    } });
+    const unpublished = state({ issueId: 125, creationOperationId: "00000000-0000-4000-8000-000000000125" });
+
+    await withStore([active, unpublished], async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 124, labels: ["To Do"] });
+      provider.seedIssue({ iid: 125, labels: ["To Do"] });
+      const next = await findNextIssueForRole(
+        provider, "developer", DEFAULT_WORKFLOW, undefined,
+        { workspaceDir: tmpDir, projectSlug: "devclaw" },
+      );
+
+      assert.equal(next, null);
+      assert.equal(provider.callsTo("getIssue").length, 0);
+    });
+  });
+
   it("does not silently dispatch provider-only issues in managed local-state mode", async () => {
     await withStore([], async (tmpDir, provider) => {
       provider.seedIssue({ iid: 456, labels: ["To Do", "bug"], description: "Legacy body" });

@@ -112,6 +112,30 @@ describe("projectTick issue orchestration lock", () => {
       await harness.cleanup();
     }
   });
+
+  it("dispatches one managed issue only once across concurrent ticks", async () => {
+    const harness = await createTestHarness();
+    const issueId = 81;
+    const store = emptyIssueStateStore(harness.project.slug);
+
+    store.issues[String(issueId)] = issueState(harness.project.slug, issueId);
+    await writeIssueStateStore(harness.workspaceDir, harness.project.slug, store);
+    harness.provider.seedIssue({ iid: issueId, title: "One pickup", labels: ["To Do"] });
+
+    try {
+      const options = {
+        workspaceDir: harness.workspaceDir, projectSlug: harness.project.slug,
+        provider: harness.provider, workflow: harness.workflow, runCommand: harness.runCommand,
+      };
+      const results = await Promise.all([projectTick(options), projectTick(options)]);
+
+      assert.equal(results.flatMap((result) => result.pickups).length, 1);
+      assert.equal(harness.provider.callsTo("transitionLabel").filter((call) => call.args.to === "Doing").length, 1);
+      assert.equal(harness.commands.taskMessages().length, 1);
+    } finally {
+      await harness.cleanup();
+    }
+  });
 });
 
 function issueState(

@@ -5,6 +5,7 @@ import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import type { ResolvedTimeouts } from "../../state/index.js";
 import { fetchGatewaySessions } from "./gateway-sessions.js";
+import type { AgentTurnInput, AgentTurnOutcome } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Context budget management
@@ -90,22 +91,59 @@ export function ensureSessionFireAndForget(sessionKey: string, model: string, wo
 
 export function sendToAgent(
   sessionKey: string, taskMessage: string,
-  opts: {
-    agentId?: string;
-    projectName: string;
-    issueId: number;
-    role: string;
-    level?: string;
-    slotIndex?: number;
-    fromLabel?: string;
-    orchestratorSessionKey?: string;
-    workspaceDir: string;
-    dispatchTimeoutMs?: number;
-    extraSystemPrompt?: string;
-    runCommand: RunCommand;
-  },
+  opts: AgentTurnInput,
 ): void {
-  const rc = opts.runCommand;
+  // Fire-and-forget: long-running agent turn, don't await
+  opts.runCommand(
+    agentCommand(sessionKey, taskMessage, opts),
+    { timeoutMs: opts.dispatchTimeoutMs ?? 600_000 },
+  ).catch((err) => {
+    auditLog(opts.workspaceDir, "dispatch_warning", {
+      step: "sendToAgent", sessionKey,
+      issue: opts.issueId, role: opts.role,
+      error: (err as Error).message ?? String(err),
+    }).catch(() => { });
+  });
+}
+
+/**
+ * Observe the gateway command result without interpreting transport failure as rejection.
+ * Only local input validation proves that the command was never submitted.
+ * @param sessionKey - Deterministic worker session identity.
+ * @param taskMessage - Complete task context to submit.
+ * @param opts - Gateway address, idempotency, and command capability.
+ */
+export async function submitAgentTurn(sessionKey: string, taskMessage: string, opts: AgentTurnInput): Promise<AgentTurnOutcome> {
+  if (!sessionKey.trim() || !taskMessage.trim() || (opts.agentId !== undefined && !opts.agentId.trim())) {
+    return { kind: "rejected", reason: "Gateway worker turn has invalid local submission input." };
+  }
+
+  try {
+    const result = await opts.runCommand(agentCommand(sessionKey, taskMessage, opts), {
+      timeoutMs: opts.dispatchTimeoutMs ?? 600_000,
+    });
+
+    if (result.termination !== "exit" || result.killed) {
+      return { kind: "unknown", reason: `Gateway command ended without an exit response: ${result.termination}` };
+    }
+
+    if (result.code !== 0) {
+      return { kind: "unknown", reason: `Gateway command failed after submission (exit ${result.code}): ${result.stderr}` };
+    }
+
+    return { kind: "accepted" };
+  } catch (error) {
+    return { kind: "unknown", reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
+ * Build the shared gateway RPC with a stable key so a replay addresses one turn.
+ * @param sessionKey - Deterministic worker session identity.
+ * @param taskMessage - Complete task context to submit.
+ * @param opts - Issue and parent session identity for the RPC.
+ */
+function agentCommand(sessionKey: string, taskMessage: string, opts: AgentTurnInput): string[] {
   const gatewayParams = JSON.stringify({
     idempotencyKey: `devclaw-${opts.projectName}-${opts.issueId}-${opts.role}-${opts.level ?? "unknown"}-${opts.slotIndex ?? 0}-${opts.fromLabel ?? "unknown"}-${sessionKey}`,
     agentId: opts.agentId ?? "devclaw",
@@ -117,15 +155,5 @@ export function sendToAgent(
     ...(opts.extraSystemPrompt ? { extraSystemPrompt: opts.extraSystemPrompt } : {}),
   });
 
-  // Fire-and-forget: long-running agent turn, don't await
-  rc(
-    ["openclaw", "gateway", "call", "agent", "--params", gatewayParams, "--expect-final", "--json"],
-    { timeoutMs: opts.dispatchTimeoutMs ?? 600_000 },
-  ).catch((err) => {
-    auditLog(opts.workspaceDir, "dispatch_warning", {
-      step: "sendToAgent", sessionKey,
-      issue: opts.issueId, role: opts.role,
-      error: (err as Error).message ?? String(err),
-    }).catch(() => { });
-  });
+  return ["openclaw", "gateway", "call", "agent", "--params", gatewayParams, "--expect-final", "--json"];
 }

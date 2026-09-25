@@ -1,0 +1,5 @@
+# Worker Dispatch
+
+This capability plans and executes one worker assignment. `plan.ts` computes the configured model, deterministic session key, and reuse/reset decision without I/O. `dispatch-task.ts` owns the issue lock, fresh safety checks, task context, provider transition, and command order. `session-delivery.ts` observes a brief gateway acceptance window using the narrow OpenClaw submission capability. `state.ts` reserves and releases the project slot and commits issue runtime state before provider projection reconciliation. `reconcile-delivery.ts` inspects slot, issue, and gateway session evidence after an uncertain response; it never retries or rolls back on absence alone. `audit.ts` records completed dispatch metadata.
+
+A confirmed local submission failure restores the provider label and releases the reservation. A nonzero gateway command exit, timeout, lost response, or still-pending command retains the reservation and active runtime ownership so another tick cannot send the issue again. Custom roles and levels come from resolved configuration. `finish-work.ts` remains the separate worker completion command.

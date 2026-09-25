@@ -65,6 +65,11 @@ project routes, delivers through runtime or command fallback, and audits typed
 outcomes. The `projection` coordinator locks each issue, reads fresh local state,
 applies only managed-label changes, verifies provider read-back, and records
 integrity without treating provider labels as authoritative state.
+The `queue` capability filters and plans pickups from local runtime state, then
+rechecks candidates after acquiring each issue lock. The `workers` capability
+plans session identity, reserves a concrete slot, submits the turn, and commits
+active runtime state. Confirmed delivery rejection releases the slot; uncertain
+gateway outcomes retain ownership for inspection without a blind resend.
 
 ## Allowed Dependencies
 
