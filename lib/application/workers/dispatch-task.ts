@@ -19,7 +19,7 @@ import { loadConfig, loadRoleInstructions } from "../../state/index.js";
 import { readIssueStateStore, withIssueOrchestrationLock } from "../../state/index.js";
 import { activateWorker, deactivateWorker, getRoleWorker } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { getNotificationConfig, notify } from "../notifications/notify.js";
+import { getNotificationConfig, notify } from "../notifications/index.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { acknowledgeComments, EYES_EMOJI } from "../review/acknowledge-comments.js";

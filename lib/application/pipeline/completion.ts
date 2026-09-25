@@ -37,7 +37,7 @@ import {
   getNotificationConfig,
   type NotificationRuntime,
   notify,
-} from "../notifications/notify.js";
+} from "../notifications/index.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 

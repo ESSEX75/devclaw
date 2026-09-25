@@ -10,7 +10,7 @@ import type { IssueProvider } from "../../integrations/providers/provider.js";
 import type { ResolvedConfig } from "../../state/index.js";
 import { getConfiguredRoleIds } from "../../state/index.js";
 import { maintainIssueArchive, recoverTerminalIssueArchives } from "../issues/index.js";
-import { getNotificationConfig, notify } from "../notifications/notify.js";
+import { getNotificationConfig, notify } from "../notifications/index.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { retryPendingPipelineNotifications } from "../notifications/retry-pipeline.js";
 import { reconcileManagedTaskCreations } from "../tasks/index.js";

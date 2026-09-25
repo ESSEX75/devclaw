@@ -16,7 +16,7 @@ import {
   createTestHarness,
   replaceIssueStateStoreForTesting,
 } from "../../testing/index.js";
-import type { NotificationRuntime } from "./notify.js";
+import type { NotificationRuntime } from "./index.js";
 import { retryPendingPipelineNotifications } from "./retry-pipeline.js";
 
 /**

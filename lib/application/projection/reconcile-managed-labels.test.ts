@@ -19,7 +19,7 @@ import {
   replaceIssueStateStoreForTesting as writeIssueStateStore,
   TestProvider,
 } from "../../testing/index.js";
-import { reconcileManagedLabels } from "./reconcile-managed-labels.js";
+import { reconcileManagedLabels } from "./index.js";
 
 describe("managed projection coordinator", () => {
   it("waits for the issue lock, reconciles from fresh local state, and is idempotent", async () => {
@@ -61,6 +61,9 @@ describe("managed projection coordinator", () => {
 
       assert.equal(first.changed, true);
       assert.equal(second.changed, false);
+      assert.deepEqual(first.before, ["Doing", "bug"]);
+      assert.ok((await provider.getIssue(123)).labels.includes("bug"));
+      assert.equal((await readIssueStateStore(workspaceDir, "devclaw")).issues["123"].integrityStatus, ISSUE_INTEGRITY_STATUS.OK);
     });
   });
 
@@ -88,6 +91,26 @@ describe("managed projection coordinator", () => {
       const store = await readIssueStateStore(workspaceDir, "devclaw");
       assert.equal(store.issues["123"]?.integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
       assert.match(store.issues["123"]?.integrityErrors[0] ?? "", /test_failure/);
+    });
+  });
+
+  it("rejects a silent provider no-op during read-back verification", async () => {
+    await withFixture(async (workspaceDir, provider) => {
+      const ineffectiveProvider = {
+        getIssue: (issueId: number) => provider.getIssue(issueId),
+        ensureLabel: (name: string, color: string) => provider.ensureLabel(name, color),
+        async addLabel(): Promise<void> { /* simulate a successful response without mutation */ },
+        async removeLabels(): Promise<void> { /* simulate a successful response without mutation */ },
+      };
+
+      await assert.rejects(reconcileManagedLabels({
+        workspaceDir, projectSlug: "devclaw", issueId: 123,
+        workflow: DEFAULT_WORKFLOW, roles: ["developer"],
+        provider: ineffectiveProvider, owner: "test_noop",
+      }), /still differ/);
+      const state = (await readIssueStateStore(workspaceDir, "devclaw")).issues["123"];
+
+      assert.equal(state.integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
     });
   });
 });

@@ -32,7 +32,7 @@ import { readProjects, getRoleWorker, getProject } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
 import { slotName } from "../../names.js";
-import type { NotificationRuntime } from "../notifications/notify.js";
+import type { NotificationRuntime } from "../notifications/index.js";
 
 function notificationRuntime(project: Project): NotificationRuntime {
   const endpoint = project.channels[0];

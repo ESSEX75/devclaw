@@ -10,8 +10,9 @@ import {
   readIssueStateStore,
   reservePipelineNotification,
 } from "../../state/index.js";
-import { getNotificationConfig, type NotificationRuntime, notify } from "./notify.js";
+import { getNotificationConfig, notify } from "./notify.js";
 import { resolveIssueNotificationEndpoint } from "./resolve-endpoint.js";
+import type { NotificationRuntime } from "./types.js";
 
 /**
  * Retry a bounded batch of expired terminal-notification attempts.

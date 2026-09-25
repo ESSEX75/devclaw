@@ -60,6 +60,11 @@ for projection and persists the authoritative record only after verification.
 Terminal pipeline notifications use active issue state as a durable outbox. An
 unconfirmed delivery keeps the terminal issue active; heartbeat retries expired
 attempt leases and archives the issue only after delivery is confirmed.
+The `notifications` capability renders messages without I/O, validates exact
+project routes, delivers through runtime or command fallback, and audits typed
+outcomes. The `projection` coordinator locks each issue, reads fresh local state,
+applies only managed-label changes, verifies provider read-back, and records
+integrity without treating provider labels as authoritative state.
 
 ## Allowed Dependencies
 
