@@ -520,6 +520,19 @@ Sync GitHub/GitLab labels with the current workflow config. Creates any missing 
 
 ---
 
+### `devclaw worker-delivery`
+
+Resolve a worker turn whose gateway response was lost. `tasks_status` shows the durable `workerDelivery` status, session key, and investigation hint. Heartbeat marks an unresolved turn `needs_attention` after five minutes without recent worker activity; it does not requeue the issue from session absence alone.
+
+```bash
+devclaw worker-delivery --project my-webapp --issue 42 --session-key agent:my-agent:subagent:my-webapp-developer-medior-ada --decision confirmed-not-started --reason "verified no accepted or in-flight run" --dry-run
+devclaw worker-delivery --project my-webapp --issue 42 --session-key agent:my-agent:subagent:my-webapp-developer-medior-ada --decision confirmed-not-started --reason "verified no accepted or in-flight run" --apply
+```
+
+Use `--decision confirmed-started` after verifying that the turn started; this clears the uncertainty and keeps the active worker. `confirmed-not-started` requires proof that no accepted or in-flight turn can still run. It restores the previous queue label, clears active issue ownership, and releases the exact slot. Both decisions recheck the issue, slot, and session key under the issue lock. `--dry-run` reads fresh state and provider labels without writing.
+
+---
+
 ### `issue_repair` / `devclaw repair issue`
 
 Plan or apply a verified repair between local managed state and the provider projection. CLI and plugin tool call the same application service.

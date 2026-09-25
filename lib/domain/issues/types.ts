@@ -3,6 +3,7 @@
  */
 import type { ValueOf } from "../../types.js";
 import type { NotifyBindingRef } from "../notifications/index.js";
+import type { WorkerDeliveryState } from "../workers/index.js";
 import type { ReviewPolicy, TestPolicy } from "../workflow/index.js";
 import {
   ATTACHMENT_DISPOSITION,
@@ -76,6 +77,8 @@ export type ActiveIssueWorker = {
   sessionKey: string | null;
   /** ISO timestamp when work started. */
   startedAt: string;
+  /** Unresolved gateway submission requiring reconciliation before any retry. */
+  delivery?: WorkerDeliveryState;
 };
 
 /** Main local runtime state for a managed provider issue. */

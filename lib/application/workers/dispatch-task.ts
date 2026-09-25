@@ -3,7 +3,8 @@
  * This application capability owns the dispatch use case while state retains worker-slot authority.
  */
 import { log as auditLog } from "../../audit.js";
-import { emptySlot, ISSUE_INTEGRITY_STATUS, NOTIFICATION_CHANNEL } from "../../domain/index.js";
+import type { WorkerDeliveryState } from "../../domain/index.js";
+import { emptySlot, ISSUE_INTEGRITY_STATUS, NOTIFICATION_CHANNEL, WORKER_DELIVERY_STATUS } from "../../domain/index.js";
 import {
   hasReviewCheck,
   isFeedbackState,
@@ -22,7 +23,7 @@ import { auditDispatch, dispatchErrorMessage } from "./audit.js";
 import { buildDispatchPlan } from "./plan.js";
 import { reconcileUncertainDispatch } from "./reconcile-delivery.js";
 import { beginWorkerDelivery } from "./session-delivery.js";
-import { commitWorkerDispatch, releaseDispatchSlot, reserveDispatchSlot } from "./state.js";
+import { commitWorkerDispatch, recordIssueDelivery, recordSlotDelivery, releaseDispatchSlot, reserveDispatchSlot } from "./state.js";
 import type { DispatchOpts, DispatchResult } from "./types.js";
 
 /**
@@ -189,6 +190,15 @@ export async function dispatchTaskLocked(
     taskDispatched = true;
     const deliveryStatus = delivery.initial.kind === "pending" ? "pending"
       : delivery.initial.kind === "unknown" ? "unknown" : "accepted";
+    const unresolved: WorkerDeliveryState | undefined = delivery.initial.kind === "accepted" ? undefined : {
+      status: delivery.initial.kind === "pending" ? WORKER_DELIVERY_STATUS.PENDING : WORKER_DELIVERY_STATUS.UNKNOWN,
+      recordedAt: new Date().toISOString(),
+      reason: delivery.initial.kind === "pending"
+        ? "Gateway command is still running; turn acceptance is unconfirmed."
+        : delivery.initial.reason,
+    };
+
+    await recordSlotDelivery(opts, plan, unresolved).catch(() => { });
 
     // Notify only after the gateway did not explicitly reject delivery.
     const notifyConfig = getNotificationConfig(pluginConfig);
@@ -212,7 +222,7 @@ export async function dispatchTaskLocked(
 
     // Commit active runtime state after delivery is accepted or remains uncertain.
     try {
-      await commitWorkerDispatch(opts, plan, resolvedConfig, issue.labels);
+      await commitWorkerDispatch(opts, plan, resolvedConfig, issue.labels, unresolved);
     } catch (err) {
       // Session is already dispatched — log warning but don't fail
       await auditLog(workspaceDir, "dispatch", {
@@ -225,17 +235,21 @@ export async function dispatchTaskLocked(
     if (delivery.initial.kind === "unknown") {
       await reconcileUncertainDispatch({
         workspaceDir, projectSlug: project.slug, role, level, slotIndex, issueId, sessionKey,
-        runCommand: rc, reason: delivery.initial.reason,
+        runCommand: rc, reason: delivery.initial.reason, outcomeUnknown: true,
       })
         .catch(() => { });
     }
 
     if (delivery.initial.kind === "pending") {
       delivery.settled.then((outcome) => {
-        if (outcome.kind !== "accepted") {
+        if (outcome.kind === "accepted") {
+          recordSlotDelivery(opts, plan, undefined)
+            .then(() => recordIssueDelivery(workspaceDir, project.slug, issueId, sessionKey, undefined))
+            .catch(() => { });
+        } else {
           reconcileUncertainDispatch({
             workspaceDir, projectSlug: project.slug, role, level, slotIndex, issueId, sessionKey,
-            runCommand: rc, reason: outcome.reason,
+            runCommand: rc, reason: outcome.reason, outcomeUnknown: true,
           })
             .catch(() => { });
         }

@@ -5,6 +5,7 @@ import { registerDoctorCommand } from "./commands/doctor-command.js";
 import { registerIssuesArchiveCommand } from "./commands/issues-archive-command.js";
 import { registerRepairIssueCommand } from "./commands/repair-issue-command.js";
 import { registerSetupCommand } from "./commands/setup-command.js";
+import { registerWorkerDeliveryCommand } from "./commands/worker-delivery-command.js";
 
 export function registerCli(program: Command, ctx: PluginContext): void {
   const devclaw = program
@@ -15,4 +16,5 @@ export function registerCli(program: Command, ctx: PluginContext): void {
   registerIssuesArchiveCommand(devclaw, ctx);
   registerSetupCommand(devclaw, ctx);
   registerDoctorCommand(devclaw, ctx);
+  registerWorkerDeliveryCommand(devclaw, ctx);
 }

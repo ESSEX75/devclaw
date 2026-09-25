@@ -4,10 +4,13 @@
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../context.js";
-import type { Project, SlotState } from "../../domain/index.js";
+import type { Project, SlotState, WorkflowConfig } from "../../domain/index.js";
+import type { SessionLookup } from "../../integrations/openclaw/gateway-sessions.js";
 import type { AgentTurnOutcome } from "../../integrations/openclaw/types.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import type { ResolvedRoleConfig } from "../../state/index.js";
+import type { ValueOf } from "../../types.js";
+import { WORKER_DELIVERY_RESOLUTION } from "./const.js";
 
 /** Immutable inputs used to plan one worker session assignment. */
 export type DispatchPlanInput = {
@@ -159,4 +162,50 @@ export type UnknownDispatchInput = {
   runCommand: RunCommand;
   /** Transport diagnostic prompting reconciliation. */
   reason: string;
+  /** Gateway session snapshot already fetched by heartbeat, if available. */
+  sessions?: SessionLookup | null;
+  /** Whether the gateway command has settled without a confirmed acceptance. */
+  outcomeUnknown?: boolean;
+};
+
+/** Explicit, audited operator decision for a still-reserved uncertain worker turn. */
+export type ResolveWorkerDeliveryInput = {
+  /** Workspace containing authoritative project and issue state. */
+  workspaceDir: string;
+  /** Canonical project owning the worker slot. */
+  projectSlug: string;
+  /** Provider-local issue identifier. */
+  issueId: number;
+  /** Exact session identity shown by the unresolved status. */
+  sessionKey: string;
+  /** Operator's verified conclusion about this worker turn. */
+  decision: ValueOf<typeof WORKER_DELIVERY_RESOLUTION>;
+  /** Operator's evidence or investigation note for audit. */
+  reason: string;
+  /** Whether to apply the decision; false previews fresh state. */
+  apply: boolean;
+  /** Resolved workflow used to validate a safe queue return. */
+  workflow?: WorkflowConfig;
+  /** Optional provider supplied by tests or an existing application caller. */
+  provider?: IssueProvider;
+  /** Runtime command capability used when a provider must be created. */
+  runCommand?: RunCommand;
+};
+
+/** Result of previewing or applying an explicit worker delivery decision. */
+export type ResolveWorkerDeliveryResult = {
+  /** Whether the decision was applied. */
+  applied: boolean;
+  /** Project and issue bound to the verified session. */
+  projectSlug: string;
+  /** Provider-local issue identifier. */
+  issueId: number;
+  /** Exact session identity affected by the decision. */
+  sessionKey: string;
+  /** Operator conclusion recorded for this worker turn. */
+  decision: ValueOf<typeof WORKER_DELIVERY_RESOLUTION>;
+  /** Previous active workflow label. */
+  fromLabel: string;
+  /** Queue label after confirmed non-start, or active label after confirmed start. */
+  toLabel: string;
 };

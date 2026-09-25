@@ -168,7 +168,7 @@ For initialized DevClaw-managed issues, `devclaw/projects/<project>/issues.json`
 - Queue dispatch uses local `workflowState`/`workflowLabel` when a local issue record exists.
 - Provider labels remain visible in GitHub/GitLab and in `task_list`/`tasks_status`.
 - Manual provider label edits do not mutate local state.
-- If the provider issue no longer exists in GitHub/GitLab, heartbeat treats that as task deletion and removes the matching local `issues.json` record.
+- If the provider issue no longer exists in GitHub/GitLab, heartbeat normally treats that as task deletion. An unresolved worker delivery retains its slot for investigation instead of requeueing from absence alone.
 - Heartbeat repairs recoverable managed-label drift and preserves unmanaged human labels.
 - Missing or tampered managed metadata sets `integrity_error`; repair with `devclaw repair issue --project <slug> --issue <id> --source local-state --dry-run` and then `--apply`.
 - Old issues without local state are shown as `projection_uninitialized` and must be explicitly backfilled before managed dispatch.

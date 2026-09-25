@@ -19,7 +19,8 @@ export type HealthIssue = {
     | "orphaned_label"
     | "context_overflow"
     | "session_stalled"
-    | "stateless_issue";
+    | "stateless_issue"
+    | "delivery_unknown";
   severity: "critical" | "warning";
   project: string;
   projectSlug: string;

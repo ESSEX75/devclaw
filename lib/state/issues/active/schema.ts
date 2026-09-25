@@ -10,6 +10,7 @@ import {
   PIPELINE_NOTIFICATION_STATUS,
   REVIEW_POLICY,
   TEST_POLICY,
+  WORKER_DELIVERY_STATUS,
 } from "../../../domain/index.js";
 import type { IssueStateStore } from "./types.js";
 
@@ -24,6 +25,10 @@ const RuntimeIssueSchema = z.object({
   activeWorker: z.object({
     role: z.string(), level: z.string(), slotIndex: z.number().int().nonnegative(),
     sessionKey: z.string().nullable(), startedAt: z.string(),
+    delivery: z.object({
+      status: z.enum(WORKER_DELIVERY_STATUS), recordedAt: z.string(), reason: z.string(),
+      checkedAt: z.string().optional(), sessionObserved: z.boolean().nullable().optional(),
+    }).strict().optional(),
   }).strict().nullable(),
   integrityStatus: z.enum(ISSUE_INTEGRITY_STATUS), integrityErrors: z.array(z.string()),
   projectionVersion: z.number().int().positive(), createdAt: z.string(), updatedAt: z.string(),

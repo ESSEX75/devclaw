@@ -20,6 +20,8 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 ## Managed Issue Stores
 
 - `issues.json` contains active managed issue state only.
+- Active issue workers may contain an optional unresolved delivery marker; the
+  same marker on a project worker slot protects ownership if issue state commit fails.
 - `issues.archive.json` contains archived records and deletion tombstones only.
 - `issue-creations.json` contains resumable creation operations and idempotency
   keys; these records are not active runtime state.

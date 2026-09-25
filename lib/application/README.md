@@ -70,6 +70,9 @@ rechecks candidates after acquiring each issue lock. The `workers` capability
 plans session identity, reserves a concrete slot, submits the turn, and commits
 active runtime state. Confirmed delivery rejection releases the slot; uncertain
 gateway outcomes retain ownership for inspection without a blind resend.
+Unresolved worker delivery is durable in the slot and issue runtime record. Heartbeat
+reconciles gateway evidence, avoids automatic worker requeue for these records, and
+marks stale uncertainty for operator attention in task status and audit logs.
 
 ## Allowed Dependencies
 

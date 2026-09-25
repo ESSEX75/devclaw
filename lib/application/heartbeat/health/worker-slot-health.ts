@@ -26,8 +26,8 @@
  */
 import { log as auditLog } from "../../../audit.js";
 import type { RunCommand } from "../../../context.js";
-import type { WorkflowConfig } from "../../../domain/index.js";
 import type { Project } from "../../../domain/index.js";
+import { WORKER_DELIVERY_STATUS, type WorkflowConfig } from "../../../domain/index.js";
 import {
   DEFAULT_WORKFLOW,
 } from "../../../domain/index.js";
@@ -42,9 +42,14 @@ import { sendToAgent } from "../../../integrations/openclaw/session.js";
 import type { Issue, IssueProvider, StateLabel } from "../../../integrations/providers/provider.js";
 import {
   deactivateWorker,
+  getProject,
   getRoleWorker,
+  readIssueStateStore,
+  readProjects,
   updateSlot,
+  withIssueOrchestrationLock,
 } from "../../../state/index.js";
+import { reconcileUncertainDispatch } from "../../workers/index.js";
 import { transitionHeartbeatIssue } from "../transition-state.js";
 import { isSessionAlive, type SessionLookup } from "./gateway-sessions.js";
 import { fetchIssue, isIssueClosed } from "./issue-utils.js";
@@ -93,14 +98,13 @@ export async function checkWorkerHealth(opts: {
 
   const fixes: HealthFix[] = [];
 
-  // Skip roles without workflow states (e.g. architect — tool-triggered only)
-  if (!hasWorkflowStates(workflow, role)) return fixes;
-
   const roleWorker = getRoleWorker(project, role);
+  const issueStates = (await readIssueStateStore(workspaceDir, projectSlug)).issues;
 
-  // Get labels from workflow config
-  const expectedLabel = getActiveLabel(workflow, role);
-  const queueLabel = getRevertLabel(workflow, role);
+  // Roles without workflow states still need delivery reconciliation.
+  const hasStates = hasWorkflowStates(workflow, role);
+  const expectedLabel = hasStates ? getActiveLabel(workflow, role) : undefined;
+  const queueLabel = hasStates ? getRevertLabel(workflow, role) : undefined;
 
   // Iterate over all levels and their slots
   for (const level of Object.keys(roleWorker.levels)) {
@@ -118,6 +122,43 @@ export async function checkWorkerHealth(opts: {
       const withinGracePeriod = workerStartTime !== null && (Date.now() - workerStartTime) < GRACE_PERIOD_MS;
 
       const issueIdNum = slot.issueId;
+
+      // A submitted turn with no confirmed result must never use session absence,
+      // idle time, or label drift as proof that automatic requeue is safe.
+      const unresolved = issueIdNum
+        ? slot.delivery ?? issueStates[String(issueIdNum)]?.activeWorker?.delivery
+        : undefined;
+
+      if (slot.active && issueIdNum && unresolved) {
+        if (sessionKey && autoFix) {
+          await withIssueOrchestrationLock(workspaceDir, projectSlug, issueIdNum, () =>
+            reconcileUncertainDispatch({
+              workspaceDir, projectSlug, role, level, slotIndex, issueId: issueIdNum,
+              sessionKey, runCommand: opts.runCommand, reason: unresolved.reason,
+              sessions,
+            }));
+        }
+
+        const currentProject = getProject(await readProjects(workspaceDir), projectSlug);
+        const currentSlot = currentProject ? getRoleWorker(currentProject, role).levels[level]?.[slotIndex] : undefined;
+
+        if (currentSlot?.active && currentSlot.issueId === issueIdNum && currentSlot.delivery) {
+          fixes.push({
+            issue: {
+              type: "delivery_unknown",
+              severity: currentSlot.delivery.status === WORKER_DELIVERY_STATUS.NEEDS_ATTENTION ? "critical" : "warning",
+              project: project.name, projectSlug, role, level, sessionKey,
+              issueId: issueIdNum, slotIndex,
+              message: `${role.toUpperCase()} ${level}[${slotIndex}] issue #${issueIdNum} worker delivery ${currentSlot.delivery.status}; inspect the run before retry`,
+            },
+            fixed: false,
+          });
+        }
+
+        continue;
+      }
+
+      if (!hasStates || !expectedLabel || !queueLabel || !slotQueueLabel) continue;
 
       // Fetch issue state if we have an issueId
       let issue: Issue | null = null;

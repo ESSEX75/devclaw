@@ -1,9 +1,10 @@
 /** Owns worker-slot reservation and the authoritative issue runtime commit. */
+import type { WorkerDeliveryState } from "../../domain/index.js";
 import {
-  hasTestPhase, ISSUE_PROVIDER, producesReviewableWork, REVIEW_POLICY, TEST_POLICY,
+  hasTestPhase, ISSUE_PROVIDER, producesReviewableWork, REVIEW_POLICY, TEST_POLICY, WORKER_DELIVERY_STATUS,
 } from "../../domain/index.js";
 import type { ResolvedConfig } from "../../state/index.js";
-import { activateWorker, deactivateWorker, readIssueStateStore } from "../../state/index.js";
+import { activateWorker, deactivateWorker, readIssueStateStore, updateIssueRuntimeRecord, updateSlot } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import type { DispatchOpts, DispatchPlan } from "./types.js";
@@ -22,6 +23,49 @@ export async function reserveDispatchSlot(opts: DispatchOpts, plan: DispatchPlan
     previousLabel: opts.fromLabel,
     slotIndex: plan.slotIndex,
     name: plan.botName,
+    delivery: {
+      status: WORKER_DELIVERY_STATUS.SUBMITTING,
+      recordedAt: new Date().toISOString(),
+      reason: "Worker turn submission has not been confirmed.",
+    },
+  });
+}
+
+/**
+ * Replace the slot's unresolved-delivery marker only while this issue owns it.
+ * @param opts - Dispatch identity and project state location.
+ * @param plan - Exact slot and session identity reserved for this attempt.
+ * @param delivery - Current uncertainty, or undefined after explicit acceptance.
+ */
+export async function recordSlotDelivery(opts: DispatchOpts, plan: DispatchPlan, delivery: WorkerDeliveryState | undefined): Promise<void> {
+  await updateSlot(opts.workspaceDir, opts.project.slug, plan.role, plan.level, plan.slotIndex, (slot) => {
+    if (!slot.active || slot.issueId !== opts.issueId || slot.sessionKey !== plan.sessionKey) return slot;
+
+    return { ...slot, delivery };
+  });
+}
+
+/**
+ * Update issue delivery evidence without recreating a completed or reassigned worker.
+ * @param workspaceDir - Workspace containing authoritative issue runtime state.
+ * @param projectSlug - Project that owns the issue.
+ * @param issueId - Provider-local issue identity.
+ * @param sessionKey - Expected active worker session.
+ * @param delivery - Current uncertainty, or undefined after explicit acceptance.
+ */
+export async function recordIssueDelivery(
+  workspaceDir: string, projectSlug: string, issueId: number, sessionKey: string,
+  delivery: WorkerDeliveryState | undefined,
+): Promise<void> {
+  await updateIssueRuntimeRecord(workspaceDir, projectSlug, issueId, (state) => {
+    if (!state) throw new Error(`Issue #${issueId} has no runtime state for delivery reconciliation.`);
+    if (state.activeWorker?.sessionKey !== sessionKey) return state;
+
+    return {
+      ...state,
+      activeWorker: { ...state.activeWorker, delivery },
+      updatedAt: new Date().toISOString(),
+    };
   });
 }
 
@@ -49,6 +93,7 @@ export async function commitWorkerDispatch(
   plan: DispatchPlan,
   config: ResolvedConfig,
   providerLabels: string[],
+  delivery?: WorkerDeliveryState,
 ): Promise<void> {
   const { workspaceDir, project, issueId, role, level, fromLabel, toLabel, provider } = opts;
   const { workflow } = config;
@@ -79,6 +124,7 @@ export async function commitWorkerDispatch(
     activeWorker: {
       role, level, slotIndex: plan.slotIndex, sessionKey: plan.sessionKey,
       startedAt: new Date().toISOString(),
+      delivery,
     },
   });
   await reconcileManagedLabelsLocked({

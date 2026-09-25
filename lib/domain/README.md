@@ -13,8 +13,11 @@ but versioned store envelopes and resumable operation records belong to
 
 Package ownership is explicit: `notifications` owns messaging endpoints and
 notification routing labels, `issues` owns provider IDs and issue ownership,
-`projects` owns project and worker-slot structures, and `workflow` owns state
-machine semantics and workflow routing.
+`projects` owns project and worker-slot structures, `workers` owns shared worker
+delivery status, and `workflow` owns state machine semantics and workflow routing.
+
+Worker slot and active issue records share a durable delivery marker so both
+local ownership views can represent an unconfirmed worker turn.
 
 ## Boundary Rules
 

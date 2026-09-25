@@ -1,7 +1,7 @@
 /**
  * projection-summary.ts — Shared task output enrichment for local state and provider projection.
  */
-import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
+import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkerDeliveryState, type WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader } from "../../integrations/providers/capabilities.js";
 import type { Issue } from "../../integrations/providers/provider.js";
 import { diffIssueProjection } from "../../projection/index.js";
@@ -20,6 +20,10 @@ export type TaskIssueProjectionView = {
   unexpectedManagedLabels: string[];
   unmanagedLabels: string[];
   repairHint: string | null;
+  /** Unconfirmed worker delivery requiring inspection before another dispatch. */
+  workerDelivery?: WorkerDeliveryState;
+  /** Operator guidance for a delivery that cannot be resolved from gateway evidence. */
+  deliveryHint?: string;
 };
 
 export type TaskIssueSummary = {
@@ -116,6 +120,11 @@ function summarizeManagedProjection(
     unexpectedManagedLabels: diff.unexpectedManagedLabels,
     unmanagedLabels: diff.unmanagedLabels,
     repairHint: needsRepair ? `devclaw issue_repair ${state.issueId} --source local-state --dry-run` : null,
+    ...(state.activeWorker?.delivery ? {
+      workerDelivery: state.activeWorker.delivery,
+      deliveryHint: `Inspect OpenClaw session ${state.activeWorker.sessionKey ?? "unknown"} and the worker slot before retrying issue #${state.issueId}.`
+        + " Use devclaw worker-delivery --help to preview and apply a verified conclusion.",
+    } : {}),
   };
 }
 

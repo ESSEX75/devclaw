@@ -1,7 +1,7 @@
 /**
  * projects/mutations.ts — State mutations for project worker slots.
  */
-import type { SlotState } from "../../domain/index.js";
+import type { SlotState, WorkerDeliveryState } from "../../domain/index.js";
 import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
 import { updateProjects } from "./repository.js";
 import type { ProjectsData } from "./types.js";
@@ -22,6 +22,8 @@ type ActivateWorkerParams = {
   slotIndex?: number;
   /** Deterministic fun name for this slot. */
   name?: string;
+  /** Durable pre-submission reservation marker. */
+  delivery?: WorkerDeliveryState;
 };
 
 /** Options for locating and deactivating a worker slot. */
@@ -131,6 +133,7 @@ export async function activateWorker(
       previousLabel: params.previousLabel ?? null,
       name: params.name ?? currentSlot.name,
       lastIssueId: null,
+      delivery: params.delivery,
     };
 
     project.workers[role] = rw;

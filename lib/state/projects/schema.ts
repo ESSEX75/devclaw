@@ -5,6 +5,7 @@ import {
   ISSUE_PROVIDER,
   NOTIFICATION_CHANNEL,
   type NotificationEndpoint,
+  WORKER_DELIVERY_STATUS,
 } from "../../domain/index.js";
 import type { ProjectsData } from "./types.js";
 
@@ -38,6 +39,10 @@ const SlotStateSchema = z.object({
   previousLabel: z.string().nullable().optional(),
   name: z.string().optional(),
   lastIssueId: SlotIssueIdSchema.nullable().optional(),
+  delivery: z.object({
+    status: z.enum(WORKER_DELIVERY_STATUS), recordedAt: z.string(), reason: z.string(),
+    checkedAt: z.string().optional(), sessionObserved: z.boolean().nullable().optional(),
+  }).strict().optional(),
 }).strict();
 
 /** Strict schema for the level-indexed slots assigned to one role. */
