@@ -10,18 +10,20 @@ import type { RunCommand } from "../../context.js";
 import type { Project } from "../../domain/index.js";
 import {
   ACTION,
-  REVIEW_CHECK,
   WORKFLOW_EVENT,
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { PrState } from "../../integrations/providers/provider.js";
+import { planWorkflowEvent } from "../pipeline/plan.js";
+import { classifyReviewOutcome } from "../pipeline/review-outcome.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
 import { transitionHeartbeatIssue } from "./transition-state.js";
 
 /**
  * Scan review-type states and transition issues whose PR check condition is met.
  * Returns the number of transitions made.
+ * @param opts - Project workflow, provider, and callbacks invoked after committed transitions.
  */
 export async function reviewPass(opts: {
   workspaceDir: string;
@@ -66,6 +68,7 @@ export async function reviewPass(opts: {
         targetKey: string,
         targetLabel: string,
         closedAt?: string | null,
+        beforeCommit?: () => Promise<void>,
       ): Promise<boolean> => {
         return transitionHeartbeatIssue({
           workspaceDir,
@@ -78,6 +81,8 @@ export async function reviewPass(opts: {
           workflowLabel: targetLabel,
           closedAt,
           owner: "heartbeat_review",
+          beforeCommit,
+          routing: { field: "reviewPolicy", value: "human" },
         });
       };
 
@@ -98,19 +103,19 @@ export async function reviewPass(opts: {
         } catch { /* best-effort — don't block on git failure */ }
       }
 
-      // PR_APPROVED: Accept both explicit approval and manual merge (merge = implicit approval).
-      // PR_MERGED: Only triggers on merge. This prevents self-merged PRs (no reviews) from
-      // bypassing the review:human gate — a developer merging their own PR must not pass as approved.
-      const conditionMet =
-        (state.check === REVIEW_CHECK.PR_MERGED && status.state === PrState.MERGED) ||
-        (state.check === REVIEW_CHECK.PR_APPROVED && (status.state === PrState.APPROVED || status.state === PrState.MERGED));
+      const outcome = classifyReviewOutcome(
+        status,
+        state.check,
+        planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.CHANGES_REQUESTED) !== null,
+        planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.MERGE_CONFLICT) !== null,
+      );
 
       // Changes requested or PR has comment feedback → transition to toImprove
-      if (status.state === PrState.CHANGES_REQUESTED || status.state === PrState.HAS_COMMENTS) {
-        const changesTransition = state.on[WORKFLOW_EVENT.CHANGES_REQUESTED];
+      if (outcome.kind === "changes_requested") {
+        const changesTransition = planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.CHANGES_REQUESTED);
 
         if (changesTransition) {
-          const targetKey = changesTransition.target;
+          const targetKey = changesTransition.toState;
           const targetState = workflow.states[targetKey];
 
           if (targetState) {
@@ -131,11 +136,11 @@ export async function reviewPass(opts: {
       }
 
       // Merge conflict → transition to toImprove
-      if (status.mergeable === false) {
-        const conflictTransition = state.on[WORKFLOW_EVENT.MERGE_CONFLICT];
+      if (outcome.kind === "conflict") {
+        const conflictTransition = planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.MERGE_CONFLICT);
 
         if (conflictTransition) {
-          const targetKey = conflictTransition.target;
+          const targetKey = conflictTransition.toState;
           const targetState = workflow.states[targetKey];
 
           if (targetState) {
@@ -155,34 +160,28 @@ export async function reviewPass(opts: {
 
       // PR closed without merging → execute configured transition + actions
       // status.url non-null distinguishes "PR was explicitly closed" from "no PR exists"
-      if (status.state === PrState.CLOSED && status.url !== null) {
-        const closedTransition = state.on[WORKFLOW_EVENT.PR_CLOSED];
+      if (outcome.kind === "closed_unmerged") {
+        const closedTransition = planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.PR_CLOSED);
 
         if (closedTransition) {
-          const targetKey = closedTransition.target;
+          const targetKey = closedTransition.toState;
           const closedActions = closedTransition.actions;
           const targetState = workflow.states[targetKey];
 
           if (targetState) {
-            if (closedActions) {
-              for (const action of closedActions) {
-                switch (action) {
-                  case ACTION.CLOSE_ISSUE:
-                    try { await provider.closeIssue(issue.iid); } catch { /* best-effort */ }
-
-                    break;
-                  case ACTION.REOPEN_ISSUE:
-                    try { await provider.reopenIssue(issue.iid); } catch { /* best-effort */ }
-
-                    break;
-                }
-              }
-            }
-
             if (!await syncTransitionState(
               targetKey,
               targetState.label,
               closedActions?.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
+              async () => {
+                for (const action of closedActions ?? []) {
+                  if (action === ACTION.CLOSE_ISSUE) {
+                    try { await provider.closeIssue(issue.iid); } catch { /* best-effort */ }
+                  } else if (action === ACTION.REOPEN_ISSUE) {
+                    try { await provider.reopenIssue(issue.iid); } catch { /* best-effort */ }
+                  }
+                }
+              },
             )) continue;
             await auditLog(workspaceDir, "review_transition", {
               project: projectName, issueId: issue.iid,
@@ -198,86 +197,70 @@ export async function reviewPass(opts: {
         }
       }
 
-      if (!conditionMet) continue;
+      if (outcome.kind !== "approved") continue;
 
       // Find the success transition — use the APPROVED event (matches check condition)
-      const transition = state.on[WORKFLOW_EVENT.APPROVED];
+      const transition = planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.APPROVED);
 
       if (!transition) continue;
 
-      const targetKey = transition.target;
+      const targetKey = transition.toState;
       const actions = transition.actions;
       const targetState = workflow.states[targetKey];
 
       if (!targetState) continue;
 
-      // Execute transition actions — mergePr is critical (aborts on failure)
-      let aborted = false;
+      let mergeFailure: unknown;
+      let merged = false;
+      let transitioned: boolean;
 
-      if (actions) {
-        for (const action of actions) {
-          switch (action) {
-            case ACTION.MERGE_PR:
-              // If the PR is already merged externally, skip the merge call but continue the transition.
-              if (status.state === PrState.MERGED) {
-                onMerge?.(issue.iid, status.url, status.title, status.sourceBranch);
-                break;
-              }
-
-              try {
-                await provider.mergePr(issue.iid);
-                onMerge?.(issue.iid, status.url, status.title, status.sourceBranch);
-              } catch (err) {
-                // Merge failed → fire MERGE_FAILED transition (developer fixes conflicts)
-                await auditLog(workspaceDir, "review_merge_failed", {
-                  project: projectName,
-                  issueId: issue.iid,
-                  from: state.label,
-                  error: (err as Error).message ?? String(err),
-                });
-                const failedTransition = state.on[WORKFLOW_EVENT.MERGE_FAILED];
-
-                if (failedTransition) {
-                  const failedKey = failedTransition.target;
-                  const failedState = workflow.states[failedKey];
-
-                  if (failedState) {
-                    if (!await syncTransitionState(failedKey, failedState.label)) break;
-                    await auditLog(workspaceDir, "review_transition", {
-                      project: projectName,
-                      issueId: issue.iid,
-                      from: state.label,
-                      to: failedState.label,
-                      reason: "merge_failed",
-                    });
-                    transitions++;
-                  }
+      try {
+        transitioned = await syncTransitionState(targetKey, targetState.label, undefined, async () => {
+          for (const action of actions) {
+            switch (action) {
+              case ACTION.MERGE_PR:
+                if (status.state !== PrState.MERGED) {
+                  try { await provider.mergePr(issue.iid); }
+                  catch (error) { mergeFailure = error; throw error; }
                 }
 
-                aborted = true;
-              }
+                merged = true;
+                break;
+              case ACTION.GIT_PULL:
+                try { await rc(["git", "pull"], { timeoutMs: gitPullTimeoutMs, cwd: repoPath }); }
+                catch { /* best effort */ }
 
-              break;
-            case ACTION.GIT_PULL:
-              try { await rc(["git", "pull"], { timeoutMs: gitPullTimeoutMs, cwd: repoPath }); } catch { /* best-effort */ }
-
-              break;
-            case ACTION.CLOSE_ISSUE:
-              await provider.closeIssue(issue.iid);
-              break;
-            case ACTION.REOPEN_ISSUE:
-              await provider.reopenIssue(issue.iid);
-              break;
+                break;
+              case ACTION.CLOSE_ISSUE:
+                await provider.closeIssue(issue.iid);
+                break;
+              case ACTION.REOPEN_ISSUE:
+                await provider.reopenIssue(issue.iid);
+                break;
+            }
           }
+        });
+      } catch (error) {
+        if (mergeFailure === undefined) throw error;
+        await auditLog(workspaceDir, "review_merge_failed", {
+          project: projectName, issueId: issue.iid, from: state.label,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        const failed = planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.MERGE_FAILED);
 
-          if (aborted) break;
+        if (failed && await syncTransitionState(failed.toState, failed.toLabel)) {
+          await auditLog(workspaceDir, "review_transition", {
+            project: projectName, issueId: issue.iid, from: state.label,
+            to: failed.toLabel, reason: "merge_failed",
+          });
+          transitions++;
         }
+
+        continue;
       }
 
-      if (aborted) continue; // skip normal transition, move to next issue
-
-      // Transition label
-      if (!await syncTransitionState(targetKey, targetState.label)) continue;
+      if (!transitioned) continue;
+      if (merged) onMerge?.(issue.iid, status.url, status.title, status.sourceBranch);
 
       await auditLog(workspaceDir, "review_transition", {
         project: projectName,

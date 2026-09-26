@@ -16,12 +16,14 @@ import {
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
+import { planWorkflowEvent } from "../pipeline/plan.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
 import { transitionHeartbeatIssue } from "./transition-state.js";
 
 /**
  * Scan test queue states and auto-transition issues with testPolicy=skip.
  * Returns the number of transitions made.
+ * @param opts - Project workflow and provider for the explicit test skip policy.
  */
 export async function testSkipPass(opts: {
   workspaceDir: string;
@@ -38,11 +40,11 @@ export async function testSkipPass(opts: {
     .filter(([, state]) => state.role === "tester" && state.type === STATE_TYPE.QUEUE);
 
   for (const [, state] of testQueueStates) {
-    const skipTransition = state.on?.[WORKFLOW_EVENT.SKIP];
+    const skipTransition = planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.SKIP);
 
     if (!skipTransition) continue;
 
-    const targetKey = skipTransition.target;
+    const targetKey = skipTransition.toState;
     const actions = skipTransition.actions;
     const targetState = workflow.states[targetKey];
 
@@ -58,23 +60,6 @@ export async function testSkipPass(opts: {
 
     for (const { issue } of candidates) {
 
-      // Execute SKIP transition actions
-      if (actions) {
-        for (const action of actions) {
-          switch (action) {
-            case ACTION.CLOSE_ISSUE:
-              try { await provider.closeIssue(issue.iid); } catch { /* best-effort */ }
-
-              break;
-            case ACTION.REOPEN_ISSUE:
-              try { await provider.reopenIssue(issue.iid); } catch { /* best-effort */ }
-
-              break;
-          }
-        }
-      }
-
-      // Transition label
       const transitioned = await transitionHeartbeatIssue({
         workspaceDir,
         project,
@@ -86,6 +71,16 @@ export async function testSkipPass(opts: {
         workflowLabel: targetState.label,
         closedAt: actions?.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
         owner: "heartbeat_test_skip",
+        routing: { field: "testPolicy", value: "skip" },
+        beforeCommit: async () => {
+          for (const action of actions) {
+            if (action === ACTION.CLOSE_ISSUE) {
+              try { await provider.closeIssue(issue.iid); } catch { /* best-effort */ }
+            } else if (action === ACTION.REOPEN_ISSUE) {
+              try { await provider.reopenIssue(issue.iid); } catch { /* best-effort */ }
+            }
+          }
+        },
       });
 
       if (!transitioned) continue;

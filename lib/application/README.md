@@ -60,6 +60,14 @@ for projection and persists the authoritative record only after verification.
 Terminal pipeline notifications use active issue state as a durable outbox. An
 unconfirmed delivery keeps the terminal issue active; heartbeat retries expired
 attempt leases and archives the issue only after delivery is confirmed.
+Pipeline completion resolves a pure workflow transition plan before provider
+effects. Agent completion checks current local and provider state; heartbeat
+review, review skip, and test skip recheck local state under the issue lock before
+their provider actions. Their shared transition commit applies the provider label,
+persists local runtime truth, then reconciles projection. Agent completion releases
+the worker before sending completion notifications. Terminal notification
+reservation and confirmation occur after the local commit and projection; an
+unconfirmed attempt remains eligible for lease-based retry.
 The `notifications` capability renders messages without I/O, validates exact
 project routes, delivers through runtime or command fallback, and audits typed
 outcomes. The `projection` coordinator locks each issue, reads fresh local state,

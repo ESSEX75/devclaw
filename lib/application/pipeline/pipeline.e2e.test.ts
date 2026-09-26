@@ -17,6 +17,7 @@ import { projectTick } from "../queue/tick.js";
 import { reviewPass } from "../heartbeat/review.js";
 import {
   DEFAULT_WORKFLOW,
+  findStateKeyByLabel,
   countActiveSlots,
   ISSUE_PROVIDER,
   type LevelId,
@@ -103,6 +104,26 @@ describe("E2E pipeline", () => {
       testPolicy: args.testPolicy ?? null,
     });
     return issue;
+  }
+
+  /** Simulate dispatch by updating both provider projection and authoritative state.
+   * @param issueId - Issue entering an active worker state.
+   * @param from - Current visible workflow label.
+   * @param to - Active workflow label.
+   */
+  async function activateFixtureState(issueId: number, from: string, to: string): Promise<void> {
+    await h.provider.transitionLabel(issueId, from, to);
+    const key = findStateKeyByLabel(DEFAULT_WORKFLOW, to);
+    if (!key) throw new Error(`Unknown fixture state: ${to}`);
+    await writeIssueRuntimeState({
+      workspaceDir: h.workspaceDir,
+      project: h.project,
+      issue: await h.provider.getIssue(issueId),
+      providerType: h.project.provider,
+      workflow: DEFAULT_WORKFLOW,
+      workflowState: key,
+      workflowLabel: to,
+    });
   }
 
   // =========================================================================
@@ -972,7 +993,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "reviewer", {
         issueId: 100, level: "junior",
       });
-      await h.provider.transitionLabel(100, "To Review", "Reviewing");
+      await activateFixtureState(100, "To Review", "Reviewing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -995,7 +1016,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "tester", {
         issueId: 100, level: "medior",
       });
-      await h.provider.transitionLabel(100, "To Test", "Testing");
+      await activateFixtureState(100, "To Test", "Testing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -1079,7 +1100,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "tester", {
         issueId: 200, level: "medior",
       });
-      await h.provider.transitionLabel(200, "To Test", "Testing");
+      await activateFixtureState(200, "To Test", "Testing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -1144,7 +1165,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "reviewer", {
         issueId: 300, level: "junior",
       });
-      await h.provider.transitionLabel(300, "To Review", "Reviewing");
+      await activateFixtureState(300, "To Review", "Reviewing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -1201,7 +1222,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "reviewer", {
         issueId: 300, level: "junior",
       });
-      await h.provider.transitionLabel(300, "To Review", "Reviewing");
+      await activateFixtureState(300, "To Review", "Reviewing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -1224,7 +1245,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "tester", {
         issueId: 300, level: "medior",
       });
-      await h.provider.transitionLabel(300, "To Test", "Testing");
+      await activateFixtureState(300, "To Test", "Testing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,

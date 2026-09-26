@@ -186,7 +186,13 @@ workflow:
       executeCompletion({ ...completionInput, result: "unmapped" }),
       /No completion event configured/,
     );
+    assert.equal(harness.provider.callsTo("mergePr").length, 0);
+    assert.equal(harness.provider.callsTo("transitionLabel").length, 1);
     await executeCompletion({ ...completionInput, result: "audited" });
+
+    const transitionsAfterCompletion = harness.provider.callsTo("transitionLabel").length;
+    await assert.rejects(executeCompletion({ ...completionInput, result: "audited" }), /expected provider label/);
+    assert.equal(harness.provider.callsTo("transitionLabel").length, transitionsAfterCompletion);
 
     const completedProjects = await readProjects(harness.workspaceDir);
     const completedProject = getProject(completedProjects, harness.project.slug);

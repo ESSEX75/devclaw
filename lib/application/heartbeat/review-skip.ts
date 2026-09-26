@@ -18,13 +18,15 @@ import {
   type WorkflowConfig,
 } from "../../domain/index.js";
 import type { IssueProvider } from "../../integrations/providers/provider.js";
-import { PrState } from "../../integrations/providers/provider.js";
+import { PrState, type PrStatus } from "../../integrations/providers/provider.js";
+import { planWorkflowEvent } from "../pipeline/plan.js";
 import { getHeartbeatCandidates } from "./local-candidates.js";
 import { transitionHeartbeatIssue } from "./transition-state.js";
 
 /**
  * Scan review queue states and auto-merge + transition issues with reviewPolicy=skip.
  * Returns the number of transitions made.
+ * @param opts - Project workflow and provider actions for the explicit skip policy.
  */
 export async function reviewSkipPass(opts: {
   workspaceDir: string;
@@ -47,11 +49,11 @@ export async function reviewSkipPass(opts: {
     .filter(([, state]) => state.role === "reviewer" && state.type === STATE_TYPE.QUEUE);
 
   for (const [, state] of reviewQueueStates) {
-    const skipTransition = state.on?.[WORKFLOW_EVENT.SKIP];
+    const skipTransition = planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.SKIP);
 
     if (!skipTransition) continue;
 
-    const targetKey = skipTransition.target;
+    const targetKey = skipTransition.toState;
     const actions = skipTransition.actions;
     const targetState = workflow.states[targetKey];
 
@@ -67,97 +69,73 @@ export async function reviewSkipPass(opts: {
 
     for (const { issue } of candidates) {
 
-      // Execute SKIP transition actions
-      let aborted = false;
+      let mergeFailure: unknown;
+      const mergeNotification: { status: PrStatus | null } = { status: null };
+      let transitioned: boolean;
 
-      if (actions) {
-        for (const action of actions) {
-          switch (action) {
-            case ACTION.MERGE_PR: {
-              const status = await provider.getPrStatus(issue.iid);
+      try {
+        transitioned = await transitionHeartbeatIssue({
+          workspaceDir, project, issueId: issue.iid, provider, workflow,
+          fromLabel: state.label, workflowState: targetKey,
+          workflowLabel: targetState.label, owner: "heartbeat_review_skip",
+          routing: { field: "reviewPolicy", value: "skip" },
+          beforeCommit: async () => {
+            for (const action of actions) {
+              switch (action) {
+                case ACTION.MERGE_PR: {
+                  const status = await provider.getPrStatus(issue.iid);
 
-              // Already merged externally — skip the merge call but continue.
-              if (status.state === PrState.MERGED) {
-                onMerge?.(issue.iid, status.url, status.title, status.sourceBranch);
-                break;
-              }
-
-              // No PR exists — skip merge (work may have been committed directly).
-              if (!status.url) break;
-              try {
-                await provider.mergePr(issue.iid);
-                onMerge?.(issue.iid, status.url, status.title, status.sourceBranch);
-              } catch (err) {
-                // Merge failed → fire MERGE_FAILED transition if configured
-                await auditLog(workspaceDir, "review_skip_merge_failed", {
-                  project: projectName,
-                  issueId: issue.iid,
-                  from: state.label,
-                  error: (err as Error).message ?? String(err),
-                });
-                const failedTransition = state.on?.[WORKFLOW_EVENT.MERGE_FAILED];
-
-                if (failedTransition) {
-                  const failedKey = failedTransition.target;
-                  const failedState = workflow.states[failedKey];
-
-                  if (failedState) {
-                    const transitioned = await transitionHeartbeatIssue({
-                      workspaceDir,
-                      project,
-                      issueId: issue.iid,
-                      provider,
-                      workflow,
-                      fromLabel: state.label,
-                      workflowState: failedKey,
-                      workflowLabel: failedState.label,
-                      owner: "heartbeat_review_skip_merge_failure",
-                    });
-
-                    if (transitioned) transitions++;
+                  if (status.state === PrState.MERGED) {
+                    mergeNotification.status = status;
+                    break;
                   }
+
+                  if (!status.url) break;
+                  try { await provider.mergePr(issue.iid); }
+                  catch (error) { mergeFailure = error; throw error; }
+
+                  mergeNotification.status = status;
+                  break;
                 }
 
-                aborted = true;
+                case ACTION.GIT_PULL:
+                  try { await rc(["git", "pull"], { timeoutMs: gitPullTimeoutMs, cwd: repoPath }); }
+                  catch { /* best effort */ }
+
+                  break;
+                case ACTION.CLOSE_ISSUE:
+                  try { await provider.closeIssue(issue.iid); } catch { /* best effort */ }
+
+                  break;
+                case ACTION.REOPEN_ISSUE:
+                  try { await provider.reopenIssue(issue.iid); } catch { /* best effort */ }
+
+                  break;
               }
-
-              break;
             }
+          },
+        });
+      } catch (error) {
+        if (mergeFailure === undefined) throw error;
+        await auditLog(workspaceDir, "review_skip_merge_failed", {
+          project: projectName, issueId: issue.iid, from: state.label,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        const failed = planWorkflowEvent(workflow, state.label, WORKFLOW_EVENT.MERGE_FAILED);
 
-            case ACTION.GIT_PULL:
-              try { await rc(["git", "pull"], { timeoutMs: gitPullTimeoutMs, cwd: repoPath }); } catch { /* best-effort */ }
-
-              break;
-            case ACTION.CLOSE_ISSUE:
-              try { await provider.closeIssue(issue.iid); } catch { /* best-effort */ }
-
-              break;
-            case ACTION.REOPEN_ISSUE:
-              try { await provider.reopenIssue(issue.iid); } catch { /* best-effort */ }
-
-              break;
-          }
-
-          if (aborted) break;
-        }
+        if (failed && await transitionHeartbeatIssue({
+          workspaceDir, project, issueId: issue.iid, provider, workflow,
+          fromLabel: state.label, workflowState: failed.toState,
+          workflowLabel: failed.toLabel, owner: "heartbeat_review_skip_merge_failure",
+          routing: { field: "reviewPolicy", value: "skip" },
+        })) transitions++;
+        continue;
       }
 
-      if (aborted) continue;
-
-      // Transition label
-      const transitioned = await transitionHeartbeatIssue({
-        workspaceDir,
-        project,
-        issueId: issue.iid,
-        provider,
-        workflow,
-        fromLabel: state.label,
-        workflowState: targetKey,
-        workflowLabel: targetState.label,
-        owner: "heartbeat_review_skip",
-      });
-
       if (!transitioned) continue;
+      if (mergeNotification.status) {
+        onMerge?.(issue.iid, mergeNotification.status.url, mergeNotification.status.title, mergeNotification.status.sourceBranch);
+      }
 
       await auditLog(workspaceDir, "review_skip_transition", {
         project: projectName,
