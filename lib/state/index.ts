@@ -52,12 +52,12 @@ export {
   updateSlot,
 } from "./projects/index.js";
 export {
-  backupAndWrite,
-  fileExists,
   initializeWorkspaceFiles,
   loadRoleInstructions,
-  loadSetupTemplates,
   refreshSystemInstructionFiles,
   resetDefaults,
   scaffoldWorkspace,
 } from "./setup/index.js";
+export type { DefaultsScope } from "./setup/types.js";
+export { writeWorkspaceModels } from "./setup/workflow-models.js";
+export { readWorkflowDocuments, readWorkspaceAgentInstructions, resetWorkspaceConfiguration } from "./setup/workspace-config.js";

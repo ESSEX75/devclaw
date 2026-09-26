@@ -1,33 +1,19 @@
-import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
+/** Normalizes terminal choices and formats read-only agent configuration. */
 
 import {
   isSetupNotificationChannel,
   type SetupNotificationChannel,
+  type SetupRuntime,
 } from "../../application/setup/index.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
+import type { ConfiguredAgent, SetupCliOptions } from "./types.js";
 
-export type SetupCliOptions = {
-  newAgent?: string;
-  agent?: string;
-  workspace?: string;
-  channelBinding?: SetupNotificationChannel | "none";
-  channelAccountId?: string;
-  channelPeerId?: string;
-  ejectDefaults?: boolean;
-  projectExecution?: ExecutionMode;
-  dryRun?: boolean;
-  [key: string]: string | boolean | undefined;
-};
-
-export type ConfiguredAgent = {
-  id: string;
-  name?: string;
-  workspace?: string;
-};
-
-export function getDefaultWorkspaceDir(runtime: PluginRuntime): string | undefined {
+/** Read the configured default workspace for terminal target selection.
+ * @param runtime - Read-only configuration source.
+ */
+export function getDefaultWorkspaceDir(runtime: SetupRuntime): string | undefined {
   try {
-    const config = runtime.config.current() as OpenClawConfig;
+    const config = runtime.config.current();
 
     return config.agents?.defaults?.workspace ?? undefined;
   } catch {
@@ -35,9 +21,12 @@ export function getDefaultWorkspaceDir(runtime: PluginRuntime): string | undefin
   }
 }
 
-export function getConfiguredAgents(runtime: PluginRuntime): ConfiguredAgent[] {
+/** Read configured agents for the interactive target menu.
+ * @param runtime - Read-only configuration source.
+ */
+export function getConfiguredAgents(runtime: SetupRuntime): readonly ConfiguredAgent[] {
   try {
-    const config = runtime.config.current() as OpenClawConfig;
+    const config = runtime.config.current();
 
     return config.agents?.list ?? [];
   } catch {
@@ -45,10 +34,16 @@ export function getConfiguredAgents(runtime: PluginRuntime): ConfiguredAgent[] {
   }
 }
 
+/** Format an agent choice without changing its identifier.
+ * @param agent - Configured agent to display.
+ */
 export function formatAgentLabel(agent: ConfiguredAgent): string {
   return agent.name && agent.name !== agent.id ? `${agent.name} (${agent.id})` : agent.id;
 }
 
+/** Format the selected exact destination for terminal output.
+ * @param opts - Selected channel, account, and peer options.
+ */
 export function formatSelectedChannelBinding(opts: Pick<SetupCliOptions, "channelBinding" | "channelAccountId" | "channelPeerId">): string {
   if (!opts.channelBinding || opts.channelBinding === "none") return "none";
   const account = opts.channelAccountId?.trim() || "missing-account";
@@ -58,6 +53,9 @@ export function formatSelectedChannelBinding(opts: Pick<SetupCliOptions, "channe
     : `${opts.channelBinding}/${account}`;
 }
 
+/** Convert the explicit none selection and validate channel membership.
+ * @param value - Parsed terminal channel option.
+ */
 export function normalizeChannelBinding(
   value: SetupCliOptions["channelBinding"],
 ): SetupNotificationChannel | null | undefined {
@@ -67,6 +65,9 @@ export function normalizeChannelBinding(
   throw new Error(`Invalid channel binding: ${value}. Use telegram, whatsapp, or none.`);
 }
 
+/** Validate the terminal execution-mode option.
+ * @param value - Parsed execution-mode selection.
+ */
 export function normalizeProjectExecution(value: SetupCliOptions["projectExecution"]): ExecutionMode | undefined {
   if (value === undefined) return undefined;
   if (value === EXECUTION_MODE.PARALLEL || value === EXECUTION_MODE.SEQUENTIAL) return value;

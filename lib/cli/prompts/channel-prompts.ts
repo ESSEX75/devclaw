@@ -1,10 +1,10 @@
+/** Collects interactive terminal setup choices without applying configuration. */
 import { createInterface } from "node:readline/promises";
-
-import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import {
   SETUP_NOTIFICATION_CHANNELS,
   type SetupNotificationChannel,
+  type SetupRuntime,
 } from "../../application/setup/index.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import {
@@ -12,8 +12,8 @@ import {
   formatSelectedChannelBinding,
   getConfiguredAgents,
   getDefaultWorkspaceDir,
-  type SetupCliOptions,
 } from "../options/setup-options.js";
+import type { SetupCliOptions } from "../options/types.js";
 
 type ChannelAccountChoice = {
   channel: SetupNotificationChannel;
@@ -23,7 +23,7 @@ type ChannelAccountChoice = {
 };
 
 function getBoundTopicPeerIds(
-  config: OpenClawConfig,
+  config: ReturnType<SetupRuntime["config"]["current"]>,
   channel: SetupNotificationChannel,
   accountId: string,
 ): Set<string> {
@@ -103,9 +103,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function getConfiguredChannelAccounts(runtime: PluginRuntime): ChannelAccountChoice[] {
+function getConfiguredChannelAccounts(runtime: SetupRuntime): ChannelAccountChoice[] {
   try {
-    const config = runtime.config.current() as OpenClawConfig;
+    const config = runtime.config.current();
     const choices: ChannelAccountChoice[] = [];
 
   for (const channel of SETUP_NOTIFICATION_CHANNELS) {
@@ -151,7 +151,7 @@ async function askYesNo(
 
 async function collectChannelBinding(
   rl: ReturnType<typeof createInterface>,
-  runtime: PluginRuntime,
+  runtime: SetupRuntime,
 ): Promise<Pick<SetupCliOptions, "channelBinding" | "channelAccountId" | "channelPeerId">> {
   const choices = getConfiguredChannelAccounts(runtime);
 
@@ -206,7 +206,7 @@ async function collectModelOptions(
 ): Promise<SetupCliOptions> {
   if (hasModelOverrides(opts)) return opts;
 
-  const useDefaults = await askYesNo(rl, "\nUse default model levels", true);
+  const useDefaults = await askYesNo(rl, "\nKeep current model configuration", true);
 
   if (useDefaults) return opts;
 
@@ -226,28 +226,11 @@ async function collectModelOptions(
   return next;
 }
 
-async function collectWorkspaceDefaultsOption(
-  opts: SetupCliOptions,
-  rl: ReturnType<typeof createInterface>,
-): Promise<SetupCliOptions> {
-  if (opts.ejectDefaults !== undefined) return opts;
-
-  console.log("\nWorkspace defaults:");
-  console.log("  1. Safe defaults (refresh system files, preserve existing config/prompts)");
-  console.log("  2. Eject packaged defaults (write missing workflow/prompts for manual editing)");
-  const answer = (await rl.question("Select [1]: ")).trim();
-  const selected = answer ? Number(answer) : 1;
-
-  if (selected === 1) return { ...opts, ejectDefaults: false };
-  if (selected === 2) return { ...opts, ejectDefaults: true };
-  throw new Error(`Invalid workspace defaults option: ${answer}`);
-}
-
 export async function collectInteractiveSetupDetails(
   opts: SetupCliOptions,
-  runtime: PluginRuntime,
+  runtime: SetupRuntime,
 ): Promise<SetupCliOptions> {
-  if (!process.stdin.isTTY) return opts;
+  if (!process.stdin.isTTY || opts.ejectDefaults || opts.resetDefaults || opts.refreshInstructions) return opts;
 
   const rl = createInterface({
     input: process.stdin,
@@ -262,7 +245,6 @@ export async function collectInteractiveSetupDetails(
     }
 
     next = await collectModelOptions(next, rl);
-    next = await collectWorkspaceDefaultsOption(next, rl);
 
     return next;
   } finally {
@@ -272,7 +254,7 @@ export async function collectInteractiveSetupDetails(
 
 export async function resolveSetupCliOptions(
   opts: SetupCliOptions,
-  runtime: PluginRuntime,
+  runtime: SetupRuntime,
 ): Promise<SetupCliOptions> {
   if (opts.newAgent || opts.agent || opts.workspace) return opts;
   if (!process.stdin.isTTY) {
@@ -338,7 +320,7 @@ export async function resolveSetupCliOptions(
   }
 }
 
-export function printSelectedSetupTarget(opts: SetupCliOptions, runtime: PluginRuntime): void {
+export function printSelectedSetupTarget(opts: SetupCliOptions, runtime: SetupRuntime): void {
   const agents = getConfiguredAgents(runtime);
 
   if (opts.agent) {

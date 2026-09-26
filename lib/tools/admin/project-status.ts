@@ -8,11 +8,12 @@
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { getIssueArchiveStatus } from "../../application/issues/index.js";
+import { resolveProject } from "../../application/projects/index.js";
 import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, STATE_TYPE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
 import { getLevelMaxWorkers, loadConfig } from "../../state/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 export function createProjectStatusTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({

@@ -9,9 +9,9 @@ import { loadConfig } from "../../state/index.js";
 import {
   withIssueOrchestrationLock,
 } from "../../state/index.js";
-import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
+import { resolveProject, resolveProvider } from "../projects/index.js";
 import { resolveHoldQueueTarget, validateRoleLevel } from "./lifecycle-decision.js";
 
 export type SetTaskLevelInput = {

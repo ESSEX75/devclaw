@@ -8,7 +8,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+import { createSetupRuntime as createRuntime } from "../../testing/index.js";
 import { createAgent } from "./agent-config.js";
 import { runSetup } from "./run-setup.js";
 
@@ -26,26 +26,6 @@ afterEach(async () => {
   }
 });
 
-function createRuntime(initialConfig: OpenClawConfig): {
-  runtime: PluginRuntime;
-  writes: Array<{ nextConfig: OpenClawConfig; afterWrite?: unknown }>;
-} {
-  let currentConfig = structuredClone(initialConfig) as OpenClawConfig;
-  const writes: Array<{ nextConfig: OpenClawConfig; afterWrite?: unknown }> = [];
-
-  return {
-    runtime: ({
-      config: {
-        current: () => currentConfig,
-        replaceConfigFile: async (write: { nextConfig: OpenClawConfig; afterWrite?: unknown }) => {
-          currentConfig = structuredClone(write.nextConfig) as OpenClawConfig;
-          writes.push(write);
-        },
-      },
-    } as unknown) as PluginRuntime,
-    writes,
-  };
-}
 
 describe("createAgent", () => {
   it("updates OpenClaw config directly without an external agent CLI", async () => {
@@ -92,6 +72,7 @@ describe("createAgent", () => {
 
     const result = await runSetup({
       runtime,
+      runCommand: async () => { throw new Error("Preview must not invoke commands"); },
       newAgentName: "Preview Agent",
       dryRun: true,
     });

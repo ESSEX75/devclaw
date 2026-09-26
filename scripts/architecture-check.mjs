@@ -5,6 +5,8 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
+import { checkApplicationDependencyDirection, checkSetupAdapterBoundary } from "./architecture-rules.ts";
+
 const root = process.cwd();
 const warnOnly = process.argv.includes("--warn-only");
 const openClawToolContextImportCache = new Map();
@@ -166,6 +168,12 @@ function parseImportRecords(content) {
 function checkImportBoundary({ sourceFile, sourceLayer, targetFile, targetLayer, specifier }) {
   const targetRelative = targetFile ? relative(targetFile) : specifier;
 
+  const directionViolation = checkApplicationDependencyDirection(sourceLayer, targetLayer);
+  if (directionViolation) return directionViolation;
+
+  const adapterViolation = checkSetupAdapterBoundary(relative(sourceFile), targetLayer, specifier);
+  if (adapterViolation) return adapterViolation;
+
   if (isLegacyRootImport(sourceFile, targetFile, specifier)) {
     return "legacy root package imports are forbidden after migration";
   }
@@ -204,7 +212,7 @@ function checkImportBoundary({ sourceFile, sourceLayer, targetFile, targetLayer,
       return "application must not import OpenClaw tool context";
     }
 
-    if (targetLayer === "cli" && targetRelative.startsWith("lib/cli/commands/")) {
+    if (targetLayer === "cli" && targetRelative.split(path.sep).join("/").startsWith("lib/cli/commands/")) {
       return "application must not import CLI command adapters";
     }
 

@@ -5,29 +5,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-import { DEVCLAW_AGENT_TOOLS, writePluginConfig } from "./plugin-config.js";
+import { createSetupRuntime as createRuntime } from "../../testing/index.js";
+import { DEVCLAW_AGENT_TOOLS } from "./const.js";
+import { writePluginConfig } from "./plugin-config.js";
 
-function createRuntime(initialConfig: OpenClawConfig): {
-  runtime: PluginRuntime;
-  writes: Array<{ nextConfig: OpenClawConfig; afterWrite?: unknown }>;
-} {
-  let currentConfig = structuredClone(initialConfig) as OpenClawConfig;
-  const writes: Array<{ nextConfig: OpenClawConfig; afterWrite?: unknown }> = [];
-
-  return {
-    runtime: ({
-      config: {
-        current: () => currentConfig,
-        replaceConfigFile: async (write: { nextConfig: OpenClawConfig; afterWrite?: unknown }) => {
-          currentConfig = structuredClone(write.nextConfig) as OpenClawConfig;
-          writes.push(write);
-        },
-      },
-    } as unknown) as PluginRuntime,
-    writes,
-  };
-}
 
 describe("writePluginConfig", () => {
   it("grants DevClaw tools to the configured agent and preserves session denials", async () => {

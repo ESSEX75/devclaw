@@ -3,43 +3,40 @@
  *
  * Provides context templates for the onboard tool.
  */
-import fs from "node:fs/promises";
-import path from "node:path";
-
 import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import { getAllDefaultModels } from "../../roles/index.js";
+import { readWorkspaceAgentInstructions } from "../../state/index.js";
 
 // ---------------------------------------------------------------------------
 // Detection
 // ---------------------------------------------------------------------------
 
-export function isPluginConfigured(
+/** Detect whether plugin configuration has been supplied.
+ * @param pluginConfig - Current optional plugin configuration.
+ */
+function isPluginConfigured(
   pluginConfig?: Record<string, unknown>,
 ): boolean {
-  // Models moved to workflow.yaml — check for any devclaw plugin config (heartbeat, notifications, etc.)
   return !!pluginConfig && Object.keys(pluginConfig).length > 0;
 }
 
-export async function hasWorkspaceFiles(
+/** Read current agent instructions to detect an initialized workspace.
+ * @param workspaceDir - Optional workspace; absence indicates first-run setup.
+ */
+async function hasWorkspaceFiles(
   workspaceDir?: string,
 ): Promise<boolean> {
   if (!workspaceDir) return false;
-  try {
-    const content = await fs.readFile(
-      path.join(workspaceDir, "AGENTS.md"),
-      "utf-8",
-    );
+  const content = await readWorkspaceAgentInstructions(workspaceDir);
 
-    return content.includes("DevClaw") && (content.includes("task_start") || content.includes("work_start"));
-  } catch {
-    return false;
-  }
+  return Boolean(content?.includes("DevClaw") && content.includes("task_start"));
 }
 
 // ---------------------------------------------------------------------------
 // Context templates
 // ---------------------------------------------------------------------------
 
+/** Render built-in model defaults for onboarding guidance. */
 function buildModelTable(): string {
   const lines: string[] = [];
 
@@ -52,7 +49,8 @@ function buildModelTable(): string {
   return lines.join("\n");
 }
 
-export function buildReconfigContext(): string {
+/** Describe explicit configuration operations for an existing workspace. */
+function buildReconfigContext(): string {
   const modelTable = buildModelTable();
 
   return `# DevClaw Reconfiguration
@@ -73,7 +71,8 @@ Ask what they want to change, then call the appropriate tool.
 `;
 }
 
-export function buildOnboardToolContext(): string {
+/** Describe the first-run conversational setup procedure. */
+function buildOnboardToolContext(): string {
   return `# DevClaw Onboarding
 
 ## What is DevClaw?
@@ -201,4 +200,16 @@ After project registration, briefly tell the user about their active workflow:
 - Show defaults so the user can accept them quickly.
 - After setup, summarize what was configured (including channel binding if applicable).
 `;
+}
+
+/** Select onboarding guidance without changing configuration or workspace files.
+ * @param workspaceDir - Optional workspace to inspect.
+ * @param pluginConfig - Current plugin configuration.
+ * @param requestedMode - Explicit mode, or automatic detection when omitted.
+ */
+export async function getOnboardingContext(workspaceDir: string | undefined, pluginConfig: Record<string, unknown> | undefined, requestedMode?: "first-run" | "reconfigure") {
+  const configured = isPluginConfigured(pluginConfig);
+  const mode = requestedMode ?? (configured && await hasWorkspaceFiles(workspaceDir) ? "reconfigure" : "first-run");
+
+  return { mode, configured, instructions: mode === "first-run" ? buildOnboardToolContext() : buildReconfigContext() };
 }

@@ -1,6 +1,6 @@
 /** Maps typed notification outcomes to the existing audit event contract. */
 import { log as auditLog } from "../../audit.js";
-import type { RouteDiagnostic } from "../setup/route-validation.js";
+import type { RouteDiagnostic } from "../setup/types.js";
 import type { NotificationDeliveryResult, NotificationTarget, NotifyEvent } from "./types.js";
 
 /** Auditable decision made while routing or delivering one event. */

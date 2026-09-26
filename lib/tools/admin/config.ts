@@ -5,14 +5,11 @@
  * - reset: Reset config files to package defaults (with .bak backups)
  * - diff: Show differences between current workflow.yaml and package default
  */
-import fs from "node:fs/promises";
-import path from "node:path";
-
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { DATA_DIR } from "../../state/index.js";
-import { backupAndWrite, fileExists, loadSetupTemplates, resetDefaults } from "../../state/index.js";
+import { compareWorkspaceConfig, resetWorkspaceConfig } from "../../application/setup/index.js";
 
+/** Create the adapter for explicit configuration reset and read-only comparison. */
 export function createConfigTool(): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "config",
@@ -46,18 +43,18 @@ Examples:
     },
 
     async execute(_id: string, params: Record<string, unknown>) {
-      const action = params.action as string;
+      const action = params.action;
       const workspacePath = toolCtx.workspaceDir;
 
       if (!workspacePath) throw new Error("No workspace directory available");
 
       switch (action) {
         case "reset":
-          return await handleReset(workspacePath, (params.scope as string) ?? "all");
+          return await handleReset(workspacePath, params.scope ?? "all");
         case "diff":
           return await handleDiff(workspacePath);
         default:
-          throw new Error(`Unknown config action: ${action}`);
+          throw new Error(`Unknown config action: ${String(action)}`);
       }
     },
   });
@@ -67,31 +64,13 @@ Examples:
 // Handlers
 // ---------------------------------------------------------------------------
 
-async function handleReset(workspacePath: string, scope: string) {
-  const dataDir = path.join(workspacePath, DATA_DIR);
-  const written: string[] = [];
-  const templates = await loadSetupTemplates();
-
-  if (scope === "all") {
-    written.push(...(await resetDefaults(workspacePath)).written);
-  } else if (scope === "workflow") {
-    const workflowPath = path.join(dataDir, "workflow.yaml");
-
-    await backupAndWrite(workflowPath, templates.workflow);
-    written.push("devclaw/workflow.yaml");
-  } else if (scope === "prompts") {
-    const promptsDir = path.join(dataDir, "prompts");
-
-    for (const [role, content] of Object.entries(templates.roleInstructions)) {
-      if (!content) continue;
-      const rolePath = path.join(promptsDir, `${role}.md`);
-
-      await backupAndWrite(rolePath, content);
-      written.push(`devclaw/prompts/${role}.md`);
-    }
-  } else {
-    throw new Error(`Unknown scope: ${scope}. Use: prompts, workflow, or all.`);
-  }
+/** Render the result of an explicitly selected configuration reset.
+ * @param workspacePath - Resolved tool workspace.
+ * @param scope - Untrusted reset subset, validated before application dispatch.
+ */
+async function handleReset(workspacePath: string, scope: unknown) {
+  if (scope !== "all" && scope !== "workflow" && scope !== "prompts") throw new Error("Unknown reset scope.");
+  const written = await resetWorkspaceConfig(workspacePath, scope);
 
   return jsonResult({
     success: true,
@@ -104,10 +83,13 @@ async function handleReset(workspacePath: string, scope: string) {
   });
 }
 
+/** Render a read-only comparison against packaged workflow defaults.
+ * @param workspacePath - Resolved tool workspace.
+ */
 async function handleDiff(workspacePath: string) {
-  const workflowPath = path.join(workspacePath, DATA_DIR, "workflow.yaml");
+  const result = await compareWorkspaceConfig(workspacePath);
 
-  if (!await fileExists(workflowPath)) {
+  if (result.missing) {
     return jsonResult({
       success: true,
       action: "diff",
@@ -115,10 +97,7 @@ async function handleDiff(workspacePath: string) {
     });
   }
 
-  const current = await fs.readFile(workflowPath, "utf-8");
-  const template = (await loadSetupTemplates()).workflow;
-
-  if (current.trim() === template.trim()) {
+  if (!result.differences.length) {
     return jsonResult({
       success: true,
       action: "diff",
@@ -126,26 +105,7 @@ async function handleDiff(workspacePath: string) {
     });
   }
 
-  // Simple line-by-line diff
-  const currentLines = current.split("\n");
-  const templateLines = template.split("\n");
-  const diffs: string[] = [];
-
-  const maxLen = Math.max(currentLines.length, templateLines.length);
-
-  for (let i = 0; i < maxLen; i++) {
-    const cl = currentLines[i] ?? "";
-    const tl = templateLines[i] ?? "";
-
-    if (cl !== tl) {
-      if (tl && !cl) diffs.push(`+${i + 1}: ${tl}`);
-      else if (cl && !tl) diffs.push(`-${i + 1}: ${cl}`);
-      else {
-        diffs.push(`-${i + 1}: ${cl}`);
-        diffs.push(`+${i + 1}: ${tl}`);
-      }
-    }
-  }
+  const diffs = result.differences;
 
   return jsonResult({
     success: true,

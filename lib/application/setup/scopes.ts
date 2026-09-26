@@ -1,42 +1,13 @@
 /**
  * scopes.ts — OpenClaw scope preflight for DevClaw setup entrypoints.
  *
- * DevClaw worker dispatch uses gateway session APIs. The setup core does not
- * depend on this module; CLI/tool wrappers call it before runSetup so missing
- * OpenClaw permissions can surface as a pending approval request without
- * mixing approval transport into config/workspace orchestration.
+ * The shared setup command runs this transport after validation and before writes.
+ * Preview and standalone workspace operations never request approval.
  */
 import type { RunCommand } from "../../context.js";
-
-export const REQUIRED_OPENCLAW_SCOPES = [
-  "operator.read",
-  "operator.write",
-] as const;
-
-export type OpenClawScope = typeof REQUIRED_OPENCLAW_SCOPES[number];
-
-type ScopeCommandStatus =
-  | "approved"
-  | "missing_scopes"
-  | "pending_approval"
-  | "denied"
-  | "expired";
-
-export type ScopeCommandResult = {
-  ok?: boolean;
-  status?: ScopeCommandStatus | string;
-  approved?: string[];
-  missing?: string[];
-  requestId?: string;
-  message?: string;
-};
-
-export type ScopePreflightResult = {
-  status: "approved" | "unavailable";
-  approved: string[];
-  missing: string[];
-  warning?: string;
-};
+import { REQUIRED_OPENCLAW_SCOPES } from "./const.js";
+import { scopeCommandSchema } from "./schema.js";
+import type { ScopeCommandResult, ScopePreflightResult } from "./types.js";
 
 export class ScopeApprovalRequiredError extends Error {
   readonly requestId: string;
@@ -185,7 +156,7 @@ async function runScopesCommand(
   }
 
   try {
-    return { supported: true, result: JSON.parse(stdout) as ScopeCommandResult };
+    return { supported: true, result: scopeCommandSchema.parse(JSON.parse(stdout)) };
   } catch {
     throw new Error(`Invalid JSON from OpenClaw scopes command: ${stdout || "<empty>"}`);
   }

@@ -11,12 +11,13 @@
  */
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
+import { resolveProject, resolveProvider } from "../../application/projects/index.js";
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 import type { PluginContext } from "../../context.js";
 import type { NotifyBindingRef } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
 import { loadConfig } from "../../state/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 export function createTaskCreateTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({

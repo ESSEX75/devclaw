@@ -2,47 +2,19 @@
  * Builds routing and agent-isolation diagnostics for the DevClaw doctor command.
  * It combines persisted projects with live OpenClaw bindings and tool policies without mutation.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { loadConfig } from "../../state/index.js";
 import { type ProjectsData, readProjects } from "../../state/index.js";
 import { getIssueArchiveStatus, parseDuration } from "../issues/index.js";
-import { DEVCLAW_AGENT_TOOLS } from "../setup/plugin-config.js";
-import { inspectConfiguredProjectRoutes } from "../setup/route-validation.js";
+import { DEVCLAW_AGENT_TOOLS, inspectConfiguredProjectRoutes } from "../setup/index.js";
+import type { DoctorFinding, DoctorRuntime, RoutingDoctorReport } from "./types.js";
 
-/** One doctor finding with a stable code and severity. */
-export type DoctorFinding = {
-  /** Stable identifier for automation and support references. */
-  code: string;
-  /** Whether this finding blocks safe DevClaw routing. */
-  severity: "error" | "info";
-  /** Human-readable diagnostic message. */
-  message: string;
-};
-
-/** Routing and tool-access matrix returned by the doctor application service. */
-export type RoutingDoctorReport = {
-  /** True when no blocking routing or isolation finding exists. */
-  ok: boolean;
-  /** Route and policy findings. */
-  findings: DoctorFinding[];
-  /** Explicit DevClaw tool access calculated for every configured agent. */
-  agents: Array<{ agentId: string; devclawToolsAllowed: boolean }>;
-  /** Active/archive counters for every configured project. */
-  archives: Array<{
-    projectSlug: string;
-    active: number;
-    terminalWaitingArchive: number;
-    archived: number;
-    providerDeleted: number;
-    purgeEligible: number;
-    attachmentsRetainedBytes: number;
-  }>;
-};
-
-/** Inspect project routes and explicit per-agent DevClaw tool isolation. */
+/** Inspect routes, retention, and isolation without writes or command calls.
+ * @param runtime - Read-only OpenClaw configuration source.
+ * @param workspaceDir - Workspace containing managed project state.
+ */
 export async function runRoutingDoctor(
-  runtime: PluginRuntime,
+  runtime: DoctorRuntime,
   workspaceDir: string,
 ): Promise<RoutingDoctorReport> {
   const config = runtime.config.current();
@@ -76,7 +48,7 @@ export async function runRoutingDoctor(
 
 /** Build a doctor report from already loaded configuration and project state. */
 export function buildRoutingDoctorReport(
-  config: ReturnType<PluginRuntime["config"]["current"]>,
+  config: ReturnType<DoctorRuntime["config"]["current"]>,
   projects: ProjectsData,
 ): RoutingDoctorReport {
   const findings: DoctorFinding[] = [];

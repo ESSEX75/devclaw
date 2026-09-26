@@ -18,3 +18,8 @@ application code validates the fresh issue and slot before changing either.
   case exists.
 
 Use `npm run arch:check:strict` after changing this layer.
+
+Setup calls the same application command as the setup tool, including preflight
+and dry-run validation. `--eject-defaults`, `--reset-defaults`, and
+`--refresh-instructions` select standalone file operations; ordinary setup preserves
+existing files. Doctor remains read-only.

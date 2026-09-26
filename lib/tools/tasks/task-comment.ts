@@ -8,11 +8,12 @@
  */
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
+import { resolveProject, resolveProvider } from "../../application/projects/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { getFallbackEmoji } from "../../roles/index.js";
 import { isConfiguredRoleId, loadConfig } from "../../state/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 type AuthorRole = string;
 

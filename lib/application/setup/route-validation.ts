@@ -5,42 +5,8 @@
  */
 import type { NotificationEndpoint, Project } from "../../domain/index.js";
 import type { ProjectsData } from "../../state/index.js";
-
-/** Read-only OpenClaw configuration surface required for route validation. */
-export type RouteConfig = {
-  readonly agents?: { readonly list?: readonly { readonly id: string }[] };
-  readonly channels?: Readonly<Record<string, {
-    readonly enabled?: boolean;
-    readonly accounts?: Readonly<Record<string, unknown>>;
-  }>>;
-  readonly bindings?: readonly {
-    readonly agentId: string;
-    readonly match?: {
-      readonly channel?: string;
-      readonly accountId?: string;
-      readonly peer?: { readonly id?: string };
-    };
-  }[];
-};
-
-/** Stable diagnostic codes produced by strict route validation. */
-export const ROUTE_DIAGNOSTIC_CODE = {
-  AGENT_NOT_FOUND: "route.agent_not_found",
-  CHANNEL_NOT_FOUND: "route.channel_not_found",
-  CHANNEL_DISABLED: "route.channel_disabled",
-  ACCOUNT_NOT_FOUND: "route.account_not_found",
-  BINDING_NOT_FOUND: "route.binding_not_found",
-  BINDING_AGENT_MISMATCH: "route.binding_agent_mismatch",
-  DESTINATION_CONFLICT: "route.destination_conflict",
-} as const;
-
-/** One machine-readable route validation failure. */
-export type RouteDiagnostic = {
-  /** Stable code suitable for CLI and automation handling. */
-  code: string;
-  /** Human-readable explanation including the invalid route component. */
-  message: string;
-};
+import { ROUTE_DIAGNOSTIC_CODE } from "./const.js";
+import type { RouteConfig, RouteDiagnostic } from "./types.js";
 
 /** Build the OpenClaw peer identifier represented by a project endpoint. */
 export function getEndpointPeerId(endpoint: NotificationEndpoint): string {

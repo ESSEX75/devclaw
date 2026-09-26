@@ -17,3 +17,7 @@ agent-facing plugin API and deterministic DevClaw behavior.
   manual-repair states honestly; only a `ready` operation is successful.
 
 Use `npm run arch:check:strict` after adding or changing tool factories.
+
+Setup, configuration, and onboarding tools call application/setup. They must not
+read or write filesystem state directly. Setup dry-run applies to every operation,
+including reset and instruction refresh.

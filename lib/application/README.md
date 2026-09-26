@@ -12,6 +12,7 @@ This layer owns DevClaw use cases.
 | `issues` | Repair, archive, deletion, retention, and policy migration. | `issues/index.ts`: lifecycle commands and repair source |
 | `notifications` | Exact endpoint resolution, delivery, and retry of terminal events. | `notifications/index.ts`: delivery and retry operations for sibling use cases |
 | `pipeline` | Completion transitions and provider effects. | `pipeline/index.ts`: completion command and rule query for sibling use cases |
+| `projects` | Unambiguous project routing and persisted provider selection. | `projects/index.ts`: project/provider context resolution |
 | `projection` | Applying deterministic projection diffs to a provider. | `projection/index.ts`: reconcile and apply operations for sibling use cases |
 | `queue` | Local-state candidate selection and queue ticks. | `queue/index.ts`: candidate query and project tick for sibling use cases |
 | `review` | PR feedback/context and comment acknowledgement. | `review/index.ts`: review context operations for sibling use cases |
@@ -108,3 +109,9 @@ until an explicit initialization or repair operation creates managed state.
 - Explicit setup orchestration owns system-instruction refresh and reset policy.
 
 Use `npm run arch:check:strict` after changing this layer.
+
+Setup validates target, exact route, and configured role/level overrides before effects.
+CLI and tools share `runSetup`, including scope preflight. Preview performs no writes
+or command calls. Ordinary setup creates missing files and patches only explicit
+models; refresh/reset/eject are mutually exclusive standalone operations. Doctor
+only reads state. Configuration reset/diff and onboarding selection belong here.

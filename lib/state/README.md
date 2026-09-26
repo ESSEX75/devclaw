@@ -69,3 +69,7 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 
 Use `npm run test` after changing issue state behavior, and
 `npm run arch:check:strict` after structural changes.
+
+Workflow model patch persistence preserves other YAML settings and comments and
+creates a backup. Scoped configuration resets and workflow document reads belong
+to state; application selects the operation and validates configured identifiers.

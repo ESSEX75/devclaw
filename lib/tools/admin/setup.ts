@@ -5,6 +5,7 @@
  * Thin wrapper around application setup orchestration.
  */
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
+import { z } from "zod";
 
 import {
   isSetupNotificationChannel,
@@ -13,15 +14,29 @@ import {
   type SetupOpts,
 } from "../../application/setup/index.js";
 import {
-  ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
 } from "../../application/setup/index.js";
-import type { PluginContext } from "../../context.js";
-import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
-import { initializeWorkspaceFiles, resetDefaults } from "../../state/index.js";
+import { EXECUTION_MODE } from "../../domain/index.js";
 
-export function createSetupTool(ctx: PluginContext): OpenClawPluginToolFactory {
+/** Validate optional tool inputs without trusting schema enforcement by the caller. */
+const setupInput = z.object({
+  newAgentName: z.string().min(1).optional(),
+  channelBinding: z.string().optional(),
+  channelAccountId: z.string().optional(),
+  channelPeerId: z.string().optional(),
+  models: z.record(z.string(), z.record(z.string(), z.string().min(1))).optional(),
+  projectExecution: z.enum(EXECUTION_MODE).optional(),
+  ejectDefaults: z.boolean().optional(),
+  resetDefaults: z.boolean().optional(),
+  refreshInstructions: z.boolean().optional(),
+  dryRun: z.boolean().optional(),
+});
+
+/** Create the setup adapter with validated tool inputs and application-owned effects.
+ * @param ctx - Setup runtime and command transport.
+ */
+export function createSetupTool(ctx: Pick<SetupOpts, "runtime" | "runCommand">): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "setup",
     label: "Setup",
@@ -73,6 +88,10 @@ export function createSetupTool(ctx: PluginContext): OpenClawPluginToolFactory {
           type: "boolean",
           description: "Force-write all package defaults to workspace, overwriting existing files. Creates .bak backups.",
         },
+        refreshInstructions: {
+          type: "boolean",
+          description: "Refresh system instructions only, preserving .bak backups.",
+        },
         dryRun: {
           type: "boolean",
           description: "Return the setup plan without writing OpenClaw or workspace configuration.",
@@ -81,28 +100,9 @@ export function createSetupTool(ctx: PluginContext): OpenClawPluginToolFactory {
     },
 
     async execute(_id: string, params: Record<string, unknown>) {
-      // Handle --eject-defaults and --reset-defaults (standalone operations)
-      if (params.ejectDefaults || params.resetDefaults) {
-        const workspacePath = toolCtx.workspaceDir;
-
-        if (!workspacePath) throw new Error("No workspace directory available");
-        const force = !!params.resetDefaults;
-        const written = (force ? await resetDefaults(workspacePath) : await initializeWorkspaceFiles(workspacePath)).written;
-        const action = force ? "Reset (force-wrote)" : "Ejected (wrote missing)";
-
-        return jsonResult({
-          success: true,
-          action: force ? "reset-defaults" : "eject-defaults",
-          filesWritten: written,
-          summary: written.length > 0
-            ? `${action} ${written.length} file(s):\n${written.map(f => `  ${f}`).join("\n")}`
-            : "All files already exist — nothing to write.",
-        });
-      }
-
-      let scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>> | undefined;
+      const input = setupInput.parse(params);
       let result: Awaited<ReturnType<typeof runSetup>>;
-      const channelBindingInput = params.channelBinding;
+      const channelBindingInput = input.channelBinding;
 
       if (
         channelBindingInput !== undefined
@@ -112,24 +112,23 @@ export function createSetupTool(ctx: PluginContext): OpenClawPluginToolFactory {
       }
 
       try {
-        scopePreflight = params.dryRun === true
-          ? undefined
-          : await ensureRequiredOpenClawScopes(ctx.runCommand);
         result = await runSetup({
           runtime: ctx.runtime,
-          newAgentName: params.newAgentName as string | undefined,
+          runCommand: ctx.runCommand,
+          newAgentName: input.newAgentName,
           channelBinding: channelBindingInput ?? null,
           channelAccountId:
-            typeof params.channelAccountId === "string" ? params.channelAccountId : undefined,
+            typeof input.channelAccountId === "string" ? input.channelAccountId : undefined,
           channelPeerId:
-            typeof params.channelPeerId === "string" ? params.channelPeerId : undefined,
-          agentId: params.newAgentName ? undefined : toolCtx.agentId,
-          workspacePath: params.newAgentName ? undefined : toolCtx.workspaceDir,
-          models: params.models as SetupOpts["models"],
-          projectExecution: params.projectExecution as
-            | ExecutionMode
-            | undefined,
-          dryRun: params.dryRun === true,
+            typeof input.channelPeerId === "string" ? input.channelPeerId : undefined,
+          agentId: input.newAgentName ? undefined : toolCtx.agentId,
+          workspacePath: input.newAgentName ? undefined : toolCtx.workspaceDir,
+          models: input.models,
+          projectExecution: input.projectExecution,
+          dryRun: input.dryRun === true,
+          ejectDefaults: input.ejectDefaults,
+          resetDefaults: input.resetDefaults,
+          refreshInstructions: input.refreshInstructions,
         });
       } catch (err) {
         if (isScopeApprovalRequiredError(err)) {
@@ -157,6 +156,13 @@ export function createSetupTool(ctx: PluginContext): OpenClawPluginToolFactory {
         throw err;
       }
 
+      if (result.operation !== "configure") {
+        return jsonResult({ success: true, ...result, summary: result.dryRun
+          ? `Setup dry-run: ${result.plannedChanges.join("; ")}`
+          : `${result.operation}: ${result.filesWritten.length} files written` });
+      }
+
+      const scopePreflight = result.scopePreflight;
       const lines = [
         result.agentCreated
           ? `Agent "${result.agentId}" created`

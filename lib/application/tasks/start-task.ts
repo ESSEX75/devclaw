@@ -10,9 +10,9 @@ import {
   isIssueCreationReady,
   withIssueOrchestrationLock,
 } from "../../state/index.js";
-import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
+import { resolveProject, resolveProvider } from "../projects/index.js";
 import { resolveStartTaskDecision } from "./lifecycle-decision.js";
 
 export type StartTaskInput = {

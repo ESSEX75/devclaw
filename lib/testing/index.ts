@@ -13,6 +13,7 @@ export {
   type HarnessOptions,
   type TestHarness,
 } from "./harness.js";
+export { createSetupRuntime } from "./setup-runtime.js";
 export {
   createEmptyIssueStateStoreForTesting,
   replaceIssueArchiveStoreForTesting,

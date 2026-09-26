@@ -4,42 +4,12 @@
  * Handles: tool restrictions, subagent cleanup, heartbeat defaults.
  * Models are stored in workflow.yaml (not openclaw.json).
  */
-import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
 import type { ExecutionMode } from "../../domain/index.js";
 import { HEARTBEAT_DEFAULTS } from "../heartbeat/config.js";
-
-export const DEVCLAW_AGENT_TOOLS = [
-  "task_start",
-  "work_finish",
-  "task_create",
-  "task_set_level",
-  "task_comment",
-  "task_edit_body",
-  "task_attach",
-  "task_owner",
-  "tasks_status",
-  "task_list",
-  "project_status",
-  "health",
-  "project_register",
-  "sync_labels",
-  "channel_link",
-  "channel_unlink",
-  "channel_list",
-  "setup",
-  "onboard",
-  "autoconfigure_models",
-  "research_task",
-  "workflow_guide",
-  "config",
-  "issue_repair",
-  "issue_policy_migrate",
-  "issue_delete",
-] as const;
-
-const DEVCLAW_DENIED_TOOLS = ["sessions_spawn", "sessions_send"] as const;
-const DEVCLAW_AGENT_TOOL_SET: ReadonlySet<string> = new Set(DEVCLAW_AGENT_TOOLS);
+import { DEVCLAW_AGENT_TOOL_SET, DEVCLAW_AGENT_TOOLS, DEVCLAW_DENIED_TOOLS } from "./const.js";
+import type { SetupRuntime } from "./types.js";
 
 /**
  * Write DevClaw plugin config to openclaw.json plugins section.
@@ -49,40 +19,36 @@ const DEVCLAW_AGENT_TOOL_SET: ReadonlySet<string> = new Set(DEVCLAW_AGENT_TOOLS)
  * - Subagent cleanup interval (30 days) to keep development sessions alive
  * - Heartbeat defaults
  *
- * Read-modify-write to preserve existing config.
+ * Uses SDK mutation to preserve concurrent configuration edits.
+ * @param runtime - SDK configuration mutation transport.
+ * @param agentId - Optional agent receiving DevClaw tool permissions.
+ * @param projectExecution - Optional explicit scheduling-mode change.
  * Note: models are NOT stored here — they live in workflow.yaml.
  */
 export async function writePluginConfig(
-  runtime: PluginRuntime,
+  runtime: SetupRuntime,
   agentId?: string,
   projectExecution?: ExecutionMode,
 ): Promise<void> {
-  const config = structuredClone(runtime.config.current()) as unknown as OpenClawConfig;
+  await runtime.config.mutateConfigFile({
+    mutate(config) {
+      ensurePluginStructure(config);
 
-  ensurePluginStructure(config);
+      if (projectExecution && config.plugins?.entries?.devclaw?.config) {
+        config.plugins.entries.devclaw.config.projectExecution = projectExecution;
+      }
 
-  if (projectExecution && config.plugins?.entries?.devclaw?.config) {
-    config.plugins.entries.devclaw.config.projectExecution = projectExecution;
-  }
+      ensurePluginAllowed(config);
+      ensureInternalHooks(config);
+      ensureHeartbeatDefaults(config);
+      configureSubagentCleanup(config);
+      ensureTelegramLinkPreviewDisabled(config);
 
-  // Remove plugin-local model config; models are owned by workflow.yaml.
-  if (config.plugins?.entries?.devclaw?.config) {
-    delete config.plugins.entries.devclaw.config.models;
-  }
-
-  ensurePluginAllowed(config);
-  ensureInternalHooks(config);
-  ensureHeartbeatDefaults(config);
-  configureSubagentCleanup(config);
-  ensureTelegramLinkPreviewDisabled(config);
-
-  if (agentId) {
-    configureDevClawAgentTools(config, agentId);
-    allowActiveMemoryForAgent(config, agentId);
-  }
-
-  await runtime.config.replaceConfigFile({
-    nextConfig: config,
+      if (agentId) {
+        configureDevClawAgentTools(config, agentId);
+        allowActiveMemoryForAgent(config, agentId);
+      }
+    },
     afterWrite: { mode: "auto" },
   });
 }

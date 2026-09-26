@@ -7,6 +7,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
+import { resolveProject, resolveProvider } from "../../application/projects/index.js";
 import { claimManagedTask } from "../../application/tasks/index.js";
 import type { PluginContext } from "../../context.js";
 import {
@@ -17,7 +18,7 @@ import {
 import { loadInstanceName } from "../../instance.js";
 import { loadConfig } from "../../state/index.js";
 import { readIssueStateStore } from "../../state/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 export function createTaskOwnerTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({

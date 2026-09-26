@@ -1,18 +1,18 @@
 /** Exposes setup commands, route validation, and scope preflight to adapters. */
-export { createAgent, getAgentId, getAgentWorkspacePath, resolveWorkspacePath } from "./agent-config.js";
-export { ensureChannelBinding } from "./binding-manager.js";
-export { buildOnboardToolContext, buildReconfigContext, hasWorkspaceFiles, isPluginConfigured } from "./onboarding.js";
-export { DEVCLAW_AGENT_TOOLS, writePluginConfig } from "./plugin-config.js";
+export { DEVCLAW_AGENT_TOOLS } from "./const.js";
+export { SETUP_NOTIFICATION_CHANNELS } from "./const.js";
+export { isSetupNotificationChannel } from "./guards.js";
+export { getOnboardingContext } from "./onboarding.js";
 export {
   inspectConfiguredProjectRoutes,
   inspectProjectRoute,
   validateDestinationAvailability,
   validateProjectRoute,
 } from "./route-validation.js";
-export type { SetupNotificationChannel, SetupOpts } from "./run-setup.js";
-export { isSetupNotificationChannel, runSetup, SETUP_NOTIFICATION_CHANNELS } from "./run-setup.js";
+export { runSetup } from "./run-setup.js";
 export {
-  ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
 } from "./scopes.js";
+export type { SetupNotificationChannel, SetupOpts, SetupResult, SetupRuntime } from "./types.js";
+export { compareWorkspaceConfig, resetWorkspaceConfig } from "./workspace-config.js";

@@ -10,8 +10,8 @@ import { isConfiguredRoleId, loadConfig } from "../../state/index.js";
 import { readIssueStateStore } from "../../state/index.js";
 import { getRoleWorker, resolveRepoPath } from "../../state/index.js";
 import { DATA_DIR } from "../../state/index.js";
-import { resolveProject, resolveProvider } from "../../tools/helpers.js";
 import { executeCompletion, getRule } from "../pipeline/completion.js";
+import { resolveProject, resolveProvider } from "../projects/index.js";
 
 export type FinishWorkInput = {
   workspaceDir: string;

@@ -5,7 +5,6 @@ import { describe, it } from "node:test";
 import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type NotificationEndpoint } from "../../domain/index.js";
 import {
   inspectProjectRoute,
-  ROUTE_DIAGNOSTIC_CODE,
   validateDestinationAvailability,
 } from "./route-validation.js";
 
@@ -72,3 +71,5 @@ describe("strict project route validation", () => {
     }, "second", endpoint), /route\.destination_conflict/);
   });
 });
+
+import { ROUTE_DIAGNOSTIC_CODE } from "./const.js";

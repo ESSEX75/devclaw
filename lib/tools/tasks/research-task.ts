@@ -14,6 +14,7 @@
  */
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
+import { resolveProject, resolveProvider } from "../../application/projects/index.js";
 import { createManagedTaskIssue } from "../../application/tasks/index.js";
 import { dispatchTask } from "../../application/workers/index.js";
 import { log as auditLog } from "../../audit.js";
@@ -24,7 +25,7 @@ import { resolveModel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import { loadConfig } from "../../state/index.js";
 import { getRoleWorker } from "../../state/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 /** Queue label for research tasks. */
 const TO_RESEARCH_LABEL = "To Research";

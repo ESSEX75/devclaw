@@ -5,30 +5,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+import { createSetupRuntime as createRuntime } from "../../testing/index.js";
 import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import { ensureChannelBinding } from "./binding-manager.js";
 
-function createRuntime(initialConfig: OpenClawConfig): {
-  runtime: PluginRuntime;
-  writes: Array<{ nextConfig: OpenClawConfig; afterWrite?: unknown }>;
-} {
-  let currentConfig = structuredClone(initialConfig) as OpenClawConfig;
-  const writes: Array<{ nextConfig: OpenClawConfig; afterWrite?: unknown }> = [];
-
-  return {
-    runtime: ({
-      config: {
-        current: () => currentConfig,
-        replaceConfigFile: async (write: { nextConfig: OpenClawConfig; afterWrite?: unknown }) => {
-          currentConfig = structuredClone(write.nextConfig) as OpenClawConfig;
-          writes.push(write);
-        },
-      },
-    } as unknown) as PluginRuntime,
-    writes,
-  };
-}
 
 describe("channel binding helpers", () => {
   it("adds an exact binding for an existing agent once", async () => {

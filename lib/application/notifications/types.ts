@@ -1,7 +1,7 @@
 /** Defines notification events, delivery receipts, runtime capability, and route options. */
 import type { RunCommand } from "../../context.js";
 import type { NotificationChannel } from "../../domain/index.js";
-import type { RouteConfig } from "../setup/route-validation.js";
+import type { RouteConfig } from "../setup/types.js";
 
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;

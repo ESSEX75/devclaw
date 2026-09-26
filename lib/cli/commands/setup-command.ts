@@ -1,25 +1,28 @@
+/** Adapts terminal setup options to the shared application command. */
 import type { Command } from "commander";
 
-import { runSetup } from "../../application/setup/index.js";
+import { runSetup, type SetupOpts } from "../../application/setup/index.js";
 import {
-  ensureRequiredOpenClawScopes,
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
 } from "../../application/setup/index.js";
-import type { PluginContext } from "../../context.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import {
   normalizeChannelBinding,
   normalizeProjectExecution,
-  type SetupCliOptions,
 } from "../options/setup-options.js";
+import type { SetupCliOptions } from "../options/types.js";
 import {
   collectInteractiveSetupDetails,
   printSelectedSetupTarget,
   resolveSetupCliOptions,
 } from "../prompts/channel-prompts.js";
 
-export function registerSetupCommand(parent: Command, ctx: PluginContext): void {
+/** Register terminal options that dispatch the shared setup command.
+ * @param parent - Parent DevClaw command group.
+ * @param ctx - Setup runtime and scope command transport.
+ */
+export function registerSetupCommand(parent: Command, ctx: Pick<SetupOpts, "runtime" | "runCommand">): void {
   const setupCmd = parent
     .command("setup")
     .description("Set up DevClaw: create agent, configure models, write workspace files")
@@ -31,7 +34,9 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
     .option("--channel-peer-id <id>", "Exact group/topic peer id for the binding, e.g. -100123:topic:331")
     .option("--project-execution <mode>", "Project execution mode: parallel or sequential")
     .option("--dry-run", "Print the setup plan without writing configuration or workspace files")
-    .option("--eject-defaults", "Write missing packaged defaults into the workspace");
+    .option("--eject-defaults", "Write missing packaged defaults into the workspace")
+    .option("--reset-defaults", "Reset packaged defaults with backups")
+    .option("--refresh-instructions", "Refresh system instructions with backups");
 
   const defaults = getAllDefaultModels();
 
@@ -67,11 +72,9 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
         if (Object.keys(roleModels).length > 0) models[role] = roleModels;
       }
 
-      const scopePreflight = opts.dryRun
-        ? undefined
-        : await ensureRequiredOpenClawScopes(ctx.runCommand);
       const result = await runSetup({
         runtime: ctx.runtime,
+        runCommand: ctx.runCommand,
         newAgentName: opts.newAgent,
         channelBinding: normalizeChannelBinding(opts.channelBinding),
         channelAccountId: opts.channelAccountId,
@@ -80,11 +83,13 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
         workspacePath: opts.workspace,
         models: Object.keys(models).length > 0 ? models : undefined,
         ejectDefaults: opts.ejectDefaults === true,
+        resetDefaults: opts.resetDefaults === true,
+        refreshInstructions: opts.refreshInstructions === true,
         projectExecution: normalizeProjectExecution(opts.projectExecution),
         dryRun: opts.dryRun === true,
       });
 
-      printSetupResult(result, scopePreflight);
+      printSetupResult(result);
     } catch (err) {
       if (isScopeApprovalRequiredError(err)) {
         console.error("OpenClaw scope approval required.");
@@ -108,13 +113,24 @@ export function registerSetupCommand(parent: Command, ctx: PluginContext): void 
   });
 }
 
+/** Render preview, file operation, or configuration results.
+ * @param result - Completed application command outcome.
+ */
 function printSetupResult(
   result: Awaited<ReturnType<typeof runSetup>>,
-  scopePreflight: Awaited<ReturnType<typeof ensureRequiredOpenClawScopes>> | undefined,
 ): void {
+  const scopePreflight = result.scopePreflight;
+
   if (result.dryRun) {
     console.log("Setup dry-run plan:");
     for (const change of result.plannedChanges) console.log(`  - ${change}`);
+
+    return;
+  }
+
+  if (result.operation !== "configure") {
+    console.log(`${result.operation}: ${result.filesWritten.length} files written`);
+    for (const file of result.filesWritten) console.log(`  ${file}`);
 
     return;
   }

@@ -5,11 +5,12 @@
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { deleteManagedIssue } from "../../application/issues/index.js";
+import { resolveProvider } from "../../application/projects/index.js";
 import { validateProjectRoute } from "../../application/setup/index.js";
 import type { PluginContext } from "../../context.js";
 import { isNotificationChannel } from "../../domain/index.js";
 import { readProjects } from "../../state/index.js";
-import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir } from "../helpers.js";
 
 /** Create the capability-aware issue_delete tool. */
 export function createIssueDeleteTool(ctx: PluginContext): OpenClawPluginToolFactory {
