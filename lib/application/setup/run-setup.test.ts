@@ -124,3 +124,23 @@ describe("shared setup command", () => {
     assert.deepEqual(fixture.commands, []);
   });
 });
+
+it("previews an implicit SDK workspace without commands or writes", async () => {
+  const root = await workspace();
+  const fixture = createSetupRuntime({ agents: { defaults: { workspace: root }, list: [{ id: "a" }, { id: "b" }] } });
+  const result = await runSetup({ ...fixture, agentId: "a", dryRun: true });
+  assert.equal(result.workspacePath, path.join(root, "a"));
+  assert.deepEqual(fixture.writes, []);
+  assert.deepEqual(fixture.commands, []);
+  await assert.rejects(fs.access(result.workspacePath));
+});
+it("does not write setup configuration or files after scope rejection", async () => {
+  const root = await workspace();
+  const fixture = createSetupRuntime();
+  const before = await fs.readdir(root, { recursive: true });
+  await assert.rejects(runSetup({ ...fixture, workspacePath: root, runCommand: async () => ({
+    code: 0, stdout: JSON.stringify({ status: "denied", missing: [] }), stderr: "", signal: null, killed: false, termination: "exit",
+  }) }), /was denied/);
+  assert.deepEqual(fixture.writes, []);
+  assert.deepEqual(await fs.readdir(root, { recursive: true }), before);
+});

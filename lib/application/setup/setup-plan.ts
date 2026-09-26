@@ -2,6 +2,7 @@
 import { loadConfig } from "../../state/index.js";
 import { getAgentId, getAgentWorkspacePath, resolveWorkspacePath } from "./agent-config.js";
 import { planChannelBinding } from "./binding-manager.js";
+import { SETUP_OPERATION, UNKNOWN_AGENT_ID } from "./const.js";
 import type { ModelConfig, SetupOpts, SetupResult } from "./types.js";
 
 /** Resolve a validated setup plan; performs reads only and never invokes command transport.
@@ -17,9 +18,9 @@ export async function planSetup(opts: SetupOpts): Promise<SetupResult> {
   }
 
   const agentCreated = Boolean(opts.newAgentName);
-  const agentId = opts.newAgentName ? getAgentId(opts.newAgentName) : opts.agentId ?? "unknown";
+  const agentId = opts.newAgentName ? getAgentId(opts.newAgentName) : opts.agentId ?? UNKNOWN_AGENT_ID;
   const workspacePath = opts.newAgentName ? getAgentWorkspacePath(agentId)
-    : opts.workspacePath ?? (opts.agentId ? resolveWorkspacePath(opts.runtime, opts.agentId) : undefined);
+    : opts.workspacePath ?? (opts.agentId ? await resolveWorkspacePath(opts.runtime, opts.agentId) : undefined);
 
   if (!workspacePath) throw new Error("Setup requires either newAgentName, agentId, or workspacePath");
   const current = opts.runtime.config.current();
@@ -47,13 +48,14 @@ export async function planSetup(opts: SetupOpts): Promise<SetupResult> {
     ? [opts.resetDefaults ? "Reset packaged defaults with backups" : opts.refreshInstructions ? "Refresh system instructions with backups" : "Create missing packaged defaults"]
     : [
       ...(agentCreated ? [`Create OpenClaw agent "${agentId}"`] : []),
-      `Configure DevClaw tool isolation for "${agentId}"`,
+      ...(opts.agentId || agentCreated ? [`Configure DevClaw tool isolation for "${agentId}" and existing project owners`] : ["Configure DevClaw plugin defaults"]),
       ...(opts.channelBinding ? [`Create exact binding ${opts.channelBinding}/${opts.channelAccountId}/${opts.channelPeerId}`] : []),
       `Create missing workspace files in ${workspacePath}`,
       ...(opts.models ? ["Write explicit model overrides; preserve other configuration"] : []),
     ];
   const result: SetupResult = {
-    operation: opts.ejectDefaults ? "eject-defaults" : opts.resetDefaults ? "reset-defaults" : opts.refreshInstructions ? "refresh-instructions" : "configure",
+    operation: opts.ejectDefaults ? SETUP_OPERATION.EJECT : opts.resetDefaults ? SETUP_OPERATION.RESET
+      : opts.refreshInstructions ? SETUP_OPERATION.REFRESH : SETUP_OPERATION.CONFIGURE,
     agentId, agentCreated, workspacePath, models, filesWritten: [], warnings: [],
     channelBinding: opts.channelBinding ?? null, channelAccountId: opts.channelAccountId,
     channelPeerId: opts.channelPeerId, defaultsEjected: opts.ejectDefaults === true,

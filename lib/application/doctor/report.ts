@@ -9,14 +9,16 @@ import type { DoctorArchiveReport, DoctorFinding, DoctorRuntime, RoutingDoctorRe
  * @param config - Current OpenClaw routes and explicit agent tool policies.
  * @param projects - Validated project registry identifying route and tool owners.
  * @param archiveReport - Completed archive observations, including project read failures.
+ * @param otherWorkspaceOwners - Validated owners discovered in SDK-resolved workspaces.
  */
 export function buildRoutingDoctorReport(
   config: ReturnType<DoctorRuntime["config"]["current"]>,
   projects: ProjectsData,
   archiveReport: DoctorArchiveReport = { archives: [], findings: [] },
+  otherWorkspaceOwners: ReadonlySet<string> = new Set(),
 ): RoutingDoctorReport {
   const findings: DoctorFinding[] = [];
-  const projectAgentIds = new Set(Object.values(projects.projects).map((project) => project.agentId));
+  const projectAgentIds = new Set([...otherWorkspaceOwners, ...Object.values(projects.projects).map((project) => project.agentId)]);
 
   for (const result of inspectConfiguredProjectRoutes(config, projects)) {
     for (const diagnostic of result.diagnostics) {
@@ -30,10 +32,10 @@ export function buildRoutingDoctorReport(
 
   const toolNames: ReadonlySet<string> = new Set(DEVCLAW_AGENT_TOOLS);
   const agents = (config.agents?.list ?? []).map((agent) => {
-    const alsoAllow = new Set(agent.tools?.alsoAllow ?? []);
+    const allowed = new Set([...(agent.tools?.allow ?? []), ...(agent.tools?.alsoAllow ?? [])]);
     const deny = new Set(agent.tools?.deny ?? []);
-    const allAllowed = DEVCLAW_AGENT_TOOLS.every((tool) => alsoAllow.has(tool) && !deny.has(tool));
-    const anyAllowed = DEVCLAW_AGENT_TOOLS.some((tool) => alsoAllow.has(tool) && !deny.has(tool));
+    const allAllowed = DEVCLAW_AGENT_TOOLS.every((tool) => allowed.has(tool) && !deny.has(tool));
+    const anyAllowed = DEVCLAW_AGENT_TOOLS.some((tool) => allowed.has(tool) && !deny.has(tool));
     const allDenied = DEVCLAW_AGENT_TOOLS.every((tool) => deny.has(tool));
     const ownsProject = projectAgentIds.has(agent.id);
 
@@ -53,7 +55,7 @@ export function buildRoutingDoctorReport(
       });
     }
 
-    const explicitAllowedTool = (agent.tools?.alsoAllow ?? []).some((tool) => toolNames.has(tool));
+    const explicitAllowedTool = [...allowed].some((tool) => toolNames.has(tool));
 
     return { agentId: agent.id, devclawToolsAllowed: ownsProject && allAllowed && explicitAllowedTool };
   });

@@ -69,7 +69,7 @@ function notificationRuntime(sentPayloads: unknown[]): NotificationRuntime {
           match: {
             channel: "telegram",
             accountId: "default",
-            peer: { id: "telegram:123" },
+            peer: { kind: "group", id: "telegram:123" },
           },
         }],
       }),

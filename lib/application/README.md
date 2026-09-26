@@ -115,3 +115,7 @@ CLI and tools share `runSetup`, including scope preflight. Preview performs no w
 or command calls. Ordinary setup creates missing files and patches only explicit
 models; refresh/reset/eject are mutually exclusive standalone operations. Doctor
 only reads state. Configuration reset/diff and onboarding selection belong here.
+
+Setup resolves tool authorization from the selected agent and validated project owners
+across SDK-resolved workspaces. Pure tool policy is separate from configuration mutation.
+Scope CLI parsing and execution belong to integrations; setup owns approval decisions.

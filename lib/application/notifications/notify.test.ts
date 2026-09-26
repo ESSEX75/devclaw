@@ -29,7 +29,7 @@ function runtimeWithSendText(
           match: {
             channel: "telegram",
             accountId: "dev",
-            peer: { id: "telegram:123" },
+            peer: { kind: "group", id: "telegram:123" },
           },
         }],
       }),

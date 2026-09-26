@@ -7,7 +7,6 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import { createSetupRuntime as createRuntime } from "../../testing/index.js";
 import { createAgent } from "./agent-config.js";
 import { runSetup } from "./run-setup.js";
@@ -38,7 +37,7 @@ describe("createAgent", () => {
         defaults: { model: "openai/gpt-5.4" },
         list: [],
       },
-    } as OpenClawConfig);
+    });
 
     const result = await createAgent(runtime, name, { openClawHome });
 

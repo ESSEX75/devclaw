@@ -19,3 +19,8 @@
 
 Internal builders and constants are not part of the adapter API. Doctor never
 repairs routing, changes tool access, or applies retention.
+
+Tool isolation uses setup ownership discovery across SDK-resolved workspaces; another
+workspace owner is not treated as a foreign agent. Explicit `allow` and `alsoAllow`
+are both inspected. Corrupt ownership registries reject inspection because isolation
+cannot be established from incomplete ownership data.

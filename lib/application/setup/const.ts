@@ -8,6 +8,8 @@ export const ROUTE_DIAGNOSTIC_CODE = {
   AGENT_NOT_FOUND: "route.agent_not_found",
   CHANNEL_NOT_FOUND: "route.channel_not_found",
   CHANNEL_DISABLED: "route.channel_disabled",
+  ACCOUNT_DISABLED: "route.account_disabled",
+  BINDING_CONFLICT: "route.binding_conflict",
   ACCOUNT_NOT_FOUND: "route.account_not_found",
   BINDING_NOT_FOUND: "route.binding_not_found",
   BINDING_AGENT_MISMATCH: "route.binding_agent_mismatch",
@@ -66,3 +68,33 @@ export const AGENT_DIRECTORY = "agent";
 export const WORKSPACE_DIRECTORY = "workspace";
 /** Agent session persistence directory. */
 export const SESSIONS_DIRECTORY = "sessions";
+
+/** Keep development worker sessions for thirty days. */
+export const SUBAGENT_ARCHIVE_AFTER_MINUTES = 30 * 24 * 60;
+
+/** Stable justification attached to setup scope approval requests. */
+export const SCOPE_APPROVAL_REASON = "devclaw-worker-dispatch";
+/** Nonblocking scope preflight outcomes. */
+export const SCOPE_PREFLIGHT_STATUS = { APPROVED: "approved", UNAVAILABLE: "unavailable" } as const;
+
+/** OpenClaw peer kinds accepted for group notification destinations. */
+export const ROUTE_PEER_KIND = { GROUP: "group", CHANNEL: "channel" } as const;
+/** OpenClaw topic qualifier inside a group peer identifier. */
+export const TOPIC_PEER_SEPARATOR = ":topic:";
+/** Shared setup operation discriminants. */
+export const SETUP_OPERATION = { CONFIGURE: "configure", EJECT: "eject-defaults", RESET: "reset-defaults", REFRESH: "refresh-instructions" } as const;
+/** Onboarding instruction scenarios. */
+export const ONBOARDING_MODE = { FIRST_RUN: "first-run", RECONFIGURE: "reconfigure" } as const;
+
+/** Plugin registration identifier used in the SDK configuration. */
+export const DEVCLAW_PLUGIN_ID = "devclaw";
+/** Optional memory plugin whose agent allowlist setup extends. */
+export const ACTIVE_MEMORY_PLUGIN_ID = "active-memory";
+/** SDK reload behavior used during the setup mutation sequence. */
+export const CONFIG_RELOAD_MODE = { AUTO: "auto", NONE: "none" } as const;
+/** Reserved default agent identifier, unavailable for new agent names. */
+export const MAIN_AGENT_ID = "main";
+/** Display sentinel for workspace-only setup with no agent target. */
+export const UNKNOWN_AGENT_ID = "unknown";
+/** Instruction markers used only to choose the onboarding scenario. */
+export const WORKSPACE_INSTRUCTION_MARKERS = ["DevClaw", "task_start"] as const;

@@ -27,6 +27,22 @@ export async function readProjects(workspaceDir: string): Promise<ProjectsData> 
 }
 
 /**
+ * Read a registry when present, distinguishing an uninitialized workspace from corruption.
+ * Missing files return undefined; permission, parsing, and schema errors still fail.
+ * @param workspaceDir - Workspace whose optional registry should be inspected.
+ */
+export async function readOptionalProjects(workspaceDir: string): Promise<ProjectsData | undefined> {
+  try {
+    return await readProjects(workspaceDir);
+  } catch (error) {
+    const cause = error instanceof Error ? error.cause : undefined;
+
+    if (cause instanceof Error && "code" in cause && cause.code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+/**
  * Apply an immutable registry replacement while holding the workspace lock.
  * A failed callback never writes its candidate state.
  *

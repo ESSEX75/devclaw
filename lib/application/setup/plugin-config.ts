@@ -8,7 +8,9 @@ import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
 import type { ExecutionMode } from "../../domain/index.js";
 import { HEARTBEAT_DEFAULTS } from "../heartbeat/config.js";
-import { DEVCLAW_AGENT_TOOL_SET, DEVCLAW_AGENT_TOOLS, DEVCLAW_DENIED_TOOLS } from "./const.js";
+import { ACTIVE_MEMORY_PLUGIN_ID, CONFIG_RELOAD_MODE, DEVCLAW_PLUGIN_ID, SUBAGENT_ARCHIVE_AFTER_MINUTES } from "./const.js";
+import { resolveProjectToolOwners } from "./tool-ownership.js";
+import { buildAgentToolPolicy } from "./tool-policy.js";
 import type { SetupRuntime } from "./types.js";
 
 /**
@@ -31,11 +33,17 @@ export async function writePluginConfig(
   projectExecution?: ExecutionMode,
 ): Promise<void> {
   await runtime.config.mutateConfigFile({
-    mutate(config) {
+    /** Apply policy using ownership read from the fresh mutation snapshot.
+     * @param config - Writable SDK configuration under mutation protection.
+     */
+    async mutate(config) {
+      if (agentId && !config.agents?.list?.some(agent => agent.id === agentId)) throw new Error(`Agent "${agentId}" does not exist.`);
+      const authorized = agentId ? new Set([agentId, ...await resolveProjectToolOwners(config)]) : undefined;
+
       ensurePluginStructure(config);
 
-      if (projectExecution && config.plugins?.entries?.devclaw?.config) {
-        config.plugins.entries.devclaw.config.projectExecution = projectExecution;
+      if (projectExecution && config.plugins?.entries?.[DEVCLAW_PLUGIN_ID]?.config) {
+        config.plugins.entries[DEVCLAW_PLUGIN_ID].config.projectExecution = projectExecution;
       }
 
       ensurePluginAllowed(config);
@@ -45,11 +53,14 @@ export async function writePluginConfig(
       ensureTelegramLinkPreviewDisabled(config);
 
       if (agentId) {
-        configureDevClawAgentTools(config, agentId);
+        for (const agent of config.agents?.list ?? []) {
+          agent.tools = buildAgentToolPolicy(agent.tools, authorized?.has(agent.id) === true);
+        }
+
         allowActiveMemoryForAgent(config, agentId);
       }
     },
-    afterWrite: { mode: "auto" },
+    afterWrite: { mode: CONFIG_RELOAD_MODE.AUTO },
   });
 }
 
@@ -57,66 +68,43 @@ export async function writePluginConfig(
 // Private helpers
 // ---------------------------------------------------------------------------
 
+/** Create the plugin configuration containers while preserving existing settings.
+ * @param config - Fresh writable SDK configuration.
+ */
 function ensurePluginStructure(config: OpenClawConfig): void {
   if (!config.plugins) config.plugins = {};
   if (!config.plugins.entries) config.plugins.entries = {};
-  if (!config.plugins.entries.devclaw) config.plugins.entries.devclaw = {};
-  if (!config.plugins.entries.devclaw.config) config.plugins.entries.devclaw.config = {};
+  if (!config.plugins.entries[DEVCLAW_PLUGIN_ID]) config.plugins.entries[DEVCLAW_PLUGIN_ID] = {};
+  if (!config.plugins.entries[DEVCLAW_PLUGIN_ID].config) config.plugins.entries[DEVCLAW_PLUGIN_ID].config = {};
 }
 
 /**
  * Ensure "devclaw" is in plugins.allow so OpenClaw trusts the plugin
  * without requiring manual config after install.
+ * @param config - Fresh writable SDK configuration.
  */
 function ensurePluginAllowed(config: OpenClawConfig): void {
   if (!config.plugins) config.plugins = {};
   if (!Array.isArray(config.plugins.allow)) config.plugins.allow = [];
-  if (!config.plugins.allow.includes("devclaw")) config.plugins.allow.push("devclaw");
+  if (!config.plugins.allow.includes(DEVCLAW_PLUGIN_ID)) config.plugins.allow.push(DEVCLAW_PLUGIN_ID);
 }
 
+/** Retain managed worker sessions for the configured cleanup period.
+ * @param config - Fresh writable SDK configuration.
+ */
 function configureSubagentCleanup(config: OpenClawConfig): void {
   if (!config.agents) config.agents = {};
   if (!config.agents.defaults) config.agents.defaults = {};
   if (!config.agents.defaults.subagents) config.agents.defaults.subagents = {};
-  config.agents.defaults.subagents.archiveAfterMinutes = 43200;
+  config.agents.defaults.subagents.archiveAfterMinutes = SUBAGENT_ARCHIVE_AFTER_MINUTES;
 }
 
-function configureDevClawAgentTools(config: OpenClawConfig, agentId: string): void {
-  for (const agent of config.agents?.list ?? []) {
-    if (!agent.tools) agent.tools = {};
-
-    if (agent.id !== agentId) {
-      const currentDeny = Array.isArray(agent.tools.deny) ? agent.tools.deny : [];
-
-      agent.tools.deny = [...new Set([...currentDeny, ...DEVCLAW_AGENT_TOOLS])];
-      if (Array.isArray(agent.tools.alsoAllow)) {
-        agent.tools.alsoAllow = agent.tools.alsoAllow.filter((tool) => !DEVCLAW_AGENT_TOOL_SET.has(tool));
-      }
-
-      if (Array.isArray(agent.tools.allow)) {
-        agent.tools.allow = agent.tools.allow.filter((tool) => !DEVCLAW_AGENT_TOOL_SET.has(tool));
-      }
-
-      continue;
-    }
-
-    const currentAlsoAllow = Array.isArray(agent.tools.alsoAllow) ? agent.tools.alsoAllow : [];
-
-    agent.tools.alsoAllow = [...new Set([...currentAlsoAllow, ...DEVCLAW_AGENT_TOOLS])];
-
-    const currentDeny = Array.isArray(agent.tools.deny)
-      ? agent.tools.deny.filter((tool) => !DEVCLAW_AGENT_TOOL_SET.has(tool))
-      : [];
-
-    agent.tools.deny = [...new Set([...currentDeny, ...DEVCLAW_DENIED_TOOLS])];
-
-  }
-}
-
+/** Extend the optional memory plugin allowlist for the selected agent.
+ * @param config - Fresh writable SDK configuration.
+ * @param agentId - Explicitly selected setup agent.
+ */
 function allowActiveMemoryForAgent(config: OpenClawConfig, agentId: string): void {
-  const activeMemoryConfig = config.plugins?.entries?.["active-memory"]?.config as
-    | { agents?: unknown }
-    | undefined;
+  const activeMemoryConfig = config.plugins?.entries?.[ACTIVE_MEMORY_PLUGIN_ID]?.config;
 
   if (!activeMemoryConfig) return;
 
@@ -131,14 +119,20 @@ function allowActiveMemoryForAgent(config: OpenClawConfig, agentId: string): voi
   }
 }
 
+/** Enable the internal hooks used by DevClaw.
+ * @param config - Fresh writable SDK configuration.
+ */
 function ensureInternalHooks(config: OpenClawConfig): void {
   if (!config.hooks) config.hooks = {};
   if (!config.hooks.internal) config.hooks.internal = {};
   config.hooks.internal.enabled = true;
 }
 
+/** Seed heartbeat defaults only when no explicit configuration exists.
+ * @param config - Fresh writable SDK configuration.
+ */
 function ensureHeartbeatDefaults(config: OpenClawConfig): void {
-  const devclaw = config.plugins?.entries?.devclaw?.config;
+  const devclaw = config.plugins?.entries?.[DEVCLAW_PLUGIN_ID]?.config;
 
   if (devclaw && !devclaw.work_heartbeat) {
     devclaw.work_heartbeat = { ...HEARTBEAT_DEFAULTS };
@@ -149,6 +143,7 @@ function ensureHeartbeatDefaults(config: OpenClawConfig): void {
  * Disable Telegram link previews so notifications don't show URL preview cards.
  * Sets channels.telegram.linkPreview = false if the Telegram channel is configured.
  * Only sets if not already explicitly configured (respects user overrides).
+ * @param config - Fresh writable SDK configuration.
  */
 function ensureTelegramLinkPreviewDisabled(config: OpenClawConfig): void {
   const channels = config.channels;

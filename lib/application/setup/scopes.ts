@@ -1,174 +1,92 @@
-/**
- * scopes.ts — OpenClaw scope preflight for DevClaw setup entrypoints.
- *
- * The shared setup command runs this transport after validation and before writes.
- * Preview and standalone workspace operations never request approval.
- */
+/** Coordinates setup scope approval using validated integration outcomes. */
 import type { RunCommand } from "../../context.js";
-import { REQUIRED_OPENCLAW_SCOPES } from "./const.js";
-import { scopeCommandSchema } from "./schema.js";
-import type { ScopeCommandResult, ScopePreflightResult } from "./types.js";
+import { runScopeCommand, SCOPE_STATUS, type ScopeCommandResult } from "../../integrations/openclaw/scopes/index.js";
+import { REQUIRED_OPENCLAW_SCOPES, SCOPE_APPROVAL_REASON, SCOPE_PREFLIGHT_STATUS } from "./const.js";
+import { ScopeApprovalRejectedError,ScopeApprovalRequiredError } from "./errors.js";
+import type { ScopePreflightResult } from "./types.js";
 
-export class ScopeApprovalRequiredError extends Error {
-  readonly requestId: string;
-  readonly requiredScopes: string[];
-  readonly missingScopes: string[];
-
-  constructor(args: { requestId: string; requiredScopes: string[]; missingScopes: string[] }) {
-    super(
-      `OpenClaw scope approval required: ${args.missingScopes.join(", ")}. ` +
-        `Approve request ${args.requestId}, then run setup again.`,
-    );
-    this.name = "ScopeApprovalRequiredError";
-    this.requestId = args.requestId;
-    this.requiredScopes = args.requiredScopes;
-    this.missingScopes = args.missingScopes;
-  }
-}
-
-export class ScopeApprovalRejectedError extends Error {
-  readonly status: "denied" | "expired";
-  readonly requestId?: string;
-
-  constructor(args: { status: "denied" | "expired"; requestId?: string }) {
-    super(
-      args.requestId
-        ? `OpenClaw scope request ${args.requestId} was ${args.status}.`
-        : `OpenClaw scope request was ${args.status}.`,
-    );
-    this.name = "ScopeApprovalRejectedError";
-    this.status = args.status;
-    this.requestId = args.requestId;
-  }
-}
-
-export function isScopeApprovalRequiredError(err: unknown): err is ScopeApprovalRequiredError {
-  return err instanceof ScopeApprovalRequiredError;
-}
-
-export function isScopeApprovalRejectedError(err: unknown): err is ScopeApprovalRejectedError {
-  return err instanceof ScopeApprovalRejectedError;
-}
-
+/** Check approval before setup writes, requesting only missing permissions.
+ * An unavailable CLI remains a warning; operational errors and rejection stop setup.
+ * @param runCommand - Runtime-owned command transport.
+ */
 export async function ensureRequiredOpenClawScopes(runCommand: RunCommand): Promise<ScopePreflightResult> {
-  const check = await runScopesCommand(runCommand, [
-    "openclaw",
-    "scopes",
-    "check",
-    ...scopeArgs(REQUIRED_OPENCLAW_SCOPES),
-    "--json",
-  ]);
+  const check = await runScopeCommand(runCommand, REQUIRED_OPENCLAW_SCOPES);
 
-  if (!check.supported) {
-    return {
-      status: "unavailable",
-      approved: [],
-      missing: [...REQUIRED_OPENCLAW_SCOPES],
-      warning:
-        "OpenClaw scopes CLI is unavailable. Upgrade OpenClaw to use deterministic DevClaw scope preflight.",
-    };
+  if (!check.supported) return unavailable([...REQUIRED_OPENCLAW_SCOPES]);
+  const missing = missingScopes(check.result);
+
+  assertNotRejectedOrPending(check.result, missing);
+  if (isApproved(check.result, missing)) return approved(check.result);
+  if (check.result.ok === true || check.result.status === SCOPE_STATUS.APPROVED
+    || (check.result.status !== SCOPE_STATUS.MISSING && !check.result.missing?.length)) {
+    throw new Error(`Unexpected OpenClaw scopes response: ${JSON.stringify(check.result)}`);
   }
 
-  const missing = normalizeMissing(check.result);
+  if (!missing.length) throw new Error("OpenClaw reported missing scopes without identifying required permissions.");
+  const request = await runScopeCommand(runCommand, missing, SCOPE_APPROVAL_REASON);
 
-  if (isApproved(check.result, missing)) {
-    return {
-      status: "approved",
-      approved: check.result.approved ?? [...REQUIRED_OPENCLAW_SCOPES],
-      missing: [],
-    };
-  }
+  if (!request.supported) return unavailable(missing);
+  const confirmedBeforeRequest = REQUIRED_OPENCLAW_SCOPES.filter(scope => !missing.includes(scope));
+  const requestResult = {
+    ...request.result,
+    ...(request.result.approved === undefined ? {} : { approved: [...new Set([...confirmedBeforeRequest, ...request.result.approved])] }),
+  };
+  const requestMissing = missingScopes(requestResult);
 
-  const request = await runScopesCommand(runCommand, [
-    "openclaw",
-    "scopes",
-    "request",
-    ...scopeArgs(missing.length > 0 ? missing : REQUIRED_OPENCLAW_SCOPES),
-    "--reason",
-    "devclaw-worker-dispatch",
-    "--json",
-  ]);
-
-  if (!request.supported) {
-    return {
-      status: "unavailable",
-      approved: [],
-      missing,
-      warning:
-        "OpenClaw scopes request CLI is unavailable. Upgrade OpenClaw before relying on DevClaw worker dispatch preflight.",
-    };
-  }
-
-  const status = request.result.status;
-
-  if (status === "approved" || request.result.ok === true) {
-    return {
-      status: "approved",
-      approved: request.result.approved ?? [...REQUIRED_OPENCLAW_SCOPES],
-      missing: [],
-    };
-  }
-
-  if (status === "denied" || status === "expired") {
-    throw new ScopeApprovalRejectedError({
-      status,
-      requestId: request.result.requestId,
-    });
-  }
-
-  if (status === "pending_approval" && request.result.requestId) {
-    throw new ScopeApprovalRequiredError({
-      requestId: request.result.requestId,
-      requiredScopes: [...REQUIRED_OPENCLAW_SCOPES],
-      missingScopes: request.result.missing ?? missing,
-    });
-  }
-
+  assertNotRejectedOrPending(requestResult, requestMissing);
+  if (isApproved(requestResult, requestMissing)) return approved(requestResult);
   throw new Error(`Unexpected OpenClaw scopes response: ${JSON.stringify(request.result)}`);
 }
 
-function scopeArgs(scopes: readonly string[]): string[] {
-  return scopes.flatMap((scope) => ["--scope", scope]);
+/** Explicit denial and pending approval take precedence over contradictory success fields.
+ * @param result - Validated CLI payload.
+ * @param missing - Required permissions not proven approved.
+ */
+function assertNotRejectedOrPending(result: ScopeCommandResult, missing: string[]): void {
+  if (result.status === SCOPE_STATUS.DENIED || result.status === SCOPE_STATUS.EXPIRED) {
+    throw new ScopeApprovalRejectedError({ status: result.status, requestId: result.requestId });
+  }
+
+  if (result.status === SCOPE_STATUS.PENDING) {
+    if (!result.requestId?.trim()) throw new Error("Pending OpenClaw approval has no request identifier.");
+    throw new ScopeApprovalRequiredError({
+      requestId: result.requestId,
+      requiredScopes: [...REQUIRED_OPENCLAW_SCOPES],
+      missingScopes: missing.length ? missing : [...REQUIRED_OPENCLAW_SCOPES],
+    });
+  }
 }
 
+/** Require consistent positive evidence for every required permission.
+ * @param result - CLI status and optional permission lists.
+ * @param missing - Required permissions lacking approval evidence.
+ */
 function isApproved(result: ScopeCommandResult, missing: string[]): boolean {
-  return result.ok === true || result.status === "approved" || missing.length === 0;
+  if (result.status !== undefined && result.status !== SCOPE_STATUS.APPROVED) return false;
+  if (result.ok === false || result.missing?.length || (result.approved !== undefined && missing.length)) return false;
+
+  return result.status === SCOPE_STATUS.APPROVED || result.ok === true || (result.approved !== undefined && !missing.length);
 }
 
-function normalizeMissing(result: ScopeCommandResult): string[] {
-  if (Array.isArray(result.missing)) return result.missing;
-  const approved = new Set(result.approved ?? []);
-
-  return REQUIRED_OPENCLAW_SCOPES.filter((scope) => !approved.has(scope));
+/** Combine negative and positive lists so an empty missing list cannot erase an omission.
+ * @param result - CLI payload whose permission evidence is being checked.
+ */
+function missingScopes(result: ScopeCommandResult): string[] {
+  return REQUIRED_OPENCLAW_SCOPES.filter(scope => result.missing?.includes(scope)
+    || (result.approved !== undefined ? !result.approved.includes(scope) : result.missing === undefined));
 }
 
-async function runScopesCommand(
-  runCommand: RunCommand,
-  argv: string[],
-): Promise<{ supported: true; result: ScopeCommandResult } | { supported: false }> {
-  const proc = await runCommand(argv, { timeoutMs: 30_000 });
-  const stdout = String(proc.stdout ?? "").trim();
-  const stderr = String(proc.stderr ?? "").trim();
-
-  if (proc.code !== 0) {
-    if (isUnsupportedScopesCli(stdout, stderr)) return { supported: false };
-    throw new Error(stderr || stdout || `Command failed: ${argv.join(" ")}`);
-  }
-
-  try {
-    return { supported: true, result: scopeCommandSchema.parse(JSON.parse(stdout)) };
-  } catch {
-    throw new Error(`Invalid JSON from OpenClaw scopes command: ${stdout || "<empty>"}`);
-  }
+/** Render the confirmed scope outcome.
+ * @param result - Consistent positive CLI evidence.
+ */
+function approved(result: ScopeCommandResult): ScopePreflightResult {
+  return { status: SCOPE_PREFLIGHT_STATUS.APPROVED, approved: result.approved ?? [...REQUIRED_OPENCLAW_SCOPES], missing: [] };
 }
 
-function isUnsupportedScopesCli(stdout: string, stderr: string): boolean {
-  const text = `${stdout}\n${stderr}`.toLowerCase();
-
-  return (
-    text.includes("unknown command") ||
-    text.includes("invalid command") ||
-    text.includes("unknown option") ||
-    text.includes("not found")
-  );
+/** Preserve the optional preflight contract for runtimes without this CLI capability.
+ * @param missing - Required scopes whose approval could not be checked.
+ */
+function unavailable(missing: string[]): ScopePreflightResult {
+  return { status: SCOPE_PREFLIGHT_STATUS.UNAVAILABLE, approved: [], missing,
+    warning: "OpenClaw scopes CLI is unavailable. Upgrade OpenClaw to use deterministic DevClaw scope preflight." };
 }

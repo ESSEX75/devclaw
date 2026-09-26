@@ -73,3 +73,7 @@ Use `npm run test` after changing issue state behavior, and
 Workflow model patch persistence preserves other YAML settings and comments and
 creates a backup. Scoped configuration resets and workflow document reads belong
 to state; application selects the operation and validates configured identifiers.
+
+`readOptionalProjects` supports ownership discovery in uninitialized workspaces.
+Only a missing registry yields `undefined`; malformed or inaccessible registries
+remain errors, and the operation never creates files.

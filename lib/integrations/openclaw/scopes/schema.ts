@@ -1,4 +1,4 @@
-/** Validates untrusted OpenClaw scope command responses before setup uses them. */
+/** Validates untrusted OpenClaw scope command responses at the integration boundary. */
 import { z } from "zod";
 
 /** Known response fields; unknown transport metadata is ignored. */

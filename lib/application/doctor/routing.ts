@@ -1,6 +1,7 @@
 /** Coordinates read-only doctor observations while isolating per-project archive failures. */
 import { loadConfig, readProjects } from "../../state/index.js";
 import { getIssueArchiveStatus } from "../issues/index.js";
+import { resolveProjectToolOwners } from "../setup/index.js";
 import { DOCTOR_FINDING_CODE, DOCTOR_SEVERITY } from "./const.js";
 import { buildRoutingDoctorReport, inspectArchiveRetention } from "./report.js";
 import type { DoctorArchiveReport, DoctorRuntime, RoutingDoctorReport } from "./types.js";
@@ -44,5 +45,5 @@ export async function runRoutingDoctor(
     }
   }
 
-  return buildRoutingDoctorReport(config, projects, archiveReport);
+  return buildRoutingDoctorReport(config, projects, archiveReport, await resolveProjectToolOwners(config));
 }

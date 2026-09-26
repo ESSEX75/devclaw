@@ -46,6 +46,7 @@ export {
   getRoleWorker,
   parseNotificationEndpoint,
   parseProjectSlug,
+  readOptionalProjects,
   readProjects,
   resolveRepoPath,
   updateProjects,

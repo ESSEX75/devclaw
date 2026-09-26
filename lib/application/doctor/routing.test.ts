@@ -43,7 +43,7 @@ describe("routing doctor", () => {
     const registry = { projects: { devclaw: first, second } };
     const config = {
       agents: { list: [
-        { id: first.agentId, tools: { alsoAllow: [...DEVCLAW_AGENT_TOOLS] } },
+        { id: first.agentId, tools: { allow: [...DEVCLAW_AGENT_TOOLS] } },
         { id: second.agentId, tools: { alsoAllow: [...DEVCLAW_AGENT_TOOLS], deny: [DEVCLAW_AGENT_TOOLS[0]] } },
         { id: "foreign", tools: { deny: [...DEVCLAW_AGENT_TOOLS] } },
       ] },

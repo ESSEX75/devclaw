@@ -50,7 +50,7 @@ function notificationRuntime(project: Project): NotificationRuntime {
           match: {
             channel: endpoint.channel,
             accountId: endpoint.accountId,
-            peer: { id: endpoint.channelId },
+            peer: { kind: "group", id: endpoint.channelId },
           },
         }],
       }),

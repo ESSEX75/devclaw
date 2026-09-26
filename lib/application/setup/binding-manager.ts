@@ -1,6 +1,8 @@
 /** Plans exact channel routes without writes and applies bindings through focused mutations. */
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
+import { CONFIG_RELOAD_MODE, ROUTE_PEER_KIND } from "./const.js";
+import { matchesGroupDestination } from "./route-matching.js";
 import { validateExactRoute } from "./route-validation.js";
 import type { SetupRuntime } from "./types.js";
 import type { RouteConfig } from "./types.js";
@@ -14,17 +16,20 @@ import type { RouteConfig } from "./types.js";
  */
 export async function ensureChannelBinding(runtime: SetupRuntime, channel: string, agentId: string, accountId: string, peerId: string): Promise<void> {
   await runtime.config.mutateConfigFile({
+    /** Validate and apply the binding against the fresh SDK draft.
+     * @param config - Writable configuration protected by SDK mutation.
+     */
     mutate(config) {
       planChannelBinding(config, channel, agentId, accountId, peerId);
       const binding = buildBinding(channel, agentId, accountId, peerId);
 
       config.bindings ??= [];
-      if (config.bindings.some(entry => matchesDestination(entry, binding))) return;
+      if (config.bindings.some(entry => matchesGroupDestination(entry, channel, accountId, peerId))) return;
       const index = config.bindings.findIndex(entry => entry.match.channel === channel && entry.match.accountId === binding.match.accountId && !entry.match.peer);
 
       config.bindings.splice(index < 0 ? config.bindings.length : index, 0, binding);
     },
-    afterWrite: { mode: "auto" },
+    afterWrite: { mode: CONFIG_RELOAD_MODE.AUTO },
   });
 }
 
@@ -37,7 +42,7 @@ export async function ensureChannelBinding(runtime: SetupRuntime, channel: strin
  */
 export function planChannelBinding(config: RouteConfig, channel: string, agentId: string, accountId: string, peerId: string): void {
   const binding = buildBinding(channel, agentId, accountId, peerId);
-  const existing = (config.bindings ?? []).filter(entry => matchesDestination(entry, binding));
+  const existing = (config.bindings ?? []).filter(entry => matchesGroupDestination(entry, channel, accountId, peerId));
   const occupied = existing.find(entry => entry.agentId !== agentId);
 
   if (occupied) throw new Error(`${channel}/${accountId}/${peerId} is already bound to agent "${occupied.agentId}"`);
@@ -56,13 +61,5 @@ function buildBinding(channel: string, agentId: string, accountId: string, peerI
   if (!accountId.trim()) throw new Error("accountId is required for an exact DevClaw binding");
   if (!peerId.trim()) throw new Error("peerId is required for an exact DevClaw binding");
 
-  return { agentId, match: { channel, accountId: accountId.trim(), peer: { kind: "group", id: peerId.trim() } } };
-}
-
-/** Compare normalized endpoint identity without considering its owner.
- * @param entry - Existing route entry.
- * @param binding - Requested destination.
- */
-function matchesDestination(entry: NonNullable<RouteConfig["bindings"]>[number], binding: NonNullable<OpenClawConfig["bindings"]>[number]): boolean {
-  return entry.match?.channel === binding.match.channel && entry.match.accountId?.trim() === binding.match.accountId && entry.match.peer?.id?.trim() === binding.match.peer?.id;
+  return { agentId, match: { channel, accountId: accountId.trim(), peer: { kind: ROUTE_PEER_KIND.GROUP, id: peerId.trim() } } };
 }

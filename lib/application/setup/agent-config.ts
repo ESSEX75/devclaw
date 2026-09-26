@@ -5,7 +5,8 @@ import fs from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
-import { AGENT_DIRECTORY, AGENTS_DIRECTORY, OPENCLAW_DIRECTORY, SESSIONS_DIRECTORY, WORKSPACE_DIRECTORY } from "./const.js";
+import { resolveConfiguredAgentWorkspace } from "../../integrations/openclaw/agent-workspace.js";
+import { AGENT_DIRECTORY, AGENTS_DIRECTORY, CONFIG_RELOAD_MODE, MAIN_AGENT_ID, OPENCLAW_DIRECTORY, SESSIONS_DIRECTORY, WORKSPACE_DIRECTORY } from "./const.js";
 import type { SetupRuntime } from "./types.js";
 
 /** Optional filesystem root used by isolated agent creation tests. */
@@ -32,6 +33,9 @@ export async function createAgent(
   const defaultAgentDir = path.join(openClawHome, AGENTS_DIRECTORY, agentId, AGENT_DIRECTORY);
 
   await runtime.config.mutateConfigFile({
+    /** Create the agent only if it is still absent in the fresh configuration.
+     * @param cfg - Writable SDK configuration draft.
+     */
     mutate(cfg) {
       const existingAgent = cfg.agents?.list?.find((agent) => agent.id === agentId);
 
@@ -53,7 +57,7 @@ export async function createAgent(
       });
     },
     afterWrite: {
-      mode: "none",
+      mode: CONFIG_RELOAD_MODE.NONE,
       reason: "DevClaw setup continues with a second config write that owns reload handling.",
     },
   });
@@ -77,7 +81,7 @@ export function getAgentId(name: string): string {
     .replace(/^-|-$/g, "");
 
   if (!agentId) throw new Error(`Invalid agent name: "${name}"`);
-  if (agentId === "main") throw new Error('"main" is reserved. Choose another agent name.');
+  if (agentId === MAIN_AGENT_ID) throw new Error('"main" is reserved. Choose another agent name.');
 
   return agentId;
 }
@@ -94,17 +98,17 @@ export function getAgentWorkspacePath(
 }
 
 /**
- * Resolve the configured workspace, rejecting absent agents or workspaces.
+ * Resolve the effective SDK workspace, rejecting agents absent from the configuration.
  * @param runtime - Read-only configuration source.
  * @param agentId - Existing agent identifier.
  */
-export function resolveWorkspacePath(runtime: SetupRuntime, agentId: string): string {
+export async function resolveWorkspacePath(runtime: SetupRuntime, agentId: string): Promise<string> {
   const cfg = runtime.config.current();
   const agent = cfg.agents?.list?.find((a) => a.id === agentId);
 
-  if (!agent?.workspace) {
-    throw new Error(`Agent "${agentId}" not found in openclaw.json or has no workspace configured.`);
+  if (!agent) {
+    throw new Error(`Agent "${agentId}" not found in openclaw.json.`);
   }
 
-  return agent.workspace;
+  return resolveConfiguredAgentWorkspace(cfg, agentId);
 }

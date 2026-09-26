@@ -1,4 +1,4 @@
-/** Contracts for submitting a worker turn through the OpenClaw gateway. */
+/** Contracts for OpenClaw workspace resolution and gateway worker-turn submission. */
 import type { RunCommand } from "../../context.js";
 
 /** Gateway values needed to address and submit one worker turn. */
@@ -34,3 +34,25 @@ export type AgentTurnOutcome =
   | { kind: "accepted" }
   | { kind: "rejected"; reason: string }
   | { kind: "unknown"; reason: string };
+
+/** Read-only SDK workspace inputs; unrelated configuration never crosses this boundary. */
+export type AgentWorkspaceConfig = {
+  /** Agent inventory and workspace defaults. */
+  readonly agents?: AgentWorkspaceInventory;
+};
+/** Workspace settings understood by SDK agent resolution. */
+type AgentWorkspaceInventory = {
+  /** Default workspace root when no per-agent override exists. */
+  readonly defaults?: { /** Filesystem workspace root. */ readonly workspace?: string };
+  /** Configured agent identifiers and workspace overrides. */
+  readonly list?: readonly AgentWorkspaceEntry[];
+};
+/** One configured agent's workspace identity. */
+type AgentWorkspaceEntry = {
+  /** Stable configured agent identifier. */
+  readonly id: string;
+  /** Explicit workspace override. */
+  readonly workspace?: string;
+  /** SDK default-agent marker relevant to workspace inheritance. */
+  readonly default?: boolean;
+};

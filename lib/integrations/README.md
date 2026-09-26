@@ -29,3 +29,9 @@ decides whether to retain or release its worker reservation.
 - Do not format OpenClaw tool responses here.
 
 Use `npm run arch:check:strict` after changing this layer.
+
+`openclaw/scopes/index.ts` exposes optional scope CLI transport and validated
+responses. It classifies absent commands narrowly; other process failures propagate.
+Application setup owns required permissions and approval policy.
+`openclaw/agent-workspace.ts` delegates workspace resolution to the SDK, including
+implicit defaults, so ownership discovery does not duplicate SDK path rules.

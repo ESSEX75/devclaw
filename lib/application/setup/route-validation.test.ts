@@ -26,7 +26,7 @@ describe("strict project route validation", () => {
         match: {
           channel: "telegram",
           accountId: "dev",
-          peer: { id: "-1003911014709:topic:5" },
+          peer: { kind: "group", id: "-1003911014709:topic:5" },
         },
       }],
     }, "dev-agent", endpoint);
@@ -43,7 +43,7 @@ describe("strict project route validation", () => {
         match: {
           channel: "telegram",
           accountId: "dev",
-          peer: { id: "-1003911014709:topic:5" },
+          peer: { kind: "group", id: "-1003911014709:topic:5" },
         },
       }],
     }, "dev-agent", endpoint);
@@ -73,3 +73,22 @@ describe("strict project route validation", () => {
 });
 
 import { ROUTE_DIAGNOSTIC_CODE } from "./const.js";
+
+for (const variant of ["disabled", "direct", "duplicate"]) {
+  it(`rejects ${variant} routes`, () => {
+    const binding = { agentId: "dev-agent", match: { channel: "telegram", accountId: "dev", peer: { kind: variant === "direct" ? "direct" : "group", id: "-1003911014709:topic:5" } } };
+    const diagnostics = inspectProjectRoute({
+      agents: { list: [{ id: "dev-agent" }] },
+      channels: { telegram: { accounts: { dev: { enabled: variant !== "disabled" } } } },
+      bindings: variant === "duplicate" ? [binding, { ...binding, agentId: "foreign" }] : [binding],
+    }, "dev-agent", endpoint);
+    assert.ok(diagnostics.length > 0);
+  });
+}
+it("accepts channel peers as the SDK group equivalent", () => {
+  assert.deepEqual(inspectProjectRoute({
+    agents: { list: [{ id: "dev-agent" }] },
+    channels: { telegram: { accounts: { dev: {} } } },
+    bindings: [{ agentId: "dev-agent", match: { channel: "telegram", accountId: "dev", peer: { kind: "channel", id: "-1003911014709:topic:5" } } }],
+  }, "dev-agent", endpoint), []);
+});

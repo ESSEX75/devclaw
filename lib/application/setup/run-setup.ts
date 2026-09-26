@@ -2,6 +2,7 @@
 import { initializeWorkspaceFiles, refreshSystemInstructionFiles, resetDefaults, scaffoldWorkspace, writeWorkspaceModels } from "../../state/index.js";
 import { createAgent } from "./agent-config.js";
 import { ensureChannelBinding } from "./binding-manager.js";
+import { SETUP_OPERATION } from "./const.js";
 import { writePluginConfig } from "./plugin-config.js";
 import { ensureRequiredOpenClawScopes } from "./scopes.js";
 import { planSetup } from "./setup-plan.js";
@@ -16,7 +17,7 @@ export async function runSetup(opts: SetupOpts): Promise<SetupResult> {
   if (opts.dryRun) return result;
   const { agentId, workspacePath, agentCreated } = result;
 
-  if (result.operation !== "configure") {
+  if (result.operation !== SETUP_OPERATION.CONFIGURE) {
     const written = opts.resetDefaults ? await resetDefaults(workspacePath)
       : opts.refreshInstructions ? await refreshSystemInstructionFiles(workspacePath)
       : await initializeWorkspaceFiles(workspacePath);

@@ -3,19 +3,26 @@
  * The application layer owns this cross-store check because it combines project state
  * with configured agents, channel accounts, and bindings.
  */
-import type { NotificationEndpoint, Project } from "../../domain/index.js";
+import type { NotificationEndpoint } from "../../domain/index.js";
 import type { ProjectsData } from "../../state/index.js";
-import { ROUTE_DIAGNOSTIC_CODE } from "./const.js";
-import type { RouteConfig, RouteDiagnostic } from "./types.js";
+import { ROUTE_DIAGNOSTIC_CODE, TOPIC_PEER_SEPARATOR } from "./const.js";
+import { matchesGroupDestination } from "./route-matching.js";
+import type { ProjectRouteInspection, RouteConfig, RouteDiagnostic } from "./types.js";
 
-/** Build the OpenClaw peer identifier represented by a project endpoint. */
+/** Build the OpenClaw peer identifier represented by a project endpoint.
+ * @param endpoint - Persisted group or topic destination.
+ */
 export function getEndpointPeerId(endpoint: NotificationEndpoint): string {
   return endpoint.threadId
-    ? `${endpoint.channelId}:topic:${endpoint.threadId}`
+    ? `${endpoint.channelId}${TOPIC_PEER_SEPARATOR}${endpoint.threadId}`
     : endpoint.channelId;
 }
 
-/** Inspect an endpoint without mutating either OpenClaw or project state. */
+/** Inspect an endpoint without mutating either OpenClaw or project state.
+ * @param config - Current SDK routing configuration.
+ * @param agentId - Expected project owner.
+ * @param endpoint - Persisted destination to inspect.
+ */
 export function inspectProjectRoute(
   config: RouteConfig,
   agentId: string,
@@ -30,7 +37,13 @@ export function inspectProjectRoute(
   );
 }
 
-/** Inspect an exact OpenClaw account and peer binding without mutation. */
+/** Inspect an exact OpenClaw account and peer binding without mutation.
+ * @param config - Current SDK routing configuration.
+ * @param agentId - Expected route owner.
+ * @param channel - Destination transport.
+ * @param accountId - Configured channel account.
+ * @param peerId - Exact group or topic identifier.
+ */
 export function inspectExactRoute(
   config: RouteConfig,
   agentId: string,
@@ -66,18 +79,25 @@ export function inspectExactRoute(
     });
   }
 
-  if (!channelConfig.accounts?.[accountId]) {
+  const account = channelConfig.accounts?.[accountId];
+
+  if (!account) {
     diagnostics.push({
       code: ROUTE_DIAGNOSTIC_CODE.ACCOUNT_NOT_FOUND,
       message: `Account "${accountId}" is not configured for channel "${channel}".`,
     });
   }
 
-  const matchingDestination = (config.bindings ?? []).find((binding) => (
-    binding.match?.channel === channel
-    && binding.match.accountId === accountId
-    && binding.match.peer?.id === peerId
-  ));
+  if (typeof account === "object" && account !== null && "enabled" in account && account.enabled === false) {
+    diagnostics.push({ code: ROUTE_DIAGNOSTIC_CODE.ACCOUNT_DISABLED, message: `Account "${accountId}" is disabled for channel "${channel}".` });
+  }
+
+  const matches = (config.bindings ?? []).filter(binding => matchesGroupDestination(binding, channel, accountId, peerId));
+  const matchingDestination = matches[0];
+
+  if (new Set(matches.map(binding => binding.agentId)).size > 1) {
+    diagnostics.push({ code: ROUTE_DIAGNOSTIC_CODE.BINDING_CONFLICT, message: `Route ${channel}/${accountId}/${peerId} has conflicting agent bindings.` });
+  }
 
   if (!matchingDestination) {
     diagnostics.push({
@@ -94,7 +114,13 @@ export function inspectExactRoute(
   return diagnostics;
 }
 
-/** Require a valid exact OpenClaw account and peer binding. */
+/** Require a valid exact OpenClaw account and peer binding.
+ * @param config - Current SDK routing configuration.
+ * @param agentId - Expected route owner.
+ * @param channel - Destination transport.
+ * @param accountId - Configured channel account.
+ * @param peerId - Exact group or topic identifier.
+ */
 export function validateExactRoute(
   config: RouteConfig,
   agentId: string,
@@ -109,7 +135,11 @@ export function validateExactRoute(
   }
 }
 
-/** Require a valid exact OpenClaw route before persisting or using an endpoint. */
+/** Require a valid exact OpenClaw route before persisting or using an endpoint.
+ * @param config - Current SDK routing configuration.
+ * @param agentId - Expected project owner.
+ * @param endpoint - Persisted destination to validate.
+ */
 export function validateProjectRoute(
   config: RouteConfig,
   agentId: string,
@@ -122,7 +152,11 @@ export function validateProjectRoute(
   }
 }
 
-/** Reject an endpoint already owned by another project. */
+/** Reject an endpoint already owned by another project.
+ * @param data - Validated project registry.
+ * @param targetProjectSlug - Project requesting the destination.
+ * @param endpoint - Requested notification endpoint.
+ */
 export function validateDestinationAvailability(
   data: ProjectsData,
   targetProjectSlug: string,
@@ -148,16 +182,15 @@ export function validateDestinationAvailability(
   }
 }
 
-/** Inspect every persisted project endpoint against the current OpenClaw configuration. */
+/** Inspect every persisted project endpoint against the current OpenClaw configuration.
+ * @param config - Current SDK routing configuration.
+ * @param data - Validated project registry.
+ */
 export function inspectConfiguredProjectRoutes(
   config: RouteConfig,
   data: ProjectsData,
-): Array<{ project: Pick<Project, "slug" | "name" | "agentId">; endpoint: NotificationEndpoint; diagnostics: RouteDiagnostic[] }> {
-  const results: Array<{
-    project: Pick<Project, "slug" | "name" | "agentId">;
-    endpoint: NotificationEndpoint;
-    diagnostics: RouteDiagnostic[];
-  }> = [];
+): ProjectRouteInspection[] {
+  const results: ProjectRouteInspection[] = [];
 
   for (const project of Object.values(data.projects)) {
     for (const endpoint of project.channels) {

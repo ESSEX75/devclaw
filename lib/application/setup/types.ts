@@ -1,8 +1,11 @@
 /** Contracts for shared setup commands and read-only previews. */
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../context.js";
-import type { ExecutionMode, NOTIFICATION_CHANNEL, NotificationChannel } from "../../domain/index.js";
+import type { ExecutionMode, NOTIFICATION_CHANNEL, NotificationChannel, NotificationEndpoint, Project } from "../../domain/index.js";
+import type { SCOPE_STATUS } from "../../integrations/openclaw/scopes/index.js";
+import type { ValueOf } from "../../types.js";
+import type { ONBOARDING_MODE, ROUTE_DIAGNOSTIC_CODE, SCOPE_PREFLIGHT_STATUS, SETUP_OPERATION } from "./const.js";
 
 /** Model identifiers indexed by configured role and level. */
 export type ModelConfig = Record<string, Record<string, string>>;
@@ -48,7 +51,7 @@ export type SetupOpts = {
 /** Outcome of a validated setup operation or preview. */
 export type SetupResult = {
   /** Requested operation; file operations do not configure an agent. */
-  operation: "configure" | "eject-defaults" | "reset-defaults" | "refresh-instructions";
+  operation: ValueOf<typeof SETUP_OPERATION>;
   /** Scope preflight outcome; absent for preview and file-only operations. */
   scopePreflight?: ScopePreflightResult;
   /** Resolved agent identifier, or unknown for a workspace-only operation. */
@@ -88,55 +91,105 @@ export type SetupRuntime = {
     mutateConfigFile: (params: Parameters<PluginRuntime["config"]["mutateConfigFile"]>[0]) => Promise<unknown>;
   };
 };
+/** Configured agent identity used by route inspection. */
+type RouteAgent = {
+  /** Stable configured identifier. */
+  readonly id: string;
+};
+/** Channel availability and account inventory. */
+type RouteChannel = {
+  /** Explicit channel disablement takes precedence over account configuration. */
+  readonly enabled?: boolean;
+  /** Channel-specific settings remain unknown until inspected. */
+  readonly accounts?: Readonly<Record<string, unknown>>;
+};
+/** Exact peer identity; absent or direct kinds do not establish a group route. */
+type RoutePeer = {
+  /** SDK peer kind. */
+  readonly kind?: string;
+  /** Group identifier, optionally qualified with a topic. */
+  readonly id?: string;
+};
+/** Configured route matching fields. */
+type RouteMatch = {
+  /** Notification transport. */
+  readonly channel?: string;
+  /** Explicit configured account. */
+  readonly accountId?: string;
+  /** Exact peer restriction. */
+  readonly peer?: RoutePeer;
+};
+/** Binding owner and destination. */
+type RouteBinding = {
+  /** Agent receiving matching messages. */
+  readonly agentId: string;
+  /** Fields restricting delivery to this binding. */
+  readonly match?: RouteMatch;
+};
+/** Agent inventory available for route validation. */
+type RouteAgentRoster = {
+  /** Configured agent identities. */
+  readonly list?: readonly RouteAgent[];
+};
+
 /** Read-only OpenClaw configuration surface required for route validation. */
 export type RouteConfig = {
-  readonly agents?: { readonly list?: readonly { readonly id: string }[] };
-  readonly channels?: Readonly<Record<string, {
-    readonly enabled?: boolean;
-    readonly accounts?: Readonly<Record<string, unknown>>;
-  }>>;
-  readonly bindings?: readonly {
-    readonly agentId: string;
-    readonly match?: {
-      readonly channel?: string;
-      readonly accountId?: string;
-      readonly peer?: { readonly id?: string };
-    };
-  }[];
+  /** Available route owners. */
+  readonly agents?: RouteAgentRoster;
+  /** Configured channel accounts. */
+  readonly channels?: Readonly<Record<string, RouteChannel>>;
+  /** Configured routing entries in SDK precedence order. */
+  readonly bindings?: readonly RouteBinding[];
+};
+
+/** Project route inspection result without retaining the complete project state. */
+export type ProjectRouteInspection = {
+  /** Stable project identity and owner. */
+  project: Pick<Project, "slug" | "name" | "agentId">;
+  /** Inspected persisted destination. */
+  endpoint: NotificationEndpoint;
+  /** Reasons the exact route cannot be trusted. */
+  diagnostics: RouteDiagnostic[];
 };
 
 /** One machine-readable route validation failure. */
 export type RouteDiagnostic = {
   /** Stable code suitable for CLI and automation handling. */
-  code: string;
+  code: ValueOf<typeof ROUTE_DIAGNOSTIC_CODE>;
   /** Human-readable explanation including the invalid route component. */
   message: string;
-};
-
-/** Validated fields returned by the OpenClaw approval CLI. */
-export type ScopeCommandResult = {
-  /** Whether the transport reports success. */
-  ok?: boolean;
-  /** Reported transport or preflight status. */
-  status?: string;
-  /** Permissions confirmed by the gateway. */
-  approved?: string[];
-  /** Permissions not yet granted. */
-  missing?: string[];
-  /** Approval request identifier when one exists. */
-  requestId?: string;
-  /** Transport-provided diagnostic text. */
-  message?: string;
 };
 
 /** Nonblocking permission preflight outcome. */
 export type ScopePreflightResult = {
   /** Reported transport or preflight status. */
-  status: "approved" | "unavailable";
+  status: ValueOf<typeof SCOPE_PREFLIGHT_STATUS>;
   /** Permissions confirmed by the gateway. */
   approved: string[];
   /** Permissions not yet granted. */
   missing: string[];
   /** Nonfatal transport availability diagnostic. */
   warning?: string;
+};
+
+/** SDK-owned per-agent tool policy, preserved when extending DevClaw permissions. */
+export type AgentToolPolicy = NonNullable<NonNullable<NonNullable<OpenClawConfig["agents"]>["list"]>[number]["tools"]>;
+
+/** Selected onboarding scenario. */
+export type OnboardingMode = ValueOf<typeof ONBOARDING_MODE>;
+/** Approval request details surfaced to setup adapters. */
+export type ScopeApprovalRequiredDetails = {
+  /** Gateway approval request identifier. */
+  requestId: string;
+  /** Complete permissions required by DevClaw. */
+  requiredScopes: string[];
+  /** Permissions awaiting approval. */
+  missingScopes: string[];
+};
+/** Explicit refusal or expiration of an approval request. */
+export type ScopeApprovalRejectedDetails = {
+  /** Nonrecoverable outcome for this request. */
+  status: typeof SCOPE_STATUS.DENIED | typeof SCOPE_STATUS.EXPIRED;
+  /** Gateway request identifier when supplied. */
+  requestId?: string;
 };

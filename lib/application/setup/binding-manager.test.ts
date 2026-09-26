@@ -4,7 +4,6 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import { createSetupRuntime as createRuntime } from "../../testing/index.js";
 import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import { ensureChannelBinding } from "./binding-manager.js";
@@ -16,7 +15,7 @@ describe("channel binding helpers", () => {
       agents: { list: [{ id: "orchestrator" }] },
       channels: { telegram: { enabled: true, accounts: { default: {} } } },
       bindings: [],
-    } as OpenClawConfig);
+    });
 
     await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "orchestrator", "default", "chat-1");
     await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "orchestrator", "default", "chat-1");
@@ -41,7 +40,7 @@ describe("channel binding helpers", () => {
       bindings: [
         { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM }, agentId: "main" },
       ],
-    } as OpenClawConfig);
+    });
 
     await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "dev-agent", "dev", "chat-1");
 
@@ -66,7 +65,7 @@ describe("channel binding helpers", () => {
       bindings: [
         { match: { channel: NOTIFICATION_CHANNEL.TELEGRAM, accountId: "dev" }, agentId: "dev-agent" },
       ],
-    } as OpenClawConfig);
+    });
 
     await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "test-agent3", "dev", "-1003911014709:topic:331");
 
@@ -89,7 +88,7 @@ describe("channel binding helpers", () => {
       agents: { list: [{ id: "test-agent3" }] },
       channels: { telegram: { enabled: true, accounts: { dev: {} } } },
       bindings: [],
-    } as OpenClawConfig);
+    });
 
     await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "test-agent3", "dev", "-1003911014709:topic:331");
     await ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "test-agent3", "dev", "-1003911014709:topic:331");
@@ -111,7 +110,7 @@ describe("channel binding helpers", () => {
           agentId: "test-agent3",
         },
       ],
-    } as OpenClawConfig);
+    });
 
     await assert.rejects(
       ensureChannelBinding(runtime, NOTIFICATION_CHANNEL.TELEGRAM, "test-agent4", "dev", "-1003911014709:topic:331"),
@@ -120,4 +119,13 @@ describe("channel binding helpers", () => {
     assert.strictEqual(writes.length, 0);
   });
 
+});
+
+it("keeps a direct binding distinct from a group binding with the same peer id", async () => {
+  const { runtime } = createRuntime({ agents: { list: [{ id: "owner" }, { id: "direct-owner" }] }, channels: { telegram: { accounts: { dev: {} } } },
+    bindings: [{ agentId: "direct-owner", match: { channel: "telegram", accountId: "dev", peer: { kind: "direct", id: "peer" } } }] });
+  await ensureChannelBinding(runtime, "telegram", "owner", "dev", "peer");
+  await ensureChannelBinding(runtime, "telegram", "owner", "dev", "peer");
+  assert.equal(runtime.config.current().bindings?.length, 2);
+  assert.equal(runtime.config.current().bindings?.[0]?.agentId, "direct-owner");
 });
