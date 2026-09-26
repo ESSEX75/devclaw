@@ -74,6 +74,12 @@ Prefer focused names that communicate the file's owned responsibility.
 - A package `index.ts` may re-export supported types from `types.ts`, but must not own their declarations or re-export their declarations from implementation files.
 - Keep each `types.ts` cohesive to its owning package or subpackage; do not use this rule to create a cross-package type dumping ground.
 
+### Nested types and readability
+
+- Prefer a named file-local type for a nested object shape or array element when its fields and JSDoc make the containing contract harder to scan. For example, use `agents: DoctorAgentToolAccess[]` instead of an inline `Array<{ ... }>` block.
+- Keep the extracted type in the same file without `export` when it is used only there, including when it supports an exported contract in `types.ts`. Export it only when another file needs the named contract, following the exported type placement rules above.
+- Preserve meaningful JSDoc on the extracted type and its fields. Reuse an existing owner type when it already represents the same concept; do not duplicate it merely to shorten the declaration.
+
 ### Constant placement and string literals
 
 - Move filesystem and resource identifiers into documented constants even when a value currently appears only once. This includes filenames, directory names, extensions, backup suffixes, relative paths, template paths, and path-segment collections.
