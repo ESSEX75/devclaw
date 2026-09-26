@@ -35,6 +35,13 @@ contracts exposed to other layers only through `lib/state/index.ts`.
   operator action and must never run automatically during startup or reads.
 - Stores accept only the current strict schema at the filesystem boundary; no legacy normalization or migration runs during reads.
 
+## Attachments
+
+`attachments` owns validated metadata, local bytes, atomic indexes, and the common
+save/URL-update/purge lock. Its public operations are exposed through the state
+entrypoint. Reads distinguish missing state from corruption or access failures.
+Purge refuses linked ancestors and nested entries, and never traverses recursively.
+
 ## Projects Registry
 
 - `projects/paths` owns registry and repository path policy, including home-directory expansion.

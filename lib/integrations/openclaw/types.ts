@@ -1,5 +1,40 @@
 /** Contracts for OpenClaw workspace resolution and gateway worker-turn submission. */
+import type { toPluginMessageContext, toPluginMessageReceivedEvent } from "openclaw/plugin-sdk/hook-runtime";
+
 import type { RunCommand } from "../../context.js";
+import type { PluginContext } from "../../context.js";
+import type { ATTACHMENT_MESSAGE_HOOK } from "./attachment-const.js";
+
+/** SDK media callback with the concrete received-message contract. */
+type AttachmentMessageHandler = (
+  event: ReturnType<typeof toPluginMessageReceivedEvent>,
+  context: ReturnType<typeof toPluginMessageContext>,
+) => Promise<void>;
+
+/** Only the message registration capability required by attachment capture. */
+export type AttachmentHookRegistrar = {
+  /** Register received-media handling without requiring unrelated plugin APIs.
+   * @param name - SDK received-message hook identifier.
+   * @param handler - Callback using the current SDK event and routing contracts.
+   */
+  on(name: typeof ATTACHMENT_MESSAGE_HOOK, handler: AttachmentMessageHandler): void;
+};
+
+/** Runtime dependencies used by the media hook, excluding mutation of SDK configuration. */
+export type AttachmentHookContext = {
+  /** Provider command transport. */
+  runCommand: RunCommand;
+  /** Diagnostics for rejected routing or failed attachment capture. */
+  logger: Pick<PluginContext["logger"], "warn">;
+  /** Read-only live configuration capability. */
+  runtime: AttachmentHookRuntime;
+};
+
+/** Live SDK configuration reader used during owner workspace discovery. */
+type AttachmentHookRuntime = {
+  /** Current effective configuration, refreshed per incoming message. */
+  config: Pick<PluginContext["runtime"]["config"], "current">;
+};
 
 /** Gateway values needed to address and submit one worker turn. */
 export type AgentTurnInput = {
@@ -55,4 +90,14 @@ type AgentWorkspaceEntry = {
   readonly workspace?: string;
   /** SDK default-agent marker relevant to workspace inheritance. */
   readonly default?: boolean;
+};
+
+/** Local media staged by the SDK or selected explicitly by the user. */
+export type MediaAttachmentInfo = {
+  /** Source path authorized by the caller. */
+  localPath: string;
+  /** Known media type, otherwise detected through the SDK. */
+  mimeType?: string;
+  /** Display filename, otherwise taken from the source basename. */
+  filename?: string;
 };

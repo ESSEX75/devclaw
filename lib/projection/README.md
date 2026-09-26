@@ -11,6 +11,10 @@ projection of that state.
 Hidden creation markers bind provider issues to durable creation operations and
 are verified before the application publishes an issue for lifecycle processing.
 
+`composeManagedIssueBody` removes submitted managed blocks and appends metadata
+and creation identity supplied by the application from trusted state. It is pure
+and cannot select or validate a task's lifecycle eligibility.
+
 ## Boundary Rules
 
 - Keep projection helpers deterministic and side-effect free.

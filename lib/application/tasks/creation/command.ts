@@ -9,7 +9,7 @@ import type { IssueCreationOperation } from "../../../state/index.js";
 import { newIssueCreationIdentity, updateIssueCreationStore, withIssueCreationLock } from "../../../state/index.js";
 import { buildInitialIssueRuntimeState } from "../../issue-runtime/index.js";
 import { creationAudit } from "./audit.js";
-import { CREATION_STEPS } from "./const.js";
+import { CREATION_EVENT, CREATION_PAYLOAD_HASH, CREATION_STEPS } from "./const.js";
 import { IssueCreationFailureError } from "./failure.js";
 import { withCreationPermit } from "./permit.js";
 import { runCreationOperation } from "./runner.js";
@@ -25,7 +25,7 @@ export function createManagedTaskIssue(opts: CreateManagedTaskInput): Promise<Cr
   return withIssueCreationLock(opts.workspaceDir, opts.project.slug, opts.idempotencyKey, async () => {
     const operation = await ensureCreationOperation(opts);
 
-    await creationAudit(opts, operation, "issue_creation_requested");
+    await creationAudit(opts, operation, CREATION_EVENT.REQUESTED);
 
     return withCreationPermit(`${opts.providerType}:${opts.project.slug}`, () => runCreationOperation(opts, operation, false));
   });
@@ -130,5 +130,5 @@ function requireCreationState(workflow: WorkflowConfig, workflowState: string) {
  * @param value - Canonical data bound to the caller's key.
  */
 function hashPayload(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  return createHash(CREATION_PAYLOAD_HASH).update(JSON.stringify(value)).digest("hex");
 }

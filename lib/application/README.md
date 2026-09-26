@@ -58,6 +58,11 @@ durable checkpoint transitions, provider failure mapping, result formatting, and
 creation audit. `issue-runtime` builds the complete initial runtime draft used
 for projection and persists the authoritative record only after verification.
 
+`tasks/lifecycle`, `tasks/queries`, `tasks/attachments`, and `tasks/context` own
+locked task commands, read-only views, media orchestration, and worker rendering.
+Their APIs are exposed through `tasks/index.ts` to other capabilities and adapters.
+Attachment storage belongs to state; SDK media hook registration belongs to integrations.
+
 Terminal pipeline notifications use active issue state as a durable outbox. An
 unconfirmed delivery keeps the terminal issue active; heartbeat retries expired
 attempt leases and archives the issue only after delivery is confirmed.

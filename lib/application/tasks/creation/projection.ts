@@ -41,7 +41,7 @@ export async function reconcileCreatedProviderIssue(
   });
 
   await applyManagedLabelDiff({ issueId: issue.iid, provider: opts.provider, diff, workflow: opts.workflow, roles: opts.roles ?? [] });
-  const metadata = { projectSlug: operation.projectSlug, issueId: issue.iid, projectionVersion: 1 };
+  const metadata = { projectSlug: operation.projectSlug, issueId: issue.iid, projectionVersion: draft.projectionVersion };
 
   if (!metadataMatches(extractIssueMetadata(issue.description), metadata)) {
     await opts.provider.editIssue(issue.iid, { body: replaceIssueMetadata(issue.description, metadata) });

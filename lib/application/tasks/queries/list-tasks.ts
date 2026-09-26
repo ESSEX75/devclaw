@@ -1,45 +1,26 @@
-import type { IssueRuntimeState } from "../../domain/index.js";
+/** Builds read-only task views from authoritative local state and provider observations. */
+import type { IssueRuntimeState } from "../../../domain/index.js";
 import {
   findStateByLabel,
   STATE_TYPE,
   type WorkflowConfig,
-} from "../../domain/index.js";
-import type { IssueReader } from "../../integrations/providers/capabilities.js";
-import { isIssueCreationReady, readIssueStateStore } from "../../state/index.js";
+} from "../../../domain/index.js";
+import { isIssueCreationReady, readIssueStateStore } from "../../../state/index.js";
+import { ALL_TASK_STATES, DEFAULT_TASK_LIST_LIMIT } from "./const.js";
 import {
   loadProjectionViewContext,
   summarizeLocalIssueStates,
-  type TaskIssueSummary,
 } from "./projection-summary.js";
+import type { ListManagedTasksInput, TaskListResult, TaskListStateGroup } from "./types.js";
 
-type FetchEntry = { label: string; type: string; role?: string; issueState: "open" | "closed" | "all" };
+/** State selected for a task listing. */
+type FetchEntry = Pick<TaskListStateGroup, "label" | "type" | "role">;
 
-export type TaskListStateGroup = {
-  label: string;
-  type: string;
-  role?: string;
-  issues: TaskIssueSummary[];
-  total: number;
-};
-
-export type TaskListResult = {
-  filter: { stateType: string | null; label: string | null; search: string | null };
-  states: TaskListStateGroup[];
-  totalIssues: number;
-};
-
-export async function listManagedTasks(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  workflow: WorkflowConfig;
-  roles: string[];
-  provider: Pick<IssueReader, "getIssue">;
-  stateType?: string;
-  label?: string;
-  search?: string;
-  limit?: number;
-}): Promise<TaskListResult> {
-  const limit = opts.limit ?? 20;
+/** List ready managed issues from local state and enrich them with provider observations.
+ * @param opts - Resolved project dependencies and operation-specific input.
+ */
+export async function listManagedTasks(opts: ListManagedTasksInput): Promise<TaskListResult> {
+  const limit = opts.limit ?? DEFAULT_TASK_LIST_LIMIT;
   const projectionCtx = await loadProjectionViewContext({
     workspaceDir: opts.workspaceDir,
     projectSlug: opts.projectSlug,
@@ -95,6 +76,11 @@ export async function listManagedTasks(opts: {
   };
 }
 
+/** Select configured workflow labels, excluding terminal states by default.
+ * @param workflow - Effective project workflow including custom states.
+ * @param stateType - Optional workflow classification filter.
+ * @param label - Provider-visible workflow label selected by configuration.
+ */
 function resolveTaskListLabels(workflow: WorkflowConfig, stateType?: string, label?: string): FetchEntry[] {
   if (label) {
     const stateConfig = findStateByLabel(workflow, label);
@@ -105,21 +91,19 @@ function resolveTaskListLabels(workflow: WorkflowConfig, stateType?: string, lab
       label: stateConfig.label,
       type: stateConfig.type,
       role: stateConfig.role,
-      issueState: stateConfig.type === STATE_TYPE.TERMINAL ? "closed" : "open",
     }];
   }
 
-  const includeTerminal = stateType === "terminal" || stateType === "all";
+  const includeTerminal = stateType === STATE_TYPE.TERMINAL || stateType === ALL_TASK_STATES;
   const entries: FetchEntry[] = [];
 
   for (const state of Object.values(workflow.states)) {
     if (state.type === STATE_TYPE.TERMINAL && !includeTerminal) continue;
-    if (stateType && stateType !== "all" && state.type !== stateType) continue;
+    if (stateType && stateType !== ALL_TASK_STATES && state.type !== stateType) continue;
     entries.push({
       label: state.label,
       type: state.type,
       role: state.role,
-      issueState: state.type === STATE_TYPE.TERMINAL ? "closed" : "open",
     });
   }
 

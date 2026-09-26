@@ -4,6 +4,7 @@
 import { ISSUE_CREATION_STATUS } from "../../../domain/index.js";
 import { readIssueCreationStore, withIssueCreationLock } from "../../../state/index.js";
 import { creationAudit } from "./audit.js";
+import { CREATION_EVENT } from "./const.js";
 import { withCreationPermit } from "./permit.js";
 import { runCreationOperation } from "./runner.js";
 import type { ReconcileManagedTaskCreationsInput, ReconcileManagedTaskCreationsResult } from "./types.js";
@@ -42,7 +43,7 @@ export async function reconcileManagedTaskCreations(opts: ReconcileManagedTaskCr
         assignedLevel: current.input.assignedLevel,
       };
 
-      await creationAudit(operationOpts, current, "issue_creation_reconciliation_scheduled");
+      await creationAudit(operationOpts, current, CREATION_EVENT.RECONCILIATION_SCHEDULED);
       const result = await withCreationPermit(
         `${opts.providerType}:${opts.project.slug}`,
         () => runCreationOperation(operationOpts, current, true),

@@ -1,44 +1,21 @@
-import { ISSUE_CREATION_STATUS, STATE_TYPE, type WorkflowConfig } from "../../domain/index.js";
-import type { IssueReader } from "../../integrations/providers/capabilities.js";
+/** Builds read-only task views from authoritative local state and provider observations. */
+import { ISSUE_CREATION_STATUS, STATE_TYPE, type WorkflowConfig } from "../../../domain/index.js";
+import type { IssueReader } from "../../../integrations/providers/capabilities.js";
 import {
   isIssueCreationReady,
-  type IssueCreationFailure,
   readIssueCreationStore,
-  readIssueStateStore,
-} from "../../state/index.js";
+  readIssueStateStore
+} from "../../../state/index.js";
 import {
   loadProjectionViewContext,
   summarizeLocalIssueStates,
-  type TaskIssueSummary,
 } from "./projection-summary.js";
+import type { GetManagedTaskStatusInput, TaskStatusResult } from "./types.js";
 
-type IssueSummary = TaskIssueSummary;
-
-type StateBucket = Record<string, { count: number; issues: IssueSummary[] }>;
-
-export type TaskStatusResult = {
-  stateLabels: {
-    hold: Array<{ label: string; hint: string }>;
-    active: Array<{ label: string; role?: string }>;
-    queue: Array<{ label: string; role?: string; priority?: number }>;
-  };
-  summary: { totalHold: number; totalActive: number; totalQueued: number };
-  hold: StateBucket;
-  active: StateBucket;
-  queue: StateBucket;
-  creation: {
-    pending: Array<{ operationId: string; title: string; status: string; issueId?: number; error?: IssueCreationFailure }>;
-    failed: Array<{ operationId: string; title: string; status: string; issueId?: number; error?: IssueCreationFailure }>;
-  };
-};
-
-export async function getManagedTaskStatus(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  workflow: WorkflowConfig;
-  roles: string[];
-  provider: Pick<IssueReader, "getIssue">;
-}): Promise<TaskStatusResult> {
+/** Summarize ready open tasks separately from unfinished creation operations.
+ * @param opts - Resolved project dependencies and operation-specific input.
+ */
+export async function getManagedTaskStatus(opts: GetManagedTaskStatusInput): Promise<TaskStatusResult> {
   const statesByType = getWorkflowStateLabelsByType(opts.workflow);
   const projectionCtx = await loadProjectionViewContext({
     workspaceDir: opts.workspaceDir,
@@ -91,6 +68,9 @@ export async function getManagedTaskStatus(opts: {
   };
 }
 
+/** Group configured workflow states by hold, active, and queue semantics.
+ * @param workflow - Effective project workflow including custom states.
+ */
 function getWorkflowStateLabelsByType(workflow: WorkflowConfig) {
   return {
     hold: Object.values(workflow.states).filter((state) => state.type === STATE_TYPE.HOLD),
@@ -99,13 +79,19 @@ function getWorkflowStateLabelsByType(workflow: WorkflowConfig) {
   };
 }
 
+/** Render local issue summaries for each selected workflow label.
+ * @param statesByType - Configured states selected for this status group.
+ * @param openLocalStates - Ready open issue records eligible for the status report.
+ * @param provider - Provider capability or identifier used for this operation.
+ * @param projectionCtx - Authoritative snapshot and workflow used for projection comparison.
+ */
 async function summarizeStateBucket(
-  statesByType: Array<{ label: string }>,
+  statesByType: Pick<WorkflowConfig["states"][string], "label">[],
   openLocalStates: Awaited<ReturnType<typeof readIssueStateStore>>["issues"][string][],
   provider: Pick<IssueReader, "getIssue">,
   projectionCtx: Awaited<ReturnType<typeof loadProjectionViewContext>>,
-): Promise<StateBucket> {
-  const bucket: StateBucket = {};
+): Promise<TaskStatusResult["hold"]> {
+  const bucket: TaskStatusResult["hold"] = {};
 
   for (const { label } of statesByType) {
     const issues = await summarizeLocalIssueStates(

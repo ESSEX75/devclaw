@@ -35,3 +35,9 @@ responses. It classifies absent commands narrowly; other process failures propag
 Application setup owns required permissions and approval policy.
 `openclaw/agent-workspace.ts` delegates workspace resolution to the SDK, including
 implicit defaults, so ownership discovery does not duplicate SDK path rules.
+
+`openclaw/attachment-hook.ts` owns SDK message hook registration and media event
+normalization. It passes complete routing identities to application/tasks and
+requires an explicit agent-scoped session plus account and conversation identity.
+Unscoped or unstaged events are skipped; missing identity is never defaulted to an
+agent or account. `attachment-media.ts` preserves path/MIME positional pairing.

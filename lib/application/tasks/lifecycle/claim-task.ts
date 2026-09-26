@@ -1,28 +1,18 @@
-import type { IssueProviderId, Project, WorkflowConfig } from "../../domain/index.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
+/** Owns a managed task lifecycle operation or its pure transition decision. */
 import {
   isIssueCreationReady,
   readIssueStateStore,
   withIssueOrchestrationLock,
-} from "../../state/index.js";
-import { writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { reconcileManagedLabelsLocked } from "../projection/index.js";
+} from "../../../state/index.js";
+import { writeIssueRuntimeState } from "../../issue-runtime/index.js";
+import { reconcileManagedLabelsLocked } from "../../projection/index.js";
+import { TASK_CLAIM_OWNER } from "./const.js";
+import type { ClaimManagedTaskInput, ClaimManagedTaskResult } from "./types.js";
 
-export type ClaimManagedTaskResult =
-  | { claimed: true }
-  | { claimed: false; reason: string };
-
-export async function claimManagedTask(input: {
-  workspaceDir: string;
-  project: Project;
-  issueId: number;
-  instanceName: string;
-  force: boolean;
-  provider: IssueProvider;
-  providerType: IssueProviderId;
-  workflow: WorkflowConfig;
-  roles: string[];
-}): Promise<ClaimManagedTaskResult> {
+/** Transfer issue ownership under the orchestration lock only after creation is ready.
+ * @param input - Validated command dependencies and requested changes.
+ */
+export async function claimManagedTask(input: ClaimManagedTaskInput): Promise<ClaimManagedTaskResult> {
   return withIssueOrchestrationLock(
     input.workspaceDir,
     input.project.slug,
@@ -67,7 +57,7 @@ export async function claimManagedTask(input: {
         workflow: input.workflow,
         roles: input.roles,
         provider: input.provider,
-        owner: "task_owner",
+        owner: TASK_CLAIM_OWNER,
       });
 
       return { claimed: true };

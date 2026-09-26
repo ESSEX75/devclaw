@@ -23,7 +23,7 @@ import {
   updateIssueArchiveStore,
   withIssueOrchestrationLock,
 } from "../../state/index.js";
-import { listAttachments, purgeIssueAttachments } from "../tasks/index.js";
+import { listAttachments, purgeIssueAttachments } from "../../state/index.js";
 
 /** Optional provider snapshot enriching an archive record without making provider data authoritative. */
 export type ArchiveIssueSnapshot = {

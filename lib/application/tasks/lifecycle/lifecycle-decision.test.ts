@@ -1,3 +1,4 @@
+/** Build a resolved test fixture from a built-in registry role. */
 import assert from "node:assert";
 import { describe, it } from "node:test";
 
@@ -6,9 +7,9 @@ import {
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   type IssueRuntimeState,
-} from "../../domain/index.js";
-import { ROLE_REGISTRY } from "../../roles/index.js";
-import type { ResolvedRoleConfig } from "../../state/index.js";
+} from "../../../domain/index.js";
+import { ROLE_REGISTRY } from "../../../roles/index.js";
+import type { ResolvedRoleConfig } from "../../../state/index.js";
 import { resolveRoleLevel, resolveStartTaskDecision } from "./lifecycle-decision.js";
 
 const baseState: IssueRuntimeState = {
@@ -34,7 +35,9 @@ const baseState: IssueRuntimeState = {
   pipelineNotification: null,
 };
 
-/** Build a resolved test fixture from a built-in registry role. */
+/** Resolve a built-in role fixture with usable worker capacity.
+ * @param role - Built-in role whose configured levels are exercised.
+ */
 function roleConfig(role: keyof typeof ROLE_REGISTRY): ResolvedRoleConfig {
   const definition = ROLE_REGISTRY[role];
   const levels: ResolvedRoleConfig["levels"] = {};

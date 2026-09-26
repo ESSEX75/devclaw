@@ -5,7 +5,7 @@ import { ISSUE_CREATION_ERROR, ISSUE_CREATION_STATUS, ISSUE_INTEGRITY_STATUS } f
 import type { IssueCreationOperation } from "../../../state/index.js";
 import { writeIssueRuntimeState } from "../../issue-runtime/index.js";
 import { creationAudit } from "./audit.js";
-import { CREATION_STEPS } from "./const.js";
+import { CREATION_EVENT, CREATION_REQUEST_BUDGET, CREATION_RETRY_DELAY_MS, CREATION_STEPS } from "./const.js";
 import { creationFailureFromProvider, IssueCreationFailureError } from "./failure.js";
 import { appendCreationMarker, reconcileCreatedProviderIssue } from "./projection.js";
 import { completeStep, failOperation, markStep, transitionStatus, updateOperation } from "./record.js";
@@ -64,23 +64,22 @@ export async function runCreationOperation(
     }
 
     const quota = await safeRateLimit(opts.provider);
-    const estimatedRequests = 4;
 
-    if (quota && quota.remaining < estimatedRequests) {
+    if (quota && quota.remaining < CREATION_REQUEST_BUDGET) {
       current = await failOperation(opts, current, ISSUE_CREATION_STATUS.CREATION_FAILED, {
         code: ISSUE_CREATION_ERROR.PROVIDER_RATE_LIMITED,
         message: "Provider quota is below the conservative creation request budget.",
         retryable: true,
-        retryAfter: quota.resetAt ?? new Date(Date.now() + 60_000).toISOString(),
+        retryAfter: quota.resetAt ?? new Date(Date.now() + CREATION_RETRY_DELAY_MS).toISOString(),
       });
 
       return resultFromOperation(current);
     }
 
     current = await markStep(opts, current, CREATION_STEPS.PREFLIGHT, ISSUE_CREATION_STATUS.CREATING);
-    await creationAudit(opts, current, "issue_creation_preflight_completed");
+    await creationAudit(opts, current, CREATION_EVENT.PREFLIGHT_COMPLETED);
     current = await markStep(opts, current, CREATION_STEPS.PROVIDER_STARTED, ISSUE_CREATION_STATUS.CREATING, true);
-    await creationAudit(opts, current, "issue_creation_provider_started");
+    await creationAudit(opts, current, CREATION_EVENT.PROVIDER_STARTED);
 
     let providerIssue;
 
@@ -120,7 +119,7 @@ export async function runCreationOperation(
       return resultFromOperation(current);
     }
 
-    await creationAudit(opts, current, "issue_creation_provider_created");
+    await creationAudit(opts, current, CREATION_EVENT.PROVIDER_CREATED);
   }
 
   if (current.status === ISSUE_CREATION_STATUS.CREATION_FAILED && current.providerIssue) {
@@ -128,7 +127,7 @@ export async function runCreationOperation(
   }
 
   if (current.status === ISSUE_CREATION_STATUS.PROVIDER_CREATED && current.providerIssue) {
-    await creationAudit(opts, current, "issue_creation_projection_started");
+    await creationAudit(opts, current, CREATION_EVENT.PROJECTION_STARTED);
 
     try {
       current = await reconcileCreatedProviderIssue(opts, current);
@@ -146,7 +145,7 @@ export async function runCreationOperation(
       return resultFromOperation(current);
     }
 
-    await creationAudit(opts, current, "issue_creation_projection_verified");
+    await creationAudit(opts, current, CREATION_EVENT.PROJECTION_VERIFIED);
   }
 
   if (current.status === ISSUE_CREATION_STATUS.PROJECTION_VERIFIED && current.providerIssue) {
@@ -181,7 +180,7 @@ export async function runCreationOperation(
       return resultFromOperation(current);
     }
 
-    await creationAudit(opts, current, "issue_creation_local_state_committed");
+    await creationAudit(opts, current, CREATION_EVENT.LOCAL_STATE_COMMITTED);
 
     try {
       current = await markStep(opts, current, CREATION_STEPS.READY, ISSUE_CREATION_STATUS.READY);
@@ -195,7 +194,7 @@ export async function runCreationOperation(
       return resultFromOperation(current);
     }
 
-    await creationAudit(opts, current, recovering ? "issue_creation_reconciled" : "issue_creation_ready");
+    await creationAudit(opts, current, recovering ? CREATION_EVENT.RECONCILED : CREATION_EVENT.READY);
   }
 
   return resultFromOperation(current);

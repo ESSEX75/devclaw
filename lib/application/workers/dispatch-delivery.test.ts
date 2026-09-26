@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import type { RunCommand } from "../../context.js";
 import { WORKER_DELIVERY_STATUS } from "../../domain/index.js";
 import { checkWorkerHealth } from "../heartbeat/health.js";
-import { summarizeTaskIssue } from "../tasks/projection-summary.js";
+import { summarizeTaskIssue } from "../tasks/index.js";
 import { getRoleWorker, updateIssueRuntimeRecord, updateSlot } from "../../state/index.js";
 import { readIssueStateStore } from "../../state/index.js";
 import { createTestHarness } from "../../testing/index.js";

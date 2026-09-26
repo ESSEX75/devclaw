@@ -1,50 +1,17 @@
 /**
  * projection-summary.ts — Shared task output enrichment for local state and provider projection.
  */
-import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkerDeliveryState, type WorkflowConfig } from "../../domain/index.js";
-import type { IssueReader } from "../../integrations/providers/capabilities.js";
-import type { Issue } from "../../integrations/providers/provider.js";
-import { diffIssueProjection } from "../../projection/index.js";
-import { readIssueStateStore } from "../../state/index.js";
+import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState } from "../../../domain/index.js";
+import type { IssueReader } from "../../../integrations/providers/capabilities.js";
+import type { Issue } from "../../../integrations/providers/provider.js";
+import { diffIssueProjection } from "../../../projection/index.js";
+import { readIssueStateStore } from "../../../state/index.js";
+import type { LoadProjectionViewContextInput, ProjectionViewContext, TaskIssueProjectionView, TaskIssueSummary } from "./types.js";
 
-export type TaskIssueProjectionView = {
-  providerLabels: string[];
-  localState: {
-    workflowState: string;
-    workflowLabel: string;
-    assignedRole?: string | null;
-    assignedLevel?: string | null;
-  } | null;
-  integrityStatus: IssueRuntimeState["integrityStatus"];
-  missingManagedLabels: string[];
-  unexpectedManagedLabels: string[];
-  unmanagedLabels: string[];
-  repairHint: string | null;
-  /** Unconfirmed worker delivery requiring inspection before another dispatch. */
-  workerDelivery?: WorkerDeliveryState;
-  /** Operator guidance for a delivery that cannot be resolved from gateway evidence. */
-  deliveryHint?: string;
-};
-
-export type TaskIssueSummary = {
-  id: number;
-  title: string;
-  url: string;
-  projection: TaskIssueProjectionView;
-};
-
-export type ProjectionViewContext = {
-  states: Record<string, IssueRuntimeState>;
-  workflow: WorkflowConfig;
-  roles: string[];
-};
-
-export async function loadProjectionViewContext(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  workflow: WorkflowConfig;
-  roles: string[];
-}): Promise<ProjectionViewContext> {
+/** Read authoritative runtime state for consistent projection diagnostics.
+ * @param opts - Resolved project dependencies and operation-specific input.
+ */
+export async function loadProjectionViewContext(opts: LoadProjectionViewContextInput): Promise<ProjectionViewContext> {
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
 
   return {
@@ -54,6 +21,10 @@ export async function loadProjectionViewContext(opts: {
   };
 }
 
+/** Combine provider identity with local assignment and projection differences.
+ * @param issue - Provider issue snapshot being summarized.
+ * @param ctx - Authoritative snapshot and effective workflow.
+ */
 export function summarizeTaskIssue(issue: Issue, ctx: ProjectionViewContext): TaskIssueSummary {
   const state = ctx.states[String(issue.iid)];
 
@@ -67,6 +38,11 @@ export function summarizeTaskIssue(issue: Issue, ctx: ProjectionViewContext): Ta
   };
 }
 
+/** Read provider observations for local issues while retaining unavailable issues in output.
+ * @param states - Local records to enrich in deterministic issue order.
+ * @param provider - Provider capability or identifier used for this operation.
+ * @param projectionCtx - Authoritative snapshot and workflow used for projection comparison.
+ */
 export async function summarizeLocalIssueStates(
   states: IssueRuntimeState[],
   provider: Pick<IssueReader, "getIssue">,
@@ -90,6 +66,11 @@ export async function summarizeLocalIssueStates(
   return result;
 }
 
+/** Compare observed labels with authoritative assignment and expose repair guidance.
+ * @param issue - Provider issue snapshot being summarized.
+ * @param state - Authoritative local issue record being compared.
+ * @param ctx - Authoritative snapshot and effective workflow.
+ */
 function summarizeManagedProjection(
   issue: Issue,
   state: IssueRuntimeState,
@@ -128,6 +109,9 @@ function summarizeManagedProjection(
   };
 }
 
+/** Describe provider-only issues without inferring authoritative runtime state.
+ * @param issue - Provider issue snapshot being summarized.
+ */
 function summarizeUninitializedProjection(issue: Issue): TaskIssueProjectionView {
   return {
     providerLabels: [...issue.labels].sort(),

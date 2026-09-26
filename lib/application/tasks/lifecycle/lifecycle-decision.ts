@@ -1,27 +1,18 @@
+/** Owns a managed task lifecycle operation or its pure transition decision. */
 import {
-  type IssueRuntimeState,
   STATE_TYPE,
   WORKFLOW_EVENT,
   type WorkflowConfig,
-  type WorkflowStateConfig,
-} from "../../domain/index.js";
-import { selectLevel } from "../../roles/model-selector.js";
-import type { ResolvedRoleConfig } from "../../state/index.js";
+  type WorkflowStateConfig
+} from "../../../domain/index.js";
+import { selectLevel } from "../../../roles/model-selector.js";
+import type { ResolvedRoleConfig } from "../../../state/index.js";
+import type { QueueTarget, ResolveRoleLevelInput, ResolveStartTaskDecisionInput, StartTaskDecision } from "./types.js";
 
-export type QueueTarget = {
-  stateKey: string;
-  state: WorkflowStateConfig & { type: typeof STATE_TYPE.QUEUE };
-};
-
-export type StartTaskDecision = {
-  fromStateKey: string;
-  fromLabel: string;
-  targetStateKey: string;
-  targetLabel: string;
-  targetRole: string;
-  assignedLevel: string;
-};
-
+/** Resolve and validate the configured approval transition from HOLD to QUEUE.
+ * @param workflow - Effective project workflow including custom states.
+ * @param currentState - Resolved configuration of the current authoritative state.
+ */
 export function resolveHoldQueueTarget(
   workflow: WorkflowConfig,
   currentState: WorkflowStateConfig,
@@ -55,14 +46,7 @@ export function resolveHoldQueueTarget(
  *
  * @param input - Runtime assignment, target role configuration, and issue text used for selection.
  */
-export function resolveRoleLevel(input: {
-  requestedLevel?: string;
-  runtimeState: IssueRuntimeState;
-  targetRole: string;
-  roleConfig: ResolvedRoleConfig;
-  issueTitle: string;
-  issueDescription: string;
-}): string {
+export function resolveRoleLevel(input: ResolveRoleLevelInput): string {
   const { requestedLevel, runtimeState, targetRole, roleConfig } = input;
 
   if (!roleConfig.enabled) {
@@ -95,6 +79,11 @@ export function resolveRoleLevel(input: {
   return selectedLevel;
 }
 
+/** Reject levels absent from the effective role configuration, including custom roles.
+ * @param role - Configured role responsible for the workflow state or worker task.
+ * @param level - Requested or resolved level from the effective role configuration.
+ * @param roleConfig - Effective role settings including enabled levels.
+ */
 export function validateRoleLevel(
   role: string,
   level: string,
@@ -105,15 +94,10 @@ export function validateRoleLevel(
   }
 }
 
-export function resolveStartTaskDecision(input: {
-  workflow: WorkflowConfig;
-  currentState: WorkflowStateConfig;
-  runtimeState: IssueRuntimeState;
-  roles: Readonly<Record<string, ResolvedRoleConfig>>;
-  requestedLevel?: string;
-  issueTitle: string;
-  issueDescription: string;
-}): StartTaskDecision {
+/** Plan the configured approval transition and select a valid worker level.
+ * @param input - Validated command dependencies and requested changes.
+ */
+export function resolveStartTaskDecision(input: ResolveStartTaskDecisionInput): StartTaskDecision {
   const target = resolveHoldQueueTarget(input.workflow, input.currentState);
   const targetRole = target.state.role;
   const roleConfig = input.roles[targetRole];

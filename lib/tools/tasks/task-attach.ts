@@ -6,22 +6,20 @@
  * - Manually attach a local file to an issue
  * - View attachment metadata and local paths
  */
-import fs from "node:fs/promises";
-import path from "node:path";
-
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
+import { z } from "zod";
 
-import { resolveProject, resolveProvider } from "../../application/projects/index.js";
-import {
-  formatAttachmentComment,
-  getAttachmentPath,
-  listAttachments,
-  saveAttachment,
-} from "../../application/tasks/index.js";
-import { log as auditLog } from "../../audit.js";
+import { manageTaskAttachments } from "../../application/tasks/index.js";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
+/** Strict attachment command fields accepted at the tool boundary. */
+const attachmentInput = z.object({ channelId: z.string().optional(), issueId: z.number().int().positive().safe(),
+  action: z.enum(["list", "add", "get"]).default("list"), filePath: z.string().optional(), attachmentId: z.string().optional() });
+
+/** Register manual attachment commands through application orchestration.
+ * @param ctx - Provider transport and runtime diagnostics.
+ */
 export function createTaskAttachTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "task_attach",
@@ -62,112 +60,15 @@ Use cases:
       },
     },
 
+    /** Validate the request and format the shared application result.
+     * @param _id - SDK tool invocation identifier.
+     * @param params - Untrusted tool arguments.
+     */
     async execute(_id: string, params: Record<string, unknown>) {
-      const channelId = resolveChannelId(toolCtx, params.channelId as string | undefined);
-      const issueId = params.issueId as number;
-      const action = (params.action as string) ?? "list";
-      const workspaceDir = requireWorkspaceDir(toolCtx);
+      const input = attachmentInput.parse(params);
 
-      const { project } = await resolveProject(workspaceDir, channelId);
-
-      if (action === "list") {
-        const attachments = await listAttachments(workspaceDir, project.slug, issueId);
-
-        return jsonResult({
-          success: true,
-          issueId,
-          project: project.name,
-          attachments: attachments.map((a) => ({
-            id: a.id,
-            filename: a.filename,
-            mimeType: a.mimeType,
-            size: a.size,
-            uploader: a.uploader,
-            uploadedAt: a.uploadedAt,
-            publicUrl: a.publicUrl ?? null,
-            localPath: getAttachmentPath(workspaceDir, project.slug, issueId, a.localPath),
-          })),
-          count: attachments.length,
-        });
-      }
-
-      if (action === "get") {
-        const attachmentId = params.attachmentId as string;
-
-        if (!attachmentId) throw new Error("attachmentId is required for 'get' action");
-
-        const attachments = await listAttachments(workspaceDir, project.slug, issueId);
-        const attachment = attachments.find((a) => a.id === attachmentId);
-
-        if (!attachment) throw new Error(`Attachment ${attachmentId} not found on issue #${issueId}`);
-
-        return jsonResult({
-          success: true,
-          issueId,
-          project: project.name,
-          attachment: {
-            ...attachment,
-            fullPath: getAttachmentPath(workspaceDir, project.slug, issueId, attachment.localPath),
-          },
-        });
-      }
-
-      if (action === "add") {
-        const filePath = params.filePath as string;
-
-        if (!filePath) throw new Error("filePath is required for 'add' action");
-
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
-        const buffer = await fs.readFile(resolvedPath);
-        const filename = path.basename(resolvedPath);
-
-        // Detect mime type
-        const { detectMime } = await import("openclaw/plugin-sdk/media-mime");
-        const mimeType = await detectMime({ filePath: resolvedPath, buffer }) ?? "application/octet-stream";
-
-      const { provider } = await resolveProvider(workspaceDir, project, ctx.runCommand);
-
-        const meta = await saveAttachment(workspaceDir, project.slug, issueId, {
-          buffer,
-          filename,
-          mimeType,
-          uploader: "manual",
-        });
-
-        // Upload via provider and update metadata
-        const publicUrl = await provider.uploadAttachment(issueId, { filename, buffer, mimeType });
-
-        if (publicUrl) meta.publicUrl = publicUrl;
-
-        // Add comment on issue
-        const comment = formatAttachmentComment([meta]);
-
-        await provider.addComment(issueId, comment);
-
-        await auditLog(workspaceDir, "task_attach", {
-          project: project.name,
-          issueId,
-          filename,
-          size: buffer.length,
-          mimeType,
-        });
-
-        return jsonResult({
-          success: true,
-          issueId,
-          project: project.name,
-          attachment: {
-            id: meta.id,
-            filename: meta.filename,
-            mimeType: meta.mimeType,
-            size: meta.size,
-            localPath: getAttachmentPath(workspaceDir, project.slug, issueId, meta.localPath),
-          },
-          announcement: `📎 File "${filename}" attached to #${issueId}`,
-        });
-      }
-
-      throw new Error(`Unknown action: ${action}. Use 'list', 'add', or 'get'.`);
+      return jsonResult(await manageTaskAttachments({ ...input,
+        channelId: resolveChannelId(toolCtx, input.channelId), workspaceDir: requireWorkspaceDir(toolCtx), runCommand: ctx.runCommand }));
     },
   });
 }

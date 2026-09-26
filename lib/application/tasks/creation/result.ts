@@ -3,6 +3,7 @@
  */
 import { ISSUE_CREATION_STATUS } from "../../../domain/index.js";
 import type { IssueCreationOperation } from "../../../state/index.js";
+import { CREATION_RESULT_INTEGRITY, CREATION_RESULT_STATUS } from "./const.js";
 import type { CreatedManagedTask } from "./types.js";
 
 /**
@@ -26,7 +27,7 @@ export function resultFromOperation(operation: IssueCreationOperation): CreatedM
 
   return {
     success: ready,
-    status: ready ? "ready" : manual ? "manual_repair_required" : failed ? "failed" : "pending",
+    status: ready ? CREATION_RESULT_STATUS.READY : manual ? CREATION_RESULT_STATUS.MANUAL_REPAIR_REQUIRED : failed ? CREATION_RESULT_STATUS.FAILED : CREATION_RESULT_STATUS.PENDING,
     operationId: operation.operationId,
     idempotencyKey: operation.idempotencyKey,
     project: operation.projectSlug,
@@ -36,7 +37,7 @@ export function resultFromOperation(operation: IssueCreationOperation): CreatedM
     role: operation.input.assignedRole,
     completedSteps: operation.completedSteps,
     pendingSteps: operation.pendingSteps,
-    integrity: ready ? "ok" : manual || failed ? "error" : "pending",
+    integrity: ready ? CREATION_RESULT_INTEGRITY.OK : manual || failed ? CREATION_RESULT_INTEGRITY.ERROR : CREATION_RESULT_INTEGRITY.PENDING,
     error: operation.lastError,
     recovery: ready ? undefined : {
       automatic: !manual && operation.lastError?.retryable !== false,

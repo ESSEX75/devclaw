@@ -1,39 +1,22 @@
-import { log as auditLog } from "../../audit.js";
-import type { RunCommand } from "../../context.js";
+/** Owns a managed task lifecycle operation or its pure transition decision. */
+import { log as auditLog } from "../../../audit.js";
 import {
   findSlotByIssue,
   findStateByLabel,
   ISSUE_INTEGRITY_STATUS,
-} from "../../domain/index.js";
-import { loadConfig } from "../../state/index.js";
-import {
-  withIssueOrchestrationLock,
-} from "../../state/index.js";
-import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { reconcileManagedLabelsLocked } from "../projection/index.js";
-import { resolveProject, resolveProvider } from "../projects/index.js";
+} from "../../../domain/index.js";
+import { isIssueCreationReady, loadConfig, withIssueOrchestrationLock } from "../../../state/index.js";
+import { ISSUE_RUNTIME_KIND } from "../../issue-runtime/const.js";
+import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../issue-runtime/index.js";
+import { reconcileManagedLabelsLocked } from "../../projection/index.js";
+import { resolveProject, resolveProvider } from "../../projects/index.js";
+import { TASK_EVENT } from "./const.js";
 import { resolveHoldQueueTarget, validateRoleLevel } from "./lifecycle-decision.js";
+import type { SetTaskLevelInput, SetTaskLevelResult } from "./types.js";
 
-export type SetTaskLevelInput = {
-  workspaceDir: string;
-  channelId: string;
-  issueId: number;
-  level: string;
-  reason?: string;
-  runCommand: RunCommand;
-};
-
-export type SetTaskLevelResult = {
-  success: true;
-  issueId: number;
-  issueTitle: string;
-  level: string;
-  changed: boolean;
-  project: string;
-  provider: string;
-  announcement: string;
-};
-
+/** Serialize an explicit level change with issue lifecycle transitions.
+ * @param input - Validated command dependencies and requested changes.
+ */
 export async function setTaskLevel(input: SetTaskLevelInput): Promise<SetTaskLevelResult> {
   const { project } = await resolveProject(input.workspaceDir, input.channelId);
 
@@ -45,6 +28,9 @@ export async function setTaskLevel(input: SetTaskLevelInput): Promise<SetTaskLev
   );
 }
 
+/** Recheck creation, integrity, and worker ownership before preparing an assignment.
+ * @param input - Validated command dependencies and requested changes.
+ */
 async function setTaskLevelLocked(input: SetTaskLevelInput): Promise<SetTaskLevelResult> {
   const { workspaceDir, channelId, issueId, level, runCommand } = input;
   const { project } = await resolveProject(workspaceDir, channelId);
@@ -58,8 +44,12 @@ async function setTaskLevelLocked(input: SetTaskLevelInput): Promise<SetTaskLeve
     workflow: resolvedConfig.workflow,
   });
 
-  if (runtimeState.kind !== "managed") {
+  if (runtimeState.kind !== ISSUE_RUNTIME_KIND.MANAGED) {
     throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_set_level.`);
+  }
+
+  if (!await isIssueCreationReady(workspaceDir, project.slug, runtimeState.state.creationOperationId)) {
+    throw new Error(`Issue #${issueId} creation is not ready. Wait for creation reconciliation before task_set_level.`);
   }
 
   if (runtimeState.state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) {
@@ -117,10 +107,10 @@ async function setTaskLevelLocked(input: SetTaskLevelInput): Promise<SetTaskLeve
     workflow: resolvedConfig.workflow,
     roles: configuredRoleIds,
     provider,
-    owner: "task_set_level",
+    owner: TASK_EVENT.SET_LEVEL,
   });
 
-  await auditLog(workspaceDir, "task_set_level", {
+  await auditLog(workspaceDir, TASK_EVENT.SET_LEVEL, {
     project: project.name,
     issueId,
     ...(changed ? { fromLevel, toLevel: level } : {}),

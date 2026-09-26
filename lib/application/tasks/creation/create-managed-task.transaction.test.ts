@@ -8,20 +8,21 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { DEFAULT_WORKFLOW, ISSUE_CREATION_STATUS, ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../domain/index.js";
+import { DEFAULT_WORKFLOW, ISSUE_CREATION_STATUS, ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../../domain/index.js";
 import {
   PROVIDER_OPERATION_ERROR,
   ProviderOperationError,
   type CreateIssueInput,
   type Issue,
-} from "../../integrations/providers/index.js";
-import { readIssueCreationStore, readIssueStateStore, updateIssueCreationStore } from "../../state/index.js";
-import { writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { TestProvider } from "../../testing/test-provider.js";
-import { findNextIssueForRole } from "../queue/scan.js";
-import { createManagedTaskIssue, reconcileManagedTaskCreations } from "./creation/index.js";
-import { CREATION_STEPS } from "./creation/const.js";
+} from "../../../integrations/providers/index.js";
+import { readIssueCreationStore, readIssueStateStore, updateIssueCreationStore } from "../../../state/index.js";
+import { TestProvider } from "../../../testing/test-provider.js";
+import { writeIssueRuntimeState } from "../../issue-runtime/index.js";
+import { findNextIssueForRole } from "../../queue/scan.js";
+import { CREATION_STEPS } from "./const.js";
+import { createManagedTaskIssue, reconcileManagedTaskCreations } from "./index.js";
 
+/** Minimal registered routing identity shared by creation fixtures. */
 const project = {
   slug: "devclaw",
   channels: [{
@@ -32,6 +33,11 @@ const project = {
   }],
 };
 
+/** Build a consistent creation request around an injected provider.
+ * @param workspaceDir - Isolated persistence root.
+ * @param provider - Provider whose failure mode is exercised.
+ * @param idempotencyKey - Request identity used to test deduplication.
+ */
 function input(workspaceDir: string, provider: TestProvider, idempotencyKey: string) {
   return {
     workspaceDir,
@@ -47,6 +53,9 @@ function input(workspaceDir: string, provider: TestProvider, idempotencyKey: str
   };
 }
 
+/** Isolate persistence for one saga scenario and always clean up its workspace.
+ * @param run - Scenario executed with a temporary workspace.
+ */
 async function withWorkspace(run: (workspaceDir: string) => Promise<void>): Promise<void> {
   const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-creation-"));
 
@@ -57,7 +66,11 @@ async function withWorkspace(run: (workspaceDir: string) => Promise<void>): Prom
   }
 }
 
+/** Creates an issue but loses the response, modelling an ambiguous provider mutation. */
 class UnknownOutcomeProvider extends TestProvider {
+  /** Exercise the provider mutation outcome declared by this fixture.
+   * @param createInput - Requested issue content to delegate or reject.
+   */
   override async createIssue(createInput: CreateIssueInput): Promise<Issue> {
     await super.createIssue(createInput);
     throw new ProviderOperationError({
@@ -69,9 +82,13 @@ class UnknownOutcomeProvider extends TestProvider {
   }
 }
 
+/** Refuses projection read-back until recovery is explicitly enabled. */
 class ReadBackFailureProvider extends TestProvider {
   failReadBack = true;
 
+  /** Exercise the configured provider read-back failure.
+   * @param issueId - Provider identity requested by the saga.
+   */
   override async getIssue(issueId: number): Promise<Issue> {
     if (this.failReadBack) throw new Error("temporary read-back failure");
 
@@ -79,15 +96,21 @@ class ReadBackFailureProvider extends TestProvider {
   }
 }
 
+/** Reports exhausted provider quota before creation can begin. */
 class LimitedProvider extends TestProvider {
+  /** Report exhausted quota and a future reset time. */
   async getRateLimitStatus(): Promise<{ remaining: number; resetAt: string }> {
     return { remaining: 0, resetAt: new Date(Date.now() + 60_000).toISOString() };
   }
 }
 
+/** Rejects one mutation before effects so retry is safe. */
 class KnownFailureProvider extends TestProvider {
   failNextCreate = true;
 
+  /** Exercise the provider mutation outcome declared by this fixture.
+   * @param createInput - Requested issue content to delegate or reject.
+   */
   override async createIssue(createInput: CreateIssueInput): Promise<Issue> {
     if (this.failNextCreate) {
       this.failNextCreate = false;
@@ -104,9 +127,13 @@ class KnownFailureProvider extends TestProvider {
   }
 }
 
+/** Returns an inconsistent title to prevent unverified local publication. */
 class ProjectionMismatchProvider extends TestProvider {
   mismatchReadBack = true;
 
+  /** Exercise the configured provider read-back failure.
+   * @param issueId - Provider identity requested by the saga.
+   */
   override async getIssue(issueId: number): Promise<Issue> {
     const issue = await super.getIssue(issueId);
 
@@ -114,10 +141,14 @@ class ProjectionMismatchProvider extends TestProvider {
   }
 }
 
+/** Fails the read immediately before local state publication. */
 class LocalCommitReadFailureProvider extends TestProvider {
   reads = 0;
   failCommitRead = true;
 
+  /** Exercise the configured provider read-back failure.
+   * @param issueId - Provider identity requested by the saga.
+   */
   override async getIssue(issueId: number): Promise<Issue> {
     this.reads += 1;
 

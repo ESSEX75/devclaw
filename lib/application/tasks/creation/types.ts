@@ -4,6 +4,8 @@
 import type { IssueProviderId, NotifyBindingRef, Project, WorkflowConfig } from "../../../domain/index.js";
 import type { Issue, IssueReader, IssueWriter, LabelProjector, ProviderRateLimitReader } from "../../../integrations/providers/index.js";
 import type { IssueCreationFailure } from "../../../state/index.js";
+import type { ValueOf } from "../../../types.js";
+import type { CREATION_RESULT_INTEGRITY, CREATION_RESULT_STATUS } from "./const.js";
 
 /** Provider operations required by creation, projection read-back, and quota preflight. */
 export type CreationProvider = Pick<IssueReader, "getIssue">
@@ -16,7 +18,7 @@ export type CreatedManagedTask = {
   /** True only after the durable operation reaches ready. */
   success: boolean;
   /** Caller-facing recovery category. */
-  status: "ready" | "pending" | "failed" | "manual_repair_required";
+  status: ValueOf<typeof CREATION_RESULT_STATUS>;
   /** Durable creation operation identity. */
   operationId: string;
   /** Caller-supplied deduplication key. */
@@ -36,18 +38,11 @@ export type CreatedManagedTask = {
   /** Checkpoints remaining before readiness. */
   pendingSteps: string[];
   /** Integrity of the published runtime state. */
-  integrity: "ok" | "pending" | "error";
+  integrity: ValueOf<typeof CREATION_RESULT_INTEGRITY>;
   /** Last durable failure, when present. */
   error?: IssueCreationFailure;
   /** Recovery instructions derived from durable state. */
-  recovery?: {
-    /** Whether heartbeat may retry safely. */
-    automatic: boolean;
-    /** Earliest provider retry time. */
-    nextAttemptAt?: string;
-    /** Operator guidance when a provider issue exists. */
-    repairHint?: string;
-  };
+  recovery?: CreationRecovery;
   /** Shared identifier for creation audit events. */
   auditCorrelationId: string;
   /** Caller-facing status text appended to the announcement. */
@@ -106,4 +101,14 @@ export type ReconcileManagedTaskCreationsResult = {
   pending: string[];
   /** Operation IDs requiring manual repair. */
   manual: string[];
+};
+
+/** Recovery guidance for an unfinished creation operation. */
+type CreationRecovery = {
+  /** Whether heartbeat may retry safely. */
+  automatic: boolean;
+  /** Earliest provider retry time. */
+  nextAttemptAt?: string;
+  /** Operator guidance when a provider issue exists. */
+  repairHint?: string;
 };

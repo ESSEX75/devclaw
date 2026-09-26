@@ -2,6 +2,8 @@
  * Exposes the supported persistence API for every consumer outside `lib/state`.
  * Internal state modules import their concrete owners directly to avoid barrel cycles.
  */
+export type { AttachmentFile, AttachmentMeta, AttachmentPurgeManifestEntry } from "./attachments/index.js";
+export { getAttachmentPath, listAttachments, purgeIssueAttachments, readAttachmentSource, saveAttachment, updateAttachmentPublicUrl } from "./attachments/index.js";
 export type {
   ResolvedConfig,
   ResolvedRoleConfig,

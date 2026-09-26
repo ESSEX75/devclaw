@@ -1,12 +1,12 @@
-import { describe, it } from "node:test";
+/** Verifies task queries use initialized local state while retaining provider-visible labels for diagnostics. */
 import assert from "node:assert";
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
-import { createManagedTaskIssue, getManagedTaskStatus, listManagedTasks } from "./index.js";
-import { TestProvider } from "../../testing/test-provider.js";
-import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../domain/index.js";
-import { DEFAULT_WORKFLOW } from "../../domain/index.js";
+import path from "node:path";
+import { describe, it } from "node:test";
+import { DEFAULT_WORKFLOW, ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../../domain/index.js";
+import { TestProvider } from "../../../testing/test-provider.js";
+import { createManagedTaskIssue, getManagedTaskStatus, listManagedTasks } from "../index.js";
 
 describe("task query use cases", () => {
   it("lists initialized managed issues from local state", async () => {
@@ -17,12 +17,12 @@ describe("task query use cases", () => {
         workspaceDir: tmpDir,
         project: {
           slug: "devclaw",
-        channels: [{
-          channelId: "telegram:1",
-          channel: NOTIFICATION_CHANNEL.TELEGRAM,
-          name: "primary",
-          accountId: "default",
-        }],
+          channels: [{
+            channelId: "telegram:1",
+            channel: NOTIFICATION_CHANNEL.TELEGRAM,
+            name: "primary",
+            accountId: "default",
+          }],
         },
         providerType: ISSUE_PROVIDER.GITHUB,
         provider,
@@ -61,12 +61,12 @@ describe("task query use cases", () => {
         workspaceDir: tmpDir,
         project: {
           slug: "devclaw",
-        channels: [{
-          channelId: "telegram:1",
-          channel: NOTIFICATION_CHANNEL.TELEGRAM,
-          name: "primary",
-          accountId: "default",
-        }],
+          channels: [{
+            channelId: "telegram:1",
+            channel: NOTIFICATION_CHANNEL.TELEGRAM,
+            name: "primary",
+            accountId: "default",
+          }],
         },
         providerType: ISSUE_PROVIDER.GITHUB,
         provider,

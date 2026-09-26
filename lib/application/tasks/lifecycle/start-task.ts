@@ -1,40 +1,22 @@
-import { log as auditLog } from "../../audit.js";
-import type { RunCommand } from "../../context.js";
+/** Owns a managed task lifecycle operation or its pure transition decision. */
+import { log as auditLog } from "../../../audit.js";
 import {
   findSlotByIssue,
   findStateByLabel,
   ISSUE_INTEGRITY_STATUS,
-} from "../../domain/index.js";
-import { loadConfig } from "../../state/index.js";
-import {
-  isIssueCreationReady,
-  withIssueOrchestrationLock,
-} from "../../state/index.js";
-import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { reconcileManagedLabelsLocked } from "../projection/index.js";
-import { resolveProject, resolveProvider } from "../projects/index.js";
+} from "../../../domain/index.js";
+import { isIssueCreationReady, loadConfig, withIssueOrchestrationLock } from "../../../state/index.js";
+import { ISSUE_RUNTIME_KIND } from "../../issue-runtime/const.js";
+import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../issue-runtime/index.js";
+import { reconcileManagedLabelsLocked } from "../../projection/index.js";
+import { resolveProject, resolveProvider } from "../../projects/index.js";
+import { TASK_EVENT } from "./const.js";
 import { resolveStartTaskDecision } from "./lifecycle-decision.js";
+import type { StartTaskInput, StartTaskResult } from "./types.js";
 
-export type StartTaskInput = {
-  workspaceDir: string;
-  channelId: string;
-  issueId: number;
-  level?: string;
-  runCommand: RunCommand;
-};
-
-export type StartTaskResult = {
-  success: true;
-  issueId: number;
-  issueTitle: string;
-  from: string;
-  to: string;
-  transitioned: boolean;
-  level: string | null;
-  project: string;
-  announcement: string;
-};
-
+/** Serialize approval of a held task with other lifecycle commands.
+ * @param input - Validated command dependencies and requested changes.
+ */
 export async function startTask(input: StartTaskInput): Promise<StartTaskResult> {
   const { workspaceDir, channelId, issueId } = input;
   const { project } = await resolveProject(workspaceDir, channelId);
@@ -42,6 +24,9 @@ export async function startTask(input: StartTaskInput): Promise<StartTaskResult>
   return withIssueOrchestrationLock(workspaceDir, project.slug, issueId, () => startTaskLocked(input));
 }
 
+/** Validate fresh state and commit the configured approval transition.
+ * @param input - Validated command dependencies and requested changes.
+ */
 async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> {
   const { workspaceDir, channelId, issueId, runCommand } = input;
 
@@ -53,7 +38,7 @@ async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> 
   const issue = await provider.getIssue(issueId);
   const runtimeState = await resolveIssueRuntimeState({ workspaceDir, project, issue, workflow });
 
-  if (runtimeState.kind !== "managed") {
+  if (runtimeState.kind !== ISSUE_RUNTIME_KIND.MANAGED) {
     throw new Error(`Issue #${issueId} has no local issue state. Backfill or repair local state before task_start.`);
   }
 
@@ -120,10 +105,10 @@ async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> 
     workflow,
     roles: configuredRoleIds,
     provider,
-    owner: "task_start",
+    owner: TASK_EVENT.START,
   });
 
-  await auditLog(workspaceDir, "task_start", {
+  await auditLog(workspaceDir, TASK_EVENT.START, {
     project: project.name, issueId,
     from: decision.fromLabel, to: decision.targetLabel,
     transitioned: true, level: decision.assignedLevel,

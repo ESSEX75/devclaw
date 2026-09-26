@@ -5,6 +5,7 @@ import { ISSUE_CREATION_STATUS, type IssueCreationStatus } from "../../../domain
 import type { IssueCreationFailure, IssueCreationOperation } from "../../../state/index.js";
 import { updateIssueCreationStore } from "../../../state/index.js";
 import { creationAudit } from "./audit.js";
+import { CREATION_EVENT } from "./const.js";
 import type { CreateManagedTaskInput } from "./types.js";
 
 /**
@@ -51,8 +52,8 @@ export async function failOperation(
   });
 
   await creationAudit(opts, updated, status === ISSUE_CREATION_STATUS.MANUAL_REPAIR_REQUIRED
-    ? "issue_creation_manual_repair_required"
-    : "issue_creation_failed");
+    ? CREATION_EVENT.MANUAL_REPAIR_REQUIRED
+    : CREATION_EVENT.FAILED);
 
   return updated;
 }

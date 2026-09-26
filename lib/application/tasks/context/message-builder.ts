@@ -1,9 +1,11 @@
 /**
  * message-builder.ts — Task message construction for worker sessions.
  */
-import { getFallbackEmoji } from "../../roles/index.js";
-import type { ResolvedRoleConfig } from "../../state/index.js";
-import { formatPrContext, formatPrFeedback, type PrContext, type PrFeedback } from "../review/pr-context.js";
+import { getFallbackEmoji } from "../../../roles/index.js";
+import type { ResolvedRoleConfig } from "../../../state/index.js";
+import { formatPrContext, formatPrFeedback } from "../../review/index.js";
+import { TASK_COMMENT_LIMIT } from "./const.js";
+import type { BuildConflictFixMessageInput, BuildTaskMessageInput } from "./types.js";
 
 /**
  * Build the task message sent to a worker session.
@@ -11,24 +13,10 @@ import { formatPrContext, formatPrFeedback, type PrContext, type PrFeedback } fr
  * Role-specific instructions are NOT included in the message body.
  * They are passed as `extraSystemPrompt` in the gateway agent call,
  * which injects them into the worker's system prompt (see dispatch flow).
+ *
+ * @param opts - Resolved project dependencies and operation-specific input.
  */
-export function buildTaskMessage(opts: {
-  projectName: string;
-  channelId: string;
-  role: string;
-  issueId: number;
-  issueTitle: string;
-  issueDescription: string;
-  issueUrl: string;
-  repo: string;
-  baseBranch: string;
-  comments?: Array<{ author: string; body: string; created_at: string }>;
-  resolvedRole?: ResolvedRoleConfig;
-  prContext?: PrContext;
-  prFeedback?: PrFeedback;
-  /** Pre-formatted attachment context string (from formatAttachmentsForTask) */
-  attachmentContext?: string;
-}): string {
+export function buildTaskMessage(opts: BuildTaskMessageInput): string {
   const {
     projectName, channelId, role, issueId, issueTitle,
     issueDescription, issueUrl, repo, baseBranch,
@@ -59,8 +47,7 @@ export function buildTaskMessage(opts: {
   // Include comments if present
   if (opts.comments && opts.comments.length > 0) {
     parts.push(``, `## Comments`);
-    // Limit to last 20 comments to avoid bloating context
-    const recentComments = opts.comments.slice(-20);
+    const recentComments = opts.comments.slice(-TASK_COMMENT_LIMIT);
 
     for (const comment of recentComments) {
       const date = new Date(comment.created_at).toLocaleString();
@@ -109,26 +96,16 @@ export function buildTaskMessage(opts: {
     `Never end your session without calling work_finish.`,
   );
 
-
   return parts.join("\n");
 }
 
 /**
  * Build a minimal conflict-fix message — no issue description, no comments.
  * Just the PR feedback (rebase instructions) and work_finish instructions.
+ *
+ * @param opts - Resolved project dependencies and operation-specific input.
  */
-export function buildConflictFixMessage(opts: {
-  projectName: string;
-  channelId: string;
-  role: string;
-  issueId: number;
-  issueTitle: string;
-  issueUrl: string;
-  repo: string;
-  baseBranch: string;
-  resolvedRole?: ResolvedRoleConfig;
-  prFeedback: PrFeedback;
-}): string {
+export function buildConflictFixMessage(opts: BuildConflictFixMessageInput): string {
   const {
     projectName, channelId, role, issueId,
     issueUrl, repo, baseBranch, prFeedback,
@@ -171,6 +148,16 @@ export function buildConflictFixMessage(opts: {
   return parts.join("\n");
 }
 
+/** Render the operator announcement for a worker session dispatch.
+ * @param level - Requested or resolved level from the effective role configuration.
+ * @param role - Configured role responsible for the workflow state or worker task.
+ * @param sessionAction - Whether dispatch creates a session or sends to an existing one.
+ * @param issueId - Provider-local issue identifier.
+ * @param issueTitle - Provider title used for task context and operator output.
+ * @param issueUrl - Provider issue URL included in worker context.
+ * @param resolvedRole - Effective role configuration determining completion results and level presentation.
+ * @param botName - Optional worker display name.
+ */
 export function buildAnnouncement(
   level: string, role: string, sessionAction: "spawn" | "send",
   issueId: number, issueTitle: string, issueUrl: string,
@@ -186,6 +173,11 @@ export function buildAnnouncement(
 /**
  * Build a human-friendly session label from project name, role, and level.
  * e.g. "my-project", "developer", "medior" → "My Project — Developer (Medior)"
+ *
+ * @param projectName - Project display name included in worker context.
+ * @param role - Configured role responsible for the workflow state or worker task.
+ * @param level - Requested or resolved level from the effective role configuration.
+ * @param botName - Optional worker display name.
  */
 export function formatSessionLabel(projectName: string, role: string, level: string, botName?: string): string {
   const titleCase = (s: string) => s.replace(/(^|\s|-)\S/g, (c) => c.toUpperCase()).replace(/-/g, " ");

@@ -1,22 +1,12 @@
-/**
- * Tests for attachments.ts — media extraction, storage, and formatting.
- * Run with: npx tsx --test lib/application/tasks/attachments.test.ts
- */
-import { describe, it } from "node:test";
+/** Exercises media normalization, attachment persistence, and operator/worker rendering. */
 import assert from "node:assert";
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
-import {
-  extractMediaAttachments,
-  extractIssueReferences,
-  saveAttachment,
-  listAttachments,
-  getAttachmentPath,
-  formatAttachmentComment,
-  formatAttachmentsForTask,
-  purgeIssueAttachments,
-} from "./attachments.js";
+import path from "node:path";
+import { describe, it } from "node:test";
+import { extractMediaAttachments } from "../../../integrations/openclaw/attachment-media.js";
+import { getAttachmentPath, listAttachments, purgeIssueAttachments, saveAttachment } from "../../../state/index.js";
+import { extractIssueReferences, formatAttachmentComment, formatAttachmentsForTask } from "./index.js";
 
 describe("extractMediaAttachments", () => {
   it("extracts single MediaPath", () => {
@@ -68,7 +58,7 @@ describe("extractMediaAttachments", () => {
 
   it("skips empty/invalid paths", () => {
     const result = extractMediaAttachments({
-      MediaPaths: ["", null as any, "/tmp/valid.jpg"],
+      MediaPaths: ["", null, "/tmp/valid.jpg"],
     });
     assert.strictEqual(result.length, 1);
     assert.strictEqual(result[0].localPath, "/tmp/valid.jpg");
@@ -114,7 +104,7 @@ describe("saveAttachment / listAttachments", () => {
       assert.strictEqual(meta.uploader, "user123");
 
       // Verify file exists on disk
-      const fullPath = getAttachmentPath(tmpDir, "test-project", 42, meta.localPath);
+      const fullPath = await getAttachmentPath(tmpDir, "test-project", 42, meta.localPath);
       const content = await fs.readFile(fullPath, "utf-8");
       assert.strictEqual(content, "hello world");
 
@@ -221,4 +211,38 @@ describe("purgeIssueAttachments", () => {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
   });
+});
+
+it("does not hide a corrupt attachment index or overwrite it on save", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "attachment-corrupt-"));
+  try {
+    const dir = path.join(root, "devclaw", "attachments", "test-project", "42");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, "metadata.json"), "broken");
+    await assert.rejects(listAttachments(root, "test-project", 42));
+    await assert.rejects(saveAttachment(root, "test-project", 42, { buffer: Buffer.from("new"), filename: "new.txt", mimeType: "text/plain", uploader: "test" }));
+    assert.equal(await fs.readFile(path.join(dir, "metadata.json"), "utf8"), "broken");
+    assert.deepEqual(await fs.readdir(dir), ["metadata.json"]);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+it("retains every concurrent attachment", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "attachment-concurrent-"));
+  try {
+    const saved = await Promise.all(Array.from({ length: 12 }, (_, i) => saveAttachment(root, "test-project", 42,
+      { buffer: Buffer.from(String(i)), filename: `${i}.txt`, mimeType: "text/plain", uploader: "test" })));
+    assert.deepEqual(new Set((await listAttachments(root, "test-project", 42)).map(file => file.id)), new Set(saved.map(file => file.id)));
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+it("refuses purge through a project junction", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "attachment-link-"));
+  try {
+    const outside = path.join(root, "outside");
+    await fs.mkdir(path.join(outside, "42"), { recursive: true });
+    await fs.writeFile(path.join(outside, "42", "keep.txt"), "keep");
+    const parent = path.join(root, "devclaw", "attachments");
+    await fs.mkdir(parent, { recursive: true });
+    await fs.symlink(outside, path.join(parent, "test-project"), "junction");
+    await assert.rejects(purgeIssueAttachments(root, "test-project", 42));
+    assert.equal(await fs.readFile(path.join(outside, "42", "keep.txt"), "utf8"), "keep");
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
