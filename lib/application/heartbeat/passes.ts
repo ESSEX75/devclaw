@@ -16,97 +16,78 @@ import { retryPendingPipelineNotifications } from "../notifications/retry-pipeli
 import { reconcileManagedTaskCreations } from "../tasks/index.js";
 import {
   checkWorkerHealth,
+  type HealthFix,
   scanOrphanedLabels,
   scanStatelessIssues,
-  type SessionLookup,
 } from "./health.js";
 import { projectionIntegrityPass } from "./projection.js";
 import { reviewPass } from "./review.js";
 import { reviewSkipPass } from "./review-skip.js";
 import { testSkipPass } from "./test-skip.js";
+import type { HealthPassInput } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Passes
 // ---------------------------------------------------------------------------
 
-/**
- * Run health checks and auto-fix for every enabled built-in or custom role.
- *
- * @param workspaceDir - Workspace containing project and issue state.
- * @param projectSlug - Stable key of the project being checked.
- * @param project - Persisted project definition and worker slots.
- * @param sessions - Current OpenClaw session lookup, when available.
- * @param provider - Issue provider used for health inspection and repair.
- * @param resolvedConfig - Resolved role and workflow configuration.
- * @param staleWorkerHours - Optional age threshold for stale-worker warnings.
- * @param instanceName - Optional instance owner used to scope provider issues.
- * @param runCommand - Command runner required for worker-session recovery.
- * @param stallTimeoutMinutes - Optional inactivity threshold for stall detection.
- * @param agentId - Optional OpenClaw agent receiving worker nudges.
+/** Inspect all health categories, applying remedies only when explicitly requested.
+ * @param input - Project dependencies and explicit diagnosis/remediation mode.
  */
-export async function performHealthPass(
-  workspaceDir: string,
-  projectSlug: string,
-  project: Project,
-  sessions: SessionLookup | null,
-  provider: IssueProvider,
-  resolvedConfig: ResolvedConfig,
-  staleWorkerHours?: number,
-  instanceName?: string,
-  runCommand?: RunCommand,
-  stallTimeoutMinutes?: number,
-  agentId?: string,
-): Promise<number> {
-  let fixedCount = 0;
+export async function performHealthPass(input: HealthPassInput): Promise<HealthFix[]> {
+  const { workspaceDir, projectSlug, project, sessions, provider, resolvedConfig, staleWorkerHours,
+    instanceName, runCommand, stallTimeoutMinutes, agentId, autoFix } = input;
+  const findings: HealthFix[] = [];
+  const collect = async (role: string, run: () => Promise<HealthFix[]>): Promise<void> => {
+    try { findings.push(...await run()); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      findings.push({ issue: { type: "inspection_failed", severity: "critical", project: project.name, projectSlug, role, message }, fixed: false, error: message });
+    }
+  };
 
   for (const role of getConfiguredRoleIds(resolvedConfig)) {
     // Check worker health (session liveness, label consistency, etc)
-    const healthFixes = await checkWorkerHealth({
+    await collect(role, () => checkWorkerHealth({
       workspaceDir,
       projectSlug,
       project,
       role,
       sessions,
-      autoFix: true,
+      autoFix,
       provider,
       workflow: resolvedConfig.workflow,
       staleWorkerHours,
       stallTimeoutMinutes,
-      runCommand: runCommand!,
+      runCommand,
       agentId,
-    });
-
-    fixedCount += healthFixes.filter((f) => f.fixed).length;
+    }));
 
     // Scan for orphaned labels (active labels with no tracking worker)
-    const orphanFixes = await scanOrphanedLabels({
+    await collect(role, () => scanOrphanedLabels({
       workspaceDir,
       projectSlug,
       project,
       role,
-      autoFix: true,
+      autoFix,
       provider,
       workflow: resolvedConfig.workflow,
       instanceName,
-    });
-
-    fixedCount += orphanFixes.filter((f) => f.fixed).length;
+    }));
   }
 
   // Scan for stateless issues (managed issues that lost their state label — #473)
-  const statelessFixes = await scanStatelessIssues({
+  await collect("", () => scanStatelessIssues({
     workspaceDir,
     projectSlug,
     project,
     provider,
     workflow: resolvedConfig.workflow,
-    autoFix: true,
+    autoFix,
     instanceName,
-  });
+  }));
 
-  fixedCount += statelessFixes.filter((f) => f.fixed).length;
-
-  return fixedCount;
+  return findings;
 }
 
 /**
@@ -211,8 +192,8 @@ export async function performReviewPass(
   provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
   pluginConfig: Record<string, unknown> | undefined,
-  runtime?: PluginRuntime,
-  runCommand?: RunCommand,
+  runtime: PluginRuntime | undefined,
+  runCommand: RunCommand,
 ): Promise<number> {
   const notifyConfig = getNotificationConfig(pluginConfig);
 
@@ -225,7 +206,7 @@ export async function performReviewPass(
     repoPath: project.repo,
     gitPullTimeoutMs: resolvedConfig.timeouts.gitPullMs,
     baseBranch: project.baseBranch,
-    runCommand: runCommand!,
+    runCommand,
     onMerge: (issueId, prUrl, prTitle, sourceBranch) => {
       provider
         .getIssue(issueId)
@@ -329,8 +310,8 @@ export async function performReviewSkipPass(
   provider: IssueProvider,
   resolvedConfig: ResolvedConfig,
   pluginConfig: Record<string, unknown> | undefined,
-  runtime?: PluginRuntime,
-  runCommand?: RunCommand,
+  runtime: PluginRuntime | undefined,
+  runCommand: RunCommand,
 ): Promise<number> {
   const notifyConfig = getNotificationConfig(pluginConfig);
 
@@ -342,7 +323,7 @@ export async function performReviewSkipPass(
     provider,
     repoPath: project.repo,
     gitPullTimeoutMs: resolvedConfig.timeouts.gitPullMs,
-    runCommand: runCommand!,
+    runCommand,
     onMerge: (issueId, prUrl, prTitle, sourceBranch) => {
       provider
         .getIssue(issueId)

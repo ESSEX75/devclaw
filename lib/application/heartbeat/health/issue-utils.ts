@@ -1,11 +1,15 @@
+/** Provider observations used by health diagnosis without inferring deletion from transport errors. */
 import type { WorkflowConfig } from "../../../domain/index.js";
 import { getQueueLabels, isFeedbackState } from "../../../domain/index.js";
+import { isProviderIssueLookupError, PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/providers/lookup-errors.js";
 import type { Issue,IssueProvider, StateLabel } from "../../../integrations/providers/provider.js";
 import { PrState } from "../../../integrations/providers/provider.js";
 
 /**
  * Fetch current issue state from the provider.
- * Returns null if issue doesn't exist or is inaccessible.
+ * Returns null only for confirmed absence; authorization and transport errors propagate.
+ * @param provider - Provider whose typed lookup outcome is inspected.
+ * @param issueId - Issue to observe without mutation.
  */
 export async function fetchIssue(
   provider: IssueProvider,
@@ -13,8 +17,9 @@ export async function fetchIssue(
 ): Promise<Issue | null> {
   try {
     return await provider.getIssue(issueId);
-  } catch {
-    return null;
+  } catch (error) {
+    if (isProviderIssueLookupError(error) && error.code === PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND) return null;
+    throw error;
   }
 }
 

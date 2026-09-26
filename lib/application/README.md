@@ -82,6 +82,15 @@ Unresolved worker delivery is durable in the slot and issue runtime record. Hear
 reconciles gateway evidence, avoids automatic worker requeue for these records, and
 marks stale uncertainty for operator attention in task status and audit logs.
 
+Heartbeat runs named project passes sequentially and retains findings, planned
+actions, applied actions, and errors in its tick report. A failed prerequisite
+stops later passes for that project; other projects remain isolated. Health
+diagnosis performs reads only, including no audit writes. Explicit remediation
+rechecks the slot identity and managed issue state under the issue lock before
+calling transition, projection, or delivery operations. Provider lookup failures
+are not evidence of issue deletion. Provider-only issues remain diagnostic findings
+until an explicit initialization or repair operation creates managed state.
+
 ## Allowed Dependencies
 
 - `lib/domain/*` for pure workflow and task semantics.

@@ -1,4 +1,4 @@
-import { log as auditLog } from "../../../audit.js";
+/** Diagnoses missing state labels without initializing provider-only issues. */
 import type { WorkflowConfig } from "../../../domain/index.js";
 import type { Project } from "../../../domain/index.js";
 import {
@@ -12,7 +12,8 @@ import {
 } from "../../../domain/index.js";
 import type { IssueProvider } from "../../../integrations/providers/provider.js";
 import { readIssueStateStore } from "../../../state/index.js";
-import { reconcileManagedLabels } from "../../projection/index.js";
+import { HEALTH_ACTION } from "./const.js";
+import { remediateProjectionFinding } from "./projection-remediation.js";
 import type { HealthFix } from "./types.js";
 
 /**
@@ -41,13 +42,7 @@ export async function scanStatelessIssues(opts: {
   )];
   const store = await readIssueStateStore(workspaceDir, projectSlug);
 
-  let allOpenIssues;
-
-  try {
-    allOpenIssues = await provider.listIssues({ state: "open" });
-  } catch {
-    return fixes;
-  }
+  const allOpenIssues = await provider.listIssues({ state: "open" });
 
   for (const issue of allOpenIssues) {
     const hasStateLabel = issue.labels.some((label) => stateLabels.has(label));
@@ -68,8 +63,11 @@ export async function scanStatelessIssues(opts: {
     if (!hasWorkflowLabels) continue;
     // Provider ownership is only a diagnostic scoping hint here because no
     // authoritative local runtime state may exist for this issue.
-    if (instanceName && !isOwnedByOrUnclaimed(issue.labels, instanceName)) continue;
     const localState = store.issues[String(issue.iid)];
+
+    if (instanceName && (localState
+      ? localState.owner != null && localState.owner !== instanceName
+      : !isOwnedByOrUnclaimed(issue.labels, instanceName))) continue;
     const expectedLabel = localState?.workflowLabel ?? null;
 
     const fix: HealthFix = {
@@ -85,39 +83,13 @@ export async function scanStatelessIssues(opts: {
         message: `Issue #${issue.iid} has no state label — invisible to queue scanner. Labels: [${issue.labels.join(", ")}]`,
       },
       fixed: false,
+      plannedAction: localState ? HEALTH_ACTION.RECONCILE_PROJECTION : undefined,
     };
 
-    if (autoFix) {
-      if (!localState) {
-        fix.issue.message += " Local state is not initialized; explicit backfill/repair is required.";
-        fixes.push(fix);
-        continue;
-      }
-
-      try {
-        await reconcileManagedLabels({
-          workspaceDir,
-          projectSlug,
-          issueId: issue.iid,
-          workflow,
-          provider,
-          owner: "heartbeat_stateless_recovery",
-        });
-        fix.fixed = true;
-        fix.labelReverted = `(none) → ${localState.workflowLabel}`;
-
-        await auditLog(workspaceDir, "stateless_issue_recovered", {
-          project: project.name,
-          issueId: issue.iid,
-          restoredTo: localState.workflowLabel,
-          originalLabels: issue.labels,
-        });
-      } catch {
-        fix.labelRevertFailed = true;
-      }
-    }
-
-    fixes.push(fix);
+    if (!localState) fix.issue.message += " Local state is not initialized; explicit repair is required.";
+    fixes.push(autoFix && fix.plannedAction
+      ? await remediateProjectionFinding({ ...opts, workflow }, fix)
+      : fix);
   }
 
   return fixes;

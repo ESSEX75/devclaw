@@ -1,3 +1,4 @@
+/** Diagnoses orphan provider labels and delegates explicit repair to managed projection. */
 import type { WorkflowConfig } from "../../../domain/index.js";
 import type { Project } from "../../../domain/index.js";
 import {
@@ -18,7 +19,8 @@ import {
   getRoleWorker,
 } from "../../../state/index.js";
 import { readProjects } from "../../../state/index.js";
-import { reconcileManagedLabels } from "../../projection/index.js";
+import { HEALTH_ACTION } from "./const.js";
+import { remediateProjectionFinding } from "./projection-remediation.js";
 import type { HealthFix } from "./types.js";
 
 /**
@@ -45,28 +47,16 @@ export async function scanOrphanedLabels(opts: {
 
   if (!hasWorkflowStates(workflow, role)) return fixes;
 
-  let freshProject: Project;
+  const freshProject = getProject(await readProjects(workspaceDir), projectSlug);
 
-  try {
-    const data = await readProjects(workspaceDir);
-
-    freshProject = getProject(data, projectSlug) ?? project;
-  } catch {
-    freshProject = project;
-  }
+  if (!freshProject) return fixes;
 
   const roleWorker = getRoleWorker(freshProject, role);
   const issueStore = await readIssueStateStore(workspaceDir, projectSlug);
   const activeLabel = getActiveLabel(workflow, role);
   const queueLabel = getRevertLabel(workflow, role);
 
-  let issuesWithLabel;
-
-  try {
-    issuesWithLabel = await provider.listIssuesByLabel(activeLabel);
-  } catch {
-    return fixes;
-  }
+  const issuesWithLabel = await provider.listIssuesByLabel(activeLabel);
 
   const ownedIssues = issuesWithLabel.filter((issue) => {
     const localState = issueStore.issues[String(issue.iid)];
@@ -107,30 +97,13 @@ export async function scanOrphanedLabels(opts: {
           message: `Issue #${issue.iid} has "${activeLabel}" label but no ${role.toUpperCase()} slot is tracking it`,
         },
         fixed: false,
+        plannedAction: issueStore.issues[String(issue.iid)] ? HEALTH_ACTION.RECONCILE_PROJECTION : undefined,
       };
 
-      if (autoFix) {
-        try {
-          const localState = issueStore.issues[String(issue.iid)];
+      fixes.push(autoFix && fix.plannedAction
+        ? await remediateProjectionFinding({ ...opts, workflow }, fix)
+        : fix);
 
-          if (!localState) throw new Error("Local issue state is not initialized");
-          await reconcileManagedLabels({
-            workspaceDir,
-            projectSlug,
-            issueId: issue.iid,
-            workflow,
-            provider,
-            owner: "heartbeat_orphaned_label_recovery",
-          });
-          fix.fixed = true;
-          fix.labelReverted = `${activeLabel} → ${localState.workflowLabel}`;
-          fix.issue.expectedLabel = localState.workflowLabel;
-        } catch {
-          fix.labelRevertFailed = true;
-        }
-      }
-
-      fixes.push(fix);
     }
   }
 

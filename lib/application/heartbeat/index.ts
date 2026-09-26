@@ -25,8 +25,8 @@ import {
 export { HEARTBEAT_DEFAULTS };
 export type { HealthFix } from "./health.js";
 export { checkWorkerHealth, fetchGatewaySessions, scanOrphanedLabels } from "./health.js";
-import type { HeartbeatTickResult } from "./tick-runner.js";
 import { tick } from "./tick-runner.js";
+import type { HeartbeatTickResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -177,6 +177,7 @@ async function processAllAgents(
     totalCreationsReady: 0,
     totalCreationsPending: 0,
     totalCreationsManual: 0,
+    passes: [],
   };
 
   // Create missing structural files without overwriting workspace-owned content.
@@ -207,6 +208,7 @@ async function processAllAgents(
       runCommand,
     });
 
+    result.passes.push(...agentResult.passes);
     result.totalPickups += agentResult.totalPickups;
     result.totalHealthFixes += agentResult.totalHealthFixes;
     result.totalSkipped += agentResult.totalSkipped;
