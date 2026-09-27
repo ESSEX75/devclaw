@@ -89,3 +89,6 @@ export const ISSUE_CREATION_ERROR = {
   /** Creation saga failed in a non-recoverable state requiring manual operator intervention. */
   MANUAL_REPAIR_REQUIRED: "MANUAL_REPAIR_REQUIRED",
 } as const;
+
+/** Preserves an existing non-OK status whose diagnostic owner was not recorded. */
+export const UNVERIFIED_INTEGRITY_ERROR = "Existing integrity failure requires independent verification.";

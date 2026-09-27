@@ -2,4 +2,4 @@
 
 export { applyManagedLabelDiff } from "./apply.js";
 export { reconcileManagedLabels, reconcileManagedLabelsLocked } from "./coordinator.js";
-export type { ApplyManagedLabelDiffInput, ManagedProjectionResult, ReconcileManagedLabelsInput } from "./types.js";
+export type { ApplyManagedLabelDiffInput, ManagedProjectionResult, ProjectionProvider, ReconcileManagedLabelsInput } from "./types.js";

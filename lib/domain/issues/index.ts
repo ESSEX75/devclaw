@@ -10,6 +10,7 @@ export {
   OWNER_LABEL_COLOR,
   OWNER_LABEL_PREFIX,
   PIPELINE_NOTIFICATION_STATUS,
+  UNVERIFIED_INTEGRITY_ERROR,
 } from "./const.js";
 export { detectOwner, getOwnerLabel, isOwnedByOrUnclaimed } from "./ownership.js";
 export type {

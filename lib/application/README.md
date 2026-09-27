@@ -82,8 +82,19 @@ without effects.
 Application projection locks the issue, reads fresh local/provider snapshots, calls
 pure diff logic, mutates managed labels, verifies read-back, and records integrity
 and audit. Unmanaged labels are preserved. Provider mutation or read-back failures
-leave `integrity_error`; a verified pass currently clears it. Callers holding the
-issue lock use `reconcileManagedLabelsLocked` to avoid nested locking.
+add a label-owned diagnostic identified by the coordinator's reserved prefix.
+Verified labels clear only that diagnostic group. Metadata, unrelated failures,
+and non-OK states without known diagnostic ownership remain blocked. Results expose
+label changes separately from overall local integrity. Propagated audit errors are
+reported independently and never reclassify verified labels as failed; the general
+audit logger is best-effort, so absence of an audit error is not a durable receipt.
+Callers holding the issue lock use `reconcileManagedLabelsLocked` to avoid nesting.
+
+Heartbeat checks provider identity and metadata under that same issue lock before
+label reconciliation. It clears only its verified metadata/fetch/missing-provider
+diagnostics and retains independent failures. Explicit repair remains the operation
+that verifies the full supported projection contract and resolves stale repair
+errors. These rules use existing diagnostic strings, without a new storage schema.
 
 ## Pipeline and notifications
 

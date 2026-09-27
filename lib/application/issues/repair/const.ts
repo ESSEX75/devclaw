@@ -76,6 +76,3 @@ export const REPAIR_WARNING = {
 
 /** Digest algorithm binding repair plans to their exact snapshots. */
 export const REPAIR_PLAN_HASH_ALGORITHM = "sha256";
-
-/** Provider routing prefixes for review and test policy projection. */
-export const REPAIR_POLICY_PREFIX = { REVIEW: "review:", TEST: "test:" } as const;

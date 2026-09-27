@@ -30,6 +30,7 @@ export {
   OWNER_LABEL_COLOR,
   OWNER_LABEL_PREFIX,
   PIPELINE_NOTIFICATION_STATUS,
+  UNVERIFIED_INTEGRITY_ERROR,
 } from "./issues/index.js";
 export type {
   NotificationChannel,
@@ -116,6 +117,7 @@ export {
   isReviewPolicy,
   isTestPolicy,
   isWorkflowEvent,
+  POLICY_LABEL_PREFIX,
   producesReviewableWork,
   resolveReviewRouting,
   RESULT_EMOJI,

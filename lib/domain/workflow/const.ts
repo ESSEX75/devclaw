@@ -32,6 +32,12 @@ export const WORKFLOW_STATE_KEYS = {
   RESEARCHING: "researching",
 } as const;
 
+/** Managed workflow policy label namespaces shared by rendering, parsing, and provider effects. */
+export const POLICY_LABEL_PREFIX = {
+  REVIEW: "review:",
+  TEST: "test:",
+} as const;
+
 /** Routing labels applied to issues to delegate tests or reviews. */
 export const ROUTING_LABELS = {
   /** Require human code review. */

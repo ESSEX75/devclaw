@@ -5,3 +5,6 @@ export const ISSUE_BODY_METADATA_BLOCKS = /<!-- devclaw:issue-metadata\b[\s\S]*?
 
 /** All creation markers submitted with user content; only the trusted identity is restored. */
 export const ISSUE_BODY_CREATION_BLOCKS = /<!-- devclaw:issue-creation\b[\s\S]*?-->/g;
+
+/** Reserved plugin label namespace treated as managed projection. */
+export const DEVCLAW_LABEL_PREFIX = "devclaw:";

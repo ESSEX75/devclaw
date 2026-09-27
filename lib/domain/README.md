@@ -16,6 +16,10 @@ notification routing labels, `issues` owns provider IDs and issue ownership,
 `projects` owns project and worker-slot structures, `workers` owns shared worker
 delivery status, and `workflow` owns state machine semantics and workflow routing.
 
+Workflow owns policy-label prefixes shared by projection rendering, repair parsing,
+and application label effects. Issue semantics own the diagnostic used to preserve
+a non-OK integrity status when its original diagnostic owner is unknown.
+
 Worker slot and active issue records share a durable delivery marker so both
 local ownership views can represent an unconfirmed worker turn.
 

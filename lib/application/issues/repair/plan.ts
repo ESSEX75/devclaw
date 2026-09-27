@@ -14,13 +14,14 @@ import {
   NOTIFY_LABEL_PREFIX,
   type NotifyBindingRef,
   OWNER_LABEL_PREFIX,
+  POLICY_LABEL_PREFIX,
   type Project,
   type ReviewPolicy,
   type TestPolicy,
 } from "../../../domain/index.js";
 import { diffIssueProjection, expectedManagedLabels, extractIssueMetadata, metadataMatches } from "../../../projection/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
-import { REPAIR_ACTION, REPAIR_METADATA_ACTION, REPAIR_MODE, REPAIR_PLAN_HASH_ALGORITHM, REPAIR_POLICY_PREFIX, REPAIR_STATUS, REPAIR_WARNING } from "./const.js";
+import { REPAIR_ACTION, REPAIR_METADATA_ACTION, REPAIR_MODE, REPAIR_PLAN_HASH_ALGORITHM, REPAIR_STATUS, REPAIR_WARNING } from "./const.js";
 import { ISSUE_REPAIR_ERROR, ISSUE_REPAIR_SOURCE } from "./const.js";
 import { repairFailure } from "./failure.js";
 import type { IssueRepairLocalChange, IssueRepairResult, RepairContext, RepairManagedIssueInput } from "./types.js";
@@ -180,7 +181,7 @@ function parseSinglePrefixedValue(labels: string[], prefix: string, field: strin
  * @param labels - Observed provider labels; only explicit repair may import them.
  */
 function parseReviewPolicy(labels: string[]): ReviewPolicy | null {
-  const value = parseSinglePrefixedValue(labels, REPAIR_POLICY_PREFIX.REVIEW, "review policy");
+  const value = parseSinglePrefixedValue(labels, POLICY_LABEL_PREFIX.REVIEW, "review policy");
 
   if (value === null) return null;
   if (!isReviewPolicy(value)) throw repairFailure(ISSUE_REPAIR_ERROR.SOURCE_INCOMPLETE, `Unknown review policy "${value}".`);
@@ -192,7 +193,7 @@ function parseReviewPolicy(labels: string[]): ReviewPolicy | null {
  * @param labels - Observed provider labels; only explicit repair may import them.
  */
 function parseTestPolicy(labels: string[]): TestPolicy | null {
-  const value = parseSinglePrefixedValue(labels, REPAIR_POLICY_PREFIX.TEST, "test policy");
+  const value = parseSinglePrefixedValue(labels, POLICY_LABEL_PREFIX.TEST, "test policy");
 
   if (value === null) return null;
   if (!isTestPolicy(value)) throw repairFailure(ISSUE_REPAIR_ERROR.SOURCE_INCOMPLETE, `Unknown test policy "${value}".`);

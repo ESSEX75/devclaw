@@ -1,6 +1,6 @@
 /** Contracts for managed-label reconciliation and provider mutations. */
 
-import type { WorkflowConfig } from "../../domain/index.js";
+import type { IssueProjectionState, WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader, LabelProjector } from "../../integrations/providers/index.js";
 import type { ProjectionDiff } from "../../projection/index.js";
 
@@ -18,6 +18,10 @@ export type ManagedProjectionResult = {
   diff: ProjectionDiff;
   /** Whether the original snapshot needed managed-label changes. */
   changed: boolean;
+  /** Overall local integrity after label verification; independent errors may remain. */
+  integrity: IssueProjectionState;
+  /** Propagated audit failure, independent of verified provider labels; absence is not a durable audit receipt. */
+  auditError?: string;
 };
 
 /** Inputs for a locked, fresh-state projection pass. */

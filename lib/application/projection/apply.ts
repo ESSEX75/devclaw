@@ -9,6 +9,7 @@ import {
   NOTIFY_LABEL_PREFIX,
   OWNER_LABEL_COLOR,
   OWNER_LABEL_PREFIX,
+  POLICY_LABEL_PREFIX,
   STEP_ROUTING_COLOR,
   type WorkflowConfig,
 } from "../../domain/index.js";
@@ -46,7 +47,7 @@ function managedLabelColor(label: string, workflow: WorkflowConfig, roles: strin
   if (stateColor) return stateColor;
   if (label.startsWith(NOTIFY_LABEL_PREFIX)) return NOTIFY_LABEL_COLOR;
   if (label.startsWith(OWNER_LABEL_PREFIX)) return OWNER_LABEL_COLOR;
-  if (label.startsWith("review:") || label.startsWith("test:")) return STEP_ROUTING_COLOR;
+  if (label.startsWith(POLICY_LABEL_PREFIX.REVIEW) || label.startsWith(POLICY_LABEL_PREFIX.TEST)) return STEP_ROUTING_COLOR;
 
   const role = roles.find((candidate) => label.startsWith(`${candidate}:`));
 
