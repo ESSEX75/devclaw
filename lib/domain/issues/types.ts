@@ -54,6 +54,8 @@ export type PipelineNotificationState = {
   attemptedAt: string;
   /** ISO timestamp written after the adapter confirms delivery. */
   deliveredAt?: string;
+  /** Last failure or manual reconciliation requirement. */
+  reason?: string;
 };
 
 /** Local state details for issue synchronization and validation. */

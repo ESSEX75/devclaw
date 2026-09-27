@@ -2,27 +2,25 @@
 
 import type { RunCommand } from "../../context.js";
 import type { NotificationChannel } from "../../domain/index.js";
+import type { MessageDeliveryOutcome, NotificationChannelRuntime } from "../../integrations/openclaw/notifications/index.js";
 import type { RouteConfig } from "../setup/types.js";
+import type { NOTIFICATION_BLOCKED, NOTIFICATION_EVENT } from "./const.js";
 
 /** Per-event-type toggle. All default to true — set to false to suppress. */
 export type NotificationConfig = Partial<Record<NotifyEvent["type"], boolean>>;
 
-/** Receipt returned only after a transport reports successful delivery. */
-export type NotificationDeliveryResult = {
-  /** Confirms that the selected transport accepted the message. */
-  delivered: true;
-  /** Provider message identifier when direct runtime delivery exposes it. */
-  messageId?: string;
-  /** Provider channel used for delivery. */
-  channel: NotificationChannel;
-  /** Account bound to the validated destination. */
-  accountId: string;
-  /** Provider destination identifier. */
-  channelId: string;
-  /** Optional forum topic or thread. */
-  threadId?: string;
-  /** Transport that accepted the message. */
-  path: "runtime" | "fallback";
+/** Application delivery decision, including explicit blocked and uncertain outcomes. */
+export type NotificationDeliveryResult = MessageDeliveryOutcome | {
+  /** Policy or routing prevented a send. */
+  status: typeof NOTIFICATION_BLOCKED;
+  /** No acceptance was observed. */
+  delivered: false;
+  /** Why delivery is blocked. */
+  reason: string;
+  /** No transport ran. */
+  path?: never;
+  /** No receipt exists. */
+  messageId?: never;
 };
 
 /** Narrow runtime surface required by notification delivery. */
@@ -32,14 +30,8 @@ export type NotificationRuntime = {
     /** Read the runtime's current route configuration. */
     current(): RouteConfig;
   };
-  /** Runtime channel adapter access. */
-  channel: {
-    /** Outbound adapter loader for the selected channel. */
-    outbound: {
-      /** Load an adapter whose send capability is validated at runtime. */
-      loadAdapter(channel: string): Promise<unknown>;
-    };
-  };
+  /** Native channel capability owned by the OpenClaw integration. */
+  channel: NotificationChannelRuntime;
 };
 
 /** One task created by a worker and linked in its completion message. */
@@ -56,7 +48,7 @@ export type NotificationCreatedTask = {
 export type NotifyEvent =
   | {
       /** Event discriminator selecting the message template. */
-      type: "pipelineComplete";
+      type: typeof NOTIFICATION_EVENT.PIPELINE_COMPLETE;
       /** Project name shown in the notification. */
       project: string;
       /** Provider-local issue identifier shown to recipients. */
@@ -78,7 +70,7 @@ export type NotifyEvent =
     }
   | {
       /** Event discriminator selecting the message template. */
-      type: "workerStart";
+      type: typeof NOTIFICATION_EVENT.WORKER_START;
       /** Project name shown in the notification. */
       project: string;
       /** Provider-local issue identifier shown to recipients. */
@@ -98,7 +90,7 @@ export type NotifyEvent =
     }
   | {
       /** Event discriminator selecting the message template. */
-      type: "workerComplete";
+      type: typeof NOTIFICATION_EVENT.WORKER_COMPLETE;
       /** Project name shown in the notification. */
       project: string;
       /** Provider-local issue identifier shown to recipients. */
@@ -124,7 +116,7 @@ export type NotifyEvent =
     }
   | {
       /** Event discriminator selecting the message template. */
-      type: "reviewNeeded";
+      type: typeof NOTIFICATION_EVENT.REVIEW_NEEDED;
       /** Project name shown in the notification. */
       project: string;
       /** Provider-local issue identifier shown to recipients. */
@@ -140,7 +132,7 @@ export type NotifyEvent =
     }
   | {
       /** Event discriminator selecting the message template. */
-      type: "prMerged";
+      type: typeof NOTIFICATION_EVENT.PR_MERGED;
       /** Project name shown in the notification. */
       project: string;
       /** Provider-local issue identifier shown to recipients. */
@@ -162,7 +154,7 @@ export type NotifyEvent =
     }
   | {
       /** Event discriminator selecting the message template. */
-      type: "changesRequested";
+      type: typeof NOTIFICATION_EVENT.CHANGES_REQUESTED;
       /** Project name shown in the notification. */
       project: string;
       /** Provider-local issue identifier shown to recipients. */
@@ -176,7 +168,7 @@ export type NotifyEvent =
     }
   | {
       /** Event discriminator selecting the message template. */
-      type: "mergeConflict";
+      type: typeof NOTIFICATION_EVENT.MERGE_CONFLICT;
       /** Project name shown in the notification. */
       project: string;
       /** Provider-local issue identifier shown to recipients. */
@@ -190,7 +182,7 @@ export type NotifyEvent =
     }
   | {
       /** Event discriminator selecting the message template. */
-      type: "prClosed";
+      type: typeof NOTIFICATION_EVENT.PR_CLOSED;
       /** Project name shown in the notification. */
       project: string;
       /** Provider-local issue identifier shown to recipients. */

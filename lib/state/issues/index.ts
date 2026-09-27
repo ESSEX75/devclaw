@@ -2,8 +2,8 @@
 
 export type { IssueStateStore } from "./active/index.js";
 export {
-  confirmPipelineNotification,
   reservePipelineNotification,
+  settlePipelineNotification,
   updateIssueRuntimeRecord,
   writeIssueRoleLevel,
 } from "./active/index.js";

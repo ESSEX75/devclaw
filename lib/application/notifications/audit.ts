@@ -1,20 +1,22 @@
 /** Maps typed notification outcomes to the existing audit event contract. */
 
 import { log as auditLog } from "../../audit.js";
+import { MESSAGE_DELIVERY_STATUS } from "../../integrations/openclaw/notifications/index.js";
 import type { RouteDiagnostic } from "../setup/types.js";
+import { NOTIFICATION_AUDIT,NOTIFICATION_AUDIT_OUTCOME } from "./const.js";
 import type { NotificationDeliveryResult, NotificationTarget, NotifyEvent } from "./types.js";
 
 /** Auditable decision made while routing or delivering one event. */
 type NotificationAuditOutcome =
   | {
     /** No target was provided, so delivery was skipped. */
-    kind: "skip";
+    kind: typeof NOTIFICATION_AUDIT_OUTCOME.SKIP;
     /** Human-readable reason for skipping. */
     reason: string;
   }
   | {
     /** Required route information is absent or invalid. */
-    kind: "configuration_error";
+    kind: typeof NOTIFICATION_AUDIT_OUTCOME.CONFIGURATION_ERROR;
     /** Human-readable route failure reason. */
     reason: string;
     /** Candidate destination, when enough fields were provided. */
@@ -24,7 +26,7 @@ type NotificationAuditOutcome =
   }
   | {
     /** A validated delivery attempt is starting. */
-    kind: "attempt";
+    kind: typeof NOTIFICATION_AUDIT_OUTCOME.ATTEMPT;
     /** Correlation identity shared with the final outcome. */
     eventId: string;
     /** Validated destination being attempted. */
@@ -34,7 +36,7 @@ type NotificationAuditOutcome =
   }
   | {
     /** A transport accepted the message. */
-    kind: "sent";
+    kind: typeof NOTIFICATION_AUDIT_OUTCOME.SENT;
     /** Correlation identity shared with the attempt. */
     eventId: string;
     /** Validated destination that accepted delivery. */
@@ -44,7 +46,7 @@ type NotificationAuditOutcome =
   }
   | {
     /** All available delivery paths failed. */
-    kind: "failed";
+    kind: typeof NOTIFICATION_AUDIT_OUTCOME.FAILED;
     /** Correlation identity shared with the attempt. */
     eventId: string;
     /** Validated destination that was attempted. */
@@ -53,6 +55,8 @@ type NotificationAuditOutcome =
     paths: string[];
     /** Final diagnostic message for operator inspection. */
     error: string;
+    /** Evidence distinguishing rejection from uncertain delivery. */
+    status: typeof MESSAGE_DELIVERY_STATUS.REJECTED | typeof MESSAGE_DELIVERY_STATUS.UNKNOWN;
   };
 
 /**
@@ -62,28 +66,28 @@ type NotificationAuditOutcome =
  * @param outcome - Typed decision or delivery outcome to record.
  */
 export async function auditNotificationOutcome(workspaceDir: string, event: NotifyEvent, outcome: NotificationAuditOutcome): Promise<void> {
-  if (outcome.kind === "skip") {
-    await auditLog(workspaceDir, "notify_skip", { eventType: event.type, reason: outcome.reason });
+  if (outcome.kind === NOTIFICATION_AUDIT_OUTCOME.SKIP) {
+    await auditLog(workspaceDir, NOTIFICATION_AUDIT.SKIP, { eventType: event.type, reason: outcome.reason });
 
     return;
   }
 
   const identity = { eventType: event.type, project: event.project, issueId: event.issueId };
 
-  if (outcome.kind === "configuration_error") {
-    await auditLog(workspaceDir, "notify_configuration_error", {
+  if (outcome.kind === NOTIFICATION_AUDIT_OUTCOME.CONFIGURATION_ERROR) {
+    await auditLog(workspaceDir, NOTIFICATION_AUDIT.CONFIGURATION_ERROR, {
       ...identity,
       ...(outcome.target ? { agentId: outcome.target.agentId, target: outcome.target } : {}),
       ...(outcome.diagnostics ? { diagnostics: outcome.diagnostics } : { reason: outcome.reason }),
     });
-  } else if (outcome.kind === "attempt") {
-    await auditLog(workspaceDir, "notify_attempt", { eventId: outcome.eventId, ...identity, target: outcome.target, paths: outcome.paths });
-  } else if (outcome.kind === "sent") {
-    await auditLog(workspaceDir, "notify_sent", { eventId: outcome.eventId, ...identity, target: outcome.target, ...outcome.receipt });
+  } else if (outcome.kind === NOTIFICATION_AUDIT_OUTCOME.ATTEMPT) {
+    await auditLog(workspaceDir, NOTIFICATION_AUDIT.ATTEMPT, { eventId: outcome.eventId, ...identity, target: outcome.target, paths: outcome.paths });
+  } else if (outcome.kind === NOTIFICATION_AUDIT_OUTCOME.SENT) {
+    await auditLog(workspaceDir, NOTIFICATION_AUDIT.SENT, { eventId: outcome.eventId, ...identity, target: outcome.target, ...outcome.receipt });
   } else {
-    await auditLog(workspaceDir, "notify_failed", {
+    await auditLog(workspaceDir, outcome.status === MESSAGE_DELIVERY_STATUS.UNKNOWN ? NOTIFICATION_AUDIT.UNKNOWN : NOTIFICATION_AUDIT.FAILED, {
       eventId: outcome.eventId, ...identity, target: outcome.target,
-      attempts: outcome.paths, error: outcome.error,
+      attempts: outcome.paths, error: outcome.error, status: outcome.status,
     });
   }
 }

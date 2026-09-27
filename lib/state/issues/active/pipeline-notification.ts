@@ -1,86 +1,78 @@
-/**
- * Persists atomic reservation and delivery state for managed-issue pipeline notifications.
- */
+/** Persists notification attempt ownership and evidence without repeating uncertain sends. */
 
-import {
-  type IssueRuntimeState,
-  PIPELINE_NOTIFICATION_STATUS,
-} from "../../../domain/index.js";
+import { PIPELINE_NOTIFICATION_STATUS, type PipelineNotificationState } from "../../../domain/index.js";
 import { PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS } from "../const.js";
 import { updateIssueStateStore } from "./repository.js";
 
-/**
- * Reserve a terminal notification unless it was delivered or still has a live attempt lease.
- *
- * @param workspaceDir - Workspace containing managed issue state.
- * @param projectSlug - Canonical project that owns the issue.
- * @param issueId - Provider-local issue receiving the terminal notification.
- * @param eventKey - Stable terminal event identity used for deduplication.
- * @param now - Current time used to establish and evaluate the attempt lease.
+/** Reserve one attempt and return its timestamp token. Expired in-flight attempts become unknown.
+ * Blocked and proven unsubmitted attempts become eligible after the backoff lease.
+ * @param workspaceDir - Workspace containing managed state.
+ * @param projectSlug - Canonical owning project.
+ * @param issueId - Managed issue identifier.
+ * @param eventKey - Stable terminal event identity.
+ * @param now - Time used to evaluate the lease.
  */
 export async function reservePipelineNotification(
-  workspaceDir: string,
-  projectSlug: string,
-  issueId: number,
-  eventKey: string,
-  now = new Date(),
-): Promise<boolean> {
-  return updateIssueStateStore(workspaceDir, projectSlug, (store) => {
+  workspaceDir: string, projectSlug: string, issueId: number, eventKey: string, now = new Date(),
+): Promise<string | null> {
+  return updateIssueStateStore<string | null>(workspaceDir, projectSlug, (store) => {
     const state = store.issues[String(issueId)];
 
     if (!state) throw new Error(`Issue #${issueId} has no initialized local runtime state.`);
     const previous = state.pipelineNotification;
 
-    if (previous?.eventKey === eventKey) {
-      if (previous.status === PIPELINE_NOTIFICATION_STATUS.DELIVERED) return { store, result: false };
-      const leaseExpiresAt = Date.parse(previous.attemptedAt) + PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS;
+    if (previous) {
+      // Unresolved events cannot be overwritten by another terminal event.
+      if (previous.eventKey !== eventKey && previous.status !== PIPELINE_NOTIFICATION_STATUS.DELIVERED) return { store, result: null };
+      if (previous.eventKey === eventKey) {
+        if (previous.status === PIPELINE_NOTIFICATION_STATUS.DELIVERED || previous.status === PIPELINE_NOTIFICATION_STATUS.UNKNOWN) return { store, result: null };
+        if (Date.parse(previous.attemptedAt) + PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS > now.getTime()) return { store, result: null };
+        if (previous.status === PIPELINE_NOTIFICATION_STATUS.ATTEMPTING) {
+          const updated = { ...state, updatedAt: now.toISOString(), pipelineNotification: {
+            ...previous, status: PIPELINE_NOTIFICATION_STATUS.UNKNOWN,
+            reason: "Attempt lease expired without a delivery outcome. Inspect the destination before any retry.",
+          } };
 
-      if (leaseExpiresAt > now.getTime()) return { store, result: false };
+          return { store: { ...store, issues: { ...store.issues, [String(issueId)]: updated } }, result: null };
+        }
+      }
     }
 
-    const attemptedAt = now.toISOString();
-    const updated: IssueRuntimeState = {
-      ...state,
-      pipelineNotification: {
-        eventKey,
-        status: PIPELINE_NOTIFICATION_STATUS.ATTEMPTING,
-        attemptedAt,
-      },
-      updatedAt: attemptedAt,
-    };
+    const attemptedAt = new Date(Math.max(now.getTime(), previous ? Date.parse(previous.attemptedAt) + 1 : 0)).toISOString();
+    const updated = { ...state, updatedAt: attemptedAt, pipelineNotification: {
+      eventKey, status: PIPELINE_NOTIFICATION_STATUS.ATTEMPTING, attemptedAt,
+    } };
 
-    return { store: { ...store, issues: { ...store.issues, [String(issueId)]: updated } }, result: true };
+    return { store: { ...store, issues: { ...store.issues, [String(issueId)]: updated } }, result: attemptedAt };
   });
 }
 
-/**
- * Confirm successful delivery of a previously reserved terminal notification.
- *
- * @param workspaceDir - Workspace containing managed issue state.
- * @param projectSlug - Canonical project that owns the issue.
- * @param issueId - Provider-local issue whose delivery is confirmed.
- * @param eventKey - Stable terminal event identity expected in the reservation.
+/** Settle only the owned attempt; late results cannot overwrite another attempt or delivered evidence.
+ * An expired attempt may still receive its own definitive late result.
+ * @param workspaceDir - Workspace containing managed state.
+ * @param projectSlug - Canonical owning project.
+ * @param issueId - Managed issue identifier.
+ * @param eventKey - Reserved terminal event identity.
+ * @param attemptedAt - Exact reservation token returned before sending.
+ * @param status - Observed delivery or retry eligibility.
+ * @param reason - Failure diagnostic or reconciliation instructions.
  */
-export async function confirmPipelineNotification(
-  workspaceDir: string,
-  projectSlug: string,
-  issueId: number,
-  eventKey: string,
-): Promise<void> {
-  await updateIssueStateStore(workspaceDir, projectSlug, (store) => {
+export async function settlePipelineNotification(
+  workspaceDir: string, projectSlug: string, issueId: number, eventKey: string, attemptedAt: string,
+  status: Exclude<PipelineNotificationState["status"], typeof PIPELINE_NOTIFICATION_STATUS.ATTEMPTING>, reason?: string,
+): Promise<boolean> {
+  return updateIssueStateStore(workspaceDir, projectSlug, (store) => {
     const state = store.issues[String(issueId)];
+    const previous = state?.pipelineNotification;
 
-    if (!state || state.pipelineNotification?.eventKey !== eventKey) {
-      throw new Error(`Issue #${issueId} has no reserved pipeline notification ${eventKey}.`);
-    }
+    if (!state || !previous || previous.eventKey !== eventKey || previous.attemptedAt !== attemptedAt
+      || (previous.status !== PIPELINE_NOTIFICATION_STATUS.ATTEMPTING && previous.status !== PIPELINE_NOTIFICATION_STATUS.UNKNOWN)) return { store, result: false };
+    const now = new Date().toISOString();
+    const updated = { ...state, updatedAt: now, pipelineNotification: {
+      ...previous, status, reason,
+      ...(status === PIPELINE_NOTIFICATION_STATUS.DELIVERED ? { deliveredAt: now } : {}),
+    } };
 
-    const deliveredAt = new Date().toISOString();
-    const updated: IssueRuntimeState = {
-      ...state,
-      pipelineNotification: { ...state.pipelineNotification, status: PIPELINE_NOTIFICATION_STATUS.DELIVERED, deliveredAt },
-      updatedAt: deliveredAt,
-    };
-
-    return { store: { ...store, issues: { ...store.issues, [String(issueId)]: updated } }, result: undefined };
+    return { store: { ...store, issues: { ...store.issues, [String(issueId)]: updated } }, result: true };
   });
 }

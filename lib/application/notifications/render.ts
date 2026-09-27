@@ -1,6 +1,7 @@
 /** Renders notification event messages without I/O or delivery side effects. */
 
 import { getCompletionEmoji } from "../../domain/index.js";
+import { NOTIFICATION_EVENT } from "./const.js";
 import type { NotifyEvent } from "./types.js";
 
 /**
@@ -67,7 +68,7 @@ function prLink(url: string): string {
  */
 export function renderNotificationMessage(event: NotifyEvent): string {
   switch (event.type) {
-    case "pipelineComplete": {
+    case NOTIFICATION_EVENT.PIPELINE_COMPLETE: {
       let message = `✅ Pipeline completed #${event.issueId}: ${event.issueTitle}`;
 
       message += `\nFinal state: ${event.terminalState}`;
@@ -80,7 +81,7 @@ export function renderNotificationMessage(event: NotifyEvent): string {
       return message;
     }
 
-    case "workerStart": {
+    case NOTIFICATION_EVENT.WORKER_START: {
       const action = event.sessionAction === "spawn" ? "🚀 Started" : "▶️ Resumed";
       const worker = formatWorkerString(event.role, {
         name: event.name,
@@ -90,7 +91,7 @@ export function renderNotificationMessage(event: NotifyEvent): string {
       return `${action} ${worker} on #${event.issueId}: ${event.issueTitle}\n🔗 [Issue #${event.issueId}](${event.issueUrl})`;
     }
 
-    case "workerComplete": {
+    case NOTIFICATION_EVENT.WORKER_COMPLETE: {
       const icon = getCompletionEmoji(event.result);
       const resultText: Record<string, string> = {
         done: "completed",
@@ -133,7 +134,7 @@ export function renderNotificationMessage(event: NotifyEvent): string {
       return msg;
     }
 
-    case "reviewNeeded": {
+    case NOTIFICATION_EVENT.REVIEW_NEEDED: {
       const icon = event.routing === "human" ? "👀" : "🤖";
       const who = event.routing === "human" ? "Human review needed" : "Agent review queued";
       let msg = `${icon} ${who} for #${event.issueId}: ${event.issueTitle}`;
@@ -144,7 +145,7 @@ export function renderNotificationMessage(event: NotifyEvent): string {
       return msg;
     }
 
-    case "prMerged": {
+    case NOTIFICATION_EVENT.PR_MERGED: {
       const via: Record<string, string> = {
         heartbeat: "auto-merged after approval",
         agent: "merged by agent reviewer",
@@ -166,7 +167,7 @@ export function renderNotificationMessage(event: NotifyEvent): string {
       return msg;
     }
 
-    case "changesRequested": {
+    case NOTIFICATION_EVENT.CHANGES_REQUESTED: {
       let msg = `⚠️ Changes requested on PR for #${event.issueId}: ${event.issueTitle}`;
 
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
@@ -176,7 +177,7 @@ export function renderNotificationMessage(event: NotifyEvent): string {
       return msg;
     }
 
-    case "mergeConflict": {
+    case NOTIFICATION_EVENT.MERGE_CONFLICT: {
       let msg = `⚠️ Merge conflicts detected on PR for #${event.issueId}: ${event.issueTitle}`;
 
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
@@ -186,7 +187,7 @@ export function renderNotificationMessage(event: NotifyEvent): string {
       return msg;
     }
 
-    case "prClosed": {
+    case NOTIFICATION_EVENT.PR_CLOSED: {
       let msg = `🚫 PR closed without merging for #${event.issueId}: ${event.issueTitle}`;
 
       if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;

@@ -24,7 +24,6 @@ import {
 import type { IssueProvider } from "../../integrations/providers/provider.js";
 import { loadConfig } from "../../state/index.js";
 import {
-  confirmPipelineNotification,
   readIssueStateStore,
   reservePipelineNotification,
   withIssueOrchestrationLock,
@@ -33,8 +32,10 @@ import { deactivateWorker, getProject, getRoleWorker, readProjects } from "../..
 import { archiveManagedIssueLocked } from "../issues/index.js";
 import {
   getNotificationConfig,
+  NOTIFICATION_EVENT,
   type NotificationRuntime,
   notify,
+  recordPipelineNotificationOutcome,
 } from "../notifications/index.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { planCompletion, planMergeFailure } from "./plan.js";
@@ -378,7 +379,7 @@ async function executeCompletionLocked(opts: {
     && notifyTarget
     && notifyConfig.pipelineComplete !== false
   ) {
-    const eventKey = `pipelineComplete:${runtimeState.workflowState}`;
+    const eventKey = `${NOTIFICATION_EVENT.PIPELINE_COMPLETE}:${runtimeState.workflowState}`;
     const reserved = await reservePipelineNotification(workspaceDir, projectSlug, issueId, eventKey);
 
     if (reserved) {
@@ -408,9 +409,7 @@ async function executeCompletionLocked(opts: {
         },
       );
 
-      if (delivered) {
-        await confirmPipelineNotification(workspaceDir, projectSlug, issueId, eventKey);
-      }
+      await recordPipelineNotificationOutcome(workspaceDir, projectSlug, issueId, eventKey, reserved, delivered);
     }
   }
 

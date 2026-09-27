@@ -46,7 +46,7 @@ async function deleteManagedIssueLocked(opts: Parameters<typeof deleteManagedIss
   }
 
   if (state.activeWorker) throw new Error(`Issue #${opts.issueId} has an active worker and cannot be deleted.`);
-  if (state.pipelineNotification?.status === PIPELINE_NOTIFICATION_STATUS.ATTEMPTING) {
+  if (state.pipelineNotification && state.pipelineNotification.status !== PIPELINE_NOTIFICATION_STATUS.DELIVERED) {
     throw new Error(`Issue #${opts.issueId} has an unconfirmed notification and cannot be deleted.`);
   }
 

@@ -311,13 +311,14 @@ describe("managed issue archive", () => {
     });
   });
 
-  it("keeps terminal state active while its durable notification remains unconfirmed", async () => {
+  for (const notificationStatus of [PIPELINE_NOTIFICATION_STATUS.ATTEMPTING, PIPELINE_NOTIFICATION_STATUS.BLOCKED, PIPELINE_NOTIFICATION_STATUS.RETRYABLE, PIPELINE_NOTIFICATION_STATUS.UNKNOWN]) {
+  it(`keeps terminal state active while its notification is ${notificationStatus}`, async () => {
     await withIssueStore(async (workspaceDir) => {
       const store = await readIssueStateStore(workspaceDir, "devclaw");
 
       store.issues["42"].pipelineNotification = {
         eventKey: "pipelineComplete:done",
-        status: PIPELINE_NOTIFICATION_STATUS.ATTEMPTING,
+        status: notificationStatus,
         attemptedAt: "2026-01-01T00:00:00.000Z",
       };
       await writeIssueStateStore(workspaceDir, "devclaw", store);
@@ -335,6 +336,8 @@ describe("managed issue archive", () => {
       assert.equal(Object.keys((await readIssueArchiveStore(workspaceDir, "devclaw")).issues).length, 0);
     });
   });
+
+  }
 
   it("recovers an active duplicate without duplicating the archive record", async () => {
     await withIssueStore(async (workspaceDir) => {

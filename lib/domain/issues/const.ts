@@ -32,6 +32,12 @@ export const ISSUE_INTEGRITY_STATUS = {
 export const PIPELINE_NOTIFICATION_STATUS = {
   /** Delivery has been reserved but is not yet confirmed. */
   ATTEMPTING: "attempting",
+  /** No transport ran; policy or routing must be corrected before delivery. */
+  BLOCKED: "blocked",
+  /** Transport was unavailable before submission; a later retry is safe. */
+  RETRYABLE: "retryable",
+  /** Acceptance is uncertain; inspect external evidence before retrying. */
+  UNKNOWN: "unknown",
   /** The notification adapter confirmed delivery. */
   DELIVERED: "delivered",
 } as const;

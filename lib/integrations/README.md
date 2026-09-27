@@ -49,3 +49,12 @@ normalization. It passes complete routing identities to application/tasks and
 requires an explicit agent-scoped session plus account and conversation identity.
 Unscoped or unstaged events are skipped; missing identity is never defaulted to an
 agent or account. `attachment-media.ts` preserves path/MIME positional pairing.
+
+`openclaw/notifications/index.ts` owns one outbound text submission. Runtime adapter
+loading can fall back to CLI before `sendText` begins. Runtime rejection after
+submission, lost responses, command exceptions, and abnormal exits are `unknown`;
+missing transports are known local rejections. A fulfilled native send or clean
+CLI exit is acceptance evidence, not proof that the recipient read the message.
+CLI JSON contributes an optional message ID. Application passes the same configuration
+snapshot used for exact route validation. No channel send is automatically repeated
+by this adapter.

@@ -102,6 +102,7 @@ function summarizeManagedProjection(
     unexpectedManagedLabels: diff.unexpectedManagedLabels,
     unmanagedLabels: diff.unmanagedLabels,
     repairHint: needsRepair ? `devclaw issue_repair ${state.issueId} --source local-state --dry-run` : null,
+    ...(state.pipelineNotification ? { pipelineNotification: state.pipelineNotification } : {}),
     ...(state.activeWorker?.delivery ? {
       workerDelivery: state.activeWorker.delivery,
       deliveryHint: `Inspect OpenClaw session ${state.activeWorker.sessionKey ?? "unknown"} and the worker slot before retrying issue #${state.issueId}.`

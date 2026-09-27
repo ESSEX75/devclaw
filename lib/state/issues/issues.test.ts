@@ -20,7 +20,7 @@ import {
   PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS,
 } from "./const.js";
 import {
-  confirmPipelineNotification,
+  settlePipelineNotification,
   readIssueArchiveStore,
   readIssueCreationStore,
   resetIssueStores,
@@ -216,16 +216,14 @@ describe("issue state store", () => {
       store.issues["123"] = issue({ workflowState: "done", workflowLabel: "Done" });
       await writeIssueStateStore(tmpDir, "devclaw", store);
 
+      const token = await reservePipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done");
+      assert.ok(token);
       assert.strictEqual(
         await reservePipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done"),
-        true,
-      );
-      assert.strictEqual(
-        await reservePipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done"),
-        false,
+        null,
       );
 
-      await confirmPipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done");
+      await settlePipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done", token, PIPELINE_NOTIFICATION_STATUS.DELIVERED);
       const loaded = await readIssueStateStore(tmpDir, "devclaw");
 
       assert.strictEqual(
@@ -238,7 +236,7 @@ describe("issue state store", () => {
     }
   });
 
-  it("retries an unconfirmed pipeline notification only after its attempt lease expires", async () => {
+  it("marks an expired unconfirmed attempt unknown and accepts its own late confirmation", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-issues-"));
     const firstAttempt = new Date("2026-06-22T00:00:00.000Z");
 
@@ -250,7 +248,7 @@ describe("issue state store", () => {
 
       assert.equal(
         await reservePipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done", firstAttempt),
-        true,
+        firstAttempt.toISOString(),
       );
       assert.equal(
         await reservePipelineNotification(
@@ -260,7 +258,7 @@ describe("issue state store", () => {
           "pipelineComplete:done",
           new Date(firstAttempt.getTime() + PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS - 1),
         ),
-        false,
+        null,
       );
       assert.equal(
         await reservePipelineNotification(
@@ -270,8 +268,11 @@ describe("issue state store", () => {
           "pipelineComplete:done",
           new Date(firstAttempt.getTime() + PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS),
         ),
-        true,
+        null,
       );
+      const unknown = (await readIssueStateStore(tmpDir, "devclaw")).issues["123"].pipelineNotification;
+      assert.equal(unknown?.status, PIPELINE_NOTIFICATION_STATUS.UNKNOWN);
+      assert.equal(await settlePipelineNotification(tmpDir, "devclaw", 123, "pipelineComplete:done", firstAttempt.toISOString(), PIPELINE_NOTIFICATION_STATUS.DELIVERED), true);
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }

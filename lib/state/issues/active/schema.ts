@@ -39,7 +39,7 @@ const RuntimeIssueSchema = z.object({
   }).strict().nullable(),
   pipelineNotification: z.object({
     eventKey: z.string(), status: z.enum(PIPELINE_NOTIFICATION_STATUS),
-    attemptedAt: z.string(), deliveredAt: z.string().optional(),
+    attemptedAt: z.string(), deliveredAt: z.string().optional(), reason: z.string().optional(),
   }).strict().nullable(),
 }).strict();
 

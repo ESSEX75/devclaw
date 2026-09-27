@@ -113,12 +113,24 @@ skip paths recheck state under the issue lock, apply provider workflow labels,
 persist local truth, then reconcile projection. Completion releases the worker
 before notifications. Notification routes use the exact stored project binding;
 unknown bindings or invalid routes never redirect delivery. Rendering has no I/O.
-A successful runtime send never invokes command fallback; audit records outcomes.
+OpenClaw transport owns runtime/CLI submission and outcome evidence; application
+owns event policy, exact routing, rendering, and audit. CLI fallback is permitted
+only before a native send begins. A send exception or abnormal command exit is
+unknown, not proof of rejection; audit failure never changes transport evidence.
 
 Terminal issue state is a durable notification outbox. Reservation and confirmation
 follow the local commit and projection. Unconfirmed delivery keeps the issue active;
-heartbeat retries expired state-owned attempt leases and archives only after
-confirmation.
+heartbeat retries only proven unsubmitted (`retryable`) or corrected policy/route
+blocks (`blocked`) after backoff. Disabled events, missing endpoints, and unavailable
+provider issues remain blocked with a reason; they are never marked delivered.
+Expired `attempting` records become `unknown`, as a crash may have followed a send.
+Unknown delivery stops automatic retries and archival. Operators must inspect the
+exact account/thread and provider evidence before confirming delivery or authorizing
+a retry through the state settlement API with the original event and attempt token.
+No exactly-once guarantee is claimed: a manually authorized retry after an incorrect
+non-delivery conclusion can duplicate a message. Task projections expose the outbox
+status and reason. Creating terminal intent before all completion effects remains
+the pipeline coordinator's responsibility.
 
 ## Heartbeat
 

@@ -37,7 +37,14 @@ contracts exposed to other layers only through `lib/state/index.ts`.
   It writes `archive-retention.audit.jsonl` before the first attachment unlink;
   journal errors abort cleanup. This append-only intent evidence is retained after
   record expiry and is not automatically truncated with the general audit log.
-- Terminal notification reservations use a bounded attempt lease: delivered events remain deduplicated, while an unconfirmed attempt becomes reservable again after the lease expires.
+- Terminal notification reservation returns an exact timestamp token. Settlement
+  compares both event identity and token, so stale attempts cannot settle a new send.
+  Expired in-flight attempts become `unknown`, never automatically reservable.
+  Proven unsubmitted (`retryable`) and policy-blocked attempts can be reserved after
+  backoff. Delivered events remain deduplicated; unresolved events cannot be replaced.
+  A verified late outcome may settle its own unknown attempt. An operator-reviewed
+  unknown can be settled as delivered or retryable through this same API; the caller
+  owns evidence validation, and storage never infers delivery from time alone.
 - Stores accept only their current strict schema. Destructive reset is an explicit
   operator action and must never run automatically during startup or reads.
 

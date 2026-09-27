@@ -25,7 +25,6 @@ export type {
 export {
   applyArchiveRetention,
   archiveIssueState,
-  confirmPipelineNotification,
   isIssueCreationReady,
   newIssueCreationIdentity,
   readIssueArchiveStore,
@@ -33,6 +32,7 @@ export {
   readIssueStateStore,
   reservePipelineNotification,
   resetIssueStores,
+  settlePipelineNotification,
   updateIssueArchiveStore,
   updateIssueCreationStore,
   updateIssueRuntimeRecord,

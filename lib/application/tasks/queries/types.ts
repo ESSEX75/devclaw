@@ -151,6 +151,8 @@ export type TaskIssueProjectionView = {
   repairHint: string | null;
   /** Unconfirmed worker delivery requiring inspection before another dispatch. */
   workerDelivery?: WorkerDeliveryState;
+  /** Terminal notification evidence, including blocked and unknown reasons. */
+  pipelineNotification?: NonNullable<IssueRuntimeState["pipelineNotification"]>;
   /** Operator guidance for a delivery that cannot be resolved from gateway evidence. */
   deliveryHint?: string;
 };
