@@ -7,7 +7,9 @@ import { ISSUE_REPAIR_ERROR } from "./const.js";
 import { repairFailure } from "./failure.js";
 import type { RepairContext, RepairManagedIssueInput } from "./types.js";
 
-/** Read fresh snapshots and classify provider lookup failures. */
+/** Read fresh snapshots and classify provider lookup failures.
+ * @param input - Validated command input and runtime dependencies.
+ */
 export async function resolveRepairContext(input: RepairManagedIssueInput): Promise<RepairContext> {
   const projects = await readProjects(input.workspaceDir);
   const project = projects.projects[input.projectSlug];

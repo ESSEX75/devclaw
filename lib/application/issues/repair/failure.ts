@@ -2,7 +2,7 @@
  * Maps repair failures into stable adapter-visible errors and recovery plans.
  */
 import { isProviderIssueLookupError, PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/providers/index.js";
-import { ISSUE_REPAIR_ERROR } from "./const.js";
+import { ISSUE_REPAIR_ERROR, REPAIR_STATUS } from "./const.js";
 import type { IssueRepairErrorCode, IssueRepairResult } from "./types.js";
 
 /** Typed repair failure preserved across application, CLI, and plugin boundaries. */
@@ -10,6 +10,11 @@ export class IssueRepairFailure extends Error {
   readonly code: IssueRepairErrorCode;
   readonly retryable: boolean;
 
+  /** Preserve the classified failure and its operator guidance.
+   * @param code - Stable diagnostic or failure classification.
+   * @param message - Operator-readable failure or warning detail.
+   * @param retryable - Whether a new attempt may succeed after refreshing state.
+   */
   constructor(code: IssueRepairErrorCode, message: string, retryable = false) {
     super(message);
     this.name = "IssueRepairFailure";
@@ -18,20 +23,22 @@ export class IssueRepairFailure extends Error {
   }
 }
 
-/** Check whether a caught value is a stable repair failure. */
-export function isIssueRepairFailure(error: unknown): error is IssueRepairFailure {
-  return error instanceof IssueRepairFailure;
-}
-
-
-/** Return a blocked repair result with a stable code. */
+/** Return a blocked repair result with a stable code.
+ * @param plan - Snapshot-bound repair plan whose outcome is being updated.
+ * @param code - Stable diagnostic or failure classification.
+ * @param message - Operator-readable failure or warning detail.
+ * @param retryable - Whether a new attempt may succeed after refreshing state.
+ */
 export function blocked(plan: IssueRepairResult, code: IssueRepairErrorCode, message: string, retryable: boolean): IssueRepairResult {
-  return { ...plan, success: false, status: "blocked", error: { code, message, retryable } };
+  return { ...plan, success: false, status: REPAIR_STATUS.BLOCKED, error: { code, message, retryable } };
 }
 
-/** Map an apply failure without losing the planned snapshot. */
+/** Map an apply failure without losing the planned snapshot.
+ * @param plan - Snapshot-bound repair plan whose outcome is being updated.
+ * @param error - Unknown failure caught at the application boundary.
+ */
 export function mapRepairFailure(plan: IssueRepairResult, error: unknown): IssueRepairResult {
-  if (isIssueRepairFailure(error)) {
+  if (error instanceof IssueRepairFailure) {
     return {
       ...blocked(plan, error.code, error.message, error.retryable),
       recoveryPlan: ["Keep local integrity blocked.", "Run a new dry-run before retrying apply."],
@@ -61,7 +68,11 @@ export function mapRepairFailure(plan: IssueRepairResult, error: unknown): Issue
   };
 }
 
-/** Construct a typed repair failure. */
+/** Construct a typed repair failure.
+ * @param code - Stable diagnostic or failure classification.
+ * @param message - Operator-readable failure or warning detail.
+ * @param retryable - Whether a new attempt may succeed after refreshing state.
+ */
 export function repairFailure(code: IssueRepairErrorCode, message: string, retryable = false): IssueRepairFailure {
   return new IssueRepairFailure(code, message, retryable);
 }

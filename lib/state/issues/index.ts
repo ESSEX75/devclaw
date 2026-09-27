@@ -8,7 +8,7 @@ export {
 } from "./active/index.js";
 export { readIssueStateStore, updateIssueStateStore } from "./active/index.js";
 export type { IssueArchiveStore } from "./archive/index.js";
-export { archiveIssueState, readIssueArchiveStore, resetIssueStores, updateIssueArchiveStore } from "./archive/index.js";
+export { applyArchiveRetention, archiveIssueState, readIssueArchiveStore, resetIssueStores, updateIssueArchiveStore } from "./archive/index.js";
 export type {
   IssueCreationFailure,
   IssueCreationOperation,

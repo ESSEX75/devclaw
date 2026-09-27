@@ -2,43 +2,17 @@
  * Migrates review and test policy snapshots on active issues.
  * Each apply holds the issue lock from local mutation through provider reconciliation.
  */
-import { log as auditLog } from "../../audit.js";
-import type { RunCommand } from "../../context.js";
-import type { IssueRuntimeState, Project, ReviewPolicy, TestPolicy } from "../../domain/index.js";
-import { createProvider, type IssueProvider } from "../../integrations/providers/index.js";
-import { loadConfig, readIssueStateStore, readProjects, updateIssueStateStore, withIssueOrchestrationLock } from "../../state/index.js";
-import { type ManagedProjectionResult, reconcileManagedLabelsLocked } from "../projection/index.js";
+import { log as auditLog } from "../../../audit.js";
+import { type IssueRuntimeState, type Project, STATE_TYPE, type WorkflowConfig } from "../../../domain/index.js";
+import { createProvider, type IssueProvider } from "../../../integrations/providers/index.js";
+import { loadConfig, readIssueStateStore, readProjects, updateIssueStateStore, withIssueOrchestrationLock } from "../../../state/index.js";
+import { reconcileManagedLabelsLocked } from "../../projection/index.js";
+import { POLICY_EVENT, POLICY_SKIP_REASON } from "./const.js";
+import type { IssuePolicyMigrationChange, IssuePolicyMigrationResult, MigrationOptions, PolicyChangePlan } from "./types.js";
 
-/** One policy mutation with its optional provider reconciliation result. */
-export type IssuePolicyMigrationChange = {
-  issueId: number;
-  before: { reviewPolicy: ReviewPolicy | null; testPolicy: TestPolicy | null };
-  after: { reviewPolicy: ReviewPolicy | null; testPolicy: TestPolicy | null };
-  projection?: ManagedProjectionResult;
-};
-
-/** Summary returned by policy migration dry-run or apply. */
-export type IssuePolicyMigrationResult = {
-  projectSlug: string;
-  dryRun: boolean;
-  changed: IssuePolicyMigrationChange[];
-  skipped: Array<{ issueId: number; reason: string }>;
-};
-
-type MigrationOptions = {
-  workspaceDir: string;
-  projectSlug: string;
-  reviewPolicy?: ReviewPolicy;
-  testPolicy?: TestPolicy;
-  issueIds?: number[];
-  workflowStates?: string[];
-  includeClosed?: boolean;
-  dryRun?: boolean;
-  provider?: IssueProvider;
-  runCommand: RunCommand;
-};
-
-/** Apply a bounded policy selection to matching active issue states. */
+/** Apply a bounded policy selection to matching active issue states.
+ * @param opts - Resolved project dependencies and the requested administrative operation.
+ */
 export async function migrateIssuePolicies(opts: MigrationOptions): Promise<IssuePolicyMigrationResult> {
   if (!opts.reviewPolicy && !opts.testPolicy) throw new Error("Policy migration requires reviewPolicy and/or testPolicy.");
   const project = await requireProject(opts.workspaceDir, opts.projectSlug);
@@ -47,14 +21,14 @@ export async function migrateIssuePolicies(opts: MigrationOptions): Promise<Issu
   const selectedIds = opts.issueIds ? new Set(opts.issueIds.map(String)) : null;
   const selectedStates = opts.workflowStates ? new Set(opts.workflowStates) : null;
   const changed: IssuePolicyMigrationChange[] = [];
-  const skipped: Array<{ issueId: number; reason: string }> = [];
+  const skipped: IssuePolicyMigrationResult["skipped"] = [];
   let provider: IssueProvider | undefined = opts.provider;
 
   for (const [key, state] of Object.entries(snapshot.issues)) {
     if (selectedIds && !selectedIds.has(key)) continue;
     if (selectedStates && !selectedStates.has(state.workflowState)) continue;
     if (opts.dryRun) {
-      const plan = planPolicyChange(state, opts);
+      const plan = planPolicyChange(state, opts, config.workflow);
 
       if (plan.reason) skipped.push({ issueId: state.issueId, reason: plan.reason });
       else if (plan.change) changed.push(plan.change);
@@ -65,20 +39,20 @@ export async function migrateIssuePolicies(opts: MigrationOptions): Promise<Issu
       const current = (await readIssueStateStore(opts.workspaceDir, project.slug)).issues[key];
 
       if (!current) {
-        skipped.push({ issueId: state.issueId, reason: "not_found" });
+        skipped.push({ issueId: state.issueId, reason: POLICY_SKIP_REASON.NOT_FOUND });
 
         return;
       }
 
       if (selectedStates && !selectedStates.has(current.workflowState)) {
-        skipped.push({ issueId: state.issueId, reason: "state_changed" });
+        skipped.push({ issueId: state.issueId, reason: POLICY_SKIP_REASON.STATE_CHANGED });
 
         return;
       }
 
-      const plan = planPolicyChange(current, opts);
+      const plan = planPolicyChange(current, opts, config.workflow);
 
-      if (plan.reason && plan.reason !== "no_change") {
+      if (plan.reason && plan.reason !== POLICY_SKIP_REASON.NO_CHANGE) {
         skipped.push({ issueId: state.issueId, reason: plan.reason });
 
         return;
@@ -93,12 +67,16 @@ export async function migrateIssuePolicies(opts: MigrationOptions): Promise<Issu
           if (!latest) throw new Error(`Issue #${state.issueId} disappeared during policy migration.`);
 
           return {
-            store: { ...store, issues: { ...store.issues, [key]: {
-              ...latest,
-              reviewPolicy: change.after.reviewPolicy,
-              testPolicy: change.after.testPolicy,
-              updatedAt: new Date().toISOString(),
-            } } },
+            store: {
+              ...store, issues: {
+                ...store.issues, [key]: {
+                  ...latest,
+                  reviewPolicy: change.after.reviewPolicy,
+                  testPolicy: change.after.testPolicy,
+                  updatedAt: new Date().toISOString(),
+                }
+              }
+            },
             result: undefined,
           };
         });
@@ -117,15 +95,15 @@ export async function migrateIssuePolicies(opts: MigrationOptions): Promise<Issu
         provider,
         workflow: config.workflow,
         roles: Object.keys(config.roles),
-        owner: "issue_policy_migrate",
+        owner: POLICY_EVENT.OWNER,
       });
 
       if (plan.change) changed.push({ ...plan.change, projection });
-      else skipped.push({ issueId: state.issueId, reason: "no_change" });
+      else skipped.push({ issueId: state.issueId, reason: POLICY_SKIP_REASON.NO_CHANGE });
     });
   }
 
-  if (changed.length > 0) await auditLog(opts.workspaceDir, "issue_policy_migration", {
+  if (changed.length > 0) await auditLog(opts.workspaceDir, POLICY_EVENT.MIGRATED, {
     project: opts.projectSlug,
     changed: changed.map((change) => ({ issueId: change.issueId, before: change.before, after: change.after })),
   });
@@ -133,22 +111,29 @@ export async function migrateIssuePolicies(opts: MigrationOptions): Promise<Issu
   return { projectSlug: opts.projectSlug, dryRun: opts.dryRun === true, changed, skipped };
 }
 
-/** Calculate one issue's policy delta from a read-only snapshot. */
-function planPolicyChange(state: IssueRuntimeState, opts: MigrationOptions): { reason?: string; change?: IssuePolicyMigrationChange } {
-  if (state.activeWorker) return { reason: "active_worker" };
-  if ((state.closedAt || state.workflowState === "done" || state.workflowState === "rejected") && !opts.includeClosed) {
-    return { reason: "closed" };
+/** Calculate one issue's policy delta from a read-only snapshot.
+ * @param state - Fresh authoritative runtime record used by this operation.
+ * @param opts - Resolved project dependencies and the requested administrative operation.
+ * @param workflow - Resolved project workflow including custom terminal states.
+ */
+function planPolicyChange(state: IssueRuntimeState, opts: MigrationOptions, workflow: WorkflowConfig): PolicyChangePlan {
+  if (state.activeWorker) return { reason: POLICY_SKIP_REASON.ACTIVE_WORKER };
+  if ((state.closedAt || workflow.states[state.workflowState]?.type === STATE_TYPE.TERMINAL) && !opts.includeClosed) {
+    return { reason: POLICY_SKIP_REASON.CLOSED };
   }
 
   const before = { reviewPolicy: state.reviewPolicy ?? null, testPolicy: state.testPolicy ?? null };
   const after = { reviewPolicy: opts.reviewPolicy ?? before.reviewPolicy, testPolicy: opts.testPolicy ?? before.testPolicy };
 
-  if (before.reviewPolicy === after.reviewPolicy && before.testPolicy === after.testPolicy) return { reason: "no_change" };
+  if (before.reviewPolicy === after.reviewPolicy && before.testPolicy === after.testPolicy) return { reason: POLICY_SKIP_REASON.NO_CHANGE };
 
   return { change: { issueId: state.issueId, before, after } };
 }
 
-/** Resolve the configured project for this administrative command. */
+/** Resolve the configured project for this administrative command.
+ * @param workspaceDir - Configured workspace containing authoritative project storage.
+ * @param projectSlug - Canonical project identifier addressing local stores.
+ */
 async function requireProject(workspaceDir: string, projectSlug: string): Promise<Project> {
   const projects = await readProjects(workspaceDir);
   const project = projects.projects[projectSlug];

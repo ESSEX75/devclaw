@@ -454,6 +454,7 @@ async function executeCompletionLocked(opts: {
       projectSlug,
       issueId,
       archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
+      workflow,
       snapshot: { title: issue.title, issueUrl: issue.web_url },
       actor: "pipeline_completion",
       correlationId: `terminal:${projectSlug}:${issueId}:${runtimeState.workflowState}`,

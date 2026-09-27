@@ -33,6 +33,11 @@ export async function archiveIssueState(
     if (!state) return Object.values(archive.issues).find((record) => record.issueId === issueId) ?? null;
     const record = buildRecord(state);
     const key = issueArchiveKey(record);
+
+    if (archive.issues[key] && archive.issues[key].sourceSnapshotHash !== record.sourceSnapshotHash) {
+      throw new Error(`Issue #${issueId} has a different archived snapshot; active state was preserved.`);
+    }
+
     const nextArchive = { ...archive, issues: { ...archive.issues, [key]: archive.issues[key] ?? record } };
 
     await writeIssueArchiveStore(workspaceDir, projectSlug, nextArchive);

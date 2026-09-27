@@ -6,12 +6,16 @@ import type { ProviderRateLimitStatus } from "../../../integrations/providers/in
 import { replaceIssueMetadata } from "../../../projection/index.js";
 import { updateIssueStateStore } from "../../../state/index.js";
 import { applyManagedLabelDiff } from "../../projection/index.js";
-import { ISSUE_REPAIR_ERROR } from "./const.js";
+import { ISSUE_REPAIR_ERROR, REPAIR_ACTION, REPAIR_METADATA_ACTION } from "./const.js";
 import { repairFailure } from "./failure.js";
 import { expectedMetadataFor, importProviderProjection } from "./plan.js";
 import type { IssueRepairResult, RepairContext, RepairManagedIssueInput, RepairProvider } from "./types.js";
 
-/** Apply local truth to provider labels and metadata. */
+/** Apply local truth to provider labels and metadata.
+ * @param input - Validated command input and runtime dependencies.
+ * @param context - Fresh local/provider snapshots and resolved project configuration.
+ * @param plan - Snapshot-bound repair plan whose outcome is being updated.
+ */
 export async function applyLocalSourceRepair(
   input: RepairManagedIssueInput,
   context: RepairContext,
@@ -24,9 +28,9 @@ export async function applyLocalSourceRepair(
     workflow: context.workflow,
     roles: Object.keys(context.roles),
   });
-  const actions = plan.plannedActions.filter((action) => action !== "verify_provider_projection");
+  const actions = plan.plannedActions.filter((action) => action !== REPAIR_ACTION.VERIFY_PROVIDER_PROJECTION);
 
-  if (plan.metadataAction === "replace") {
+  if (plan.metadataAction === REPAIR_METADATA_ACTION.REPLACE) {
     await context.provider.editIssue(input.issueId, {
       body: replaceIssueMetadata(context.providerIssue.description, expectedMetadataFor(context.local)),
     });
@@ -35,7 +39,11 @@ export async function applyLocalSourceRepair(
   return actions;
 }
 
-/** Apply explicitly imported provider fields to local truth. */
+/** Apply explicitly imported provider fields to local truth.
+ * @param input - Validated command input and runtime dependencies.
+ * @param context - Fresh local/provider snapshots and resolved project configuration.
+ * @param plan - Snapshot-bound repair plan whose outcome is being updated.
+ */
 export async function applyProviderSourceRepair(
   input: RepairManagedIssueInput,
   context: RepairContext,
@@ -65,11 +73,12 @@ export async function applyProviderSourceRepair(
     return { store: { ...store, issues: { ...store.issues, [String(input.issueId)]: updated } }, result: undefined };
   });
 
-  return plan.localChanges.length ? ["update_allowed_local_fields"] : [];
+  return plan.localChanges.length ? [REPAIR_ACTION.UPDATE_ALLOWED_LOCAL_FIELDS] : [];
 }
 
-
-/** Read optional provider quota without blocking providers lacking it. */
+/** Read optional provider quota without blocking providers lacking it.
+ * @param provider - Provider adapter used for quota reads or issue operations.
+ */
 export async function readRateLimit(provider: RepairProvider): Promise<ProviderRateLimitStatus | undefined> {
   try {
     return await provider.getRateLimitStatus?.();
@@ -78,7 +87,11 @@ export async function readRateLimit(provider: RepairProvider): Promise<ProviderR
   }
 }
 
-/** Persist post-apply integrity status. */
+/** Persist post-apply integrity status.
+ * @param input - Validated command input and runtime dependencies.
+ * @param status - Resulting integrity classification to persist.
+ * @param errors - Concrete integrity diagnostics retained for recovery.
+ */
 export async function setRepairIntegrity(input: RepairManagedIssueInput, status: IssueIntegrityStatus, errors: string[]): Promise<void> {
   await updateIssueStateStore(input.workspaceDir, input.projectSlug, (store) => {
     const state = store.issues[String(input.issueId)];

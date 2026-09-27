@@ -1,5 +1,7 @@
 /** Tests managed-issue repair planning, stale-plan protection, strict provider import, and verification. */
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import {
@@ -11,8 +13,8 @@ import {
 import { renderIssueMetadata } from "../../projection/index.js";
 import { readIssueStateStore } from "../../state/index.js";
 import {
-  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
   createTestHarness,
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
   replaceIssueStateStoreForTesting as writeIssueStateStore,
 } from "../../testing/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
@@ -23,6 +25,10 @@ import {
   repairManagedIssue,
 } from "./repair/index.js";
 
+/** Build authoritative runtime state with explicit test overrides.
+ * @param projectSlug - Canonical owner of the fixture.
+ * @param overrides - Values selecting the repair scenario.
+ */
 function state(projectSlug: string, overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug,
@@ -49,6 +55,10 @@ function state(projectSlug: string, overrides: Partial<IssueRuntimeState> = {}):
   };
 }
 
+/** Persist a runtime fixture in the isolated issue store.
+ * @param workspaceDir - Test workspace containing the fixture.
+ * @param issue - Complete authoritative record to persist.
+ */
 async function seedState(workspaceDir: string, issue: IssueRuntimeState): Promise<void> {
   const store = emptyIssueStateStore(issue.projectSlug);
   store.issues[String(issue.issueId)] = issue;
@@ -56,6 +66,36 @@ async function seedState(workspaceDir: string, issue: IssueRuntimeState): Promis
 }
 
 describe("repairManagedIssue", () => {
+  it("rejects a plan when resolved workflow changed despite unchanged issue snapshots", async () => {
+    const h = await createTestHarness();
+    try {
+      await seedState(h.workspaceDir, state(h.project.slug));
+      h.provider.seedIssue({ iid: 123, labels: ["Doing"], description: "Body" });
+      const input = { workspaceDir: h.workspaceDir, projectSlug: h.project.slug, issueId: 123,
+        source: ISSUE_REPAIR_SOURCE.LOCAL_STATE, actor: "test", provider: h.provider, runCommand: h.runCommand };
+      const plan = await repairManagedIssue(input);
+      const directory = path.join(h.workspaceDir, "devclaw", "projects", h.project.slug);
+      await fs.mkdir(directory, { recursive: true });
+      await fs.writeFile(path.join(directory, "workflow.yaml"), "workflow:\n  reviewPolicy: agent\n");
+      const applied = await repairManagedIssue({ ...input, apply: true, planToken: plan.planToken });
+      assert.equal(applied.error?.code, ISSUE_REPAIR_ERROR.PLAN_STALE);
+      assert.equal(h.provider.callsTo("addLabel").length, 0);
+    } finally { await h.cleanup(); }
+  });
+
+  it("blocks repair when a project slot owns the issue without an activeWorker marker", async () => {
+    const h = await createTestHarness({ workers: { developer: { active: true, issueId: 123, sessionKey: "owner" } } });
+    try {
+      await seedState(h.workspaceDir, state(h.project.slug));
+      h.provider.seedIssue({ iid: 123, labels: ["Doing"], description: "Body" });
+      const input = { workspaceDir: h.workspaceDir, projectSlug: h.project.slug, issueId: 123,
+        source: ISSUE_REPAIR_SOURCE.LOCAL_STATE, actor: "test", provider: h.provider, runCommand: h.runCommand };
+      const plan = await repairManagedIssue(input);
+      const applied = await repairManagedIssue({ ...input, apply: true, planToken: plan.planToken });
+      assert.equal(applied.error?.code, ISSUE_REPAIR_ERROR.ACTIVE_WORKER);
+      assert.equal(h.provider.callsTo("addLabel").length, 0);
+    } finally { await h.cleanup(); }
+  });
   it("plans local-state projection repair without mutation", async () => {
     const h = await createTestHarness();
     try {
@@ -197,7 +237,9 @@ describe("repairManagedIssue", () => {
   });
 
   it("blocks active workers and insufficient known quota before mutation", async () => {
+    /** Reports insufficient quota for repair preflight. */
     class LimitedProvider extends TestProvider {
+      /** Return the exhausted quota used by this scenario. */
       async getRateLimitStatus() { return { remaining: 0, resetAt: "2026-09-06T00:00:00.000Z" }; }
     }
 
@@ -257,9 +299,12 @@ describe("repairManagedIssue", () => {
   });
 
   it("keeps integrity unhealthy when provider verification still finds drift", async () => {
+    /** Acknowledges writes without applying labels to exercise failed verification. */
     class NonMutatingProvider extends TestProvider {
-      async addLabel(): Promise<void> {}
-      async removeLabels(): Promise<void> {}
+      /** Acknowledge the write without changing the provider snapshot. */
+      async addLabel(): Promise<void> { }
+      /** Retain labels despite acknowledging their removal. */
+      async removeLabels(): Promise<void> { }
     }
 
     const h = await createTestHarness();
@@ -313,7 +358,12 @@ describe("repairManagedIssue", () => {
   });
 
   it("serializes concurrent apply attempts and rejects the stale follower", async () => {
+    /** Delays label writes to exercise serialization of repair attempts. */
     class SlowProvider extends TestProvider {
+      /** Delay the provider write while another repair competes for the lock.
+       * @param issueId - Issue being repaired.
+       * @param label - Managed label requested by the plan.
+       */
       override async addLabel(issueId: number, label: string): Promise<void> {
         await new Promise((resolve) => setTimeout(resolve, 20));
         await super.addLabel(issueId, label);

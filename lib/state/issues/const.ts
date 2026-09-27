@@ -40,3 +40,5 @@ export const ISSUE_ORCHESTRATION_LOCK_OPTIONS: FileLockOptions = {
 
 /** Duration after which an unconfirmed terminal-notification attempt may be retried. */
 export const PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS = 5 * 60_000;
+/** Append-only evidence written before retention removes attachment bytes. */
+export const ARCHIVE_RETENTION_AUDIT_FILE_NAME = "archive-retention.audit.jsonl";

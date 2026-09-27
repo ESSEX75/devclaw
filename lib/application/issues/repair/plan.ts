@@ -19,11 +19,15 @@ import {
 } from "../../../domain/index.js";
 import { diffIssueProjection, expectedManagedLabels, extractIssueMetadata, metadataMatches } from "../../../projection/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
+import { REPAIR_ACTION, REPAIR_METADATA_ACTION, REPAIR_MODE, REPAIR_PLAN_HASH_ALGORITHM, REPAIR_POLICY_PREFIX, REPAIR_STATUS, REPAIR_WARNING } from "./const.js";
 import { ISSUE_REPAIR_ERROR, ISSUE_REPAIR_SOURCE } from "./const.js";
 import { repairFailure } from "./failure.js";
 import type { IssueRepairLocalChange, IssueRepairResult, RepairContext, RepairManagedIssueInput } from "./types.js";
 
-/** Build a deterministic plan and token from immutable snapshots. */
+/** Build a deterministic plan and token from immutable snapshots.
+ * @param input - Validated command input and runtime dependencies.
+ * @param context - Fresh local/provider snapshots and resolved project configuration.
+ */
 export function buildRepairPlan(input: RepairManagedIssueInput, context: RepairContext): IssueRepairResult {
   const state = input.source === ISSUE_REPAIR_SOURCE.PROVIDER
     ? importProviderProjection(context)
@@ -35,35 +39,42 @@ export function buildRepairPlan(input: RepairManagedIssueInput, context: RepairC
   const expectedMetadata = expectedMetadataFor(state);
   const actualMetadata = extractIssueMetadata(context.providerIssue.description);
   const metadataAction = metadataMatches(actualMetadata, expectedMetadata)
-    ? "none"
-    : "replace";
+    ? REPAIR_METADATA_ACTION.NONE
+    : REPAIR_METADATA_ACTION.REPLACE;
   const plannedActions = input.source === ISSUE_REPAIR_SOURCE.LOCAL_STATE
     ? [
-      ...(diff.missingManagedLabels.length ? ["ensure_managed_labels_exist", "add_missing_managed_labels"] : []),
-      ...(diff.unexpectedManagedLabels.length ? ["remove_unexpected_managed_labels"] : []),
-      ...(metadataAction === "replace" ? ["replace_managed_metadata"] : []),
-      "verify_provider_projection",
+      ...(diff.missingManagedLabels.length ? [REPAIR_ACTION.ENSURE_MANAGED_LABELS_EXIST, REPAIR_ACTION.ADD_MISSING_MANAGED_LABELS] : []),
+      ...(diff.unexpectedManagedLabels.length ? [REPAIR_ACTION.REMOVE_UNEXPECTED_MANAGED_LABELS] : []),
+      ...(metadataAction === REPAIR_METADATA_ACTION.REPLACE ? [REPAIR_ACTION.REPLACE_MANAGED_METADATA] : []),
+      REPAIR_ACTION.VERIFY_PROVIDER_PROJECTION,
     ]
-    : [...(localChanges.length ? ["update_allowed_local_fields"] : []), "verify_provider_projection"];
+    : [...(localChanges.length ? [REPAIR_ACTION.UPDATE_ALLOWED_LOCAL_FIELDS] : []), REPAIR_ACTION.VERIFY_PROVIDER_PROJECTION];
   const changed = diff.missingManagedLabels.length > 0
     || diff.unexpectedManagedLabels.length > 0
-    || metadataAction === "replace"
+    || metadataAction === REPAIR_METADATA_ACTION.REPLACE
     || localChanges.length > 0;
   const estimatedProviderRequests = input.source === ISSUE_REPAIR_SOURCE.LOCAL_STATE
-    ? diff.missingManagedLabels.length * 2 + (diff.unexpectedManagedLabels.length ? 1 : 0) + (metadataAction === "replace" ? 1 : 0) + 1
+    ? diff.missingManagedLabels.length * 2 + (diff.unexpectedManagedLabels.length ? 1 : 0) + (metadataAction === REPAIR_METADATA_ACTION.REPLACE ? 1 : 0) + 1
     : 1;
   const tokenPayload = JSON.stringify({
     project: input.projectSlug,
     issueId: input.issueId,
     source: input.source,
+    configuration: {
+      workflow: context.workflow,
+      roles: context.roles,
+      repo: context.project.repo,
+      provider: context.project.provider,
+      channels: context.project.channels,
+    },
     local: context.local,
     provider: { ...context.providerIssue, labels: [...context.providerIssue.labels].sort() },
   });
 
   return {
     success: true,
-    mode: input.apply ? "apply" : "dry_run",
-    status: changed ? "planned" : "already_consistent",
+    mode: input.apply ? REPAIR_MODE.APPLY : REPAIR_MODE.DRY_RUN,
+    status: changed ? REPAIR_STATUS.PLANNED : REPAIR_STATUS.ALREADY_CONSISTENT,
     project: input.projectSlug,
     issueId: input.issueId,
     source: input.source,
@@ -77,13 +88,15 @@ export function buildRepairPlan(input: RepairManagedIssueInput, context: RepairC
     localChanges,
     changed,
     plannedActions,
-    warnings: context.provider.getRateLimitStatus ? [] : [{ code: "RATE_LIMIT_STATUS_UNAVAILABLE", message: "Provider does not expose a quota precheck." }],
+    warnings: context.provider.getRateLimitStatus ? [] : [{ code: REPAIR_WARNING.STATUS_UNAVAILABLE, message: "Provider does not expose a quota precheck." }],
     estimatedProviderRequests,
-    planToken: createHash("sha256").update(tokenPayload).digest("hex"),
+    planToken: createHash(REPAIR_PLAN_HASH_ALGORITHM).update(tokenPayload).digest("hex"),
   };
 }
 
-/** Validate and interpret provider projection only for explicit repair. */
+/** Validate and interpret provider projection only for explicit repair.
+ * @param context - Fresh local/provider snapshots and resolved project configuration.
+ */
 export function importProviderProjection(context: RepairContext): IssueRuntimeState {
   const labels = context.providerIssue.labels;
   const metadata = extractIssueMetadata(context.providerIssue.description);
@@ -126,8 +139,12 @@ export function importProviderProjection(context: RepairContext): IssueRuntimeSt
   };
 }
 
-function parseSingleRoleLevel(labels: string[], roles: Record<string, ResolvedRoleConfig>): { role: string; level: string } | null {
-  const matches: Array<{ role: string; level: string }> = [];
+/** Validate that provider labels select at most one configured role and level.
+ * @param labels - Observed provider labels; only explicit repair may import them.
+ * @param roles - Resolved role definitions including valid custom levels.
+ */
+function parseSingleRoleLevel(labels: string[], roles: Record<string, ResolvedRoleConfig>): RepairRoleLevel | null {
+  const matches: RepairRoleLevel[] = [];
 
   for (const label of labels) {
     const separator = label.indexOf(":");
@@ -150,6 +167,11 @@ function parseSingleRoleLevel(labels: string[], roles: Record<string, ResolvedRo
   return matches[0] ?? null;
 }
 
+/** Reject ambiguous provider values for a single managed field.
+ * @param labels - Observed provider labels; only explicit repair may import them.
+ * @param prefix - Canonical managed label prefix selected for this field.
+ * @param field - Field name used in ambiguity diagnostics.
+ */
 function parseSinglePrefixedValue(labels: string[], prefix: string, field: string): string | null {
   const values = labels.filter((label) => label.startsWith(prefix)).map((label) => label.slice(prefix.length)).filter(Boolean);
 
@@ -158,8 +180,11 @@ function parseSinglePrefixedValue(labels: string[], prefix: string, field: strin
   return values[0] ?? null;
 }
 
+/** Validate the projected review policy without supplying a default.
+ * @param labels - Observed provider labels; only explicit repair may import them.
+ */
 function parseReviewPolicy(labels: string[]): ReviewPolicy | null {
-  const value = parseSinglePrefixedValue(labels, "review:", "review policy");
+  const value = parseSinglePrefixedValue(labels, REPAIR_POLICY_PREFIX.REVIEW, "review policy");
 
   if (value === null) return null;
   if (!isReviewPolicy(value)) throw repairFailure(ISSUE_REPAIR_ERROR.SOURCE_INCOMPLETE, `Unknown review policy "${value}".`);
@@ -167,8 +192,11 @@ function parseReviewPolicy(labels: string[]): ReviewPolicy | null {
   return value;
 }
 
+/** Validate the projected test policy without supplying a default.
+ * @param labels - Observed provider labels; only explicit repair may import them.
+ */
 function parseTestPolicy(labels: string[]): TestPolicy | null {
-  const value = parseSinglePrefixedValue(labels, "test:", "test policy");
+  const value = parseSinglePrefixedValue(labels, REPAIR_POLICY_PREFIX.TEST, "test policy");
 
   if (value === null) return null;
   if (!isTestPolicy(value)) throw repairFailure(ISSUE_REPAIR_ERROR.SOURCE_INCOMPLETE, `Unknown test policy "${value}".`);
@@ -176,6 +204,10 @@ function parseTestPolicy(labels: string[]): TestPolicy | null {
   return value;
 }
 
+/** Validate a projected notification binding against configured project endpoints.
+ * @param labels - Observed provider labels; only explicit repair may import them.
+ * @param project - Resolved project identity or its canonical slug in results.
+ */
 function parseNotifyTarget(labels: string[], project: Project): NotifyBindingRef | null {
   const value = parseSinglePrefixedValue(labels, NOTIFY_LABEL_PREFIX, "notification binding");
 
@@ -195,6 +227,10 @@ function parseNotifyTarget(labels: string[], project: Project): NotifyBindingRef
   return { channel, name };
 }
 
+/** Compare only fields that explicit provider-source repair is allowed to import.
+ * @param before - Authoritative snapshot before the proposed import.
+ * @param after - Validated snapshot proposed by explicit provider-source repair.
+ */
 function diffLocalState(before: IssueRuntimeState, after: IssueRuntimeState): IssueRepairLocalChange[] {
   const changes: IssueRepairLocalChange[] = [];
   const fields: IssueRepairLocalChange["field"][] = [
@@ -208,8 +244,17 @@ function diffLocalState(before: IssueRuntimeState, after: IssueRuntimeState): Is
   return changes;
 }
 
-
-/** Render expected metadata identity from local state. */
+/** Render expected metadata identity from local state.
+ * @param state - Fresh authoritative runtime record used by this operation.
+ */
 export function expectedMetadataFor(state: IssueRuntimeState) {
   return { projectSlug: state.projectSlug, issueId: state.issueId, projectionVersion: state.projectionVersion };
 }
+
+/** Validated role and level imported from one provider label. */
+type RepairRoleLevel = {
+  /** Configured role owning the selected level. */
+  role: string;
+  /** Level validated against the resolved role configuration. */
+  level: string;
+};

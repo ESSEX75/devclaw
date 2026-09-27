@@ -4,7 +4,12 @@
 import { log as auditLog } from "../../../audit.js";
 import type { IssueRepairResult, RepairManagedIssueInput } from "./types.js";
 
-/** Record one repair checkpoint after its preceding effect. */
+/** Record one repair checkpoint after its preceding effect.
+ * @param input - Validated command input and runtime dependencies.
+ * @param event - Stable audit event identifier.
+ * @param correlationId - Identity linking all checkpoints of this operation.
+ * @param result - Repair outcome whose checkpoint is being audited.
+ */
 export async function auditRepair(
   input: RepairManagedIssueInput,
   event: string,

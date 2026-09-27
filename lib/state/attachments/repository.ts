@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { readIssueArchiveStore } from "../issues/archive/repository.js";
+import { withIssueStoreLock } from "../issues/persistence/index.js";
 import { writeJsonAtomic } from "../persistence/index.js";
 import { withAttachmentLock } from "./lock.js";
 import { attachmentDirectory, attachmentFilePath, attachmentIndexPath, inspectAttachmentDirectory, inspectAttachmentFile } from "./paths.js";
@@ -30,25 +32,33 @@ async function readStore(workspaceDir: string, directory: string, issueId: numbe
  * @param file - File bytes and display metadata.
  */
 export async function saveAttachment(workspaceDir: string, projectSlug: string, issueId: number, file: AttachmentFile): Promise<AttachmentMeta> {
-  return withAttachmentLock(workspaceDir, projectSlug, issueId, async directory => {
-    const store = await readStore(workspaceDir, directory, issueId);
-    const id = randomUUID();
-    const meta: AttachmentMeta = { id, issueId, filename: file.filename, mimeType: file.mimeType,
-      size: file.buffer.length, uploader: file.uploader, uploadedAt: new Date().toISOString(),
-      localPath: `${id}-${file.filename.replace(/[^a-zA-Z0-9._-]/g, "_")}` };
-    const next = parseAttachmentStore({ attachments: [...store.attachments, meta] }, issueId);
+  return withIssueStoreLock(workspaceDir, projectSlug, async () => {
+    const archive = await readIssueArchiveStore(workspaceDir, projectSlug);
 
-    await inspectAttachmentDirectory(workspaceDir, directory, true);
-    const filePath = attachmentFilePath(directory, meta.localPath);
+    if (Object.values(archive.issues).some(record => record.issueId === issueId)) throw new Error(`Issue #${issueId} is archived and cannot accept attachments.`);
 
-    await fs.writeFile(filePath, file.buffer, { flag: "wx" });
-    try { await writeJsonAtomic(attachmentIndexPath(directory), next); }
-    catch (error) {
-      await fs.unlink(filePath);
-      throw error;
-    }
+    return withAttachmentLock(workspaceDir, projectSlug, issueId, async directory => {
+      const store = await readStore(workspaceDir, directory, issueId);
+      const id = randomUUID();
+      const meta: AttachmentMeta = {
+        id, issueId, filename: file.filename, mimeType: file.mimeType,
+        size: file.buffer.length, uploader: file.uploader, uploadedAt: new Date().toISOString(),
+        localPath: `${id}-${file.filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`
+      };
+      const next = parseAttachmentStore({ attachments: [...store.attachments, meta] }, issueId);
 
-    return meta;
+      await inspectAttachmentDirectory(workspaceDir, directory, true);
+      const filePath = attachmentFilePath(directory, meta.localPath);
+
+      await fs.writeFile(filePath, file.buffer, { flag: "wx" });
+      try { await writeJsonAtomic(attachmentIndexPath(directory), next); }
+      catch (error) {
+        await fs.unlink(filePath);
+        throw error;
+      }
+
+      return meta;
+    });
   });
 }
 

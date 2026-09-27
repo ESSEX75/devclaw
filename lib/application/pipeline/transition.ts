@@ -58,6 +58,7 @@ export async function commitWorkflowTransitionLocked(input: CommitTransitionInpu
       projectSlug: project.slug,
       issueId,
       archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
+      workflow,
       snapshot: { title: issue.title, issueUrl: issue.web_url },
       actor: owner,
       correlationId: `terminal:${project.slug}:${issueId}:${plan.toState}`,

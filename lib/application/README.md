@@ -46,6 +46,12 @@ migration are application use cases. Adapters in `lib/tools` and `lib/cli` must
 call these shared operations instead of reproducing lifecycle decisions. Repair
 owns snapshot comparison, plan-token validation, issue locking, minimal mutation,
 and post-apply integrity verification.
+
+`issues/archive`, `issues/deletion`, and `issues/policy` own archive recovery and
+retention, confirmed deletion, and policy migration respectively. Archive retention
+uses a state-owned conditional transaction; record expiry includes attachment
+cleanup before removal. Deletion blocks unconfirmed notification outbox entries
+before contacting the provider.
 The `issues/repair` capability loads fresh local/provider snapshots, builds a
 deterministic plan, validates its token under the issue lock, applies the chosen
 source strategy, and verifies the result before clearing integrity errors.

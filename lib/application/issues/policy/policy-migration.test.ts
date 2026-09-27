@@ -1,17 +1,22 @@
 /** Tests that policy migration remains a shared application use case after repair extraction. */
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { describe, it } from "node:test";
 
-import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
-import { readIssueStateStore } from "../../state/index.js";
+import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../../domain/index.js";
+import { readIssueStateStore } from "../../../state/index.js";
 import {
-  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
   createTestHarness,
+  createEmptyIssueStateStoreForTesting as emptyIssueStateStore,
   replaceIssueStateStoreForTesting as writeIssueStateStore,
-} from "../../testing/index.js";
-import { migrateIssuePolicies } from "./policy-migration.js";
-import { TestProvider } from "../../testing/test-provider.js";
+} from "../../../testing/index.js";
+import { TestProvider } from "../../../testing/test-provider.js";
+import { migrateIssuePolicies } from "./command.js";
 
+/** Build a local issue ready for policy migration tests.
+ * @param projectSlug - Canonical project identifier addressing local stores.
+ */
 function policyState(projectSlug: string): IssueRuntimeState {
   return {
     projectSlug,
@@ -38,6 +43,20 @@ function policyState(projectSlug: string): IssueRuntimeState {
 }
 
 describe("migrateIssuePolicies", () => {
+  it("uses configured terminal states instead of built-in state names", async () => {
+    const h = await createTestHarness();
+    try {
+      const directory = path.join(h.workspaceDir, "devclaw", "projects", h.project.slug);
+      await fs.mkdir(directory, { recursive: true });
+      await fs.writeFile(path.join(directory, "workflow.yaml"), "workflow:\n  states:\n    finished:\n      type: terminal\n      label: Finished\n      color: '#000000'\n");
+      const store = emptyIssueStateStore(h.project.slug);
+      store.issues["75"] = { ...policyState(h.project.slug), workflowState: "finished", workflowLabel: "Finished", closedAt: null };
+      await writeIssueStateStore(h.workspaceDir, h.project.slug, store);
+      const result = await migrateIssuePolicies({ workspaceDir: h.workspaceDir, projectSlug: h.project.slug, reviewPolicy: "agent", dryRun: true, runCommand: h.runCommand });
+      assert.deepEqual(result.changed, []);
+      assert.equal(result.skipped[0]?.reason, "closed");
+    } finally { await h.cleanup(); }
+  });
   it("keeps dry-run local and provider state unchanged", async () => {
     const h = await createTestHarness();
     try {
@@ -99,9 +118,14 @@ describe("migrateIssuePolicies", () => {
       const store = emptyIssueStateStore(h.project.slug);
       store.issues["75"] = policyState(h.project.slug);
       await writeIssueStateStore(h.workspaceDir, h.project.slug, store);
+      /** Fails one provider label write to exercise policy reconciliation retry. */
       class FailingProvider extends TestProvider {
         failNextAdd = true;
 
+        /** Exercise the fixture-specific provider label mutation or injected failure.
+         * @param issueId - Provider-local issue identifier.
+         * @param label - Provider label requested by the repair operation.
+         */
         override async addLabel(issueId: number, label: string): Promise<void> {
           if (this.failNextAdd) {
             this.failNextAdd = false;

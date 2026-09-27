@@ -6,9 +6,9 @@ export {
   maintainIssueArchive,
   parseDuration,
   purgeIssueArchive,
-  recoverTerminalIssueArchives,
-} from "./archive.js";
-export { deleteManagedIssue } from "./delete.js";
-export { migrateIssuePolicies } from "./policy-migration.js";
+  recoverTerminalIssueArchives
+} from "./archive/index.js";
+export { deleteManagedIssue } from "./deletion/index.js";
+export { migrateIssuePolicies } from "./policy/index.js";
 export type { IssueRepairSource } from "./repair/index.js";
 export { isIssueRepairFailure, ISSUE_REPAIR_SOURCE, repairManagedIssue } from "./repair/index.js";

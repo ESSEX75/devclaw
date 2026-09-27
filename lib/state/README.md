@@ -30,6 +30,13 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - Issue-store reads have no write side effects; only locked updates and explicit state-owned transactions initialize or replace durable stores.
 - Active and archive files share one per-project lock. Archival writes the archive record before
   removing active state so an interrupted operation can be recovered idempotently.
+- Archive-first recovery refuses to discard active state when an existing archive
+  record refers to a different source snapshot.
+- Retention compares the entire selected archive record under this same lock,
+  refuses active duplicates, and retains the record when attachment cleanup fails.
+  It writes `archive-retention.audit.jsonl` before the first attachment unlink;
+  journal errors abort cleanup. This append-only intent evidence is retained after
+  record expiry and is not automatically truncated with the general audit log.
 - Terminal notification reservations use a bounded attempt lease: delivered events remain deduplicated, while an unconfirmed attempt becomes reservable again after the lease expires.
 - Stores accept only their current strict schema. Destructive reset is an explicit
   operator action and must never run automatically during startup or reads.
@@ -41,6 +48,9 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 save/URL-update/purge lock. Its public operations are exposed through the state
 entrypoint. Reads distinguish missing state from corruption or access failures.
 Purge refuses linked ancestors and nested entries, and never traverses recursively.
+Attachment saves acquire the issue-store lock before the attachment lock and
+reject archived issue identities. Retention follows the same lock order. URL
+updates still reject files removed by cleanup and cannot recreate their index row.
 
 ## Projects Registry
 

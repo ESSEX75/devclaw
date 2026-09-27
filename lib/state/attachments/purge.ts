@@ -5,15 +5,21 @@ import fs from "node:fs/promises";
 import { ATTACHMENT_HASH_ALGORITHM, ATTACHMENTS_INDEX } from "./const.js";
 import { withAttachmentLock } from "./lock.js";
 import { attachmentFilePath, inspectAttachmentDirectory, inspectAttachmentFile } from "./paths.js";
-import type { AttachmentPurgeManifestEntry } from "./types.js";
+import type { AttachmentPurgeCheckpoint, AttachmentPurgeManifestEntry } from "./types.js";
 
 /** Validate every entry before deletion; reject junctions, symlinks, and nested directories.
  * Uses individual unlinks and rmdir rather than recursive traversal. A retry can finish partial cleanup.
  * @param workspaceDir - Trusted configured workspace root.
  * @param projectSlug - Canonical project identifier.
  * @param issueId - Positive issue identifier.
+ * @param beforeDelete - Optional durable checkpoint; failure prevents deletion.
  */
-export async function purgeIssueAttachments(workspaceDir: string, projectSlug: string, issueId: number): Promise<AttachmentPurgeManifestEntry[]> {
+export async function purgeIssueAttachments(
+  workspaceDir: string,
+  projectSlug: string,
+  issueId: number,
+  beforeDelete?: AttachmentPurgeCheckpoint,
+): Promise<AttachmentPurgeManifestEntry[]> {
   return withAttachmentLock(workspaceDir, projectSlug, issueId, async directory => {
     if (!await inspectAttachmentDirectory(workspaceDir, directory)) return [];
     const manifest: AttachmentPurgeManifestEntry[] = [];
@@ -29,6 +35,7 @@ export async function purgeIssueAttachments(workspaceDir: string, projectSlug: s
 
     // Keep the index until all bytes are removed so partial cleanup remains discoverable.
     manifest.sort((a, b) => Number(a.filename === ATTACHMENTS_INDEX) - Number(b.filename === ATTACHMENTS_INDEX));
+    await beforeDelete?.(manifest);
     for (const entry of manifest) {
       await inspectAttachmentDirectory(workspaceDir, directory);
       const filePath = attachmentFilePath(directory, entry.filename);

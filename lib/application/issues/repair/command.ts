@@ -3,10 +3,11 @@
  */
 import { randomUUID } from "node:crypto";
 
-import { ISSUE_INTEGRITY_STATUS } from "../../../domain/index.js";
+import { findSlotByIssue, ISSUE_INTEGRITY_STATUS } from "../../../domain/index.js";
 import { withIssueOrchestrationLock } from "../../../state/index.js";
 import { applyLocalSourceRepair, applyProviderSourceRepair, readRateLimit, setRepairIntegrity } from "./apply.js";
 import { auditRepair } from "./audit.js";
+import { REPAIR_EVENT, REPAIR_MODE, REPAIR_STATUS, REPAIR_WARNING } from "./const.js";
 import { ISSUE_REPAIR_ERROR, ISSUE_REPAIR_SOURCE } from "./const.js";
 import { resolveRepairContext } from "./context.js";
 import { blocked, mapRepairFailure } from "./failure.js";
@@ -16,6 +17,8 @@ import type { IssueRepairResult, RepairManagedIssueInput } from "./types.js";
 /**
  * Build or apply one repair plan without transitioning workflow state or starting a worker.
  * Apply requires the token returned by a preceding dry-run and revalidates both snapshots under the issue lock.
+
+ * @param input - Validated command input and runtime dependencies.
  */
 export async function repairManagedIssue(input: RepairManagedIssueInput): Promise<IssueRepairResult> {
   const context = await resolveRepairContext(input);
@@ -26,10 +29,10 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
     const rateLimitStatus = await readRateLimit(context.provider);
 
     if (!rateLimitStatus && context.provider.getRateLimitStatus) {
-      plan.warnings.push({ code: "RATE_LIMIT_PRECHECK_UNAVAILABLE", message: "Provider quota precheck failed without blocking dry-run." });
+      plan.warnings.push({ code: REPAIR_WARNING.PRECHECK_UNAVAILABLE, message: "Provider quota precheck failed without blocking dry-run." });
     }
 
-    await auditRepair(input, "issue_repair_dry_run", correlationId, plan);
+    await auditRepair(input, REPAIR_EVENT.DRY_RUN, correlationId, plan);
 
     return { ...plan, rateLimitStatus, auditCorrelationId: correlationId };
   }
@@ -42,14 +45,14 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
       return blocked(plan, ISSUE_REPAIR_ERROR.PLAN_STALE, "Repair plan is missing or no longer matches current snapshots.", false);
     }
 
-    if (refreshed.local.activeWorker) {
+    if (refreshed.local.activeWorker || Object.values(refreshed.project.workers).some(worker => findSlotByIssue(worker, input.issueId))) {
       return blocked(plan, ISSUE_REPAIR_ERROR.ACTIVE_WORKER, "An active worker owns this issue.", true);
     }
 
     const quota = await readRateLimit(refreshed.provider);
 
     if (!quota && refreshed.provider.getRateLimitStatus) {
-      plan.warnings.push({ code: "RATE_LIMIT_PRECHECK_UNAVAILABLE", message: "Provider quota precheck failed; apply continues with bounded requests." });
+      plan.warnings.push({ code: REPAIR_WARNING.PRECHECK_UNAVAILABLE, message: "Provider quota precheck failed; apply continues with bounded requests." });
     }
 
     if (quota && quota.remaining < plan.estimatedProviderRequests) {
@@ -64,13 +67,13 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
       const correlationId = randomUUID();
 
       await setRepairIntegrity(input, ISSUE_INTEGRITY_STATUS.OK, []);
-      await auditRepair(input, "issue_repair_verified", correlationId, plan);
-      await auditRepair(input, "issue_repair_completed", correlationId, plan);
+      await auditRepair(input, REPAIR_EVENT.VERIFIED, correlationId, plan);
+      await auditRepair(input, REPAIR_EVENT.COMPLETED, correlationId, plan);
 
       return {
         ...plan,
-        mode: "apply",
-        status: "already_consistent",
+        mode: REPAIR_MODE.APPLY,
+        status: REPAIR_STATUS.ALREADY_CONSISTENT,
         integrityAfter: ISSUE_INTEGRITY_STATUS.OK,
         auditCorrelationId: correlationId,
       };
@@ -78,8 +81,8 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
 
     const correlationId = randomUUID();
 
-    await auditRepair(input, "issue_repair_requested", correlationId, plan);
-    await auditRepair(input, "issue_repair_apply_started", correlationId, plan);
+    await auditRepair(input, REPAIR_EVENT.REQUESTED, correlationId, plan);
+    await auditRepair(input, REPAIR_EVENT.APPLY_STARTED, correlationId, plan);
 
     try {
       const appliedActions = input.source === ISSUE_REPAIR_SOURCE.LOCAL_STATE
@@ -87,7 +90,7 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
         : await applyProviderSourceRepair(input, refreshed, plan);
 
       if (input.source === ISSUE_REPAIR_SOURCE.LOCAL_STATE) {
-        await auditRepair(input, "issue_repair_provider_updated", correlationId, plan);
+        await auditRepair(input, REPAIR_EVENT.PROVIDER_UPDATED, correlationId, plan);
       }
 
       const verified = await resolveRepairContext(input);
@@ -95,12 +98,12 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
 
       if (after.changed) {
         await setRepairIntegrity(input, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR, ["repair verification did not produce a consistent projection"]);
-        await auditRepair(input, "issue_repair_partial_failure", correlationId, after);
+        await auditRepair(input, REPAIR_EVENT.PARTIAL_FAILURE, correlationId, after);
 
         return {
           ...after,
-          mode: "apply",
-          status: "partial_failure",
+          mode: REPAIR_MODE.APPLY,
+          status: REPAIR_STATUS.PARTIAL_FAILURE,
           appliedActions,
           auditCorrelationId: correlationId,
           error: {
@@ -117,14 +120,14 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
       }
 
       await setRepairIntegrity(input, ISSUE_INTEGRITY_STATUS.OK, []);
-      await auditRepair(input, "issue_repair_verified", correlationId, after);
-      await auditRepair(input, "issue_repair_completed", correlationId, after);
+      await auditRepair(input, REPAIR_EVENT.VERIFIED, correlationId, after);
+      await auditRepair(input, REPAIR_EVENT.COMPLETED, correlationId, after);
 
       return {
         ...after,
         success: true,
-        mode: "apply",
-        status: "repaired",
+        mode: REPAIR_MODE.APPLY,
+        status: REPAIR_STATUS.REPAIRED,
         integrityAfter: ISSUE_INTEGRITY_STATUS.OK,
         changed: true,
         appliedActions,
@@ -136,9 +139,9 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
       const mapped = mapRepairFailure(plan, error);
 
       await setRepairIntegrity(input, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR, [mapped.error?.message ?? "repair apply failed"]);
-      await auditRepair(input, "issue_repair_failed", correlationId, mapped);
+      await auditRepair(input, REPAIR_EVENT.FAILED, correlationId, mapped);
 
-      return { ...mapped, mode: "apply", status: "partial_failure", auditCorrelationId: correlationId };
+      return { ...mapped, mode: REPAIR_MODE.APPLY, status: REPAIR_STATUS.PARTIAL_FAILURE, auditCorrelationId: correlationId };
     }
   });
 }

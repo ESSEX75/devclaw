@@ -4,41 +4,27 @@
  */
 import { randomUUID } from "node:crypto";
 
-import { log as auditLog } from "../../audit.js";
-import { ISSUE_ARCHIVE_REASON, ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
+import { log as auditLog } from "../../../audit.js";
+import { findSlotByIssue, ISSUE_ARCHIVE_REASON, ISSUE_INTEGRITY_STATUS, PIPELINE_NOTIFICATION_STATUS } from "../../../domain/index.js";
 import {
   isProviderIssueLookupError,
-  type IssueProvider,
-  PROVIDER_ISSUE_LOOKUP_ERROR,
-} from "../../integrations/providers/index.js";
-import { readIssueArchiveStore, readIssueStateStore, withIssueOrchestrationLock } from "../../state/index.js";
-import { archiveManagedIssueLocked } from "./archive.js";
+  PROVIDER_ISSUE_LOOKUP_ERROR
+} from "../../../integrations/providers/index.js";
+import { readIssueArchiveStore, readIssueStateStore, readOptionalProjects, withIssueOrchestrationLock } from "../../../state/index.js";
+import { archiveManagedIssueLocked } from "../archive/index.js";
+import { DELETE_EVENT, DELETE_REASON } from "./const.js";
+import type { DeleteManagedIssueInput, DeleteManagedIssueResult } from "./types.js";
 
-/** Structured result for dry-run, success, or recoverable partial failure. */
-export type DeleteManagedIssueResult = {
-  issueId: number;
-  dryRun: boolean;
-  deleted: boolean;
-  archived: boolean;
-  correlationId: string;
-  plan: string[];
-  recoveryPlan?: string[];
-};
-
-/** Delete one provider issue only after exact numeric confirmation and archive its local tombstone. */
-export function deleteManagedIssue(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  issueId: number;
-  confirmIssueId?: number;
-  dryRun?: boolean;
-  provider: IssueProvider;
-  actor: string;
-}): Promise<DeleteManagedIssueResult> {
+/** Delete one provider issue only after exact numeric confirmation and archive its local tombstone.
+ * @param opts - Resolved project dependencies and the requested administrative operation.
+ */
+export function deleteManagedIssue(opts: DeleteManagedIssueInput): Promise<DeleteManagedIssueResult> {
   return withIssueOrchestrationLock(opts.workspaceDir, opts.projectSlug, opts.issueId, () => deleteManagedIssueLocked(opts));
 }
 
-/** Execute confirmed deletion while holding the issue orchestration lock. */
+/** Execute confirmed deletion while holding the issue orchestration lock.
+ * @param opts - Resolved project dependencies and the requested administrative operation.
+ */
 async function deleteManagedIssueLocked(opts: Parameters<typeof deleteManagedIssue>[0]): Promise<DeleteManagedIssueResult> {
   const correlationId = randomUUID();
   const dryRun = opts.dryRun !== false;
@@ -59,6 +45,16 @@ async function deleteManagedIssueLocked(opts: Parameters<typeof deleteManagedIss
   }
 
   if (state.activeWorker) throw new Error(`Issue #${opts.issueId} has an active worker and cannot be deleted.`);
+  if (state.pipelineNotification?.status === PIPELINE_NOTIFICATION_STATUS.ATTEMPTING) {
+    throw new Error(`Issue #${opts.issueId} has an unconfirmed notification and cannot be deleted.`);
+  }
+
+  const project = (await readOptionalProjects(opts.workspaceDir))?.projects[opts.projectSlug];
+
+  if (project && Object.values(project.workers).some(worker => findSlotByIssue(worker, opts.issueId))) {
+    throw new Error(`Issue #${opts.issueId} has an assigned worker slot and cannot be deleted.`);
+  }
+
   if (state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) {
     throw new Error(`Issue #${opts.issueId} has integrity_error and cannot be deleted until repaired.`);
   }
@@ -82,33 +78,35 @@ async function deleteManagedIssueLocked(opts: Parameters<typeof deleteManagedIss
     "Retain attachments until archive maintenance expires",
   ];
 
-  await auditLog(opts.workspaceDir, "issue_delete_requested", {
+  if (dryRun) return { issueId: opts.issueId, dryRun: true, deleted: false, archived: false, correlationId, plan };
+
+  await auditLog(opts.workspaceDir, DELETE_EVENT.REQUESTED, {
     projectSlug: opts.projectSlug,
     issueId: opts.issueId,
     provider: state.provider,
     actor: opts.actor,
-    reason: "explicit_user_request",
+    reason: DELETE_REASON.EXPLICIT_REQUEST,
     correlationId,
     dryRun,
   });
 
-  if (dryRun) return { issueId: opts.issueId, dryRun: true, deleted: false, archived: false, correlationId, plan };
-
   if (issue) {
     try {
       await opts.provider.deleteIssue(opts.issueId);
-      await auditLog(opts.workspaceDir, "issue_delete_provider_succeeded", {
-        projectSlug: opts.projectSlug, issueId: opts.issueId, provider: state.provider,
-        actor: opts.actor, reason: "explicit_user_request", correlationId,
-      });
+
     } catch (error) {
-      await auditLog(opts.workspaceDir, "issue_delete_provider_failed", {
+      await auditLog(opts.workspaceDir, DELETE_EVENT.PROVIDER_FAILED, {
         projectSlug: opts.projectSlug, issueId: opts.issueId, provider: state.provider,
-        actor: opts.actor, reason: "provider_delete_failed", correlationId,
+        actor: opts.actor, reason: DELETE_REASON.PROVIDER_FAILED, correlationId,
         error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
+
+    await auditLog(opts.workspaceDir, DELETE_EVENT.PROVIDER_SUCCEEDED, {
+      projectSlug: opts.projectSlug, issueId: opts.issueId, provider: state.provider,
+      actor: opts.actor, reason: DELETE_REASON.EXPLICIT_REQUEST, correlationId,
+    });
   }
 
   try {
@@ -127,28 +125,36 @@ async function deleteManagedIssueLocked(opts: Parameters<typeof deleteManagedIss
     if (!isProviderIssueLookupError(error) || error.code !== PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND) throw error;
   }
 
-  const archive = await archiveManagedIssueLocked({
-    workspaceDir: opts.workspaceDir,
-    projectSlug: opts.projectSlug,
-    issueId: opts.issueId,
-    archiveReason: ISSUE_ARCHIVE_REASON.PROVIDER_DELETED,
-    snapshot: issue ? { title: issue.title, issueUrl: issue.web_url } : undefined,
-    providerDeletedAt: new Date().toISOString(),
-    actor: opts.actor,
-    correlationId,
-  });
-
-  if (!archive.archived) {
-    return {
+  try {
+    const archive = await archiveManagedIssueLocked({
+      workspaceDir: opts.workspaceDir,
+      projectSlug: opts.projectSlug,
       issueId: opts.issueId,
-      dryRun: false,
-      deleted: true,
-      archived: false,
+      archiveReason: ISSUE_ARCHIVE_REASON.PROVIDER_DELETED,
+      snapshot: issue ? { title: issue.title, issueUrl: issue.web_url } : undefined,
+      providerDeletedAt: new Date().toISOString(),
+      actor: opts.actor,
       correlationId,
-      plan,
-      recoveryPlan: ["Provider issue was deleted.", "Retry local archive for this issue; the active snapshot remains in issues.json."],
+    });
+
+    if (!archive.archived) {
+      return {
+        issueId: opts.issueId,
+        dryRun: false,
+        deleted: true,
+        archived: false,
+        correlationId,
+        plan,
+        recoveryPlan: ["Provider issue was deleted.", "Retry local archive for this issue; the active snapshot remains in issues.json."],
+      };
+    }
+
+    return { issueId: opts.issueId, dryRun: false, deleted: true, archived: true, correlationId, plan };
+  } catch (error) {
+    return {
+      issueId: opts.issueId, dryRun: false, deleted: true, archived: false, correlationId, plan,
+      recoveryPlan: ["Provider deletion was confirmed. Retry local archival; do not recreate the provider issue.", error instanceof Error ? error.message : String(error)]
     };
   }
 
-  return { issueId: opts.issueId, dryRun: false, deleted: true, archived: true, correlationId, plan };
 }

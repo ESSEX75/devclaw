@@ -22,6 +22,7 @@ export type {
   IssueStateStore,
 } from "./issues/index.js";
 export {
+  applyArchiveRetention,
   archiveIssueState,
   confirmPipelineNotification,
   isIssueCreationReady,
