@@ -1,6 +1,7 @@
 /**
  * Provides pure project-registry lookups independent of filesystem persistence.
  */
+
 import type { Project, RoleWorkerState } from "../../domain/index.js";
 import type { ProjectsData } from "./types.js";
 

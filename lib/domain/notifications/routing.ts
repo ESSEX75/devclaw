@@ -1,6 +1,7 @@
 /**
  * Resolves notification bindings and their deterministic provider-facing labels.
  */
+
 import { NOTIFY_LABEL_PREFIX } from "./const.js";
 import type { NotificationEndpoint, NotifyBindingRef } from "./types.js";
 

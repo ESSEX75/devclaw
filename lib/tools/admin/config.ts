@@ -5,6 +5,7 @@
  * - reset: Reset config files to package defaults (with .bak backups)
  * - diff: Show differences between current workflow.yaml and package default
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { compareWorkspaceConfig, resetWorkspaceConfig } from "../../application/setup/index.js";

@@ -8,6 +8,7 @@
  *
  * No parameters, no side effects — pure documentation.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { DATA_DIR } from "../../state/index.js";

@@ -1,6 +1,7 @@
 /**
  * Registers the shared DevClaw doctor CLI and renders routing/isolation diagnostics.
  */
+
 import type { Command } from "commander";
 
 import { runRoutingDoctor } from "../../application/doctor/index.js";

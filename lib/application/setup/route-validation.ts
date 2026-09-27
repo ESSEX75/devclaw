@@ -3,6 +3,7 @@
  * The application layer owns this cross-store check because it combines project state
  * with configured agents, channel accounts, and bindings.
  */
+
 import type { NotificationEndpoint } from "../../domain/index.js";
 import type { ProjectsData } from "../../state/index.js";
 import { ROUTE_DIAGNOSTIC_CODE, TOPIC_PEER_SEPARATOR } from "./const.js";

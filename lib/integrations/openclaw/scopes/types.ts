@@ -1,4 +1,5 @@
 /** Validated response contracts for the optional OpenClaw scopes CLI. */
+
 /** Validated fields returned by the OpenClaw approval CLI. */
 export type ScopeCommandResult = {
   /** Whether the transport reports success. */

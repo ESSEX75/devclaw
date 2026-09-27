@@ -1,6 +1,7 @@
 /**
  * Tick runner — main heartbeat loop that processes each project.
  */
+
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";

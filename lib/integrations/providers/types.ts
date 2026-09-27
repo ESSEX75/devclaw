@@ -28,6 +28,7 @@ export const PrState = {
   MERGED: "merged",
   CLOSED: "closed",
 } as const;
+
 export type PrState = (typeof PrState)[keyof typeof PrState];
 
 export type PrStatus = {

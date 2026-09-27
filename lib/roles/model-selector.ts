@@ -2,6 +2,7 @@
  * Selects a configured worker level from task complexity and explicit level ranks.
  * The selector treats built-in and custom roles identically through resolved role configuration.
  */
+
 import type { ResolvedRoleDefinition } from "./types.js";
 
 export type LevelSelection = {

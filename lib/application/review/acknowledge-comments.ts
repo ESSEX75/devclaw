@@ -1,6 +1,7 @@
 /**
  * acknowledge.ts — Comment acknowledgement (mark consumed comments with eyes emoji).
  */
+
 import { log as auditLog } from "../../audit.js";
 import type { IssueComment,IssueProvider } from "../../integrations/providers/provider.js";
 import type { PrFeedback } from "./pr-context.js";

@@ -1,4 +1,5 @@
 /** Persists attachment bytes and validated indexes with atomic replacement and shared mutation locking. */
+
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";

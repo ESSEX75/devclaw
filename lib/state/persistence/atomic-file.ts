@@ -1,6 +1,7 @@
 /**
  * Provides atomic file replacement for state repositories without owning serialization policy.
  */
+
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";

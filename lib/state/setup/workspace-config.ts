@@ -1,4 +1,5 @@
 /** Owns workspace configuration reads and explicit scoped default replacement. */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 

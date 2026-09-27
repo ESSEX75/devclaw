@@ -1,4 +1,5 @@
 /** Coordinates read-only doctor observations while isolating per-project archive failures. */
+
 import { loadConfig, readProjects } from "../../state/index.js";
 import { getIssueArchiveStatus } from "../issues/index.js";
 import { resolveProjectToolOwners } from "../setup/index.js";

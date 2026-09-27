@@ -2,6 +2,7 @@
  * Coordinates explicitly confirmed provider issue deletion with lossless local tombstoning.
  * Provider deletion and local archival are deliberately separated by audit checkpoints.
  */
+
 import { randomUUID } from "node:crypto";
 
 import { log as auditLog } from "../../../audit.js";

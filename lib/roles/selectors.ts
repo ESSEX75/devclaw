@@ -4,6 +4,7 @@
  * All role-related lookups go through these functions.
  * No other file should access ROLE_REGISTRY directly for role logic.
  */
+
 import { isBuiltInLevelId, isBuiltInRoleId, type LevelId, type RoleId, type WorkflowEvent } from "../domain/index.js";
 import { ROLE_REGISTRY } from "./registry.js";
 import type { ResolvedRoleDefinition, RoleConfig } from "./types.js";

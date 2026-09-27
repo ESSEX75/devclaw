@@ -2,6 +2,7 @@
  * Coordinates atomic worker reservation, provider transition, session dispatch, and runtime persistence.
  * This application capability owns the dispatch use case while state retains worker-slot authority.
  */
+
 import { log as auditLog } from "../../audit.js";
 import type { WorkerDeliveryState } from "../../domain/index.js";
 import { emptySlot, ISSUE_INTEGRITY_STATUS, NOTIFICATION_CHANNEL, WORKER_DELIVERY_STATUS } from "../../domain/index.js";

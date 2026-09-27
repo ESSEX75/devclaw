@@ -1,4 +1,5 @@
 /** Contracts for OpenClaw workspace resolution and gateway worker-turn submission. */
+
 import type { toPluginMessageContext, toPluginMessageReceivedEvent } from "openclaw/plugin-sdk/hook-runtime";
 
 import type { RunCommand } from "../../context.js";
@@ -75,6 +76,7 @@ export type AgentWorkspaceConfig = {
   /** Agent inventory and workspace defaults. */
   readonly agents?: AgentWorkspaceInventory;
 };
+
 /** Workspace settings understood by SDK agent resolution. */
 type AgentWorkspaceInventory = {
   /** Default workspace root when no per-agent override exists. */
@@ -82,6 +84,7 @@ type AgentWorkspaceInventory = {
   /** Configured agent identifiers and workspace overrides. */
   readonly list?: readonly AgentWorkspaceEntry[];
 };
+
 /** One configured agent's workspace identity. */
 type AgentWorkspaceEntry = {
   /** Stable configured agent identifier. */

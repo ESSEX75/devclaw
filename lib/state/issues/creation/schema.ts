@@ -1,6 +1,7 @@
 /**
  * Validates the only supported managed-issue creation operation store schema.
  */
+
 import { z } from "zod";
 
 import {
@@ -22,10 +23,12 @@ const CreationInputSchema = z.object({
   notifyTarget: z.object({ channel: z.enum(NOTIFICATION_CHANNEL), name: z.string() }).strict().nullable(),
   provider: z.enum(ISSUE_PROVIDER),
 }).strict();
+
 /** Strict schema for the last durable creation failure. */
 const CreationFailureSchema = z.object({
   code: z.enum(ISSUE_CREATION_ERROR), message: z.string(), retryable: z.boolean(), retryAfter: z.string().optional(),
 }).strict();
+
 /** Strict schema for one resumable issue-creation operation. */
 const CreationOperationSchema = z.object({
   operationId: z.string().uuid(), idempotencyKey: z.string().min(1), payloadHash: z.string().regex(/^[0-9a-f]{64}$/),
@@ -35,6 +38,7 @@ const CreationOperationSchema = z.object({
   completedSteps: z.array(z.string()), pendingSteps: z.array(z.string()), attempts: z.number().int().nonnegative(),
   retryAfter: z.string().optional(), lastError: CreationFailureSchema.optional(), auditCorrelationId: z.string().uuid(),
 }).strict();
+
 /** Strict schema for the current issue-creation store envelope. */
 const CreationStoreSchema = z.object({
   projectSlug: z.string(), operations: z.record(z.string(), CreationOperationSchema),

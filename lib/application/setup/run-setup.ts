@@ -1,4 +1,5 @@
 /** Applies validated setup plans shared by CLI and tools. */
+
 import { initializeWorkspaceFiles, refreshSystemInstructionFiles, resetDefaults, scaffoldWorkspace, writeWorkspaceModels } from "../../state/index.js";
 import { createAgent } from "./agent-config.js";
 import { ensureChannelBinding } from "./binding-manager.js";

@@ -1,8 +1,8 @@
 /**
  * Builds a complete initial runtime record for projection before publication.
  */
+
 import { ISSUE_INTEGRITY_STATUS, type IssueRuntimeState } from "../../domain/index.js";
-import { INITIAL_PROJECTION_VERSION } from "./const.js";
 import type { InitialIssueRuntimeInput } from "./types.js";
 
 /**
@@ -35,7 +35,6 @@ export function buildInitialIssueRuntimeState(
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
-    projectionVersion: INITIAL_PROJECTION_VERSION,
     createdAt: now,
     updatedAt: now,
     closedAt: null,

@@ -1,6 +1,7 @@
 /**
  * application/setup/agent-config.ts — Agent creation and workspace resolution.
  */
+
 import fs from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";

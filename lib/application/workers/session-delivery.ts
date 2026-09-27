@@ -1,4 +1,5 @@
 /** Observes gateway submission briefly without waiting for a full agent turn. */
+
 import { submitAgentTurn } from "../../integrations/openclaw/session.js";
 import type { AgentTurnInput, AgentTurnOutcome } from "../../integrations/openclaw/types.js";
 import type { SessionDeliveryObservation } from "./types.js";

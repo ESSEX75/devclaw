@@ -1,4 +1,5 @@
 /** Coordinates explicit configuration resets and read-only workflow comparisons. */
+
 import { type DefaultsScope, readWorkflowDocuments, resetWorkspaceConfiguration } from "../../state/index.js";
 
 /** Reset the selected default files while preserving project runtime state.

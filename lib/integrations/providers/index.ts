@@ -1,6 +1,7 @@
 /**
  * Provider factory — auto-detects GitHub vs GitLab from git remote.
  */
+
 import { ISSUE_PROVIDER, type IssueProviderId, type WorkflowConfig } from "../../domain/index.js";
 
 export type * from "./capabilities.js";

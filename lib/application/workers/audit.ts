@@ -1,4 +1,5 @@
 /** Writes worker dispatch audit records without owning dispatch decisions. */
+
 import { log as auditLog } from "../../audit.js";
 import type { AuditDispatchOptions } from "./types.js";
 

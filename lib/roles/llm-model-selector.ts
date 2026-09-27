@@ -3,6 +3,7 @@
  *
  * Uses an LLM to understand model capabilities and assign optimal models to DevClaw roles.
  */
+
 import type { RunCommand } from "../context.js";
 import { getAllRoleIds, ROLE_REGISTRY } from "./index.js";
 import type { ModelAssignment } from "./smart-model-selector.js";

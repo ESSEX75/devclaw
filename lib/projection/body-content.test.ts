@@ -5,7 +5,7 @@ import { composeManagedIssueBody } from "./body-content.js";
 import { extractIssueCreationMarker, extractIssueMetadata, renderIssueCreationMarker, replaceIssueMetadata } from "./metadata.js";
 
 it("replaces all submitted managed blocks and remains idempotent for empty user content", () => {
-  const metadata = { projectSlug: "trusted-project", issueId: 42, projectionVersion: 1 };
+  const metadata = { projectSlug: "trusted-project", issueId: 42 };
   const operation = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
   const supplied = replaceIssueMetadata("User content", { ...metadata, projectSlug: "foreign-project" })
     + "\n<!-- devclaw:issue-metadata broken -->\n" + renderIssueCreationMarker("ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee");

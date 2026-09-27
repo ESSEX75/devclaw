@@ -1,6 +1,7 @@
 /**
  * issues/types.ts — Runtime state for DevClaw-managed provider issues.
  */
+
 import type { ValueOf } from "../../types.js";
 import type { NotifyBindingRef } from "../notifications/index.js";
 import type { WorkerDeliveryState } from "../workers/index.js";
@@ -61,8 +62,6 @@ export type IssueProjectionState = {
   integrityStatus: IssueIntegrityStatus;
   /** List of drift or integrity errors detected. */
   integrityErrors: string[];
-  /** Version of the provider-side projection format. */
-  projectionVersion: number;
 };
 
 /** Details about the worker currently active on the issue. */

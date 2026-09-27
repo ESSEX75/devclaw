@@ -1,6 +1,7 @@
 /**
  * Persists the current projects registry through validated atomic transactions.
  */
+
 import fs from "node:fs/promises";
 
 import { LOCK_FILE_SUFFIX, withFileLock, writeJsonAtomic } from "../persistence/index.js";

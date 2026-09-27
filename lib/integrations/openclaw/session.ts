@@ -1,6 +1,7 @@
 /**
  * session.ts — Session management helpers for dispatch.
  */
+
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import type { ResolvedTimeouts } from "../../state/index.js";

@@ -8,7 +8,7 @@ execute without filesystem access, provider clients, OpenClaw runtime context, o
 CLI state.
 
 Domain may define the semantic issue and project records used by persistence,
-but versioned store envelopes and resumable operation records belong to
+but store envelopes and resumable operation records belong to
 `lib/state`.
 
 Package ownership is explicit: `notifications` owns messaging endpoints and

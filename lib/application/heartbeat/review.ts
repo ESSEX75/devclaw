@@ -5,6 +5,7 @@
  * whose PR check condition (merged/approved) is met.
  * Called by the heartbeat service during its periodic sweep.
  */
+
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import type { Project } from "../../domain/index.js";

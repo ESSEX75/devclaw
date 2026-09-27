@@ -1,4 +1,5 @@
 /** Pure workflow queries for agent completion and heartbeat review transitions. */
+
 import {
   type CompletionEventMap,
   findStateByLabel,

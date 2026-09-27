@@ -1,4 +1,5 @@
 /** Contracts for shared setup commands and read-only previews. */
+
 import type { OpenClawConfig, PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../context.js";
@@ -91,11 +92,13 @@ export type SetupRuntime = {
     mutateConfigFile: (params: Parameters<PluginRuntime["config"]["mutateConfigFile"]>[0]) => Promise<unknown>;
   };
 };
+
 /** Configured agent identity used by route inspection. */
 type RouteAgent = {
   /** Stable configured identifier. */
   readonly id: string;
 };
+
 /** Channel availability and account inventory. */
 type RouteChannel = {
   /** Explicit channel disablement takes precedence over account configuration. */
@@ -103,6 +106,7 @@ type RouteChannel = {
   /** Channel-specific settings remain unknown until inspected. */
   readonly accounts?: Readonly<Record<string, unknown>>;
 };
+
 /** Exact peer identity; absent or direct kinds do not establish a group route. */
 type RoutePeer = {
   /** SDK peer kind. */
@@ -110,6 +114,7 @@ type RoutePeer = {
   /** Group identifier, optionally qualified with a topic. */
   readonly id?: string;
 };
+
 /** Configured route matching fields. */
 type RouteMatch = {
   /** Notification transport. */
@@ -119,6 +124,7 @@ type RouteMatch = {
   /** Exact peer restriction. */
   readonly peer?: RoutePeer;
 };
+
 /** Binding owner and destination. */
 type RouteBinding = {
   /** Agent receiving matching messages. */
@@ -126,6 +132,7 @@ type RouteBinding = {
   /** Fields restricting delivery to this binding. */
   readonly match?: RouteMatch;
 };
+
 /** Agent inventory available for route validation. */
 type RouteAgentRoster = {
   /** Configured agent identities. */
@@ -177,6 +184,7 @@ export type AgentToolPolicy = NonNullable<NonNullable<NonNullable<OpenClawConfig
 
 /** Selected onboarding scenario. */
 export type OnboardingMode = ValueOf<typeof ONBOARDING_MODE>;
+
 /** Approval request details surfaced to setup adapters. */
 export type ScopeApprovalRequiredDetails = {
   /** Gateway approval request identifier. */
@@ -186,6 +194,7 @@ export type ScopeApprovalRequiredDetails = {
   /** Permissions awaiting approval. */
   missingScopes: string[];
 };
+
 /** Explicit refusal or expiration of an approval request. */
 export type ScopeApprovalRejectedDetails = {
   /** Nonrecoverable outcome for this request. */

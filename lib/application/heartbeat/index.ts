@@ -10,6 +10,7 @@
  * Zero LLM tokens — all logic is deterministic code + CLI calls.
  * Workers only consume tokens when they start processing dispatched tasks.
  */
+
 import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { PluginContext, RunCommand } from "../../context.js";
@@ -23,6 +24,7 @@ import {
 } from "./health.js";
 
 export { HEARTBEAT_DEFAULTS };
+
 export type { HealthFix } from "./health.js";
 export { checkWorkerHealth, fetchGatewaySessions, scanOrphanedLabels } from "./health.js";
 import { tick } from "./tick-runner.js";

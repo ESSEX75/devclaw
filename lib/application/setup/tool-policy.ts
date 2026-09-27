@@ -1,4 +1,5 @@
 /** Builds isolated agent tool permissions without mutating the source configuration. */
+
 import { DEVCLAW_AGENT_TOOL_SET, DEVCLAW_AGENT_TOOLS, DEVCLAW_DENIED_TOOLS } from "./const.js";
 import type { AgentToolPolicy } from "./types.js";
 

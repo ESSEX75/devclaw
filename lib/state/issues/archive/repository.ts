@@ -1,6 +1,7 @@
 /**
  * Persists archived managed-issue records independently from active runtime state.
  */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 

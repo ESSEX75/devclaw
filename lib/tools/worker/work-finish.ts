@@ -1,6 +1,7 @@
 /**
  * work_finish — Complete active worker work through the worker application use case.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { finishWork } from "../../application/workers/index.js";

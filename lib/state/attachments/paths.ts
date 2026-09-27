@@ -1,4 +1,5 @@
 /** Bounds attachment operations to canonical issue directories and rejects linked ancestors. */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 

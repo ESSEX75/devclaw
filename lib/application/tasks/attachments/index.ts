@@ -1,4 +1,5 @@
 /** Supported attachment orchestration and context enrichment API. */
+
 export { manageTaskAttachments } from "./command.js";
 export { formatAttachmentsForTask } from "./context.js";
 export { processAttachmentMessage } from "./process.js";

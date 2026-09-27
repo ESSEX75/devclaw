@@ -38,6 +38,12 @@ export default defineConfig(
       // 3. Line padding between statements
       '@stylistic/padding-line-between-statements': [
         'error',
+        // Separate exported declarations together with their documentation
+        {
+          blankLine: 'always',
+          prev: { selector: 'ExportNamedDeclaration[declaration], ExportDefaultDeclaration' },
+          next: { selector: 'ExportNamedDeclaration[declaration], ExportDefaultDeclaration' },
+        },
         // Empty line after all imports before other code
         { blankLine: 'always', prev: 'import', next: '*' },
         { blankLine: 'any', prev: 'import', next: 'import' },

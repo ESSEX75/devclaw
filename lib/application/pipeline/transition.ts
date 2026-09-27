@@ -1,4 +1,5 @@
 /** Commits workflow transitions shared by agent completion and heartbeat review passes. */
+
 import {
   getStateLabels,
   ISSUE_ARCHIVE_REASON,

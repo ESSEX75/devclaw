@@ -1,6 +1,7 @@
 /**
  * projects/types.ts — Domain types for projects, worker slots, and notification channels.
  */
+
 import type { IssueProviderId } from "../issues/index.js";
 import type { NotificationEndpoint } from "../notifications/index.js";
 import type { WorkerDeliveryState } from "../workers/index.js";

@@ -1,4 +1,5 @@
 /** Computes the immutable source identity used to recover archive-first writes. */
+
 import { createHash } from "node:crypto";
 
 import type { IssueRuntimeState } from "../../../domain/index.js";

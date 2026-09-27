@@ -3,6 +3,7 @@
  *
  * Returns step-by-step guidance. Call this before setup.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { getOnboardingContext } from "../../application/setup/index.js";

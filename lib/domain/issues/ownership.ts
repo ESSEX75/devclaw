@@ -1,6 +1,7 @@
 /**
  * Defines pure helpers for projecting and detecting DevClaw issue ownership labels.
  */
+
 import { OWNER_LABEL_PREFIX } from "./const.js";
 
 /**

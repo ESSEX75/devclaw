@@ -1,4 +1,5 @@
 /** Read-only worker diagnosis; no audit, session submission, or state mutation occurs here. */
+
 import { DEFAULT_WORKFLOW, getActiveLabel, getCurrentStateLabel, getRevertLabel, hasWorkflowStates, WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
 import { getRoleWorker, readIssueStateStore } from "../../../state/index.js";
 import { GRACE_PERIOD_MS, HEALTH_ACTION, STALL_CONTEXT_THRESHOLD } from "./const.js";

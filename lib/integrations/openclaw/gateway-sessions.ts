@@ -7,6 +7,7 @@
  * Separated from health.ts to avoid co-locating fs reads with process execution,
  * which triggers false-positive "data exfiltration" warnings in plugin scanners.
  */
+
 import fs from "node:fs/promises";
 
 import type { RunCommand } from "../../context.js";

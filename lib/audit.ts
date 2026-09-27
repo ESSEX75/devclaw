@@ -3,6 +3,7 @@
  * Every tool call automatically logs — no manual action needed from agents.
  * Automatically truncates log to keep only last 250 lines.
  */
+
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname,join } from "node:path";
 

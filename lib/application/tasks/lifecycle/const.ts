@@ -1,4 +1,5 @@
 /** Task lifecycle audit protocol and bounded content previews. */
+
 /** Audit event names for explicit operator lifecycle commands. */
 export const TASK_EVENT = {
   EDIT_BODY: "task_edit_body",
@@ -6,6 +7,7 @@ export const TASK_EVENT = {
   SET_LEVEL: "task_set_level",
   START: "task_start",
 } as const;
+
 /** Maximum characters from each edited value recorded in audit. */
 export const TASK_EDIT_PREVIEW_LENGTH = 200;
 

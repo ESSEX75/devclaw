@@ -1,6 +1,7 @@
 /**
  * projects/mutations.ts — State mutations for project worker slots.
  */
+
 import type { SlotState, WorkerDeliveryState } from "../../domain/index.js";
 import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
 import { updateProjects } from "./repository.js";

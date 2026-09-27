@@ -1,6 +1,7 @@
 /**
  * Records creation saga checkpoints with their durable operation identity.
  */
+
 import { log as auditLog } from "../../../audit.js";
 import type { IssueCreationOperation } from "../../../state/index.js";
 import type { CreateManagedTaskInput } from "./types.js";

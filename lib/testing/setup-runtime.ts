@@ -1,4 +1,5 @@
 /** Provides an in-memory SDK config mutation transport for setup and adapter tests. */
+
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
 import type { SetupRuntime } from "../application/setup/index.js";

@@ -1,4 +1,5 @@
 /** Rebuilds managed body blocks while preserving only caller-editable issue content. */
+
 import { ISSUE_BODY_CREATION_BLOCKS, ISSUE_BODY_METADATA_BLOCKS } from "./const.js";
 import { renderIssueCreationMarker, replaceIssueMetadata } from "./metadata.js";
 import type { ProjectionMetadata } from "./types.js";

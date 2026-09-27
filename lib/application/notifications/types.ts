@@ -1,4 +1,5 @@
 /** Defines notification events, delivery receipts, runtime capability, and route options. */
+
 import type { RunCommand } from "../../context.js";
 import type { NotificationChannel } from "../../domain/index.js";
 import type { RouteConfig } from "../setup/types.js";

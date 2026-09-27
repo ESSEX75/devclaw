@@ -1,6 +1,7 @@
 /**
  * Defines the application contracts for dispatching managed issues to worker sessions.
  */
+
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../context.js";

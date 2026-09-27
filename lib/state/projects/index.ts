@@ -1,4 +1,5 @@
 /** Exposes canonical project registry persistence and worker-slot operations to the state package. */
+
 export { activateWorker, deactivateWorker, updateSlot } from "./mutations.js";
 export { resolveRepoPath } from "./paths.js";
 export { getProject, getRoleWorker } from "./queries.js";

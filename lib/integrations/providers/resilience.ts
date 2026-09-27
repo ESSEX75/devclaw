@@ -4,6 +4,7 @@
  * Uses cockatiel for lightweight resilience without heavyweight orchestration.
  * Applied to GitHub/GitLab CLI calls that can fail due to network, rate limits, or timeouts.
  */
+
 import {
   circuitBreaker,
   ConsecutiveBreaker,

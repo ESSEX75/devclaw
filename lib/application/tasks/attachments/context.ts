@@ -1,4 +1,5 @@
 /** Loads persisted attachment references for worker task context. */
+
 import { getAttachmentPath, listAttachments } from "../../../state/index.js";
 import { renderAttachmentsForTask } from "./render.js";
 

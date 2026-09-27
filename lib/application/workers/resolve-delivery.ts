@@ -1,4 +1,5 @@
 /** Applies an explicit operator conclusion to one unresolved worker delivery. */
+
 import { log as auditLog } from "../../audit.js";
 import { findStateKeyByLabel, getQueueLabels, STATE_TYPE } from "../../domain/index.js";
 import { createProvider } from "../../integrations/providers/index.js";

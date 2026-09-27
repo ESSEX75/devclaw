@@ -139,7 +139,7 @@ describe("heartbeat transition state sync", () => {
         iid: 90,
         title: "Reviewed task",
         labels: ["To Review", "review:human", "test:skip"],
-        description: renderIssueMetadata({ projectSlug: project.slug, issueId: 90, projectionVersion: 1 }),
+        description: renderIssueMetadata({ projectSlug: project.slug, issueId: 90 }),
       });
       await writeIssueRuntimeState({
         workspaceDir,
@@ -186,7 +186,7 @@ describe("heartbeat transition state sync", () => {
         iid: 91,
         title: "Test skipped task",
         labels: ["To Test", "review:human", "test:skip"],
-        description: renderIssueMetadata({ projectSlug: project.slug, issueId: 91, projectionVersion: 1 }),
+        description: renderIssueMetadata({ projectSlug: project.slug, issueId: 91 }),
       });
       await writeIssueRuntimeState({
         workspaceDir,

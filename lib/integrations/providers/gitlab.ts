@@ -1,6 +1,7 @@
 /**
  * GitLabProvider — IssueProvider implementation using glab CLI.
  */
+
 import { z } from "zod";
 
 import type { RunCommand } from "../../context.js";

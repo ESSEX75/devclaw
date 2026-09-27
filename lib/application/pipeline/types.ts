@@ -1,4 +1,5 @@
 /** Contracts for planned pipeline transitions and completion responses. */
+
 import type { CompletionRule, Project, TransitionAction, WorkflowConfig } from "../../domain/index.js";
 import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
 

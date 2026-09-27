@@ -1,4 +1,5 @@
 /** Resolves incoming media only against complete project notification identities. */
+
 import { readOptionalProjects } from "../../../state/index.js";
 import { MAX_ATTACHMENT_ISSUE_ID } from "./const.js";
 import type { AttachmentMessageRoute, AttachmentProjectContext, AttachmentWorkspace } from "./types.js";

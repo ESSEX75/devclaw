@@ -7,6 +7,7 @@
  *      every turn. Requires hooks.internal.enabled in config.
  *   2. Resolves state-owned role instructions for persistent per-turn injection.
  */
+
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
 import type { PluginContext } from "../../context.js";

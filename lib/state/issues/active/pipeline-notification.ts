@@ -1,6 +1,7 @@
 /**
  * Persists atomic reservation and delivery state for managed-issue pipeline notifications.
  */
+
 import {
   type IssueRuntimeState,
   PIPELINE_NOTIFICATION_STATUS,

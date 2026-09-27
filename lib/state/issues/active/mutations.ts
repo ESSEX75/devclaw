@@ -1,6 +1,7 @@
 /**
  * Persists focused mutations of current managed-issue runtime records.
  */
+
 import type { IssueRuntimeState } from "../../../domain/index.js";
 import { updateIssueStateStore } from "./repository.js";
 

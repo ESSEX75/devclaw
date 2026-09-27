@@ -18,6 +18,8 @@ Before changing code:
 
 If an architectural change alters a package's ownership or boundary, update that package's `README.md` in the same change. Do not copy package-specific rules into this skill.
 
+Keep the layer README as the ownership, dependency, and API map. A subdirectory or `index.ts` does not require its own README. Add a local README only for a substantial independent contract, such as locking, recovery, persistence ordering, or delivery guarantees; link to it instead of repeating that contract in the parent. Keep file/function inventories in source JSDoc when they add no package-level guarantees.
+
 ## Ownership and placement
 
 - Give every file one clear owner and responsibility.
@@ -92,6 +94,7 @@ Prefer focused names that communicate the file's owned responsibility.
 ## File and API documentation
 
 - Start every source file, including existing production and test files, with a concise file-level JSDoc comment.
+- Separate the file header and each documented top-level declaration with a blank line; keep declaration JSDoc attached to its declaration. Do not require blank lines between ordinary local variables or documented type members. ESLint enforces spacing between exports; preserve file-header and private-declaration spacing during editing and review.
 - Explain why the file exists, what responsibility it owns, and where it sits in the architecture.
 - Add meaningful JSDoc to every type, interface, class, module-level constant, named function declaration, and class/object method, including non-exported and private declarations. Inline callbacks and ordinary local variable bindings do not require separate JSDoc.
 - Document every declaration even when its purpose appears obvious from its name or signature; triviality is not a reason to omit documentation.

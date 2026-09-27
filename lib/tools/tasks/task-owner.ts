@@ -5,6 +5,7 @@
  * owns them for queue scanning and dispatch. Supports claiming a
  * single issue or all unclaimed queued issues for a project.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { resolveProject, resolveProvider } from "../../application/projects/index.js";

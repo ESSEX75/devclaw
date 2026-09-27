@@ -1,4 +1,5 @@
 /** Builds read-only task views from authoritative local state and provider observations. */
+
 import type { IssueRuntimeState } from "../../../domain/index.js";
 import {
   findStateByLabel,

@@ -1,6 +1,7 @@
 /**
  * Agent discovery — scan workspaces to find active DevClaw agents.
  */
+
 import fs from "node:fs";
 import path from "node:path";
 

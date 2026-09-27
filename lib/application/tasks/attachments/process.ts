@@ -1,4 +1,5 @@
 /** Saves incoming attachments locally before publishing them through a project provider. */
+
 import { log as auditLog } from "../../../audit.js";
 import { detectAttachmentMime } from "../../../integrations/openclaw/attachment-media.js";
 import { type AttachmentMeta, readAttachmentSource, saveAttachment, updateAttachmentPublicUrl } from "../../../state/index.js";

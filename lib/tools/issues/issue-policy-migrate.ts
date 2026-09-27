@@ -2,6 +2,7 @@
  * Exposes explicit bulk review/test policy migration to an agent.
  * The adapter validates JSON input and delegates state and projection changes to application code.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { migrateIssuePolicies } from "../../application/issues/index.js";

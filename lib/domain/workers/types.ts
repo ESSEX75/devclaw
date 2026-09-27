@@ -1,4 +1,5 @@
 /** Shared issue and slot contract for an unresolved worker submission. */
+
 import type { ValueOf } from "../../types.js";
 import { WORKER_DELIVERY_STATUS } from "./const.js";
 

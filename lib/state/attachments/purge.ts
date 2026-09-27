@@ -1,4 +1,5 @@
 /** Removes only validated flat attachment directories while holding the shared issue attachment lock. */
+
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 

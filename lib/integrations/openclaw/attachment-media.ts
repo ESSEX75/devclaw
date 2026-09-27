@@ -1,4 +1,5 @@
 /** Normalizes SDK media metadata and detects MIME types at the OpenClaw boundary. */
+
 import path from "node:path";
 
 import type { MediaAttachmentInfo } from "./types.js";

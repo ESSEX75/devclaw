@@ -11,6 +11,7 @@
  * - Session key matching
  * - Notification preferences
  */
+
 import { COMPLETION_RESULT, type RoleId, WORKFLOW_EVENT } from "../domain/index.js";
 import type { RoleConfig } from "./types.js";
 

@@ -1,4 +1,5 @@
 /** Persisted attachment metadata and filesystem operation contracts. */
+
 /** One local attachment, optionally published through a provider. */
 export type AttachmentMeta = {
   /** Stable attachment identity. */
@@ -20,11 +21,13 @@ export type AttachmentMeta = {
   /** Confirmed provider upload URL. */
   publicUrl?: string;
 };
+
 /** Current attachment index, validated before every mutation. */
 export type AttachmentStore = {
   /** Indexed files for one issue. */
   attachments: AttachmentMeta[];
 };
+
 /** Bytes and display metadata supplied by the application. */
 export type AttachmentFile = {
   /** File contents to persist. */
@@ -36,6 +39,7 @@ export type AttachmentFile = {
   /** User or actor supplying the file. */
   uploader: string;
 };
+
 /** Source file read at the filesystem boundary before provider upload. */
 export type AttachmentSource = {
   /** Original file bytes. */
@@ -45,6 +49,7 @@ export type AttachmentSource = {
   /** Absolute source path used for media detection. */
   filePath: string;
 };
+
 /** Evidence returned before attachment retention cleanup is audited. */
 export type AttachmentPurgeManifestEntry = {
   /** Removed file basename. */

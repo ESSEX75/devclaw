@@ -1,4 +1,5 @@
 /** Resolves local issue truth; provider labels describe only uninitialized issues. */
+
 import { findStateByLabel, findStateKeyByLabel, getCurrentStateLabel } from "../../domain/index.js";
 import { readIssueStateStore } from "../../state/index.js";
 import { ISSUE_RUNTIME_KIND } from "./const.js";

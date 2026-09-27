@@ -1,4 +1,5 @@
 /** Computes worker session identity and model without I/O or state mutation. */
+
 import { slotName } from "../../names.js";
 import { resolveModel } from "../../roles/index.js";
 import type { DispatchPlan, DispatchPlanInput } from "./types.js";

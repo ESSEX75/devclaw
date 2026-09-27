@@ -1,6 +1,7 @@
 /**
  * Resolves the installed DevClaw package root so setup assets use one explicit layout contract.
  */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 

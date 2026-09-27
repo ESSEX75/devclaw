@@ -1,4 +1,5 @@
 /** Executes project passes in order while retaining partial results and failure details. */
+
 import type { HeartbeatPass, HeartbeatPassReport } from "./types.js";
 
 /** Run sequential passes, stopping this project on the first failed prerequisite.

@@ -1,4 +1,5 @@
 /** Registers DevClaw tools, CLI, services, and SDK hooks at the plugin boundary. */
+
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
 import { registerHeartbeatService } from "./lib/application/heartbeat/index.js";

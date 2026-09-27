@@ -1,4 +1,5 @@
 /** Collects interactive terminal setup choices without applying configuration. */
+
 import { createInterface } from "node:readline/promises";
 
 import {

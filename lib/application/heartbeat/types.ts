@@ -1,4 +1,5 @@
 /** Reports and execution contracts shared by heartbeat coordinators. */
+
 import type { RunCommand } from "../../context.js";
 import type { Project } from "../../domain/index.js";
 import type { ResolvedConfig } from "../../state/index.js";

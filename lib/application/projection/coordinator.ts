@@ -1,4 +1,5 @@
 /** Coordinates issue locking, fresh projection reads, provider changes, and integrity recording. */
+
 import { log as auditLog } from "../../audit.js";
 import { getStateLabels, ISSUE_INTEGRITY_STATUS, type WorkflowConfig } from "../../domain/index.js";
 import { diffIssueProjection } from "../../projection/index.js";

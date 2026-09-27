@@ -3,7 +3,6 @@ import type { IssueRuntimeState } from "../domain/index.js";
 export type ProjectionMetadata = {
   projectSlug: string;
   issueId: number;
-  projectionVersion: number;
   stateRef?: string;
   managedAt?: string;
 };

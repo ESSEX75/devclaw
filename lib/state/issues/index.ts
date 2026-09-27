@@ -1,4 +1,5 @@
 /** Collects the supported issue persistence API for the root state entrypoint. */
+
 export type { IssueStateStore } from "./active/index.js";
 export {
   confirmPipelineNotification,

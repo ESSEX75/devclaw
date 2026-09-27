@@ -165,7 +165,6 @@ describe("task_create managed initial-state flow", () => {
       assert.deepStrictEqual(extractIssueMetadata(issue.description), {
         projectSlug: "devclaw",
         issueId: result.issue.iid,
-        projectionVersion: 1,
       });
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });

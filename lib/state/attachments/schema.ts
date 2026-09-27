@@ -1,4 +1,5 @@
 /** Validates attachment index JSON without legacy coercion or recovery-by-overwrite. */
+
 import { z } from "zod";
 
 import { SAFE_ATTACHMENT_NAME } from "./const.js";
@@ -6,12 +7,14 @@ import type { AttachmentStore } from "./types.js";
 
 /** Basename-only storage reference, rejecting traversal and platform separators. */
 export const attachmentNameSchema = z.string().min(1).regex(SAFE_ATTACHMENT_NAME).refine(value => value !== "." && value !== "..");
+
 /** Persisted attachment fields; invalid data must remain available for explicit repair. */
 const attachmentSchema = z.object({
   id: z.string().min(1), issueId: z.number().int().positive().safe(), filename: z.string().min(1),
   mimeType: z.string().min(1), size: z.number().int().nonnegative().safe(), uploader: z.string(),
   uploadedAt: z.string().datetime(), localPath: attachmentNameSchema, publicUrl: z.string().url().optional(),
 }).strict();
+
 /** Strict current store envelope. */
 const storeSchema = z.object({ attachments: z.array(attachmentSchema) }).strict();
 

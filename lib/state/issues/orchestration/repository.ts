@@ -1,6 +1,7 @@
 /**
  * Serializes application orchestration for one managed issue through state-owned locks.
  */
+
 import path from "node:path";
 
 import { LOCK_FILE_SUFFIX, withFileLock } from "../../persistence/index.js";

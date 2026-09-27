@@ -1,6 +1,7 @@
 /**
  * Defines the persisted managed-issue archive contract.
  */
+
 import type { ArchivedIssueRecord } from "../../../domain/index.js";
 import type { AttachmentPurgeCheckpoint } from "../../attachments/types.js";
 

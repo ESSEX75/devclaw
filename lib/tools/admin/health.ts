@@ -12,6 +12,7 @@
  *
  * Read-only by default (surfaces issues). Pass fix=true to apply fixes.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import { checkWorkerHealth, fetchGatewaySessions, type HealthFix, scanOrphanedLabels } from "../../application/heartbeat/index.js";

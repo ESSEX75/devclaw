@@ -1,4 +1,5 @@
 /** Delivers one rendered notification through runtime or command fallback. */
+
 import type { RunCommand } from "../../context.js";
 import type { NotificationChannel } from "../../domain/index.js";
 import type { NotificationDeliveryResult, NotificationRuntime } from "./types.js";

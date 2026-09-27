@@ -1,4 +1,5 @@
 /** Applies explicit lifecycle updates to fresh local truth under the state transaction lock. */
+
 import { findStateKeyByLabel, getStateLabels, type IssueRuntimeState } from "../../domain/index.js";
 import { updateIssueRuntimeRecord } from "../../state/index.js";
 import { initializeRuntimeFromProjection } from "./initialization.js";

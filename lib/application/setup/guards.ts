@@ -1,4 +1,5 @@
 /** Validates setup channel membership at adapter boundaries. */
+
 import { SETUP_NOTIFICATION_CHANNELS } from "./const.js";
 import { ScopeApprovalRejectedError,ScopeApprovalRequiredError } from "./errors.js";
 import type { SetupNotificationChannel } from "./types.js";

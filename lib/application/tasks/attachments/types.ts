@@ -1,4 +1,5 @@
 /** Contracts for attachment commands, exact message routing, and display enrichment. */
+
 import type { RunCommand } from "../../../context.js";
 import type { Project } from "../../../domain/index.js";
 import type { MediaAttachmentInfo } from "../../../integrations/openclaw/types.js";
@@ -22,11 +23,13 @@ export type ProcessAttachmentInput = {
   /** Ordered media staged by the caller. */
   mediaAttachments: MediaAttachmentInfo[];
 };
+
 /** Persisted attachment enriched with a validated path for user/worker display. */
 export type AttachmentDisplay = AttachmentMeta & {
   /** Absolute local path after repository safety validation. */
   fullPath: string;
 };
+
 /** Adapter-independent manual attachment operation. */
 export type TaskAttachmentInput = {
   /** Workspace containing the project registry. */
@@ -44,6 +47,7 @@ export type TaskAttachmentInput = {
   /** Runtime-owned provider transport. */
   runCommand: RunCommand;
 };
+
 /** Complete SDK routing identity; missing components are never guessed. */
 export type AttachmentMessageRoute = {
   /** Transport identifier. */
@@ -57,6 +61,7 @@ export type AttachmentMessageRoute = {
   /** Explicit session owner parsed at the SDK boundary. */
   agentId: string;
 };
+
 /** One configured owner's effective workspace. */
 export type AttachmentWorkspace = {
   /** Configured agent identity. */
@@ -64,6 +69,7 @@ export type AttachmentWorkspace = {
   /** SDK-resolved workspace root. */
   workspaceDir: string;
 };
+
 /** Unambiguous project selected for incoming media. */
 export type AttachmentProjectContext = {
   /** Registry workspace owning the project. */

@@ -5,6 +5,7 @@
  * No external dependencies — pure TypeScript.
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { DEFAULT_WORKFLOW, getStateLabels, type WorkflowConfig } from "../domain/index.js";
 import type { CreateIssueInput } from "../integrations/providers/capabilities.js";
 import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../integrations/providers/lookup-errors.js";

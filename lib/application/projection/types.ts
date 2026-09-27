@@ -1,4 +1,5 @@
 /** Contracts for managed-label reconciliation and provider mutations. */
+
 import type { WorkflowConfig } from "../../domain/index.js";
 import type { IssueReader, LabelProjector } from "../../integrations/providers/index.js";
 import type { ProjectionDiff } from "../../projection/index.js";

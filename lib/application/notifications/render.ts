@@ -1,4 +1,5 @@
 /** Renders notification event messages without I/O or delivery side effects. */
+
 import { getCompletionEmoji } from "../../domain/index.js";
 import type { NotifyEvent } from "./types.js";
 

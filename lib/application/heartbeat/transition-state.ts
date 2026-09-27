@@ -1,6 +1,7 @@
 /**
  * transition-state.ts — Keep project-local issue runtime state in sync after heartbeat transitions.
  */
+
 import {
   type Project,
   type WorkflowConfig,

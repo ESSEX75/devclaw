@@ -1,6 +1,7 @@
 /**
  * GitHubProvider — IssueProvider implementation using gh CLI.
  */
+
 import { z } from "zod";
 
 import type { RunCommand } from "../../context.js";

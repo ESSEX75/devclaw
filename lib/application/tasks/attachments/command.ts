@@ -1,4 +1,5 @@
 /** Coordinates manual attachment commands independently of OpenClaw tool formatting. */
+
 import { getAttachmentPath, listAttachments } from "../../../state/index.js";
 import { resolveProject, resolveProvider } from "../../projects/index.js";
 import { ATTACHMENT_ACTION } from "./const.js";

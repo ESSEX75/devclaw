@@ -46,7 +46,7 @@ function issue(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     projectSlug: "devclaw", issueId: 42, provider: ISSUE_PROVIDER.GITHUB,
     workflowState: "done", workflowLabel: "Done", assignedRole: null, assignedLevel: null,
     owner: null, reviewPolicy: null, testPolicy: null, notifyTarget: null, activeWorker: null,
-    integrityStatus: ISSUE_INTEGRITY_STATUS.OK, integrityErrors: [], projectionVersion: 1,
+    integrityStatus: ISSUE_INTEGRITY_STATUS.OK, integrityErrors: [],
     createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
     closedAt: "2026-01-01T00:00:00.000Z", providerMissing: null, pipelineNotification: null,
     ...overrides,

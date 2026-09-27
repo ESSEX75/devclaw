@@ -1,6 +1,7 @@
 /**
  * Executes local-source and provider-source repair under the caller's issue lock.
  */
+
 import type { IssueIntegrityStatus } from "../../../domain/index.js";
 import type { ProviderRateLimitStatus } from "../../../integrations/providers/index.js";
 import { replaceIssueMetadata } from "../../../projection/index.js";

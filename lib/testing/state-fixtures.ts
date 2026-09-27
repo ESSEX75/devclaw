@@ -1,6 +1,7 @@
 /**
  * Seeds validated DevClaw stores through their locked public update boundaries for tests.
  */
+
 import type { IssueArchiveStore, IssueStateStore } from "../state/index.js";
 import { updateIssueArchiveStore, updateIssueStateStore } from "../state/index.js";
 

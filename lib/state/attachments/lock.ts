@@ -1,4 +1,5 @@
 /** Serializes every attachment mutation with one issue-scoped filesystem lock. */
+
 import path from "node:path";
 
 import { withFileLock } from "../persistence/index.js";

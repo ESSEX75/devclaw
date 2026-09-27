@@ -6,6 +6,7 @@
  *
  * Replaces the manual steps of running glab/gh label create + editing projects.json.
  */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 

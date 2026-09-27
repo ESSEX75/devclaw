@@ -1,6 +1,7 @@
 /**
  * Builds deterministic repair plans and validates explicit provider-source imports.
  */
+
 import { createHash } from "node:crypto";
 
 import {
@@ -106,10 +107,6 @@ export function importProviderProjection(context: RepairContext): IssueRuntimeSt
     throw repairFailure(ISSUE_REPAIR_ERROR.ISSUE_IDENTITY_MISMATCH, "Provider metadata does not match the selected project and issue.");
   }
 
-  if (metadata.projectionVersion !== context.local.projectionVersion) {
-    throw repairFailure(ISSUE_REPAIR_ERROR.SOURCE_INCOMPLETE, "Provider metadata uses a different projection schema version.");
-  }
-
   const stateLabels = getStateLabels(context.workflow);
   const matchedStates = labels.filter((label) => stateLabels.includes(label));
 
@@ -135,7 +132,6 @@ export function importProviderProjection(context: RepairContext): IssueRuntimeSt
     reviewPolicy,
     testPolicy,
     notifyTarget,
-    projectionVersion: context.local.projectionVersion,
   };
 }
 
@@ -248,7 +244,7 @@ function diffLocalState(before: IssueRuntimeState, after: IssueRuntimeState): Is
  * @param state - Fresh authoritative runtime record used by this operation.
  */
 export function expectedMetadataFor(state: IssueRuntimeState) {
-  return { projectSlug: state.projectSlug, issueId: state.issueId, projectionVersion: state.projectionVersion };
+  return { projectSlug: state.projectSlug, issueId: state.issueId };
 }
 
 /** Validated role and level imported from one provider label. */

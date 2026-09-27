@@ -1,6 +1,7 @@
 /**
  * Defines the built-in workflow state machine used as the base configuration layer.
  */
+
 import {
   ACTION,
   DEFAULT_ROLES,

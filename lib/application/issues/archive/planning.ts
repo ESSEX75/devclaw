@@ -1,4 +1,5 @@
 /** Pure retention eligibility and bounded policy validation. */
+
 import { type ArchivedIssueRecord, ISSUE_ARCHIVE_REASON } from "../../../domain/index.js";
 import { DURATION_MULTIPLIERS, RETENTION_DURATION_PATTERN } from "./const.js";
 import type { ArchiveExpiryInput } from "./types.js";

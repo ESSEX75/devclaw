@@ -2,6 +2,7 @@
  * Exposes managed-issue repair to authorized project agents.
  * This adapter validates untrusted tool input and delegates repair semantics to the application layer.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import {

@@ -1,6 +1,7 @@
 /**
  * Defines the public contracts owned by the state setup capability.
  */
+
 import type { RoleId } from "../../domain/index.js";
 
 /** Complete packaged template set consumed by setup and runtime fallbacks. */

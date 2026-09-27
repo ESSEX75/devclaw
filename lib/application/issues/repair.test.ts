@@ -45,7 +45,6 @@ function state(projectSlug: string, overrides: Partial<IssueRuntimeState> = {}):
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,
     integrityErrors: ["projection drift"],
-    projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,
@@ -184,7 +183,7 @@ describe("repairManagedIssue", () => {
       h.provider.seedIssue({
         iid: 123,
         labels: ["Doing", "developer:senior", "owner:alice", "review:agent", "test:agent", "notify:telegram:primary", "bug"],
-        description: renderIssueMetadata({ projectSlug: h.project.slug, issueId: 123, projectionVersion: 1 }),
+        description: renderIssueMetadata({ projectSlug: h.project.slug, issueId: 123 }),
       });
       const input = {
         workspaceDir: h.workspaceDir,
@@ -216,7 +215,7 @@ describe("repairManagedIssue", () => {
       h.provider.seedIssue({
         iid: 123,
         labels: ["To Do", "Doing"],
-        description: renderIssueMetadata({ projectSlug: h.project.slug, issueId: 123, projectionVersion: 1 }),
+        description: renderIssueMetadata({ projectSlug: h.project.slug, issueId: 123 }),
       });
 
       await assert.rejects(
@@ -276,7 +275,7 @@ describe("repairManagedIssue", () => {
       h.provider.seedIssue({
         iid: 123,
         labels: ["To Do", "developer:medior", "owner:main", "review:human", "test:skip", "notify:telegram:primary"],
-        description: renderIssueMetadata({ projectSlug: h.project.slug, issueId: 123, projectionVersion: 1 }),
+        description: renderIssueMetadata({ projectSlug: h.project.slug, issueId: 123 }),
       });
       const input = {
         workspaceDir: h.workspaceDir,

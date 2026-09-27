@@ -1,4 +1,5 @@
 /** Archive commands, queries, and retention application contracts. */
+
 import type { ArchivedIssueRecord, IssueArchiveReason, WorkflowConfig } from "../../../domain/index.js";
 
 /** Optional provider snapshot enriching an archive record without making provider data authoritative. */
@@ -42,6 +43,7 @@ export type ArchiveIssueInput = {
   /** Resolved project workflow including custom terminal states. */
   workflow?: WorkflowConfig;
 };
+
 /** Retention windows evaluated at a fixed planning time. */
 export type ArchiveExpiryInput = {
   /** Retention window for ordinarily archived issues. */
@@ -51,6 +53,7 @@ export type ArchiveExpiryInput = {
   /** Fixed millisecond timestamp used to evaluate expiry. */
   now: number;
 };
+
 /** Explicit archive purge request; previews perform no mutation. */
 export type PurgeIssueArchiveInput = {
   /** Configured workspace containing authoritative project storage. */
@@ -70,6 +73,7 @@ export type PurgeIssueArchiveInput = {
   /** Identity linking all checkpoints of this operation. */
   correlationId: string;
 };
+
 /** Bounded periodic retention request. */
 export type MaintainIssueArchiveInput = {
   /** Configured workspace containing authoritative project storage. */
@@ -85,6 +89,7 @@ export type MaintainIssueArchiveInput = {
   /** Non-negative maximum records selected in one bounded pass. */
   maxItems: number;
 };
+
 /** Completed mutations only; skipped stale records are absent. */
 export type ArchiveMaintenanceResult = {
   /** Issue IDs whose attachment cleanup completed. */
@@ -92,6 +97,7 @@ export type ArchiveMaintenanceResult = {
   /** Issue IDs removed only after attachment cleanup completed. */
   recordsPurged: number[];
 };
+
 /** Planned identities in preview, successfully removed identities on apply. */
 export type ArchivePurgeResult = {
   /** Whether this invocation previews the operation without applying it. */
@@ -151,6 +157,7 @@ export type ArchiveRecoveryResult = {
   /** Selected issues for which no requested mutation was applied. */
   skipped: SkippedArchiveIssue[];
 };
+
 /** One recovery candidate blocked by a fresh eligibility check. */
 type SkippedArchiveIssue = {
   /** Provider-local issue identifier. */

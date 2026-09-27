@@ -1,6 +1,7 @@
 /**
  * Persists creation checkpoints and validates durable status transitions.
  */
+
 import { ISSUE_CREATION_STATUS, type IssueCreationStatus } from "../../../domain/index.js";
 import type { IssueCreationFailure, IssueCreationOperation } from "../../../state/index.js";
 import { updateIssueCreationStore } from "../../../state/index.js";

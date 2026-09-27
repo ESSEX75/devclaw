@@ -1,4 +1,5 @@
 /** Registers SDK media capture and passes complete normalized routing to application orchestration. */
+
 import { resolveProvider } from "../../application/projects/index.js";
 import { extractIssueReferences, processAttachmentMessage, resolveAttachmentProject } from "../../application/tasks/index.js";
 import { resolveConfiguredAgentWorkspace } from "./agent-workspace.js";

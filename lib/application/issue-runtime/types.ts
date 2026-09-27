@@ -1,6 +1,7 @@
 /**
  * Defines application contracts for runtime initialization, authoritative updates, and read-only resolution.
  */
+
 import type {
   ActiveIssueWorker, IssueIntegrityStatus, IssueProviderId, IssueRuntimeState, NotifyBindingRef,
   Project, ReviewPolicy, TestPolicy, WorkflowConfig, WorkflowStateConfig,

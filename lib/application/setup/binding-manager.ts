@@ -1,4 +1,5 @@
 /** Plans exact channel routes without writes and applies bindings through focused mutations. */
+
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
 import { CONFIG_RELOAD_MODE, ROUTE_PEER_KIND } from "./const.js";

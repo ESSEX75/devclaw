@@ -1,4 +1,5 @@
 /** Executes and validates the optional OpenClaw scopes CLI; owns no approval policy. */
+
 import type { RunCommand } from "../../../context.js";
 import { OPENCLAW_EXECUTABLE, SCOPE_CLI, SCOPE_COMMAND, SCOPE_COMMAND_TIMEOUT_MS, UNSUPPORTED_SCOPE_CLI } from "./const.js";
 import { scopeCommandSchema } from "./schema.js";

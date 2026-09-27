@@ -15,7 +15,7 @@ it("preserves metadata and creation marker on body/title edits and repeated requ
     const marker = renderIssueCreationMarker("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
     const issue = await harness.provider.createIssue({
       title: "Before", body: replaceIssueMetadata(`Before body\n${marker}`, {
-        projectSlug: harness.project.slug, issueId: 1, projectionVersion: 1,
+        projectSlug: harness.project.slug, issueId: 1,
       }), labels: ["Planning"], assignees: []
     });
     await writeIssueRuntimeState({ workspaceDir: harness.workspaceDir, project: harness.project, issue, providerType: ISSUE_PROVIDER.GITHUB, workflow: DEFAULT_WORKFLOW });

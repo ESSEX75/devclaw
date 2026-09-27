@@ -1,4 +1,5 @@
 /** Typed approval failures owned by setup orchestration. */
+
 import type { ScopeApprovalRejectedDetails,ScopeApprovalRequiredDetails } from "./types.js";
 
 /** Stops setup until the operator approves the identified gateway request. */

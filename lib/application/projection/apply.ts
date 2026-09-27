@@ -1,4 +1,5 @@
 /** Applies planned provider label changes without reading or writing local state. */
+
 import {
   DEFAULT_ROLE_LABEL_COLOR,
   getLabelColors,

@@ -1,6 +1,7 @@
 /**
  * projection-summary.ts — Shared task output enrichment for local state and provider projection.
  */
+
 import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState } from "../../../domain/index.js";
 import type { IssueReader } from "../../../integrations/providers/capabilities.js";
 import type { Issue } from "../../../integrations/providers/provider.js";

@@ -40,7 +40,6 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - Terminal notification reservations use a bounded attempt lease: delivered events remain deduplicated, while an unconfirmed attempt becomes reservable again after the lease expires.
 - Stores accept only their current strict schema. Destructive reset is an explicit
   operator action and must never run automatically during startup or reads.
-- Stores accept only the current strict schema at the filesystem boundary; no legacy normalization or migration runs during reads.
 
 ## Attachments
 

@@ -1,6 +1,7 @@
 /**
  * projection/diff.ts — Deterministic managed label diffs.
  */
+
 import { expectedManagedLabels, isManagedLabel } from "./labels.js";
 import type { ProjectionDiff, ProjectionInput } from "./types.js";
 

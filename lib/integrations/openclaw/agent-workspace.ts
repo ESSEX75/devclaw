@@ -1,4 +1,5 @@
 /** Resolves effective agent workspaces through the installed OpenClaw SDK contract. */
+
 import type { AgentWorkspaceConfig } from "./types.js";
 
 /** Resolve explicit and implicit workspaces without duplicating SDK fallback rules.

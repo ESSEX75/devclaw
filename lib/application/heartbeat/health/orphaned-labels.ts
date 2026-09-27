@@ -1,4 +1,5 @@
 /** Diagnoses orphan provider labels and delegates explicit repair to managed projection. */
+
 import type { WorkflowConfig } from "../../../domain/index.js";
 import type { Project } from "../../../domain/index.js";
 import {

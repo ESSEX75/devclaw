@@ -1,6 +1,7 @@
 /**
  * Builds provider-visible workflow labels from validated domain configuration.
  */
+
 import {
   DEFAULT_ROLE_LABEL_COLOR,
   DEFAULT_ROLES,

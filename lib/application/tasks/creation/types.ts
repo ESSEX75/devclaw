@@ -1,6 +1,7 @@
 /**
  * Defines inputs and results for the durable managed-task creation capability.
  */
+
 import type { IssueProviderId, NotifyBindingRef, Project, WorkflowConfig } from "../../../domain/index.js";
 import type { Issue, IssueReader, IssueWriter, LabelProjector, ProviderRateLimitReader } from "../../../integrations/providers/index.js";
 import type { IssueCreationFailure } from "../../../state/index.js";
@@ -84,6 +85,7 @@ export type CreateManagedTaskInput = {
   /** Optional level override for the initial state. */
   assignedLevel?: string | null;
 };
+
 /** Inputs for a bounded heartbeat reconciliation pass. */
 export type ReconcileManagedTaskCreationsInput = Pick<
   CreateManagedTaskInput,

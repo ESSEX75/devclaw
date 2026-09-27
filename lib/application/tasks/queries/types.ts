@@ -1,4 +1,5 @@
 /** Queries task contracts, shared by the owning capability. */
+
 import type { IssueRuntimeState, WorkerDeliveryState, WorkflowConfig } from "../../../domain/index.js";
 import type { IssueReader } from "../../../integrations/providers/index.js";
 import type { IssueCreationFailure, IssueCreationOperation } from "../../../state/index.js";

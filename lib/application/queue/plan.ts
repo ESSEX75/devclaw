@@ -1,4 +1,5 @@
 /** Plans local policy gating, role level, and free slot without I/O. */
+
 import { findFreeSlot } from "../../domain/index.js";
 import { resolveRoleLevel } from "../tasks/index.js";
 import type { QueuePickupDecision, QueuePickupPlanInput } from "./types.js";

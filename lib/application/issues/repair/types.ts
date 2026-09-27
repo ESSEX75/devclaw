@@ -1,6 +1,7 @@
 /**
  * Defines repair command inputs, snapshots, plans, and stable result contracts.
  */
+
 import type { RunCommand } from "../../../context.js";
 import type {
   IssueIntegrityStatus,
@@ -140,6 +141,7 @@ type RepairMetadataDiff = {
   /** Planned metadata mutation. */
   action: ValueOf<typeof REPAIR_METADATA_ACTION>;
 };
+
 /** Nonfatal diagnostic about repair preflight. */
 type RepairWarning = {
   /** Stable diagnostic or failure classification. */
@@ -147,6 +149,7 @@ type RepairWarning = {
   /** Operator-readable failure or warning detail. */
   message: string;
 };
+
 /** Classified failure and safe retry guidance. */
 type RepairErrorDetail = {
   /** Stable diagnostic or failure classification. */
@@ -158,6 +161,7 @@ type RepairErrorDetail = {
   /** Earliest provider-suggested retry timestamp. */
   retryAfter?: string;
 };
+
 /** Adapter-supplied origin used solely for audit attribution. */
 type RepairChannelContext = {
   /** Originating conversation identifier for audit. */

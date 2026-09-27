@@ -1,6 +1,7 @@
 /**
  * Coordinates managed issue repair while keeping planning separate from effects.
  */
+
 import { randomUUID } from "node:crypto";
 
 import { findSlotByIssue, ISSUE_INTEGRITY_STATUS } from "../../../domain/index.js";

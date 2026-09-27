@@ -1,4 +1,5 @@
 /** Registers archive status/purge and confirmed provider issue deletion commands. */
+
 import type { Command } from "commander";
 
 import { deleteManagedIssue, getIssueArchiveStatus, purgeIssueArchive } from "../../application/issues/index.js";

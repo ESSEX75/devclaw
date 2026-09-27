@@ -1,6 +1,7 @@
 /**
  * projection.ts — Heartbeat projection integrity pass.
  */
+
 import { log as auditLog } from "../../audit.js";
 import type { Project } from "../../domain/index.js";
 import { ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
@@ -128,7 +129,6 @@ export async function projectionIntegrityPass(opts: {
     const expectedMetadata = {
       projectSlug: project.slug,
       issueId: state.issueId,
-      projectionVersion: state.projectionVersion,
     };
 
     if (!metadataMatches(metadata, expectedMetadata)) {

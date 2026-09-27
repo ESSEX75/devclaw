@@ -1,4 +1,5 @@
 /** Resolves an issue's stored notification binding against its owning project. */
+
 import { type NotificationEndpoint, type Project, resolveNotifyBinding } from "../../domain/index.js";
 import { readIssueStateStore } from "../../state/index.js";
 

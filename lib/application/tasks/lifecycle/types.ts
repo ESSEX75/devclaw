@@ -1,4 +1,5 @@
 /** Lifecycle task contracts, shared by the owning capability. */
+
 import type { RunCommand } from "../../../context.js";
 import type { IssueProviderId, IssueRuntimeState, Project, WorkflowConfig, WorkflowStateConfig } from "../../../domain/index.js";
 import { STATE_TYPE } from "../../../domain/index.js";

@@ -1,6 +1,7 @@
 /**
  * Records repair lifecycle events with stable issue and correlation identities.
  */
+
 import { log as auditLog } from "../../../audit.js";
 import type { IssueRepairResult, RepairManagedIssueInput } from "./types.js";
 

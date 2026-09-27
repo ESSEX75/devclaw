@@ -1,4 +1,5 @@
 /** Resolves DevClaw tool authorization from validated local project ownership. */
+
 import { resolveConfiguredAgentWorkspace } from "../../integrations/openclaw/agent-workspace.js";
 import type { AgentWorkspaceConfig } from "../../integrations/openclaw/types.js";
 import { readOptionalProjects } from "../../state/index.js";

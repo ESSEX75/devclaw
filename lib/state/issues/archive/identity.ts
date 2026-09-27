@@ -1,6 +1,7 @@
 /**
  * Defines stable keys for records in the managed-issue archive store.
  */
+
 import type { ArchivedIssueRecord } from "../../../domain/index.js";
 
 /**

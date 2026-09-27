@@ -2,6 +2,7 @@
  * Exposes the supported public API for DevClaw's pure domain semantics.
  * Consumers outside `lib/domain` import domain-owned contracts through this entrypoint.
  */
+
 export type {
   ActiveIssueWorker,
   ArchivedIssueRecord,

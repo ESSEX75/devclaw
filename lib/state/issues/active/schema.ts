@@ -1,6 +1,7 @@
 /**
  * Validates the only supported active managed-issue store schema.
  */
+
 import { z } from "zod";
 
 import {
@@ -31,7 +32,7 @@ const RuntimeIssueSchema = z.object({
     }).strict().optional(),
   }).strict().nullable(),
   integrityStatus: z.enum(ISSUE_INTEGRITY_STATUS), integrityErrors: z.array(z.string()),
-  projectionVersion: z.number().int().positive(), createdAt: z.string(), updatedAt: z.string(),
+  createdAt: z.string(), updatedAt: z.string(),
   closedAt: z.string().nullable(),
   providerMissing: z.object({
     confirmations: z.number().int().positive(), firstConfirmedAt: z.string(), lastConfirmedAt: z.string(),

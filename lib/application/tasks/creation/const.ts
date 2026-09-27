@@ -1,4 +1,5 @@
 /** Names of durable checkpoints in the managed-task creation saga. */
+
 import { ISSUE_CREATION_STATUS, ISSUE_INTEGRITY_STATUS } from "../../../domain/index.js";
 
 /** Durable checkpoints persisted in each creation operation. */
@@ -40,7 +41,9 @@ export const CREATION_RESULT_STATUS = {
   FAILED: "failed",
   MANUAL_REPAIR_REQUIRED: ISSUE_CREATION_STATUS.MANUAL_REPAIR_REQUIRED,
 } as const;
+
 /** Projection readiness categories exposed by the creation result. */
 export const CREATION_RESULT_INTEGRITY = { OK: ISSUE_INTEGRITY_STATUS.OK, PENDING: "pending", ERROR: "error" } as const;
+
 /** Digest used to bind idempotency keys to immutable creation input. */
 export const CREATION_PAYLOAD_HASH = "sha256";

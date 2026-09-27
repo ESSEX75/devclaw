@@ -1,4 +1,5 @@
 /** Exposes notification delivery, routing, and terminal retry operations. */
+
 export { getNotificationConfig, notify } from "./notify.js";
 export { renderNotificationMessage } from "./render.js";
 export { resolveIssueNotificationEndpoint } from "./resolve-endpoint.js";

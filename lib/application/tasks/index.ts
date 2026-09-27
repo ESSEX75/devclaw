@@ -1,4 +1,5 @@
 /** Supported task creation, lifecycle, query, attachment, and worker-context APIs. */
+
 export { extractIssueReferences, formatAttachmentsForTask, manageTaskAttachments, processAttachmentMessage, resolveAttachmentProject } from "./attachments/index.js";
 export { buildAnnouncement, buildConflictFixMessage, buildTaskMessage, formatSessionLabel } from "./context/index.js";
 export { createManagedTaskIssue, reconcileManagedTaskCreations } from "./creation/index.js";

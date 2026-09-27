@@ -1,4 +1,5 @@
 /** Selects onboarding scenarios from read-only workspace and plugin configuration evidence. */
+
 import { readWorkspaceAgentInstructions } from "../../state/index.js";
 import { ONBOARDING_MODE, WORKSPACE_INSTRUCTION_MARKERS } from "./const.js";
 import { buildOnboardToolContext, buildReconfigContext } from "./onboarding-instructions.js";

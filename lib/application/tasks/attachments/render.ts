@@ -1,4 +1,5 @@
 /** Formats attachment comments and task context without filesystem or provider I/O. */
+
 import type { AttachmentMeta } from "../../../state/index.js";
 import { ATTACHMENT_SIZE_UNIT, IMAGE_MIME_PREFIX } from "./const.js";
 import type { AttachmentDisplay } from "./types.js";

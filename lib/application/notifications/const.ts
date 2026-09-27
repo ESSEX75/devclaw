@@ -1,4 +1,5 @@
 /** Owns the supported notification event identifiers used at the config boundary. */
+
 import type { NotifyEvent } from "./types.js";
 
 /** Event toggles accepted from plugin configuration. */

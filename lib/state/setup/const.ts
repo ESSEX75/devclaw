@@ -1,6 +1,7 @@
 /**
  * Defines filesystem names and packaged-template paths shared by the state setup capability.
  */
+
 import type { RoleId } from "../../domain/index.js";
 
 /** Name of the managed role-prompt directory. */

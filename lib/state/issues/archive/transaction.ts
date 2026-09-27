@@ -1,6 +1,7 @@
 /**
  * Coordinates crash-safe transfers from active issue state into the archive.
  */
+
 import type { ArchivedIssueRecord, IssueRuntimeState } from "../../../domain/index.js";
 import {
   emptyIssueStateStore,

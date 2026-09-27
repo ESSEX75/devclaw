@@ -63,6 +63,7 @@ export type PolicyChangePlan = {
 
 /** Canonical policy snapshot copied from authoritative issue state. */
 type PolicySnapshot = Pick<IssueRuntimeState, "reviewPolicy" | "testPolicy">;
+
 /** One selected issue for which no policy mutation was applied. */
 type SkippedPolicyIssue = {
   /** Provider-local issue identifier. */

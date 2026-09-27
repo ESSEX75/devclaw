@@ -1,4 +1,5 @@
 /** Diagnoses missing state labels without initializing provider-only issues. */
+
 import type { WorkflowConfig } from "../../../domain/index.js";
 import type { Project } from "../../../domain/index.js";
 import {

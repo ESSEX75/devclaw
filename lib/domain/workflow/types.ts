@@ -1,6 +1,7 @@
 /**
  * workflow/types.ts — Domain types for workflow statecharts, transitions, and role definitions.
  */
+
 import type { ValueOf } from "../../types.js";
 import {
   ACTION,

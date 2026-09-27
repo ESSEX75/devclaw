@@ -1,4 +1,5 @@
 /** Adapts terminal setup options to the shared application command. */
+
 import type { Command } from "commander";
 
 import { runSetup, type SetupOpts } from "../../application/setup/index.js";

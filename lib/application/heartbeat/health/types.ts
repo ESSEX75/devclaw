@@ -1,4 +1,5 @@
 /** Findings and explicit action contracts for heartbeat health inspection. */
+
 import type { RunCommand } from "../../../context.js";
 import type { Project, WorkflowConfig } from "../../../domain/index.js";
 import type { IssueProvider } from "../../../integrations/providers/provider.js";

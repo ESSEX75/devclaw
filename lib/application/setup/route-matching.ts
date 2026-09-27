@@ -1,4 +1,5 @@
 /** Matches exact group routes using OpenClaw's group/channel peer equivalence. */
+
 import { ROUTE_PEER_KIND } from "./const.js";
 import type { RouteConfig } from "./types.js";
 

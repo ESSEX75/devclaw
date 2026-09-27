@@ -26,107 +26,85 @@ the capability is not part of a supported public API. Avoid importing a
 subpackage's own entrypoint from that subpackage. Do not create an application
 root barrel: each use case has a specific owner.
 
-Use existing narrow external contracts where they already match a consumer:
-provider issue reads use the integrations `IssueReader` capability, and
-notification delivery uses the application `NotificationRuntime` surface.
-Create additional capability types only when a concrete caller needs them;
-keep provider error classification and session transport details in integrations.
+## Dependencies and boundaries
 
-Application modules coordinate domain decisions, persisted state, and integration
-capabilities. They should contain orchestration logic such as queue ticks,
-heartbeat passes, task lifecycle operations, worker dispatch, setup flows, and
-review handling.
+- Coordinate domain decisions, state persistence, and integration capabilities.
+- Use `lib/state/index.ts` for storage and focused integration APIs for provider
+  and session operations. Pure provider projection belongs to `lib/projection`.
+- Reuse narrow contracts such as `IssueReader` and `NotificationRuntime` when they
+  fit the caller; introduce a new capability type only for a concrete consumer.
+- Do not import tool context types or CLI adapters, parse CLI arguments, or format
+  OpenClaw tool responses here.
+- Managed runtime state is authoritative. Provider labels are imported only by
+  explicit initialization or repair. State never interprets provider projections.
+- Tools and CLI call shared application commands rather than reproduce lifecycle
+  decisions. Use `npm run arch:check:strict` after changing layer boundaries.
 
-The `issue-runtime` application capability interprets provider label snapshots during explicit
-initialization and repair flows, then pass complete runtime records to state
-persistence. The state layer never interprets provider projections.
+## Detailed contracts
 
-Managed issue creation sagas, archival, retention, confirmed provider deletion, repair, and policy
-migration are application use cases. Adapters in `lib/tools` and `lib/cli` must
-call these shared operations instead of reproducing lifecycle decisions. Repair
-owns snapshot comparison, plan-token validation, issue locking, minimal mutation,
-and post-apply integrity verification.
+Keep operation-specific guarantees with their owning capability:
 
-`issues/archive`, `issues/deletion`, and `issues/policy` own archive recovery and
-retention, confirmed deletion, and policy migration respectively. Archive retention
-uses a state-owned conditional transaction; record expiry includes attachment
-cleanup before removal. Deletion blocks unconfirmed notification outbox entries
-before contacting the provider.
-The `issues/repair` capability loads fresh local/provider snapshots, builds a
-deterministic plan, validates its token under the issue lock, applies the chosen
-source strategy, and verifies the result before clearing integrity errors.
+- [Issue runtime](issue-runtime/README.md): initialization, update semantics, and
+  interpretation of provider observations.
+- [Issue administration](issues/README.md): archival, retention, and deletion;
+  [repair](issues/repair/README.md): snapshot-bound plans and verified application.
+- [Tasks](tasks/README.md): lifecycle and attachment orchestration;
+  [creation](tasks/creation/README.md): durable provider creation and recovery.
+- [Setup](setup/README.md): ownership discovery, permissions, approvals, and routes.
+- [Workers](workers/README.md): slot ownership, delivery uncertainty, and explicit
+  operator recovery.
 
-Creation is durable and idempotent: the application verifies provider read-back
-before publishing runtime state, and heartbeat resumes safe partial operations.
-Ambiguous provider outcomes require manual repair rather than a blind retry.
-The `tasks/creation` capability owns the command, operation runner, reconciliation,
-durable checkpoint transitions, provider failure mapping, result formatting, and
-creation audit. `issue-runtime` builds the complete initial runtime draft used
-for projection and persists the authoritative record only after verification.
+These documents own the detailed contracts; this README does not repeat them.
+A subdirectory does not need a README merely because it has an `index.ts`.
 
-`tasks/lifecycle`, `tasks/queries`, `tasks/attachments`, and `tasks/context` own
-locked task commands, read-only views, media orchestration, and worker rendering.
-Their APIs are exposed through `tasks/index.ts` to other capabilities and adapters.
-Attachment storage belongs to state; SDK media hook registration belongs to integrations.
+## Doctor
 
-Terminal pipeline notifications use active issue state as a durable outbox. An
-unconfirmed delivery keeps the terminal issue active; heartbeat retries expired
-attempt leases and archives the issue only after delivery is confirmed.
-Pipeline completion resolves a pure workflow transition plan before provider
-effects. Agent completion checks current local and provider state; heartbeat
-review, review skip, and test skip recheck local state under the issue lock before
-their provider actions. Their shared transition commit applies the provider label,
-persists local runtime truth, then reconciles projection. Agent completion releases
-the worker before sending completion notifications. Terminal notification
-reservation and confirmation occur after the local commit and projection; an
-unconfirmed attempt remains eligible for lease-based retry.
-The `notifications` capability renders messages without I/O, validates exact
-project routes, delivers through runtime or command fallback, and audits typed
-outcomes. The `projection` coordinator locks each issue, reads fresh local state,
-applies only managed-label changes, verifies provider read-back, and records
-integrity without treating provider labels as authoritative state.
-The `queue` capability filters and plans pickups from local runtime state, then
-rechecks candidates after acquiring each issue lock. The `workers` capability
-plans session identity, reserves a concrete slot, submits the turn, and commits
-active runtime state. Confirmed delivery rejection releases the slot; uncertain
-gateway outcomes retain ownership for inspection without a blind resend.
-Unresolved worker delivery is durable in the slot and issue runtime record. Heartbeat
-reconciles gateway evidence, avoids automatic worker requeue for these records, and
-marks stale uncertainty for operator attention in task status and audit logs.
+Doctor reads configuration, ownership, routes, and archive counters without writes,
+commands, initialization, or repair. Setup owns exact-route validation and tool
+policy; doctor owns diagnostic severity. A failed project inspection produces an
+error finding and no fabricated counter row; healthy projects retain their results.
+Root configuration or registry failures reject inspection. `routing.ok` covers
+route/tool checks only; archive errors can still fail the overall report. Retention
+ordering findings do not promise cleanup. Ownership discovery spans SDK-resolved
+workspaces; corrupt registries cannot establish tool isolation.
 
-Heartbeat runs named project passes sequentially and retains findings, planned
-actions, applied actions, and errors in its tick report. A failed prerequisite
-stops later passes for that project; other projects remain isolated. Health
-diagnosis performs reads only, including no audit writes. Explicit remediation
-rechecks the slot identity and managed issue state under the issue lock before
-calling transition, projection, or delivery operations. Provider lookup failures
-are not evidence of issue deletion. Provider-only issues remain diagnostic findings
-until an explicit initialization or repair operation creates managed state.
+## Queue
 
-## Allowed Dependencies
+Candidates come from healthy, unowned local queued state in stable issue order.
+Provider reads supply message context, never authoritative workflow selection.
+Creation readiness, issue eligibility, and project slots are rechecked after taking
+an issue lock. Workers own the atomic slot reservation and delivery; queue does not
+send session messages or persist ownership. Dry-run returns a candidate/slot plan
+without effects.
 
-- `lib/domain/*` for pure workflow and task semantics.
-- `lib/state/index.ts` for project, config, setup, and issue runtime persistence APIs.
-- `lib/integrations/*` through focused adapter functions or capability types.
-- `lib/projection/*` when a use case needs provider-facing label/body projection.
+## Projection
 
-## Boundary Rules
+Application projection locks the issue, reads fresh local/provider snapshots, calls
+pure diff logic, mutates managed labels, verifies read-back, and records integrity
+and audit. Unmanaged labels are preserved. Provider mutation or read-back failures
+leave `integrity_error`; a verified pass currently clears it. Callers holding the
+issue lock use `reconcileManagedLabelsLocked` to avoid nested locking.
 
-- Do not import OpenClaw tool context types here.
-- Do not import CLI command adapters from `lib/cli/commands/*`.
-- Do not format OpenClaw tool responses here; keep that in `lib/tools`.
-- Do not parse command-line arguments here; keep that in `lib/cli`.
-- Heartbeat may initialize missing workspace files but never refresh or overwrite system instructions.
-- Explicit setup orchestration owns system-instruction refresh and reset policy.
+## Pipeline and notifications
 
-Use `npm run arch:check:strict` after changing this layer.
+Pipeline resolves a pure transition plan before effects. Completion, review, and
+skip paths recheck state under the issue lock, apply provider workflow labels,
+persist local truth, then reconcile projection. Completion releases the worker
+before notifications. Notification routes use the exact stored project binding;
+unknown bindings or invalid routes never redirect delivery. Rendering has no I/O.
+A successful runtime send never invokes command fallback; audit records outcomes.
 
-Setup validates target, exact route, and configured role/level overrides before effects.
-CLI and tools share `runSetup`, including scope preflight. Preview performs no writes
-or command calls. Ordinary setup creates missing files and patches only explicit
-models; refresh/reset/eject are mutually exclusive standalone operations. Doctor
-only reads state. Configuration reset/diff and onboarding selection belong here.
+Terminal issue state is a durable notification outbox. Reservation and confirmation
+follow the local commit and projection. Unconfirmed delivery keeps the issue active;
+heartbeat retries expired state-owned attempt leases and archives only after
+confirmation.
 
-Setup resolves tool authorization from the selected agent and validated project owners
-across SDK-resolved workspaces. Pure tool policy is separate from configuration mutation.
-Scope CLI parsing and execution belong to integrations; setup owns approval decisions.
+## Heartbeat
+
+Project passes run sequentially and retain findings, plans, applied actions, and
+errors. A failed prerequisite stops subsequent passes for that project; others
+remain isolated. Diagnosis performs reads only, including no audit writes.
+Remediation rechecks slot identity and managed state under the issue lock.
+Provider lookup failures never prove deletion. Provider-only issues remain
+observations until explicit initialization or repair. Heartbeat may create missing
+workspace files, but explicit setup owns instruction refresh and reset.

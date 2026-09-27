@@ -1,4 +1,5 @@
 /** Couples attachment cleanup with a conditional archive mutation under the shared issue-store lock. */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 

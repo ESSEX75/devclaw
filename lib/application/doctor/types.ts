@@ -1,4 +1,5 @@
 /** Read-only doctor diagnostic contracts. */
+
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { ValueOf } from "../../types.js";
