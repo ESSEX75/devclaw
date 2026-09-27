@@ -55,3 +55,6 @@ reasons distinguish policy blocks from uncertain external effects.
 
 A completed issue may retain the exact worker identity awaiting project-slot
 release. This is an ownership guard until application recovery finishes the release.
+
+Worker delivery markers carry a submission ID distinct from reusable session
+identity. Domain owns operator decision values; state owns resumable decision records.

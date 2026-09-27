@@ -41,6 +41,7 @@ const SlotStateSchema = z.object({
   name: z.string().optional(),
   lastIssueId: SlotIssueIdSchema.nullable().optional(),
   delivery: z.object({
+    operationId: z.string().uuid().optional(),
     status: z.enum(WORKER_DELIVERY_STATUS), recordedAt: z.string(), reason: z.string(),
     checkedAt: z.string().optional(), sessionObserved: z.boolean().nullable().optional(),
   }).strict().optional(),

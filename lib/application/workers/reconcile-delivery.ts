@@ -4,8 +4,9 @@ import { log as auditLog } from "../../audit.js";
 import type { WorkerDeliveryState } from "../../domain/index.js";
 import { WORKER_DELIVERY_STATUS } from "../../domain/index.js";
 import { fetchGatewaySessions } from "../../integrations/openclaw/gateway-sessions.js";
-import { getProject, getRoleWorker, readIssueStateStore, readProjects, updateSlot } from "../../state/index.js";
-import { DELIVERY_ATTENTION_AFTER_MS } from "./const.js";
+import { getProject, getRoleWorker, readIssueStateStore, readProjects, readWorkerDeliveryResolution, updateSlot } from "../../state/index.js";
+import { WORKER_AUDIT_EVENT } from "./const.js";
+import { DELIVERY_ATTENTION_AFTER_MS, DELIVERY_INSPECTION_TIMEOUT_MS } from "./const.js";
 import { recordIssueDelivery } from "./state.js";
 import type { UnknownDispatchInput } from "./types.js";
 
@@ -26,8 +27,11 @@ export async function reconcileUncertainDispatch(input: UnknownDispatchInput): P
   const marker = (slotOwned ? slot?.delivery : undefined)
     ?? (runtimeOwned ? state?.activeWorker?.delivery : undefined);
 
-  if (!marker) return;
-  const sessions = input.sessions !== undefined ? input.sessions : await fetchGatewaySessions(5_000, runCommand);
+  if (!marker || (input.deliveryId !== undefined && marker.operationId !== input.deliveryId)) return;
+  const resolution = await readWorkerDeliveryResolution(workspaceDir, projectSlug, issueId);
+
+  if (resolution && resolution.deliveryId === marker.operationId) return;
+  const sessions = input.sessions !== undefined ? input.sessions : await fetchGatewaySessions(DELIVERY_INSPECTION_TIMEOUT_MS, runCommand);
   const sessionObserved = sessions ? sessions.has(sessionKey) : null;
   const elapsed = Date.now() - Date.parse(marker.recordedAt);
   const observedSession = sessions?.get(sessionKey);
@@ -42,6 +46,7 @@ export async function reconcileUncertainDispatch(input: UnknownDispatchInput): P
     : input.outcomeUnknown || marker.status === WORKER_DELIVERY_STATUS.SUBMITTING
       ? WORKER_DELIVERY_STATUS.UNKNOWN : marker.status;
   const updated: WorkerDeliveryState = {
+    operationId: marker.operationId,
     status,
     recordedAt: marker.recordedAt,
     reason,
@@ -51,24 +56,25 @@ export async function reconcileUncertainDispatch(input: UnknownDispatchInput): P
 
   if (slotOwned) {
     await updateSlot(workspaceDir, projectSlug, role, level, slotIndex, (current) => {
-      if (!current.active || current.issueId !== issueId || current.sessionKey !== sessionKey) return current;
+      if (!current.active || current.issueId !== issueId || current.sessionKey !== sessionKey || current.delivery?.operationId !== marker.operationId
+        || current.delivery?.recordedAt !== marker.recordedAt) return current;
 
       return { ...current, delivery: updated };
     });
   }
 
   if (runtimeOwned) {
-    await recordIssueDelivery(workspaceDir, projectSlug, issueId, sessionKey, updated);
+    await recordIssueDelivery(workspaceDir, projectSlug, issueId, sessionKey, marker.operationId, updated);
   }
 
   if (escalate) {
-    await auditLog(workspaceDir, "dispatch_delivery_needs_attention", {
+    await auditLog(workspaceDir, WORKER_AUDIT_EVENT.DELIVERY_ATTENTION, {
       projectSlug, issueId, role, level, slotIndex, sessionKey,
       reason, slotOwned, runtimeOwned, sessionObserved,
       action: "Inspect the worker run and local issue/slot state before any manual retry.",
     });
   } else if (input.outcomeUnknown || marker.status === WORKER_DELIVERY_STATUS.SUBMITTING || !marker.checkedAt) {
-    await auditLog(workspaceDir, "dispatch_delivery_unknown", {
+    await auditLog(workspaceDir, WORKER_AUDIT_EVENT.DELIVERY_UNKNOWN, {
       projectSlug, issueId, role, level, slotIndex, sessionKey,
       reason, slotOwned, runtimeOwned, sessionObserved,
     });

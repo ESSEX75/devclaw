@@ -13,7 +13,7 @@ import { getRoleWorker, updateIssueRuntimeRecord, updateSlot } from "../../state
 import { readIssueStateStore } from "../../state/index.js";
 import { createTestHarness } from "../../testing/index.js";
 import { dispatchTask } from "./dispatch-task.js";
-import { WORKER_DELIVERY_RESOLUTION } from "./const.js";
+import { WORKER_DELIVERY_RESOLUTION } from "../../domain/index.js";
 import { resolveWorkerDelivery } from "./resolve-delivery.js";
 
 /** Build a dispatch input for a seeded issue in the temporary project. */
@@ -321,7 +321,7 @@ describe("worker delivery outcome", () => {
       const dispatched = await dispatchTask(dispatchInput(h, 71, runCommand));
       const input = {
         workspaceDir: h.workspaceDir, projectSlug: h.project.slug, issueId: 71,
-        sessionKey: dispatched.sessionKey, decision: WORKER_DELIVERY_RESOLUTION.CONFIRMED_NOT_STARTED,
+        sessionKey: dispatched.sessionKey, deliveryId: dispatched.deliveryId, decision: WORKER_DELIVERY_RESOLUTION.CONFIRMED_NOT_STARTED,
         reason: "Operator verified no run for this issue", apply: false,
         workflow: h.workflow, provider: h.provider,
       };
@@ -349,7 +349,7 @@ describe("worker delivery outcome", () => {
       const dispatched = await dispatchTask(dispatchInput(h, 72, runCommand));
       const input = {
         workspaceDir: h.workspaceDir, projectSlug: h.project.slug, issueId: 72,
-        sessionKey: dispatched.sessionKey, reason: "Operator checked the gateway run", apply: true,
+        sessionKey: dispatched.sessionKey, deliveryId: dispatched.deliveryId, reason: "Operator checked the gateway run", apply: true,
         workflow: h.workflow, provider: h.provider,
       };
 
@@ -374,7 +374,7 @@ describe("worker delivery outcome", () => {
 
       await resolveWorkerDelivery({
         workspaceDir: h.workspaceDir, projectSlug: h.project.slug, issueId: 73,
-        sessionKey: dispatched.sessionKey, reason: "Operator verified no run for this issue", apply: true,
+        sessionKey: dispatched.sessionKey, deliveryId: dispatched.deliveryId, reason: "Operator verified no run for this issue", apply: true,
         workflow: h.workflow, provider: h.provider,
         decision: WORKER_DELIVERY_RESOLUTION.CONFIRMED_NOT_STARTED,
       });

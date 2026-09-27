@@ -66,3 +66,5 @@ export {
 export type { DefaultsScope } from "./setup/types.js";
 export { writeWorkspaceModels } from "./setup/workflow-models.js";
 export { readWorkflowDocuments, readWorkspaceAgentInstructions, resetWorkspaceConfiguration } from "./setup/workspace-config.js";
+export type { WorkerDeliveryResolution } from "./workers/index.js";
+export { readWorkerDeliveryResolution, writeWorkerDeliveryResolution } from "./workers/index.js";

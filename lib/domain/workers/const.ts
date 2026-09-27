@@ -11,3 +11,11 @@ export const WORKER_DELIVERY_STATUS = {
   /** The unresolved turn has exceeded the investigation grace period. */
   NEEDS_ATTENTION: "needs_attention",
 } as const;
+
+/** Explicit operator conclusions accepted by worker-delivery recovery. */
+export const WORKER_DELIVERY_RESOLUTION = {
+  /** The operator verified this worker turn started. */
+  CONFIRMED_STARTED: "confirmed-started",
+  /** The operator verified this worker turn did not start. */
+  CONFIRMED_NOT_STARTED: "confirmed-not-started",
+} as const;

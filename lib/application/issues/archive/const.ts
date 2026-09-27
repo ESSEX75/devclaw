@@ -2,6 +2,7 @@
 
 /** Conditions that prevent transfer from active state. */
 export const ARCHIVE_BLOCK_REASON = {
+  DELIVERY_RESOLUTION_PENDING: "delivery_resolution_pending",
   ACTIVE_WORKER: "active_worker",
   WORKER_SLOT: "worker_slot",
   NOTIFICATION_PENDING: "notification_pending",

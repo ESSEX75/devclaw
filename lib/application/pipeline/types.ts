@@ -1,7 +1,9 @@
 /** Contracts for planned pipeline transitions and completion responses. */
 
 import type { RunCommand } from "../../context.js";
-import type { CompletionRule, IssueRuntimeState, NotificationEndpoint, Project, ReviewPolicy, TestPolicy, TransitionAction, WorkflowConfig } from "../../domain/index.js";
+import type {
+  ActiveIssueWorker, CompletionRule, IssueRuntimeState, NotificationEndpoint, Project, ReviewPolicy, TestPolicy, TransitionAction, WorkflowConfig,
+} from "../../domain/index.js";
 import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
 import type { ValueOf } from "../../types.js";
 import type { NotificationCreatedTask, NotificationRuntime } from "../notifications/index.js";
@@ -103,6 +105,8 @@ export type CommitTransitionInput = {
 
 /** Validated completion command and the capabilities needed to execute it. */
 export type CompletionInput = {
+  /** Exact worker observed by finish-work, rechecked before provider effects. */
+  expectedWorker?: ActiveIssueWorker;
   /** Workspace containing authoritative state. */
   workspaceDir: string;
   /** Canonical project identity. */

@@ -6,7 +6,7 @@ import {
   PIPELINE_NOTIFICATION_STATUS,
   STATE_TYPE,
 } from "../../domain/index.js";
-import { readIssueStateStore, readOptionalProjects } from "../../state/index.js";
+import { readIssueStateStore, readOptionalProjects,readWorkerDeliveryResolution } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { archiveManagedIssueLocked } from "../issues/index.js";
 import { NOTIFICATION_EVENT } from "../notifications/index.js";
@@ -28,6 +28,10 @@ export async function commitWorkflowTransitionLocked(input: CommitTransitionInpu
     if (state?.workflowLabel !== plan.from) return false;
     if (input.routing && state[input.routing.field] !== input.routing.value) return false;
   }
+
+  const deliveryResolution = await readWorkerDeliveryResolution(workspaceDir, project.slug, issueId);
+
+  if (deliveryResolution && !deliveryResolution.completed) throw new Error(`Issue #${issueId} has a pending operator delivery resolution.`);
 
   if (state?.pendingWorkerRelease) throw new Error(`Issue #${issueId} has an unfinished worker release.`);
   const terminal = workflow.states[plan.toState]?.type === STATE_TYPE.TERMINAL;

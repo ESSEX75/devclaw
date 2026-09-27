@@ -103,3 +103,10 @@ to state; application selects the operation and validates configured identifiers
 `readOptionalProjects` supports ownership discovery in uninitialized workspaces.
 Only a missing registry yields `undefined`; malformed or inaccessible registries
 remain errors, and the operation never creates files.
+
+
+`workers` stores the latest operator delivery decision per issue in
+`worker-delivery-resolutions.json`, under the issue-store lock. Intent is immutable
+and survives slot release and runtime replacement. Only the same decision may be
+marked complete; a different submission may replace only a completed record.
+Corrupt or unreadable recovery evidence is an error, never an empty store.

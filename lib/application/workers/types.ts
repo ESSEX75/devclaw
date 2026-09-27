@@ -2,16 +2,19 @@
  * Defines the application contracts for dispatching managed issues to worker sessions.
  */
 
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-
 import type { RunCommand } from "../../context.js";
-import type { Project, SlotState, WorkflowConfig } from "../../domain/index.js";
+import type { ActiveIssueWorker, Project, RoleWorkerState, SlotState, WorkflowConfig } from "../../domain/index.js";
+import { WORKER_DELIVERY_RESOLUTION, WORKER_DELIVERY_STATUS } from "../../domain/index.js";
+import type { AGENT_TURN_STATUS } from "../../integrations/openclaw/const.js";
 import type { SessionLookup } from "../../integrations/openclaw/gateway-sessions.js";
 import type { AgentTurnOutcome } from "../../integrations/openclaw/types.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
-import type { ResolvedRoleConfig } from "../../state/index.js";
+import type { IssueComment, IssueProvider } from "../../integrations/providers/provider.js";
+import type { ResolvedConfig, ResolvedRoleConfig } from "../../state/index.js";
 import type { ValueOf } from "../../types.js";
-import { WORKER_DELIVERY_RESOLUTION } from "./const.js";
+import type { NotificationCreatedTask, NotificationRuntime } from "../notifications/index.js";
+import type { CompletionOutput } from "../pipeline/index.js";
+import type { PrFeedback } from "../review/index.js";
+import type { WORKER_SESSION_ACTION } from "./const.js";
 
 /** Immutable inputs used to plan one worker session assignment. */
 export type DispatchPlanInput = {
@@ -50,9 +53,17 @@ export type DispatchPlan = {
   /** Deterministic OpenClaw session identity. */
   sessionKey: string;
   /** Whether an existing matching session can be reused. */
-  sessionAction: "spawn" | "send";
+  sessionAction: ValueOf<typeof WORKER_SESSION_ACTION>;
   /** Stale or over-budget session to remove before delivery. */
   sessionKeyToDelete: string | null;
+};
+
+/** One concrete submission, distinct from a reusable session identity. */
+export type DispatchAttempt = DispatchPlan & {
+  /** Unique delivery token fencing callbacks and operator decisions. */
+  deliveryId: string;
+  /** One timestamp shared by project and issue ownership. */
+  startedAt: string;
 };
 
 /** Inputs required to reserve a worker and dispatch one managed issue. */
@@ -86,7 +97,7 @@ export type DispatchOpts = {
   /** Optional orchestrator session recorded as the worker parent. */
   sessionKey?: string;
   /** Optional OpenClaw runtime used for direct notification delivery. */
-  runtime?: PluginRuntime;
+  runtime?: NotificationRuntime;
   /** Concrete worker slot selected from the fresh queue snapshot. */
   slotIndex?: number;
   /** Optional DevClaw instance claiming the issue. */
@@ -97,8 +108,10 @@ export type DispatchOpts = {
 
 /** Stable dispatch metadata returned to queue and tool callers. */
 export type DispatchResult = {
+  /** Unique submission identifier used for exact operator recovery. */
+  deliveryId: string;
   /** Whether dispatch created a session identity or reused an existing one. */
-  sessionAction: "spawn" | "send";
+  sessionAction: ValueOf<typeof WORKER_SESSION_ACTION>;
   /** Deterministic OpenClaw worker session key. */
   sessionKey: string;
   /** Configured worker level selected for dispatch. */
@@ -108,13 +121,13 @@ export type DispatchResult = {
   /** Human-readable dispatch announcement. */
   announcement: string;
   /** Observed gateway result; pending and unknown retain the reservation for reconciliation. */
-  deliveryStatus: "accepted" | "pending" | "unknown";
+  deliveryStatus: Exclude<AgentTurnOutcome["kind"], typeof AGENT_TURN_STATUS.REJECTED> | typeof WORKER_DELIVERY_STATUS.PENDING;
 };
 
 /** Immediate observation and eventual settlement of one gateway submission. */
 export type SessionDeliveryObservation = {
   /** Outcome seen within the brief acceptance window. */
-  initial: AgentTurnOutcome | { kind: "pending" };
+  initial: AgentTurnOutcome | { /** The command outlived the acceptance observation window. */ kind: typeof WORKER_DELIVERY_STATUS.PENDING };
   /** Eventual gateway command outcome, which may arrive after dispatch returns. */
   settled: Promise<AgentTurnOutcome>;
 };
@@ -134,7 +147,7 @@ export type AuditDispatchOptions = {
   /** Resolved worker model. */
   model: string;
   /** Whether the session was created or reused. */
-  sessionAction: string;
+  sessionAction: ValueOf<typeof WORKER_SESSION_ACTION>;
   /** Deterministic worker session key. */
   sessionKey: string;
   /** Workflow label consumed by dispatch. */
@@ -145,6 +158,8 @@ export type AuditDispatchOptions = {
 
 /** Identity needed to inspect an unresolved gateway send without rollback. */
 export type UnknownDispatchInput = {
+  /** Submission token supplied by callbacks; heartbeat pins the observed marker when absent. */
+  deliveryId?: string;
   /** Workspace containing project and issue state. */
   workspaceDir: string;
   /** Canonical project owning the slot. */
@@ -171,6 +186,8 @@ export type UnknownDispatchInput = {
 
 /** Explicit, audited operator decision for a still-reserved uncertain worker turn. */
 export type ResolveWorkerDeliveryInput = {
+  /** Exact operation identifier from the unresolved delivery marker. */
+  deliveryId: string;
   /** Workspace containing authoritative project and issue state. */
   workspaceDir: string;
   /** Canonical project owning the worker slot. */
@@ -195,6 +212,8 @@ export type ResolveWorkerDeliveryInput = {
 
 /** Result of previewing or applying an explicit worker delivery decision. */
 export type ResolveWorkerDeliveryResult = {
+  /** Concrete submission whose durable resolution was resumed. */
+  deliveryId: string;
   /** Whether the decision was applied. */
   applied: boolean;
   /** Project and issue bound to the verified session. */
@@ -209,4 +228,92 @@ export type ResolveWorkerDeliveryResult = {
   fromLabel: string;
   /** Queue label after confirmed non-start, or active label after confirmed start. */
   toLabel: string;
+};
+
+/** Validated worker completion request from an adapter. */
+export type FinishWorkInput = {
+  /** Workspace containing the project registry. */
+  workspaceDir: string;
+  /** Unambiguous project destination supplied by the adapter. */
+  channelId: string;
+  /** Configured completing role. */
+  role: string;
+  /** Configured completion result. */
+  result: string;
+  /** Worker completion summary. */
+  summary?: string;
+  /** Optional observed PR URL. */
+  prUrl?: string;
+  /** Child tasks created by the worker. */
+  createdTasks?: NotificationCreatedTask[];
+  /** Exact caller session when available. */
+  sessionKey?: string;
+  /** External command capability. */
+  runCommand: RunCommand;
+  /** Notification runtime capability. */
+  runtime?: NotificationRuntime;
+  /** Notification settings. */
+  pluginConfig?: Record<string, unknown>;
+};
+
+/** Resolved finish context; the pipeline rechecks captured worker identity under its issue lock. */
+export type FinishWorkContext = {
+  /** Project selected without ambiguous routing. */
+  project: Project;
+  /** Fully resolved roles and workflow. */
+  config: ResolvedConfig;
+  /** Selected provider-local issue. */
+  issueId: number;
+  /** Exact slot run captured before PR preconditions. */
+  worker: ActiveIssueWorker;
+};
+
+/** Successful finish response returned to tool adapters. */
+export type FinishWorkResult = CompletionOutput & {
+  /** Completion command finished successfully. */
+  success: true;
+  /** Human-readable project name. */
+  project: string;
+  /** Canonical project identity. */
+  projectSlug: string;
+  /** Completed issue. */
+  issueId: number;
+  /** Configured completing role. */
+  role: string;
+  /** Configured result. */
+  result: string;
+};
+
+/** Rejection context retained without masking the original missing-worker error. */
+export type MissingWorkerAuditInput = {
+  /** Workspace receiving the audit record. */
+  workspaceDir: string;
+  /** Project display name. */
+  projectName: string;
+  /** Canonical project identity. */
+  projectSlug: string;
+  /** Requested role. */
+  role: string;
+  /** Requested result. */
+  result: string;
+  /** Requested caller session. */
+  sessionKey?: string;
+  /** Observed worker inventory. */
+  roleWorker: RoleWorkerState;
+  /** Resolved workflow interpreting local candidates. */
+  workflow: WorkflowConfig;
+};
+
+/** Immutable context loaded before a worker slot is reserved. */
+export type DispatchContext = {
+  /** Provider comments actually considered for the message. */
+  comments: IssueComment[];
+  /** Current PR feedback included in the task. */
+  prFeedback?: PrFeedback;
+  /** Whether the message is specifically for conflict resolution. */
+  isConflictFix: boolean;
+  /** Rendered task sent to the worker. */
+  taskMessage: string;
+  /** Role instructions supplied as system context. */
+  roleInstructions: string;
 };

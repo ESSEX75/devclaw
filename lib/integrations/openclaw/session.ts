@@ -5,6 +5,7 @@
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import type { ResolvedTimeouts } from "../../state/index.js";
+import { AGENT_TURN_STATUS } from "./const.js";
 import { fetchGatewaySessions } from "./gateway-sessions.js";
 import type { AgentTurnInput, AgentTurnOutcome } from "./types.js";
 
@@ -116,7 +117,7 @@ export function sendToAgent(
  */
 export async function submitAgentTurn(sessionKey: string, taskMessage: string, opts: AgentTurnInput): Promise<AgentTurnOutcome> {
   if (!sessionKey.trim() || !taskMessage.trim() || (opts.agentId !== undefined && !opts.agentId.trim())) {
-    return { kind: "rejected", reason: "Gateway worker turn has invalid local submission input." };
+    return { kind: AGENT_TURN_STATUS.REJECTED, reason: "Gateway worker turn has invalid local submission input." };
   }
 
   try {
@@ -125,16 +126,16 @@ export async function submitAgentTurn(sessionKey: string, taskMessage: string, o
     });
 
     if (result.termination !== "exit" || result.killed) {
-      return { kind: "unknown", reason: `Gateway command ended without an exit response: ${result.termination}` };
+      return { kind: AGENT_TURN_STATUS.UNKNOWN, reason: `Gateway command ended without an exit response: ${result.termination}` };
     }
 
     if (result.code !== 0) {
-      return { kind: "unknown", reason: `Gateway command failed after submission (exit ${result.code}): ${result.stderr}` };
+      return { kind: AGENT_TURN_STATUS.UNKNOWN, reason: `Gateway command failed after submission (exit ${result.code}): ${result.stderr}` };
     }
 
-    return { kind: "accepted" };
+    return { kind: AGENT_TURN_STATUS.ACCEPTED };
   } catch (error) {
-    return { kind: "unknown", reason: error instanceof Error ? error.message : String(error) };
+    return { kind: AGENT_TURN_STATUS.UNKNOWN, reason: error instanceof Error ? error.message : String(error) };
   }
 }
 

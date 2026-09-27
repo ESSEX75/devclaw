@@ -2,9 +2,11 @@
 
 import type { Command } from "commander";
 
-import { resolveWorkerDelivery, WORKER_DELIVERY_RESOLUTION } from "../../application/workers/index.js";
+import { resolveWorkerDelivery } from "../../application/workers/index.js";
 import type { PluginContext } from "../../context.js";
+import { WORKER_DELIVERY_RESOLUTION } from "../../domain/index.js";
 import { getDefaultWorkspaceDir } from "../options/setup-options.js";
+import type { WorkerDeliveryCommandOptions } from "./types.js";
 
 /**
  * Register a preview and apply command for a verified uncertain worker turn.
@@ -17,15 +19,13 @@ export function registerWorkerDeliveryCommand(parent: Command, ctx: PluginContex
     .requiredOption("--project <slug>", "Project slug")
     .requiredOption("--issue <id>", "Issue ID")
     .requiredOption("--session-key <key>", "Exact worker session key shown by task status")
+    .requiredOption("--delivery-id <id>", "Exact delivery operation ID shown by task status")
     .requiredOption("--decision <decision>", "confirmed-started or confirmed-not-started")
     .requiredOption("--reason <text>", "Operator evidence written to the audit log")
     .option("--dry-run", "Preview the fresh issue and slot decision")
     .option("--apply", "Apply the explicitly verified decision")
     .option("--workspace <path>", "Workspace path")
-    .action(async (opts: {
-      project: string; issue: string; sessionKey: string; decision: string;
-      reason: string; dryRun?: boolean; apply?: boolean; workspace?: string;
-    }) => {
+    .action(async (opts: WorkerDeliveryCommandOptions) => {
       if (opts.dryRun === opts.apply) throw new Error("Choose exactly one of --dry-run or --apply.");
       const workspaceDir = opts.workspace ?? getDefaultWorkspaceDir(ctx.runtime);
 
@@ -40,7 +40,7 @@ export function registerWorkerDeliveryCommand(parent: Command, ctx: PluginContex
 
       const result = await resolveWorkerDelivery({
         workspaceDir, projectSlug: opts.project, issueId,
-        sessionKey: opts.sessionKey, decision: opts.decision,
+        sessionKey: opts.sessionKey, deliveryId: opts.deliveryId, decision: opts.decision,
         reason: opts.reason, apply: opts.apply === true,
         runCommand: ctx.runCommand,
       });

@@ -58,3 +58,6 @@ CLI exit is acceptance evidence, not proof that the recipient read the message.
 CLI JSON contributes an optional message ID. Application passes the same configuration
 snapshot used for exact route validation. No channel send is automatically repeated
 by this adapter.
+
+The session cleanup adapter owns the `sessions.delete` payload and command timeout.
+Application decides whether optional stale-session cleanup failure blocks dispatch.

@@ -17,6 +17,7 @@ import {
   archiveIssueState,
   readIssueArchiveStore,
   readIssueStateStore,
+  readWorkerDeliveryResolution,
   withIssueOrchestrationLock
 } from "../../../state/index.js";
 import { loadConfig, readOptionalProjects } from "../../../state/index.js";
@@ -44,6 +45,10 @@ export async function archiveManagedIssueLocked(opts: ArchiveIssueInput): Promis
 
     return { issueId: opts.issueId, archived: record !== undefined, reason: record ? ARCHIVE_BLOCK_REASON.ALREADY_ARCHIVED : ARCHIVE_BLOCK_REASON.NOT_FOUND, record };
   }
+
+  const resolution = await readWorkerDeliveryResolution(opts.workspaceDir, opts.projectSlug, opts.issueId);
+
+  if (resolution && !resolution.completed) return { issueId: opts.issueId, archived: false, reason: ARCHIVE_BLOCK_REASON.DELIVERY_RESOLUTION_PENDING };
 
   const workflow = opts.workflow ?? (await loadConfig(opts.workspaceDir, opts.projectSlug)).workflow;
   const registry = await readOptionalProjects(opts.workspaceDir);

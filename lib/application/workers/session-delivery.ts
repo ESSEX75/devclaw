@@ -1,11 +1,10 @@
 /** Observes gateway submission briefly without waiting for a full agent turn. */
 
+import { WORKER_DELIVERY_STATUS } from "../../domain/index.js";
 import { submitAgentTurn } from "../../integrations/openclaw/session.js";
 import type { AgentTurnInput, AgentTurnOutcome } from "../../integrations/openclaw/types.js";
+import { DELIVERY_ACCEPTANCE_WINDOW_MS } from "./const.js";
 import type { SessionDeliveryObservation } from "./types.js";
-
-/** Acceptance window for explicit gateway command rejection before dispatch returns. */
-const ACCEPTANCE_WINDOW_MS = 25;
 
 /**
  * Submit one turn and distinguish a prompt rejection from an unresolved long-running command.
@@ -21,10 +20,10 @@ export async function beginWorkerDelivery(
 ): Promise<SessionDeliveryObservation> {
   const settled = submitAgentTurn(sessionKey, taskMessage, input);
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const pending = new Promise<{ kind: "pending" }>((resolve) => {
-    timer = setTimeout(() => resolve({ kind: "pending" }), ACCEPTANCE_WINDOW_MS);
+  const pending = new Promise<{ kind: typeof WORKER_DELIVERY_STATUS.PENDING }>((resolve) => {
+    timer = setTimeout(() => resolve({ kind: WORKER_DELIVERY_STATUS.PENDING }), DELIVERY_ACCEPTANCE_WINDOW_MS);
   });
-  const initial: AgentTurnOutcome | { kind: "pending" } = await Promise.race([settled, pending]);
+  const initial: AgentTurnOutcome | { kind: typeof WORKER_DELIVERY_STATUS.PENDING } = await Promise.race([settled, pending]);
 
   if (timer) clearTimeout(timer);
 

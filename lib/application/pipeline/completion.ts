@@ -6,7 +6,7 @@
 
 import { log as auditLog } from "../../audit.js";
 import { ACTION, DEFAULT_WORKFLOW, findStateByLabel, ISSUE_ARCHIVE_REASON, STATE_TYPE } from "../../domain/index.js";
-import { getProject, getRoleWorker, loadConfig, readIssueStateStore, readProjects, withIssueOrchestrationLock } from "../../state/index.js";
+import { getProject, getRoleWorker, loadConfig, readIssueStateStore, readProjects, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { archiveManagedIssueLocked } from "../issues/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
@@ -61,6 +61,19 @@ async function executeCompletionLocked(opts: CompletionInput): Promise<Completio
   if (currentState && currentState.workflowLabel !== rule.from && currentState.workflowLabel !== rule.to) {
     throw new Error(`Completion for #${issueId} expected ${rule.from}, found ${currentState.workflowLabel}.`);
   }
+
+  if (opts.expectedWorker) {
+    const expected = opts.expectedWorker;
+    const slot = project.workers[expected.role]?.levels[expected.level]?.[expected.slotIndex];
+
+    if (!slot?.active || slot.issueId !== issueId || slot.sessionKey !== expected.sessionKey || (slot.startTime ?? "") !== expected.startedAt) {
+      throw new Error(`Worker changed before completion of issue #${issueId}.`);
+    }
+  }
+
+  const deliveryResolution = await readWorkerDeliveryResolution(workspaceDir, projectSlug, issueId);
+
+  if (deliveryResolution && !deliveryResolution.completed) throw new Error(`Issue #${issueId} has a pending operator delivery resolution.`);
 
   const currentIssue = await provider.getIssue(issueId);
 

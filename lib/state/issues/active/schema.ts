@@ -20,6 +20,7 @@ const ActiveWorkerSchema = z.object({
   role: z.string(), level: z.string(), slotIndex: z.number().int().nonnegative(),
   sessionKey: z.string().nullable(), startedAt: z.string(),
   delivery: z.object({
+    operationId: z.string().uuid().optional(),
     status: z.enum(WORKER_DELIVERY_STATUS), recordedAt: z.string(), reason: z.string(),
     checkedAt: z.string().optional(), sessionObserved: z.boolean().nullable().optional(),
   }).strict().optional(),

@@ -55,7 +55,7 @@ export {
   reconcileSlots,
 } from "./projects/index.js";
 export type { WorkerDeliveryState } from "./workers/index.js";
-export { WORKER_DELIVERY_STATUS } from "./workers/index.js";
+export { WORKER_DELIVERY_RESOLUTION, WORKER_DELIVERY_STATUS } from "./workers/index.js";
 export type {
   BuiltInWorkflowConfig,
   CompletionEventMap,

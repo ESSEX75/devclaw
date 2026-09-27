@@ -106,7 +106,7 @@ function summarizeManagedProjection(
     ...(state.activeWorker?.delivery ? {
       workerDelivery: state.activeWorker.delivery,
       deliveryHint: `Inspect OpenClaw session ${state.activeWorker.sessionKey ?? "unknown"} and the worker slot before retrying issue #${state.issueId}.`
-        + " Use devclaw worker-delivery --help to preview and apply a verified conclusion.",
+        + " Use devclaw worker-delivery --help with this marker's operationId as --delivery-id to preview and apply a verified conclusion.",
     } : {}),
   };
 }

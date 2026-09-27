@@ -7,7 +7,7 @@ output. Business behavior belongs in `lib/application`, not inside command
 handlers.
 
 The `worker-delivery` command previews or applies an operator-verified conclusion
-for an unresolved worker turn. It requires the exact session key and an audit reason;
+for an unresolved worker turn. It requires the exact session key, delivery operation ID, and an audit reason;
 application code validates the fresh issue and slot before changing either.
 
 ## Boundary Rules

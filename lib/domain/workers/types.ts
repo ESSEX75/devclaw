@@ -5,6 +5,8 @@ import { WORKER_DELIVERY_STATUS } from "./const.js";
 
 /** Durable evidence that a worker-turn submission has no confirmed outcome. */
 export type WorkerDeliveryState = {
+  /** Unique submission identity, retained across uncertain outcomes and reconciliation. */
+  operationId?: string;
   /** Current investigation stage; only explicit success removes this marker. */
   status: ValueOf<typeof WORKER_DELIVERY_STATUS>;
   /** First reservation or uncertain response time in ISO format. */

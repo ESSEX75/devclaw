@@ -11,7 +11,7 @@ import {
   isProviderIssueLookupError,
   PROVIDER_ISSUE_LOOKUP_ERROR
 } from "../../../integrations/providers/index.js";
-import { readIssueArchiveStore, readIssueStateStore, readOptionalProjects, withIssueOrchestrationLock } from "../../../state/index.js";
+import { readIssueArchiveStore, readIssueStateStore, readOptionalProjects, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../../state/index.js";
 import { archiveManagedIssueLocked } from "../archive/index.js";
 import { DELETE_EVENT, DELETE_REASON } from "./const.js";
 import type { DeleteManagedIssueInput, DeleteManagedIssueResult } from "./types.js";
@@ -44,6 +44,10 @@ async function deleteManagedIssueLocked(opts: Parameters<typeof deleteManagedIss
 
     throw new Error(`Issue #${opts.issueId} has no active local runtime state.`);
   }
+
+  const resolution = await readWorkerDeliveryResolution(opts.workspaceDir, opts.projectSlug, opts.issueId);
+
+  if (resolution && !resolution.completed) throw new Error(`Issue #${opts.issueId} has a pending operator delivery resolution.`);
 
   if (state.activeWorker || state.pendingWorkerRelease) throw new Error(`Issue #${opts.issueId} has an active worker and cannot be deleted.`);
   if (state.pipelineNotification && state.pipelineNotification.status !== PIPELINE_NOTIFICATION_STATUS.DELIVERED) {

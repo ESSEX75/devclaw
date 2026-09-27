@@ -5,6 +5,7 @@ import type { toPluginMessageContext, toPluginMessageReceivedEvent } from "openc
 import type { RunCommand } from "../../context.js";
 import type { PluginContext } from "../../context.js";
 import type { ATTACHMENT_MESSAGE_HOOK } from "./attachment-const.js";
+import type { AGENT_TURN_STATUS } from "./const.js";
 
 /** SDK media callback with the concrete received-message contract. */
 type AttachmentMessageHandler = (
@@ -67,9 +68,9 @@ export type AgentTurnInput = {
 
 /** Observed result of the gateway command; unknown never implies safe rollback. */
 export type AgentTurnOutcome =
-  | { kind: "accepted" }
-  | { kind: "rejected"; reason: string }
-  | { kind: "unknown"; reason: string };
+  | { kind: typeof AGENT_TURN_STATUS.ACCEPTED }
+  | { kind: typeof AGENT_TURN_STATUS.REJECTED; reason: string }
+  | { kind: typeof AGENT_TURN_STATUS.UNKNOWN; reason: string };
 
 /** Read-only SDK workspace inputs; unrelated configuration never crosses this boundary. */
 export type AgentWorkspaceConfig = {
