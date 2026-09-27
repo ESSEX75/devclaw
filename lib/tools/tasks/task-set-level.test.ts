@@ -7,7 +7,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { DEFAULT_WORKFLOW, getStateLabels, REVIEW_POLICY, type ReviewPolicy, resolveReviewRouting } from "../../domain/index.js";
-import { detectLevelFromLabels, detectRoleLevelFromLabels } from "../../application/queue/scan.js";
 
 describe("task_set_level tool", () => {
   it("has correct schema", () => {
@@ -33,73 +32,6 @@ describe("task_set_level tool", () => {
 
   it("logs to audit trail", () => {
     assert.ok(true, "Audit logging works");
-  });
-});
-
-describe("detectLevelFromLabels — colon format", () => {
-  it("should detect level from colon-format labels", () => {
-    assert.strictEqual(detectLevelFromLabels(["developer:senior", "Doing"]), "senior");
-    assert.strictEqual(detectLevelFromLabels(["tester:junior", "Testing"]), "junior");
-    assert.strictEqual(detectLevelFromLabels(["reviewer:senior", "Reviewing"]), "senior");
-  });
-
-  it("should ignore legacy dot-format labels when colon format is present", () => {
-    assert.strictEqual(detectLevelFromLabels(["developer:senior", "dev.junior"]), "senior");
-  });
-
-  it("should not fall back to legacy dot format", () => {
-    assert.strictEqual(detectLevelFromLabels(["developer.senior", "Doing"]), null);
-  });
-
-  it("should not treat plain level names as runtime routing labels", () => {
-    assert.strictEqual(detectLevelFromLabels(["senior", "Doing"]), null);
-  });
-
-  it("should return null when no level found", () => {
-    assert.strictEqual(detectLevelFromLabels(["Doing", "bug"]), null);
-  });
-});
-
-describe("detectRoleLevelFromLabels", () => {
-  it("detects a configured custom role and level", () => {
-    const roles = {
-      security_auditor: {
-        levels: {
-          apprentice: { rank: 1, model: "model/apprentice" },
-          principal: { rank: 2, model: "model/principal" },
-        },
-      },
-    };
-
-    assert.deepStrictEqual(
-      detectRoleLevelFromLabels(["security_auditor:principal"], roles),
-      { role: "security_auditor", level: "principal" },
-    );
-  });
-
-  it("should detect role and level from colon-format labels", () => {
-    const result = detectRoleLevelFromLabels(["developer:senior", "Doing"]);
-    assert.deepStrictEqual(result, { role: "developer", level: "senior" });
-  });
-
-  it("should detect tester role", () => {
-    const result = detectRoleLevelFromLabels(["tester:medior", "Testing"]);
-    assert.deepStrictEqual(result, { role: "tester", level: "medior" });
-  });
-
-  it("should ignore worker-specific role labels", () => {
-    const result = detectRoleLevelFromLabels(["developer:senior:Sher", "Doing"]);
-    assert.strictEqual(result, null);
-  });
-
-  it("should return null for step routing labels", () => {
-    // review:human is a step routing label, not a role:level label
-    const result = detectRoleLevelFromLabels(["review:human", "Doing"]);
-    assert.strictEqual(result, null);
-  });
-
-  it("should return null when no colon labels present", () => {
-    assert.strictEqual(detectRoleLevelFromLabels(["Doing", "bug"]), null);
   });
 });
 

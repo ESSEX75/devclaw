@@ -5,7 +5,7 @@ import {
   hasTestPhase, ISSUE_PROVIDER, producesReviewableWork, REVIEW_POLICY, TEST_POLICY, WORKER_DELIVERY_STATUS,
 } from "../../domain/index.js";
 import type { ResolvedConfig } from "../../state/index.js";
-import { activateWorker, readIssueStateStore, updateIssueRuntimeRecord, updateSlot } from "../../state/index.js";
+import { activateWorker, getLevelMaxWorkers, readIssueStateStore, updateIssueRuntimeRecord, updateSlot } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { WORKER_DISPATCH_OWNER } from "./const.js";
@@ -15,8 +15,9 @@ import type { DispatchAttempt, DispatchOpts } from "./types.js";
  * Reserve a concrete slot before provider and gateway side effects begin.
  * @param opts - Dispatch identity and project state location.
  * @param plan - Selected role, level, slot, and session key.
+ * @param config - Resolved project constraints enforced during the atomic reservation.
  */
-export async function reserveDispatchSlot(opts: DispatchOpts, plan: DispatchAttempt): Promise<void> {
+export async function reserveDispatchSlot(opts: DispatchOpts, plan: DispatchAttempt, config: ResolvedConfig): Promise<void> {
   await activateWorker(opts.workspaceDir, opts.project.slug, plan.role, {
     issueId: opts.issueId,
     level: plan.level,
@@ -25,6 +26,8 @@ export async function reserveDispatchSlot(opts: DispatchOpts, plan: DispatchAtte
     previousLabel: opts.fromLabel,
     slotIndex: plan.slotIndex,
     name: plan.botName,
+    roleExecution: opts.roleExecution ?? config.workflow.roleExecution,
+    maxWorkers: getLevelMaxWorkers(config.roles[plan.role])[plan.level] ?? 0,
     delivery: {
       operationId: plan.deliveryId,
       status: WORKER_DELIVERY_STATUS.SUBMITTING,
@@ -109,9 +112,9 @@ export async function commitWorkerDispatch(
   const { workflow } = config;
   const current = (await readIssueStateStore(workspaceDir, project.slug)).issues[String(issueId)];
   const owner = current?.owner ?? opts.instanceName ?? null;
-  const reviewPolicy = producesReviewableWork(workflow, role)
+  const reviewPolicy = current ? current.reviewPolicy : producesReviewableWork(workflow, role)
     ? workflow.reviewPolicy ?? REVIEW_POLICY.HUMAN : null;
-  const testPolicy = hasTestPhase(workflow)
+  const testPolicy = current ? current.testPolicy : hasTestPhase(workflow)
     ? workflow.testPolicy ?? TEST_POLICY.SKIP : null;
 
   await writeIssueRuntimeState({

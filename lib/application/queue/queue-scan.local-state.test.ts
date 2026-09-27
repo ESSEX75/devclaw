@@ -1,3 +1,5 @@
+/** Tests local queue truth independently of provider routing labels. */
+
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import fs from "node:fs/promises";
@@ -10,7 +12,7 @@ import {
 import { TestProvider } from "../../testing/test-provider.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
-import { detectLevelFromLabels, detectRoleLevelFromLabels, findNextIssueForRole } from "./scan.js";
+import { findNextIssueForRole } from "./scan.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
@@ -159,17 +161,5 @@ describe("findNextIssueForRole local state", () => {
       assert.strictEqual(next, null);
       assert.strictEqual(provider.callsTo("getIssue").length, 0);
     });
-  });
-});
-
-describe("role projection label detection", () => {
-  it("accepts normalized role:level labels and ignores worker-specific labels", () => {
-    assert.strictEqual(detectLevelFromLabels(["developer:senior"]), "senior");
-    assert.strictEqual(detectLevelFromLabels(["developer:senior:Sher"]), null);
-    assert.deepStrictEqual(detectRoleLevelFromLabels(["developer:senior"]), {
-      role: "developer",
-      level: "senior",
-    });
-    assert.strictEqual(detectRoleLevelFromLabels(["developer:senior:Sher"]), null);
   });
 });

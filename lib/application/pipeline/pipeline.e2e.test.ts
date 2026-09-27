@@ -1278,7 +1278,9 @@ describe("E2E pipeline", () => {
 
     it("reviewPolicy: human should skip reviewer dispatch", async () => {
       h = await createTestHarness();
-      h.provider.seedIssue({ iid: 80, title: "Needs review", labels: ["To Review"] });
+      await seedManagedQueueIssue({ iid: 80, title: "Needs review", labels: ["To Review"],
+        workflowState: "toReview", workflowLabel: "To Review", assignedRole: "reviewer", assignedLevel: "junior",
+        reviewPolicy: REVIEW_POLICY.HUMAN });
 
       const result = await projectTick({
         workspaceDir: h.workspaceDir,
@@ -1290,9 +1292,9 @@ describe("E2E pipeline", () => {
       });
 
       assert.strictEqual(result.pickups.length, 0, "Should NOT dispatch reviewer");
-      const reviewerSkip = result.skipped.find((s) => s.role === "reviewer");
-      assert.ok(reviewerSkip, "Should have skipped reviewer");
-      assert.ok(reviewerSkip!.reason.includes("human"), `Skip reason: ${reviewerSkip!.reason}`);
+      assert.equal(h.provider.callsTo("getIssue").length, 0, "Saved policy filters the issue before provider lookup");
+      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.commands.taskMessages().length, 0);
     });
 
     it("reviewPolicy: agent should dispatch reviewer", async () => {
@@ -1326,7 +1328,9 @@ describe("E2E pipeline", () => {
 
     it("reviewPolicy: skip should never dispatch reviewer", async () => {
       h = await createTestHarness();
-      h.provider.seedIssue({ iid: 82, title: "Small fix", labels: ["To Review"] });
+      await seedManagedQueueIssue({ iid: 82, title: "Small fix", labels: ["To Review"],
+        workflowState: "toReview", workflowLabel: "To Review", assignedRole: "reviewer", assignedLevel: "junior",
+        reviewPolicy: REVIEW_POLICY.SKIP });
 
       const result = await projectTick({
         workspaceDir: h.workspaceDir,
@@ -1339,9 +1343,9 @@ describe("E2E pipeline", () => {
       });
 
       assert.strictEqual(result.pickups.length, 0, "Should NOT dispatch reviewer under skip policy");
-      const reviewerSkip = result.skipped.find((s) => s.role === "reviewer");
-      assert.ok(reviewerSkip, "Should have skipped reviewer");
-      assert.ok(reviewerSkip!.reason.includes("skip"), `Skip reason: ${reviewerSkip!.reason}`);
+      assert.equal(h.provider.callsTo("getIssue").length, 0, "Saved policy filters the issue before provider lookup");
+      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.commands.taskMessages().length, 0);
     });
 
     it("reviewPolicy: human should still allow developer and tester dispatch", async () => {
@@ -1548,9 +1552,9 @@ describe("E2E pipeline", () => {
       });
 
       assert.strictEqual(result.pickups.length, 0, "Should NOT dispatch reviewer for review:human");
-      const reviewerSkip = result.skipped.find((s) => s.role === "reviewer");
-      assert.ok(reviewerSkip, "Should have skipped reviewer");
-      assert.ok(reviewerSkip!.reason.includes("review:human"), `Skip reason: ${reviewerSkip!.reason}`);
+      assert.equal(h.provider.callsTo("getIssue").length, 0, "Saved policy filters the issue before provider lookup");
+      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.commands.taskMessages().length, 0);
     });
 
     it("projectTick should dispatch reviewer when local reviewPolicy=agent", async () => {

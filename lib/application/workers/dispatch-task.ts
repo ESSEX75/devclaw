@@ -88,6 +88,8 @@ export async function dispatchTaskLocked(
 
   const resolvedConfig = await loadConfig(workspaceDir, project.slug);
   const resolvedRole = resolvedConfig.roles[role];
+
+  if (!resolvedRole?.enabled) throw new Error(`Role "${role}" is not configured or is disabled.`);
   const { timeouts } = resolvedConfig;
   const freshProject = getProject(await readProjects(workspaceDir), project.slug);
 
@@ -113,7 +115,7 @@ export async function dispatchTaskLocked(
   const context = await loadDispatchContext(opts, resolvedConfig);
   const { comments, prFeedback, isConflictFix, taskMessage, roleInstructions } = context;
 
-  await reserveDispatchSlot(opts, plan);
+  await reserveDispatchSlot(opts, plan, resolvedConfig);
   let taskDispatched = false;
   let providerTransitioned = false;
 

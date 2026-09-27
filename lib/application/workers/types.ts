@@ -68,6 +68,8 @@ export type DispatchAttempt = DispatchPlan & {
 
 /** Inputs required to reserve a worker and dispatch one managed issue. */
 export type DispatchOpts = {
+  /** Resolved scheduling constraint supplied by a queue workflow override. */
+  roleExecution?: WorkflowConfig["roleExecution"];
   /** Workspace containing project and issue state. */
   workspaceDir: string;
   /** Optional OpenClaw agent that owns the worker session. */

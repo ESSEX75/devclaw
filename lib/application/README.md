@@ -75,7 +75,12 @@ Provider reads supply message context, never authoritative workflow selection.
 Creation readiness, issue eligibility, and project slots are rechecked after taking
 an issue lock. Workers own the atomic slot reservation and delivery; queue does not
 send session messages or persist ownership. Dry-run returns a candidate/slot plan
-without effects.
+without effects. Saved review/test policies filter each candidate before issue-order
+selection; configuration changes never rewrite existing issue policies during dispatch.
+Null policies retain their existing unrestricted meaning. Provider lookup failures
+remain typed errors (including confirmed absence); ticks report their code and message
+rather than reporting an empty queue. Failed lookup stops that role for the current tick.
+Normal queue scanning has no provider-label parsing or built-in role-registry fallback.
 
 ## Projection
 

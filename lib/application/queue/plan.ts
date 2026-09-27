@@ -2,6 +2,9 @@
 
 import { findFreeSlot } from "../../domain/index.js";
 import { resolveRoleLevel } from "../tasks/index.js";
+import { WORKER_SESSION_ACTION } from "../workers/const.js";
+import { QUEUE_PLAN, QUEUE_REASON } from "./const.js";
+import { queuePolicyBlock } from "./policy.js";
 import type { QueuePickupDecision, QueuePickupPlanInput } from "./types.js";
 
 /**
@@ -12,13 +15,9 @@ import type { QueuePickupDecision, QueuePickupPlanInput } from "./types.js";
 export function planQueuePickup(input: QueuePickupPlanInput): QueuePickupDecision {
   const { issue, localState, role, roleConfig, worker } = input;
 
-  if (role === "reviewer" && (localState.reviewPolicy === "human" || localState.reviewPolicy === "skip")) {
-    return { kind: "blocked", reason: `review:${localState.reviewPolicy} policy` };
-  }
+  const policy = queuePolicyBlock(localState, role);
 
-  if (role === "tester" && localState.testPolicy === "skip") {
-    return { kind: "blocked", reason: "test:skip policy" };
-  }
+  if (policy) return { kind: QUEUE_PLAN.BLOCKED, code: policy, reason: "Saved issue policy excludes this worker role" };
 
   const level = resolveRoleLevel({
     runtimeState: localState,
@@ -29,10 +28,15 @@ export function planQueuePickup(input: QueuePickupPlanInput): QueuePickupDecisio
   });
   const slotIndex = findFreeSlot(worker, level);
 
-  if (slotIndex === null) return { kind: "blocked", reason: `${level} slots full` };
+  const capacity = roleConfig.levels[level]?.maxWorkers ?? 0;
+  const activeCount = worker.levels[level]?.filter(slot => slot.active).length ?? 0;
+
+  if (slotIndex === null || slotIndex >= capacity || activeCount >= capacity) {
+    return { kind: QUEUE_PLAN.BLOCKED, code: QUEUE_REASON.CAPACITY, reason: `${level} slots full` };
+  }
 
   return {
-    kind: "ready", level, slotIndex,
-    sessionAction: worker.levels[level]?.[slotIndex]?.sessionKey ? "send" : "spawn",
+    kind: QUEUE_PLAN.READY, level, slotIndex,
+    sessionAction: worker.levels[level]?.[slotIndex]?.sessionKey ? WORKER_SESSION_ACTION.SEND : WORKER_SESSION_ACTION.SPAWN,
   };
 }

@@ -25,3 +25,8 @@ and an ambiguous sessionless request is rejected. The pipeline rechecks that exa
 slot run under the issue lock. Developer completion requires a current open PR;
 authorization/transient read errors propagate, and current merge conflicts block
 completion. Truncated cross-project audit history is no longer a decision source.
+
+Dispatch supplies resolved capacity and execution mode to the atomic project-slot
+reservation before provider or gateway effects. Existing issue policy snapshots,
+including null, survive dispatch unchanged; configuration defaults initialize only
+previously unmanaged runtime records.
