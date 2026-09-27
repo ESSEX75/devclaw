@@ -37,6 +37,9 @@ contracts exposed to other layers only through `lib/state/index.ts`.
   It writes `archive-retention.audit.jsonl` before the first attachment unlink;
   journal errors abort cleanup. This append-only intent evidence is retained after
   record expiry and is not automatically truncated with the general audit log.
+- Workflow commits can retain `pendingWorkerRelease` and a never-attempted
+  notification intent in the same active record. Pending notification intents are
+  immediately reservable; their initial timestamp records intent creation.
 - Terminal notification reservation returns an exact timestamp token. Settlement
   compares both event identity and token, so stale attempts cannot settle a new send.
   Expired in-flight attempts become `unknown`, never automatically reservable.

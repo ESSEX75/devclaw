@@ -12,7 +12,8 @@ remain local named types. Domain policies and routing labels are reused from
   state transaction. Existing records preserve omitted fields, including null,
   and never import provider labels. Explicit state or label changes derive the
   omitted counterpart from the supplied workflow; mismatched pairs reject the
-  write. An update without workflow overrides preserves the recorded pair even
+  write. Explicit notification and worker-release intents share the same atomic
+  record update as the workflow transition. An update without workflow overrides preserves the recorded pair even
   after configuration drift. Provider identity cannot change through this API.
 - `initialization.ts` interprets labels only when no record exists. Explicit
   choices take precedence. Inferring a role/level requires `initializationRoles`

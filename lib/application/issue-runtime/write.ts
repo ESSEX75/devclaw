@@ -28,6 +28,8 @@ export async function writeIssueRuntimeState(input: IssueStateWriteInput): Promi
       testPolicy: input.testPolicy !== undefined ? input.testPolicy : base.testPolicy,
       notifyTarget: input.notifyTarget !== undefined ? input.notifyTarget : base.notifyTarget,
       activeWorker: input.activeWorker !== undefined ? input.activeWorker : base.activeWorker,
+      ...(input.pendingWorkerRelease !== undefined ? { pendingWorkerRelease: input.pendingWorkerRelease } : {}),
+      pipelineNotification: input.pipelineNotification !== undefined ? input.pipelineNotification : base.pipelineNotification,
       integrityStatus: input.integrityStatus ?? base.integrityStatus,
       closedAt: input.closedAt !== undefined ? input.closedAt : base.closedAt,
       updatedAt: new Date().toISOString(),

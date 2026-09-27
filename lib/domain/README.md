@@ -49,6 +49,9 @@ outside `lib/domain`.
 - Derive closed domain value unions from their canonical constant registries through `ValueOf`.
 - Keep narrow built-in identifiers distinct from extensible identifiers validated from resolved runtime configuration.
 
-Issue semantics own terminal-notification states: attempting, delivered, blocked,
+Issue semantics own terminal-notification states: pending, attempting, delivered, blocked,
 retryable, and unknown. Attempt timestamps identify the owned send, while persisted
 reasons distinguish policy blocks from uncertain external effects.
+
+A completed issue may retain the exact worker identity awaiting project-slot
+release. This is an ownership guard until application recovery finishes the release.

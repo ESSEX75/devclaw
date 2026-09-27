@@ -4,7 +4,7 @@ import { log as auditLog } from "../../../audit.js";
 import { DEFAULT_WORKFLOW, findStateKeyByLabel, getActiveLabel, getRevertLabel } from "../../../domain/index.js";
 import { sendToAgent } from "../../../integrations/openclaw/session.js";
 import {
-  deactivateWorker, getProject, getRoleWorker, readIssueStateStore, readProjects,
+  getProject, getRoleWorker, readIssueStateStore, readProjects,
   updateIssueRuntimeRecord, updateSlot, withIssueOrchestrationLock,
 } from "../../../state/index.js";
 import { commitWorkflowTransitionLocked } from "../../pipeline/transition.js";
@@ -80,7 +80,6 @@ export async function remediateWorkerHealth(input: WorkerHealthInput, finding: H
       });
 
       if (!committed) return fresh;
-      await deactivateWorker(workspaceDir, projectSlug, role, { level, slotIndex, issueId });
       fresh.labelReverted = `${from} → ${to}`;
     } else if (fresh.plannedAction === HEALTH_ACTION.RELEASE || fresh.plannedAction === HEALTH_ACTION.CLEAR_REFERENCE) {
       let released = false;

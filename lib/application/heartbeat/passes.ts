@@ -14,6 +14,7 @@ import { maintainIssueArchive, recoverTerminalIssueArchives } from "../issues/in
 import { getNotificationConfig, notify } from "../notifications/index.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { retryPendingPipelineNotifications } from "../notifications/retry-pipeline.js";
+import { recoverTransitionWorkers } from "../pipeline/index.js";
 import { reconcileManagedTaskCreations } from "../tasks/index.js";
 import {
   checkWorkerHealth,
@@ -151,6 +152,7 @@ export async function performIssueArchivePass(
   runtime: PluginRuntime | undefined,
   runCommand: RunCommand,
 ): Promise<number> {
+  await recoverTransitionWorkers(workspaceDir, project.slug, resolvedConfig.issueArchiveMaintenance.maxPerHeartbeat);
   await retryPendingPipelineNotifications(
     workspaceDir,
     project,

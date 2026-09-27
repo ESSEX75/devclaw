@@ -30,6 +30,8 @@ export const ISSUE_INTEGRITY_STATUS = {
 
 /** Persistence states for a terminal pipeline notification. */
 export const PIPELINE_NOTIFICATION_STATUS = {
+  /** Terminal intent committed before a delivery attempt is reserved. */
+  PENDING: "pending",
   /** Delivery has been reserved but is not yet confirmed. */
   ATTEMPTING: "attempting",
   /** No transport ran; policy or routing must be corrected before delivery. */

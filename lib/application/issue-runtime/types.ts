@@ -58,6 +58,10 @@ export type IssueStateWriteInput = {
   testPolicy?: TestPolicy | null;
   /** Explicit active worker replacement. */
   activeWorker?: ActiveIssueWorker | null;
+  /** Worker release intent persisted with the workflow transition. */
+  pendingWorkerRelease?: ActiveIssueWorker | null;
+  /** Terminal delivery intent persisted with the workflow transition. */
+  pipelineNotification?: IssueRuntimeState["pipelineNotification"];
   /** Explicit integrity status replacement. */
   integrityStatus?: IssueIntegrityStatus;
   /** Explicit closure timestamp replacement. */

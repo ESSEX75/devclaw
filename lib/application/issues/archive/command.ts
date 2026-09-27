@@ -115,7 +115,7 @@ function archiveBlockReason(state: IssueRuntimeState, reason: IssueArchiveReason
     return ARCHIVE_BLOCK_REASON.NOT_TERMINAL;
   }
 
-  if (state.activeWorker) return ARCHIVE_BLOCK_REASON.ACTIVE_WORKER;
+  if (state.activeWorker || state.pendingWorkerRelease) return ARCHIVE_BLOCK_REASON.ACTIVE_WORKER;
   if (state.pipelineNotification && state.pipelineNotification.status !== PIPELINE_NOTIFICATION_STATUS.DELIVERED) return ARCHIVE_BLOCK_REASON.NOTIFICATION_PENDING;
   if (state.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) return ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR;
 

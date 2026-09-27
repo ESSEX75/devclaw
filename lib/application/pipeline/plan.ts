@@ -2,6 +2,8 @@
 
 import {
   type CompletionEventMap,
+  type CompletionRule,
+  DEFAULT_WORKFLOW,
   findStateByLabel,
   findStateKeyByLabel,
   getCompletionRule,
@@ -54,16 +56,31 @@ export function planCompletion(workflow: WorkflowConfig, role: string, result: s
   };
 }
 
-/** Resolve a merge-failure recovery destination, including the legacy To Improve fallback.
+/** Resolve only the explicitly configured merge-failure recovery destination.
  * @param workflow - Validated runtime workflow.
  * @param fromLabel - Label from which merge failed.
  */
 export function planMergeFailure(workflow: WorkflowConfig, fromLabel: string): TransitionPlan | null {
-  const configured = planWorkflowEvent(workflow, fromLabel, WORKFLOW_EVENT.MERGE_FAILED);
+  return planWorkflowEvent(workflow, fromLabel, WORKFLOW_EVENT.MERGE_FAILED);
+}
 
-  if (configured) return configured;
-  const fallback = findStateByLabel(workflow, "To Improve");
-  const key = fallback ? findStateKeyByLabel(workflow, fallback.label) : null;
+/**
+ * Get completion rule for a role:result pair.
+ * Uses workflow config when available.
+ * @param role - Configured completing role.
+ * @param result - Configured role result.
+ * @param completion - Result-to-event mapping.
+ * @param workflow - Resolved workflow, or built-in defaults.
+ */
+export function getRule(
+  role: string,
+  result: string,
+  completion: CompletionEventMap,
+  workflow: WorkflowConfig = DEFAULT_WORKFLOW,
+): CompletionRule<string> | undefined {
+  const event = completion[result];
 
-  return fallback && key ? { from: fromLabel, toState: key, toLabel: fallback.label, actions: [] } : null;
+  return event
+    ? getCompletionRule(workflow, role, event) ?? undefined
+    : undefined;
 }

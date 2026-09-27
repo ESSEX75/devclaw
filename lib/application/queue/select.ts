@@ -18,6 +18,7 @@ export function selectLocalQueueCandidates(
     .filter((state) => state.integrityStatus !== ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
       && state.providerMissing === null
       && !state.activeWorker
+      && !state.pendingWorkerRelease
       && queueLabels.includes(state.workflowLabel)
       && (!instanceName || state.owner === null || state.owner === instanceName))
     .sort((a, b) => a.issueId - b.issueId);

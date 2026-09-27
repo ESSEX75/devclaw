@@ -118,9 +118,14 @@ owns event policy, exact routing, rendering, and audit. CLI fallback is permitte
 only before a native send begins. A send exception or abnormal command exit is
 unknown, not proof of rejection; audit failure never changes transport evidence.
 
-Terminal issue state is a durable notification outbox. Reservation and confirmation
-follow the local commit and projection. Unconfirmed delivery keeps the issue active;
-heartbeat retries only proven unsubmitted (`retryable`) or corrected policy/route
+Terminal transitions atomically persist notification intent (`pending`) and the
+exact project worker identity awaiting release alongside local workflow truth.
+Heartbeat resumes slot release before notification retries and archival. Release
+compares issue, session, and start time; a replacement run requires inspection.
+Queue selection, dispatch, deletion, and archival reject a pending release.
+Reservation and confirmation follow the local commit, release, and projection. Unconfirmed delivery keeps the issue active;
+heartbeat sends never-attempted (`pending`) intents immediately and retries
+proven unsubmitted (`retryable`) or corrected policy/route
 blocks (`blocked`) after backoff. Disabled events, missing endpoints, and unavailable
 provider issues remain blocked with a reason; they are never marked delivered.
 Expired `attempting` records become `unknown`, as a crash may have followed a send.
@@ -129,8 +134,12 @@ exact account/thread and provider evidence before confirming delivery or authori
 a retry through the state settlement API with the original event and attempt token.
 No exactly-once guarantee is claimed: a manually authorized retry after an incorrect
 non-delivery conclusion can duplicate a message. Task projections expose the outbox
-status and reason. Creating terminal intent before all completion effects remains
-the pipeline coordinator's responsibility.
+status and reason. Merge retries first observe provider state; confirmed merged
+PRs are not merged again. Close/reopen failures retain the local source state so a
+retry can finish the effect even when the provider label already changed. Provider
+effects and local writes are not atomic; a read failure retains work for a later
+retry. Auxiliary worker/review/merge messages remain best-effort and are not replayed
+when resuming a committed completion.
 
 ## Heartbeat
 

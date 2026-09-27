@@ -212,10 +212,10 @@ describe("heartbeat transition state sync", () => {
       const archived = Object.values(archive.issues).find((record) => record.issueId === 91);
 
       assert.strictEqual(transitions, 1);
-      assert.strictEqual(store.issues["91"], undefined);
-      assert.strictEqual(archived?.finalWorkflowState, "done");
-      assert.strictEqual(archived?.finalWorkflowLabel, "Done");
-      assert.ok(archived?.closedAt);
+      assert.strictEqual(archived, undefined);
+      assert.strictEqual(store.issues["91"].workflowState, "done");
+      assert.strictEqual(store.issues["91"].pipelineNotification?.status, "pending");
+      assert.ok(store.issues["91"].closedAt);
       assert.strictEqual(provider.callsTo("listIssuesByLabel").length, 0);
     });
   });

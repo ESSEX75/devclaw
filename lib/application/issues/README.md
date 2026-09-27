@@ -10,7 +10,7 @@ adapters. Child capabilities own their contracts and expose narrow sibling APIs:
 - `policy`: explicit review/test policy migration and projection reconciliation.
 - `repair`: snapshot-bound plans and verified local/provider-source repair.
 
-Archival rechecks local worker ownership, project worker slots, notification
+Archival rechecks local worker ownership, pending slot releases, project worker slots, notification
 outbox, and integrity under the issue lock. Terminal archival additionally requires
 the current key and label to match a terminal state in the resolved workflow.
 Confirmed provider-deleted archival does not require a terminal workflow state.

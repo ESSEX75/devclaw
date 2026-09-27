@@ -73,7 +73,7 @@ export async function dispatchTaskLocked(
   // ── Setup (no side effects — safe to fail) ──────────────────────────
   const existingState = (await readIssueStateStore(workspaceDir, project.slug)).issues[String(issueId)];
 
-  if (existingState?.activeWorker) throw new Error(`Issue #${issueId} already has an active worker.`);
+  if (existingState?.activeWorker || existingState?.pendingWorkerRelease) throw new Error(`Issue #${issueId} already has an active worker.`);
   if (existingState?.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR) {
     throw new Error(`Issue #${issueId} has integrity_error and cannot be dispatched.`);
   }

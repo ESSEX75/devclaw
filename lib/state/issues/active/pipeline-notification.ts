@@ -26,7 +26,8 @@ export async function reservePipelineNotification(
       if (previous.eventKey !== eventKey && previous.status !== PIPELINE_NOTIFICATION_STATUS.DELIVERED) return { store, result: null };
       if (previous.eventKey === eventKey) {
         if (previous.status === PIPELINE_NOTIFICATION_STATUS.DELIVERED || previous.status === PIPELINE_NOTIFICATION_STATUS.UNKNOWN) return { store, result: null };
-        if (Date.parse(previous.attemptedAt) + PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS > now.getTime()) return { store, result: null };
+        if (previous.status !== PIPELINE_NOTIFICATION_STATUS.PENDING
+          && Date.parse(previous.attemptedAt) + PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS > now.getTime()) return { store, result: null };
         if (previous.status === PIPELINE_NOTIFICATION_STATUS.ATTEMPTING) {
           const updated = { ...state, updatedAt: now.toISOString(), pipelineNotification: {
             ...previous, status: PIPELINE_NOTIFICATION_STATUS.UNKNOWN,
@@ -59,7 +60,7 @@ export async function reservePipelineNotification(
  */
 export async function settlePipelineNotification(
   workspaceDir: string, projectSlug: string, issueId: number, eventKey: string, attemptedAt: string,
-  status: Exclude<PipelineNotificationState["status"], typeof PIPELINE_NOTIFICATION_STATUS.ATTEMPTING>, reason?: string,
+  status: Exclude<PipelineNotificationState["status"], typeof PIPELINE_NOTIFICATION_STATUS.ATTEMPTING | typeof PIPELINE_NOTIFICATION_STATUS.PENDING>, reason?: string,
 ): Promise<boolean> {
   return updateIssueStateStore(workspaceDir, projectSlug, (store) => {
     const state = store.issues[String(issueId)];

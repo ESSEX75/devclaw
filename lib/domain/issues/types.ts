@@ -50,7 +50,7 @@ export type PipelineNotificationState = {
   eventKey: string;
   /** Current persistence state of the delivery. */
   status: ValueOf<typeof PIPELINE_NOTIFICATION_STATUS>;
-  /** ISO timestamp written before external delivery begins. */
+  /** ISO intent creation time while pending; exact attempt token after reservation. */
   attemptedAt: string;
   /** ISO timestamp written after the adapter confirms delivery. */
   deliveredAt?: string;
@@ -110,6 +110,8 @@ export type IssueRuntimeState = IssueProjectionState & {
   notifyTarget: NotifyBindingRef | null;
   /** Active session worker details. */
   activeWorker: ActiveIssueWorker | null;
+  /** Completed worker whose project slot still needs an idempotent release. */
+  pendingWorkerRelease?: ActiveIssueWorker | null;
   /** ISO timestamp when managed state was created. */
   createdAt: string;
   /** ISO timestamp of the last state update. */

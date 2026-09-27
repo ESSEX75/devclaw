@@ -191,7 +191,7 @@ workflow:
     await executeCompletion({ ...completionInput, result: "audited" });
 
     const transitionsAfterCompletion = harness.provider.callsTo("transitionLabel").length;
-    await assert.rejects(executeCompletion({ ...completionInput, result: "audited" }), /expected provider label/);
+    await executeCompletion({ ...completionInput, result: "audited" });
     assert.equal(harness.provider.callsTo("transitionLabel").length, transitionsAfterCompletion);
 
     const completedProjects = await readProjects(harness.workspaceDir);
@@ -205,7 +205,8 @@ workflow:
     const reloadedStore = await readIssueStateStore(harness.workspaceDir, harness.project.slug);
     const archive = await readIssueArchiveStore(harness.workspaceDir, harness.project.slug);
     const archived = Object.values(archive.issues).find((record) => record.issueId === issue.iid);
-    assert.equal(reloadedStore.issues[String(issue.iid)], undefined);
-    assert.equal(archived?.finalWorkflowState, "done");
+    assert.equal(reloadedStore.issues[String(issue.iid)].workflowState, "done");
+    assert.equal(reloadedStore.issues[String(issue.iid)].pipelineNotification?.status, "blocked");
+    assert.equal(archived, undefined);
   });
 });

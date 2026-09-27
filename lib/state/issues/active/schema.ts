@@ -15,6 +15,16 @@ import {
 } from "../../../domain/index.js";
 import type { IssueStateStore } from "./types.js";
 
+/** Validates worker identity retained through a committed slot release. */
+const ActiveWorkerSchema = z.object({
+  role: z.string(), level: z.string(), slotIndex: z.number().int().nonnegative(),
+  sessionKey: z.string().nullable(), startedAt: z.string(),
+  delivery: z.object({
+    status: z.enum(WORKER_DELIVERY_STATUS), recordedAt: z.string(), reason: z.string(),
+    checkedAt: z.string().optional(), sessionObserved: z.boolean().nullable().optional(),
+  }).strict().optional(),
+}).strict();
+
 /** Strict schema for one authoritative active issue runtime record. */
 const RuntimeIssueSchema = z.object({
   projectSlug: z.string(), issueId: z.number().int().positive(), provider: z.enum(ISSUE_PROVIDER),
@@ -23,14 +33,8 @@ const RuntimeIssueSchema = z.object({
   assignedLevel: z.string().nullable(), owner: z.string().nullable(),
   reviewPolicy: z.enum(REVIEW_POLICY).nullable(), testPolicy: z.enum(TEST_POLICY).nullable(),
   notifyTarget: z.object({ channel: z.enum(NOTIFICATION_CHANNEL), name: z.string() }).strict().nullable(),
-  activeWorker: z.object({
-    role: z.string(), level: z.string(), slotIndex: z.number().int().nonnegative(),
-    sessionKey: z.string().nullable(), startedAt: z.string(),
-    delivery: z.object({
-      status: z.enum(WORKER_DELIVERY_STATUS), recordedAt: z.string(), reason: z.string(),
-      checkedAt: z.string().optional(), sessionObserved: z.boolean().nullable().optional(),
-    }).strict().optional(),
-  }).strict().nullable(),
+  activeWorker: ActiveWorkerSchema.nullable(),
+  pendingWorkerRelease: ActiveWorkerSchema.nullable().optional(),
   integrityStatus: z.enum(ISSUE_INTEGRITY_STATUS), integrityErrors: z.array(z.string()),
   createdAt: z.string(), updatedAt: z.string(),
   closedAt: z.string().nullable(),

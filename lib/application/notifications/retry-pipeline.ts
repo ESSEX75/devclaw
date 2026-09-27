@@ -2,7 +2,7 @@
 
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
-import { PIPELINE_NOTIFICATION_STATUS, type Project } from "../../domain/index.js";
+import { ISSUE_INTEGRITY_STATUS, PIPELINE_NOTIFICATION_STATUS, type Project } from "../../domain/index.js";
 import { MESSAGE_DELIVERY_STATUS } from "../../integrations/openclaw/notifications/index.js";
 import type { IssueReader } from "../../integrations/providers/index.js";
 import { readIssueStateStore, reservePipelineNotification } from "../../state/index.js";
@@ -28,6 +28,8 @@ export async function retryPendingPipelineNotifications(
 ): Promise<number> {
   const store = await readIssueStateStore(workspaceDir, project.slug);
   const pending = Object.values(store.issues).filter((state) => state.pipelineNotification
+    && !state.pendingWorkerRelease && !state.activeWorker
+    && state.integrityStatus === ISSUE_INTEGRITY_STATUS.OK
     && state.pipelineNotification.status !== PIPELINE_NOTIFICATION_STATUS.DELIVERED
     && state.pipelineNotification.status !== PIPELINE_NOTIFICATION_STATUS.UNKNOWN)
     .sort((left, right) => Date.parse(left.pipelineNotification!.attemptedAt) - Date.parse(right.pipelineNotification!.attemptedAt));

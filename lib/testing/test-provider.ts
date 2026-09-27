@@ -280,6 +280,9 @@ export class TestProvider implements IssueProvider {
   async mergePr(issueId: number): Promise<void> {
     this.calls.push({ method: "mergePr", args: { issueId } });
     if (this.mergePrFailures.has(issueId)) {
+      const observed = this.prStatuses.get(issueId);
+
+      if (observed) this.prStatuses.set(issueId, { ...observed, mergeable: false });
       throw new Error(`Merge conflict: cannot merge PR for issue #${issueId}`);
     }
 

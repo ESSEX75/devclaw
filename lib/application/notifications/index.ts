@@ -6,4 +6,4 @@ export { recordPipelineNotificationOutcome } from "./record-outcome.js";
 export { renderNotificationMessage } from "./render.js";
 export { resolveIssueNotificationEndpoint } from "./resolve-endpoint.js";
 export { retryPendingPipelineNotifications } from "./retry-pipeline.js";
-export type { NotificationConfig, NotificationDeliveryResult, NotificationRuntime, NotifyEvent, NotifyOptions } from "./types.js";
+export type { NotificationConfig, NotificationCreatedTask, NotificationDeliveryResult, NotificationRuntime, NotifyEvent, NotifyOptions } from "./types.js";

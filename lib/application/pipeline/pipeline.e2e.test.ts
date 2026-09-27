@@ -568,7 +568,7 @@ describe("E2E pipeline", () => {
           tester: { active: true, issueId: 40, level: "medior" },
         },
       });
-      h.provider.seedIssue({ iid: 40, title: "Check signup", labels: ["Testing"] });
+      h.provider.seedIssue({ iid: 40, title: "Check signup", labels: ["Testing"], state: "closed" });
     });
 
     it("should transition Testing → To Improve, reopen issue", async () => {

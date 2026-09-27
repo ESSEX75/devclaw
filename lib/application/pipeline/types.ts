@@ -1,7 +1,11 @@
 /** Contracts for planned pipeline transitions and completion responses. */
 
-import type { CompletionRule, Project, TransitionAction, WorkflowConfig } from "../../domain/index.js";
+import type { RunCommand } from "../../context.js";
+import type { CompletionRule, IssueRuntimeState, NotificationEndpoint, Project, ReviewPolicy, TestPolicy, TransitionAction, WorkflowConfig } from "../../domain/index.js";
 import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
+import type { ValueOf } from "../../types.js";
+import type { NotificationCreatedTask, NotificationRuntime } from "../notifications/index.js";
+import type { REVIEW_OUTCOME } from "./const.js";
 
 /** A validated workflow transition with its provider actions. */
 export type TransitionPlan = {
@@ -47,13 +51,16 @@ export type CompletionOutput = {
 
 /** Review provider outcome that selects a workflow transition or no-op. */
 export type ReviewOutcome =
-  | { kind: "approved" }
-  | { kind: "changes_requested" }
-  | { kind: "conflict" }
-  | { kind: "closed_unmerged" }
-  | { kind: "missing_pr" }
-  | { kind: "pending" }
-  | { kind: "merge_failed"; error: string };
+  | {
+    /** Provider observation selecting a configured transition or no-op. */
+    kind: Exclude<ValueOf<typeof REVIEW_OUTCOME>, typeof REVIEW_OUTCOME.MERGE_FAILED>;
+  }
+  | {
+    /** Confirmed merge failure selects the configured recovery event. */
+    kind: typeof REVIEW_OUTCOME.MERGE_FAILED;
+    /** Provider failure diagnostic. */
+    error: string;
+  };
 
 /** Arguments for a transition while its caller holds the issue lock. */
 export type CommitTransitionInput = {
@@ -84,7 +91,7 @@ export type CommitTransitionInput = {
     /** Local field used to select this pass. */
     field: "reviewPolicy" | "testPolicy";
     /** Expected policy value from candidate selection. */
-    value: "human" | "agent" | "skip";
+    value: ReviewPolicy | TestPolicy;
   };
   /** Policy-specific provider actions performed only after the state check. */
   beforeCommit?: () => Promise<void>;
@@ -92,4 +99,84 @@ export type CommitTransitionInput = {
   afterLabel?: () => Promise<void>;
   /** Archive terminal state after its durable notification is handled. */
   archiveTerminal?: boolean;
+};
+
+/** Validated completion command and the capabilities needed to execute it. */
+export type CompletionInput = {
+  /** Workspace containing authoritative state. */
+  workspaceDir: string;
+  /** Canonical project identity. */
+  projectSlug: string;
+  /** Configured completing role. */
+  role: string;
+  /** Configured completion result. */
+  result: string;
+  /** Managed provider issue identifier. */
+  issueId: number;
+  /** Worker-provided completion summary. */
+  summary?: string;
+  /** Previously observed pull request URL. */
+  prUrl?: string;
+  /** Provider for workflow effects. */
+  provider: IssueProvider;
+  /** Resolved checkout for git actions. */
+  repoPath: string;
+  /** Display name used in announcements. */
+  projectName: string;
+  /** Configured project notification endpoints. */
+  channels: NotificationEndpoint[];
+  /** Plugin notification policy. */
+  pluginConfig?: Record<string, unknown>;
+  /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
+  runtime?: NotificationRuntime;
+  /** Workflow config (defaults to DEFAULT_WORKFLOW) */
+  workflow?: WorkflowConfig;
+  /** Tasks created during this work session (e.g. architect implementation tasks) */
+  createdTasks?: NotificationCreatedTask[];
+  /** Level of the completing worker */
+  level?: string;
+  /** Slot index within the level's array */
+  slotIndex?: number;
+  /** Command execution capability. */
+  runCommand: RunCommand;
+};
+
+/** Observations from completion provider actions, retained for rendering. */
+export type CompletionActions = {
+  /** Resolved pull request URL. */
+  prUrl?: string;
+  /** Whether the provider confirmed a merged PR. */
+  mergedPr: boolean;
+  /** Provider PR title. */
+  prTitle?: string;
+  /** Branch associated with the PR. */
+  sourceBranch?: string;
+  /** Confirmed merge failure requiring the configured recovery transition. */
+  mergeFailure: CompletionMergeFailure | null;
+};
+
+/** Committed completion context passed to notification orchestration. */
+export type CompletionNotificationInput = {
+  /** Original command and delivery capabilities. */
+  opts: CompletionInput;
+  /** Owning project and exact routes. */
+  project: Project;
+  /** Issue context observed before effects. */
+  issue: Issue;
+  /** Committed authoritative runtime state. */
+  runtimeState: IssueRuntimeState;
+  /** Selected completion semantics. */
+  plan: CompletionPlan;
+  /** Provider observations used in event payloads. */
+  actions: CompletionActions;
+  /** Optional display name of the completing worker. */
+  workerName?: string;
+  /** Auxiliary events are emitted only on the initial completion attempt. */
+  notifyAuxiliary: boolean;
+};
+
+/** Confirmed inability to merge, distinct from an uncertain provider response. */
+type CompletionMergeFailure = {
+  /** Provider failure diagnostic. */
+  error: string;
 };

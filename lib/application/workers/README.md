@@ -15,3 +15,6 @@ Reactions run independently of the issue lock and dispatch result. They are
 best-effort: a process interruption can leave accepted context unmarked, and an
 operator resolving uncertainty does not replay acknowledgement. They do not prove
 that the worker read or acted on the comment.
+
+Dispatch also rejects a committed pipeline transition whose previous worker slot
+is still awaiting release. Pipeline recovery owns that release intent.

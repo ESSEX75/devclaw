@@ -76,9 +76,9 @@ export async function testSkipPass(opts: {
         beforeCommit: async () => {
           for (const action of actions) {
             if (action === ACTION.CLOSE_ISSUE) {
-              try { await provider.closeIssue(issue.iid); } catch { /* best-effort */ }
+              await provider.closeIssue(issue.iid);
             } else if (action === ACTION.REOPEN_ISSUE) {
-              try { await provider.reopenIssue(issue.iid); } catch { /* best-effort */ }
+              await provider.reopenIssue(issue.iid);
             }
           }
         },
