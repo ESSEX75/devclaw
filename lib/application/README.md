@@ -96,6 +96,16 @@ diagnostics and retains independent failures. Explicit repair remains the operat
 that verifies the full supported projection contract and resolves stale repair
 errors. These rules use existing diagnostic strings, without a new storage schema.
 
+## Review
+
+Review owns optional active-PR observations, pure worker-context rendering, and
+best-effort acknowledgement of delivered comments. Missing comments do not discard
+a known merge conflict; a failed diff read retains the PR URL. Closed and merged
+PRs are excluded. Unknown source branches require identification from the PR before
+work begins. Provider adapters own comment resource identity and reaction APIs.
+Workers acknowledge only context included in an accepted turn; heartbeat queue
+transitions do not acknowledge feedback. See the worker delivery contract above.
+
 ## Pipeline and notifications
 
 Pipeline resolves a pure transition plan before effects. Completion, review, and

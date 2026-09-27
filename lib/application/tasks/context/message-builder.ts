@@ -4,7 +4,7 @@
 
 import { getFallbackEmoji } from "../../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
-import { formatPrContext, formatPrFeedback } from "../../review/index.js";
+import { formatPrContext, formatPrFeedback, PR_FEEDBACK_REASON } from "../../review/index.js";
 import { TASK_COMMENT_LIMIT } from "./const.js";
 import type { BuildConflictFixMessageInput, BuildTaskMessageInput } from "./types.js";
 
@@ -62,7 +62,7 @@ export function buildTaskMessage(opts: BuildTaskMessageInput): string {
     parts.push(...formatPrFeedback(opts.prFeedback, baseBranch));
 
     // Defensive warning if branch name is missing (shouldn't happen in practice)
-    if (!opts.prFeedback.branchName && opts.prFeedback.reason === "merge_conflict") {
+    if (!opts.prFeedback.branchName && opts.prFeedback.reason === PR_FEEDBACK_REASON.MERGE_CONFLICT) {
       parts.push(
         ``,
         `⚠️ **Branch name could not be determined automatically.**`,

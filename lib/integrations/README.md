@@ -20,6 +20,14 @@ The OpenClaw session adapter exposes a typed worker-turn submission outcome.
 Command timeouts and lost responses remain unknown; application orchestration
 decides whether to retain or release its worker reservation.
 
+Review comments carry an explicit source kind: review summary, inline comment, or
+PR conversation comment. This kind is independent of review status and optional
+file location. GitHub inline reactions use the pull-request comment endpoint;
+conversation reactions use issue comments. GitHub review summaries have no
+supported REST reaction endpoint and are not reaction targets. GitLab inline and
+conversation notes share the MR note reaction endpoint. Reactions are best-effort
+indicators, not durable delivery receipts.
+
 ## Boundary Rules
 
 - Keep provider API details in `lib/integrations/providers`.

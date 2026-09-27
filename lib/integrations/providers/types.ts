@@ -2,6 +2,9 @@
  * Shared provider-facing DTOs.
  */
 
+import type { ValueOf } from "../../types.js";
+import type { PR_COMMENT_KIND } from "./const.js";
+
 export type StateLabel = string;
 
 export type Issue = {
@@ -39,12 +42,22 @@ export type PrStatus = {
   mergeable?: boolean;
 };
 
+/** Provider review observation with an explicit source namespace for safe acknowledgement. */
 export type PrReviewComment = {
+  /** Original provider source; independent of approval state or optional file location. */
+  kind: ValueOf<typeof PR_COMMENT_KIND>;
+  /** Identifier within the source namespace. */
   id: number;
+  /** Provider display name of the author. */
   author: string;
+  /** Review text supplied to workers. */
   body: string;
+  /** Provider review status, independent of the reaction namespace. */
   state: string;
+  /** Provider timestamp used to order observations. */
   created_at: string;
+  /** Optional file location for inline feedback. */
   path?: string;
+  /** Optional line within the referenced file. */
   line?: number;
 };

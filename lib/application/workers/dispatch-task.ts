@@ -16,8 +16,8 @@ import { readIssueStateStore, withIssueOrchestrationLock } from "../../state/ind
 import { getProject, getRoleWorker, readProjects } from "../../state/index.js";
 import { getNotificationConfig, notify } from "../notifications/index.js";
 import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
-import { acknowledgeComments, EYES_EMOJI } from "../review/acknowledge-comments.js";
-import { fetchPrContext, fetchPrFeedback } from "../review/pr-context.js";
+import { acknowledgeComments, EYES_EMOJI, fetchPrContext, fetchPrFeedback, PR_FEEDBACK_REASON } from "../review/index.js";
+import { TASK_COMMENT_LIMIT } from "../tasks/index.js";
 import { formatAttachmentsForTask } from "../tasks/index.js";
 import { buildAnnouncement, buildConflictFixMessage, buildTaskMessage, formatSessionLabel } from "../tasks/index.js";
 import { auditDispatch, dispatchErrorMessage } from "./audit.js";
@@ -107,7 +107,7 @@ export async function dispatchTaskLocked(
   const { model, botName, sessionKey, sessionKeyToDelete, sessionAction } = plan;
 
   // Fetch comments to include in task context
-  const comments = await provider.listComments(issueId);
+  const comments = (await provider.listComments(issueId)).slice(-TASK_COMMENT_LIMIT);
 
   // Fetch PR context based on workflow role semantics (no hardcoded role/label checks)
   const { workflow } = resolvedConfig;
@@ -124,7 +124,7 @@ export async function dispatchTaskLocked(
   } catch { /* best-effort */ }
 
   const primaryChannelId = project.channels[0]?.channelId ?? project.slug;
-  const isConflictFix = prFeedback?.reason === "merge_conflict";
+  const isConflictFix = prFeedback?.reason === PR_FEEDBACK_REASON.MERGE_CONFLICT;
   const taskMessage = isConflictFix && prFeedback
     ? buildConflictFixMessage({
       projectName: project.name, channelId: primaryChannelId, role, issueId,
@@ -158,17 +158,6 @@ export async function dispatchTaskLocked(
     await provider.transitionLabel(issueId, fromLabel, toLabel);
     providerTransitioned = true;
 
-    // Mark issue + PR as managed and all consumed comments as seen (fire-and-forget)
-    provider.reactToIssue(issueId, EYES_EMOJI).catch(() => { });
-    provider.reactToPr(issueId, EYES_EMOJI).catch(() => { });
-    acknowledgeComments(provider, issueId, comments, prFeedback, workspaceDir).catch((err) => {
-      auditLog(workspaceDir, "dispatch_warning", {
-        step: "acknowledgeComments",
-        issue: issueId,
-        error: dispatchErrorMessage(err),
-      }).catch(() => { });
-    });
-
     const issue = await provider.getIssue(issueId);
 
     // Ensure session exists (fire-and-forget — don't wait for gateway)
@@ -189,6 +178,7 @@ export async function dispatchTaskLocked(
 
     if (delivery.initial.kind === "rejected") throw new Error(delivery.initial.reason);
     taskDispatched = true;
+
     const deliveryStatus = delivery.initial.kind === "pending" ? "pending"
       : delivery.initial.kind === "unknown" ? "unknown" : "accepted";
     const unresolved: WorkerDeliveryState | undefined = delivery.initial.kind === "accepted" ? undefined : {
@@ -242,11 +232,14 @@ export async function dispatchTaskLocked(
     }
 
     if (delivery.initial.kind === "pending") {
-      delivery.settled.then((outcome) => {
+      delivery.settled.then(async (outcome) => {
         if (outcome.kind === "accepted") {
-          recordSlotDelivery(opts, plan, undefined)
+          await recordSlotDelivery(opts, plan, undefined)
             .then(() => recordIssueDelivery(workspaceDir, project.slug, issueId, sessionKey, undefined))
             .catch(() => { });
+          provider.reactToIssue(issueId, EYES_EMOJI).catch(() => {});
+          provider.reactToPr(issueId, EYES_EMOJI).catch(() => {});
+          await acknowledgeComments(provider, issueId, isConflictFix ? [] : comments, prFeedback, workspaceDir);
         } else {
           reconcileUncertainDispatch({
             workspaceDir, projectSlug: project.slug, role, level, slotIndex, issueId, sessionKey,
@@ -255,6 +248,12 @@ export async function dispatchTaskLocked(
             .catch(() => { });
         }
       }).catch(() => { });
+    }
+
+    if (delivery.initial.kind === "accepted") {
+      provider.reactToIssue(issueId, EYES_EMOJI).catch(() => {});
+      provider.reactToPr(issueId, EYES_EMOJI).catch(() => {});
+      acknowledgeComments(provider, issueId, isConflictFix ? [] : comments, prFeedback, workspaceDir).catch(() => {});
     }
 
     // Audit successful reservation and the observed delivery status.

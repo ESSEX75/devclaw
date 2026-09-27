@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
 import type { CreateIssueInput } from "./capabilities.js";
+import { PR_COMMENT_KIND } from "./const.js";
 import {
   classifyProviderLookupFailure,
   classifyProviderProjectAccessFailure,
@@ -612,6 +613,7 @@ export class GitHubProvider implements IssueProvider {
         if (r.state === "DISMISSED") continue; // Skip dismissed
         if (!r.body && r.state === "COMMENTED") continue; // Skip empty COMMENTED reviews
         comments.push({
+          kind: PR_COMMENT_KIND.REVIEW,
           id: r.id,
           author: r.user.login,
           body: r.body ?? "",
@@ -630,6 +632,7 @@ export class GitHubProvider implements IssueProvider {
 
       for (const c of inlines) {
         comments.push({
+          kind: PR_COMMENT_KIND.INLINE,
           id: c.id,
           author: c.user.login,
           body: c.body,
@@ -646,6 +649,7 @@ export class GitHubProvider implements IssueProvider {
 
     for (const c of conversationComments) {
       comments.push({
+        kind: PR_COMMENT_KIND.CONVERSATION,
         id: c.id,
         author: c.user.login,
         body: c.body,
@@ -743,23 +747,14 @@ export class GitHubProvider implements IssueProvider {
     } catch { /* best-effort */ }
   }
 
-  /**
-   * Add an emoji reaction to a PR review by its review ID.
-   * Uses the GitHub Pull Request Review Reactions API.
+  /** React to an inline review comment using its distinct pull-request comment namespace.
+   * @param _issueId - Owning issue; comment IDs already identify the repository resource.
+   * @param commentId - Inline review comment identifier, never a review summary ID.
+   * @param emoji - GitHub reaction content.
    */
-  async reactToPrReview(issueId: number, reviewId: number, emoji: string): Promise<void> {
-    try {
-      // We need the PR number, not the issue ID. Find the PR first.
-      type OpenPr = { title: string; body: string; headRefName: string; number: number };
-      const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
-
-      if (prs.length === 0) return;
-      await this.gh([
-        "api", `repos/:owner/:repo/pulls/${prs[0].number}/reviews/${reviewId}/reactions`,
-        "--method", "POST",
-        "--field", `content=${emoji}`,
-      ]);
-    } catch { /* best-effort */ }
+  async reactToPrReviewComment(_issueId: number, commentId: number, emoji: string): Promise<void> {
+    await this.gh(["api", `repos/:owner/:repo/pulls/comments/${commentId}/reactions`,
+      "--method", "POST", "--field", `content=${emoji}`]);
   }
 
   async issueCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
@@ -780,19 +775,18 @@ export class GitHubProvider implements IssueProvider {
     } catch { return false; }
   }
 
-  async prReviewHasReaction(issueId: number, reviewId: number, emoji: string): Promise<boolean> {
-    try {
-      type OpenPr = { title: string; body: string; headRefName: string; number: number };
-      const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
+  /** Check existing reactions in the inline review-comment namespace.
+   * @param _issueId - Owning issue; the comment ID identifies the resource.
+   * @param commentId - Inline review comment identifier.
+   * @param emoji - Reaction content to find.
+   */
+  async prReviewCommentHasReaction(_issueId: number, commentId: number, emoji: string): Promise<boolean> {
+    const raw = await this.gh(["api", `repos/:owner/:repo/pulls/comments/${commentId}/reactions`]);
+    const reactions: unknown = JSON.parse(raw);
 
-      if (prs.length === 0) return false;
-      const raw = await this.gh([
-        "api", `repos/:owner/:repo/pulls/${prs[0].number}/reviews/${reviewId}/reactions`,
-      ]);
-      const reactions = JSON.parse(raw) as Array<{ content: string }>;
+    if (!Array.isArray(reactions)) throw new Error("Invalid inline comment reaction response.");
 
-      return reactions.some((r) => r.content === emoji);
-    } catch { return false; }
+    return reactions.some((reaction: unknown) => typeof reaction === "object" && reaction !== null && "content" in reaction && reaction.content === emoji);
   }
 
   async editIssue(issueId: number, updates: { title?: string; body?: string }): Promise<Issue> {

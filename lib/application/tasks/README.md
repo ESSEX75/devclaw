@@ -26,3 +26,7 @@ URLs are persisted through the state repository; a late upload cannot recreate a
 purged index entry. Upload failures retain the local file and are audited; storage
 failures propagate. Retrying an explicit add creates another attachment, so callers
 must inspect local state after a partial failure rather than blindly resubmit.
+
+The context API exposes `TASK_COMMENT_LIMIT` so dispatch selects and acknowledges
+the same recent issue comments that the message builder includes. Conflict-fix
+messages include PR feedback but omit issue comments.

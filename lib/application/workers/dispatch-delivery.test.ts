@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import type { RunCommand } from "../../context.js";
+import { PrState } from "../../integrations/providers/index.js";
 import { WORKER_DELIVERY_STATUS } from "../../domain/index.js";
 import { checkWorkerHealth } from "../heartbeat/health.js";
 import { summarizeTaskIssue } from "../tasks/index.js";
@@ -26,24 +27,29 @@ function dispatchInput(h: Awaited<ReturnType<typeof createTestHarness>>, issueId
 }
 
 describe("worker delivery outcome", () => {
-  it("releases the slot and restores provider label after local submission rejection", async () => {
+  it("releases the slot and restores provider label after local submission rejection", async (t) => {
     const h = await createTestHarness();
     h.provider.seedIssue({ iid: 61, labels: ["To Do"] });
+    t.mock.method(h.provider, "listComments", async () => [{ id: 1, author: "reviewer", body: "feedback", created_at: "2026-01-01" }]);
+    const reaction = t.mock.method(h.provider, "reactToIssueComment");
     try {
       await assert.rejects(dispatchTask({ ...dispatchInput(h, 61, h.runCommand), agentId: "" }), /invalid local submission input/);
       const project = (await h.readProjects()).projects[h.project.slug];
 
       assert.equal(getRoleWorker(project, "developer").levels.medior?.[0]?.issueId, null);
       assert.ok((await h.provider.getIssue(61)).labels.includes("To Do"));
+      assert.equal(reaction.mock.callCount(), 0);
       assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["61"], undefined);
     } finally {
       await h.cleanup();
     }
   });
 
-  it("retains ownership after a nonzero gateway command exit", async () => {
+  it("retains ownership after a nonzero gateway command exit", async (t) => {
     const h = await createTestHarness();
     h.provider.seedIssue({ iid: 66, labels: ["To Do"] });
+    t.mock.method(h.provider, "listComments", async () => [{ id: 1, author: "reviewer", body: "feedback", created_at: "2026-01-01" }]);
+    const reaction = t.mock.method(h.provider, "reactToIssueComment");
     const runCommand: RunCommand = async (argv, options) => argv[3] === "agent"
       ? { stdout: "", stderr: "response failed", code: 1, signal: null, killed: false, termination: "exit" }
       : h.runCommand(argv, options);
@@ -60,6 +66,7 @@ describe("worker delivery outcome", () => {
       assert.equal(state.activeWorker?.delivery?.status, WORKER_DELIVERY_STATUS.UNKNOWN);
       assert.equal(getRoleWorker(project, "developer").levels.medior?.[0]?.delivery?.status, WORKER_DELIVERY_STATUS.UNKNOWN);
       assert.ok((await h.provider.getIssue(66)).labels.includes("Doing"));
+      assert.equal(reaction.mock.callCount(), 0);
     } finally {
       await h.cleanup();
     }
@@ -218,9 +225,13 @@ describe("worker delivery outcome", () => {
     }
   });
 
-  it("clears an in-flight delivery marker after explicit gateway acceptance", async () => {
+  it("clears an in-flight delivery marker after explicit gateway acceptance", async (t) => {
     const h = await createTestHarness();
     h.provider.seedIssue({ iid: 68, labels: ["To Do"] });
+    t.mock.method(h.provider, "listComments", async () => [{ id: 1, author: "reviewer", body: "feedback", created_at: "2026-01-01" }]);
+    let acknowledge: (() => void) | undefined;
+    const acknowledged = new Promise<void>((resolve) => { acknowledge = resolve; });
+    const reaction = t.mock.method(h.provider, "reactToIssueComment", async () => { acknowledge?.(); });
     let accept: ((value: Awaited<ReturnType<RunCommand>>) => void) | undefined;
     const pending = new Promise<Awaited<ReturnType<RunCommand>>>((resolve) => { accept = resolve; });
     const runCommand: RunCommand = async (argv, options) => argv[3] === "agent" ? pending : h.runCommand(argv, options);
@@ -229,14 +240,10 @@ describe("worker delivery outcome", () => {
       const result = await dispatchTask(dispatchInput(h, 68, runCommand));
 
       assert.equal(result.deliveryStatus, "pending");
+      assert.equal(reaction.mock.callCount(), 0);
       accept?.({ stdout: "{}", stderr: "", code: 0, signal: null, killed: false, termination: "exit" });
-      for (let attempt = 0; attempt < 30; attempt++) {
-        const state = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["68"];
-
-        if (!state.activeWorker?.delivery) break;
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      }
-
+      await acknowledged;
+      assert.equal(reaction.mock.callCount(), 1);
       const project = (await h.readProjects()).projects[h.project.slug];
       const state = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["68"];
 
@@ -284,11 +291,13 @@ describe("worker delivery outcome", () => {
 
       assert.equal(result.deliveryStatus, "pending");
       settle?.({ stdout: "", stderr: "connection closed", code: 1, signal: null, killed: false, termination: "exit" });
-      for (let attempt = 0; attempt < 30; attempt++) {
+      // Reconciliation takes filesystem locks asynchronously; 300 ms is not a delivery contract.
+      const deadline = Date.now() + 5_000;
+      while (Date.now() < deadline) {
         const state = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["70"];
 
         if (state.activeWorker?.delivery?.status === WORKER_DELIVERY_STATUS.UNKNOWN) break;
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 25));
       }
 
       const state = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["70"];
@@ -379,4 +388,46 @@ describe("worker delivery outcome", () => {
       await h.cleanup();
     }
   });
+});
+
+it("acknowledges only the recent comments included in the accepted task", async (t) => {
+  const h = await createTestHarness();
+  h.provider.seedIssue({ iid: 81, labels: ["To Do"] });
+  t.mock.method(h.provider, "listComments", async () => Array.from({ length: 25 }, (_, index) => ({
+    id: index + 1, author: "reviewer", body: `COMMENT-${index + 1}-END`, created_at: "2026-01-01",
+  })));
+  let acknowledge: (() => void) | undefined;
+  const acknowledged = new Promise<void>((resolve) => { acknowledge = resolve; });
+  const reaction = t.mock.method(h.provider, "reactToIssueComment", async (_: number, id: number) => { if (id === 25) acknowledge?.(); });
+  try {
+    const result = await dispatchTask(dispatchInput(h, 81, h.runCommand));
+    assert.equal(result.deliveryStatus, "accepted");
+    await acknowledged;
+    assert.deepEqual(reaction.mock.calls.map(({ arguments: args }) => args[1]), Array.from({ length: 20 }, (_, index) => index + 6));
+    const message = h.commands.taskMessages()[0];
+    assert.ok(!message.includes("COMMENT-5-END"));
+    assert.ok(message.includes("COMMENT-6-END"));
+    assert.ok(message.includes("COMMENT-25-END"));
+  } finally {
+    await h.cleanup();
+  }
+});
+
+it("delivers a commentless conflict PR and leaves excluded issue comments unacknowledged", async (t) => {
+  const h = await createTestHarness();
+  h.provider.seedIssue({ iid: 82, labels: ["To Improve"] });
+  h.provider.setPrStatus(82, { state: PrState.OPEN, url: "https://example.test/pr/82", mergeable: false, sourceBranch: "feature/82-fix" });
+  t.mock.method(h.provider, "listComments", async () => [{ id: 1, author: "reviewer", body: "UNRELATED-ISSUE-COMMENT", created_at: "2026-01-01" }]);
+  const reaction = t.mock.method(h.provider, "reactToIssueComment");
+  try {
+    const result = await dispatchTask({ ...dispatchInput(h, 82, h.runCommand), fromLabel: "To Improve" });
+    assert.equal(result.deliveryStatus, "accepted");
+    const message = h.commands.taskMessages()[0];
+    assert.match(message, /https:\/\/example.test\/pr\/82/);
+    assert.match(message, /git checkout feature\/82-fix/);
+    assert.ok(!message.includes("UNRELATED-ISSUE-COMMENT"));
+    assert.equal(reaction.mock.callCount(), 0);
+  } finally {
+    await h.cleanup();
+  }
 });

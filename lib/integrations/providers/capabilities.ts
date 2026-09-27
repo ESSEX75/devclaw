@@ -66,10 +66,20 @@ export interface ReactionWriter {
   prHasReaction(issueId: number, emoji: string): Promise<boolean>;
   reactToIssueComment(issueId: number, commentId: number, emoji: string): Promise<void>;
   reactToPrComment(issueId: number, commentId: number, emoji: string): Promise<void>;
-  reactToPrReview(issueId: number, reviewId: number, emoji: string): Promise<void>;
+  /** React to an inline review comment using its provider comment namespace.
+   * @param issueId - Issue used to resolve the active pull request.
+   * @param commentId - Provider inline comment identifier.
+   * @param emoji - Provider reaction name.
+   */
+  reactToPrReviewComment(issueId: number, commentId: number, emoji: string): Promise<void>;
   issueCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean>;
   prCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean>;
-  prReviewHasReaction(issueId: number, reviewId: number, emoji: string): Promise<boolean>;
+  /** Check whether an inline review comment already carries the requested reaction.
+   * @param issueId - Issue used to resolve the active pull request.
+   * @param commentId - Provider inline comment identifier.
+   * @param emoji - Provider reaction name.
+   */
+  prReviewCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean>;
 }
 
 export interface AttachmentUploader {

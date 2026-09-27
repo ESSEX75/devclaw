@@ -2,7 +2,7 @@
 
 import type { IssueComment } from "../../../integrations/providers/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
-import type { PrContext, PrFeedback } from "../../review/pr-context.js";
+import type { PrContext, PrFeedback } from "../../review/index.js";
 
 /** Inputs consumed by buildTaskMessage after adapter validation. */
 export type BuildTaskMessageInput = {

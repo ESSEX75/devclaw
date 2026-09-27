@@ -5,3 +5,13 @@ This capability plans and executes one worker assignment. `plan.ts` computes the
 A confirmed local submission failure restores the provider label and releases the reservation. A nonzero gateway command exit, timeout, lost response, or still-pending command retains the reservation and active runtime ownership so another tick cannot send the issue again. The slot receives a durable `submitting` marker before the gateway call. An unresolved response is stored on both slot and issue; explicit command success clears both markers. Heartbeat checks gateway evidence and raises `needs_attention` after five minutes without recent worker activity. Session existence alone never proves that the task arrived. The task status projection exposes the evidence and an investigation hint. An operator must confirm the run outcome before manually changing state or dispatching again. Custom roles and levels come from resolved configuration. `finish-work.ts` remains the separate worker completion command.
 
 An operator can preview `devclaw worker-delivery` with `--dry-run` and apply the same verified decision with `--apply`. The command requires project slug, issue ID, exact session key, `--reason`, and `--decision confirmed-started` or `--decision confirmed-not-started`. `confirmed-started` clears the uncertainty while retaining the active worker. `confirmed-not-started` validates the previous role queue, restores the provider label, releases the exact slot, and returns local issue state to that queue. Before choosing non-start, the operator must verify that no accepted or in-flight turn can still run. Both decisions require the issue and slot to still own the supplied session key.
+
+Comment reactions begin only after confirmed gateway acceptance and the local
+state commit attempt. Pending turns defer acknowledgement until acceptance;
+rejected or unknown turns leave comments unacknowledged. Only issue comments
+included under the task context limit and the supplied PR feedback are marked.
+Conflict-only messages omit issue comments, so those comments remain unmarked.
+Reactions run independently of the issue lock and dispatch result. They are
+best-effort: a process interruption can leave accepted context unmarked, and an
+operator resolving uncertainty does not replay acknowledgement. They do not prove
+that the worker read or acted on the comment.

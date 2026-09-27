@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
 import type { CreateIssueInput } from "./capabilities.js";
+import { PR_COMMENT_KIND } from "./const.js";
 import {
   classifyProviderLookupFailure,
   classifyProviderProjectAccessFailure,
@@ -444,6 +445,7 @@ export class GitLabProvider implements IssueProvider {
         for (const note of disc.notes) {
           if (note.system) continue;
           comments.push({
+            kind: note.position ? PR_COMMENT_KIND.INLINE : PR_COMMENT_KIND.CONVERSATION,
             id: note.id,
             author: note.author.username,
             body: note.body,
@@ -463,6 +465,7 @@ export class GitLabProvider implements IssueProvider {
       // Avoid duplicates: discussions endpoint may already include these
       if (!comments.some((c) => c.id === n.id)) {
         comments.push({
+          kind: PR_COMMENT_KIND.CONVERSATION,
           id: n.id,
           author: n.author.username,
           body: n.body,
@@ -566,9 +569,13 @@ export class GitLabProvider implements IssueProvider {
     } catch { /* best-effort */ }
   }
 
-  async reactToPrReview(issueId: number, reviewId: number, emoji: string): Promise<void> {
-    // GitLab doesn't distinguish reviews from comments — use the same note reaction API
-    await this.reactToPrComment(issueId, reviewId, emoji);
+  /** React to an inline review comment using its provider comment namespace.
+   * @param issueId - Issue used to resolve the active pull request.
+   * @param commentId - Provider inline comment identifier.
+   * @param emoji - Provider reaction name.
+   */
+  async reactToPrReviewComment(issueId: number, commentId: number, emoji: string): Promise<void> {
+    await this.reactToPrComment(issueId, commentId, emoji);
   }
 
   async issueCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
@@ -595,9 +602,13 @@ export class GitLabProvider implements IssueProvider {
     } catch { return false; }
   }
 
-  async prReviewHasReaction(issueId: number, reviewId: number, emoji: string): Promise<boolean> {
-    // GitLab doesn't distinguish reviews from comments, so use the same logic as prCommentHasReaction
-    return this.prCommentHasReaction(issueId, reviewId, emoji);
+  /** Check whether an inline review comment already carries the requested reaction.
+   * @param issueId - Issue used to resolve the active pull request.
+   * @param commentId - Provider inline comment identifier.
+   * @param emoji - Provider reaction name.
+   */
+  async prReviewCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
+    return this.prCommentHasReaction(issueId, commentId, emoji);
   }
 
   async editIssue(issueId: number, updates: { title?: string; body?: string }): Promise<Issue> {
