@@ -2,32 +2,20 @@
  * Tick runner — main heartbeat loop that processes each project.
  */
 
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
-
 import { log as auditLog } from "../../audit.js";
-import type { RunCommand } from "../../context.js";
 import { EXECUTION_MODE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { loadConfig } from "../../state/index.js";
-import { getProject, readProjects } from "../../state/index.js";
+import { readProjects } from "../../state/index.js";
 import { projectTick } from "../queue/tick.js";
-import type { HeartbeatConfig } from "./config.js";
-import { HEARTBEAT_PASS } from "./const.js";
-import {
-  type SessionLookup,
-} from "./health.js";
+import { HEARTBEAT_AUDIT_EVENT, HEARTBEAT_PASS } from "./const.js";
+import { performHealthPass } from "./health-pass.js";
+import { performIssueArchivePass, performIssueCreationPass, performProjectionIntegrityPass } from "./maintenance-passes.js";
 import { runHeartbeatPasses } from "./pass-runner.js";
-import {
-  performHealthPass,
-  performIssueArchivePass,
-  performIssueCreationPass,
-  performProjectionIntegrityPass,
-  performReviewPass,
-  performReviewSkipPass,
-  performTestSkipPass,
-} from "./passes.js";
-import type { HeartbeatTickResult } from "./types.js";
+import { performReviewPass, performReviewSkipPass, performTestSkipPass } from "./review-passes.js";
+import { mayScheduleProject } from "./scheduler.js";
+import type { HeartbeatRunInput, HeartbeatTickResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Tick (Main Heartbeat Loop)
@@ -36,16 +24,7 @@ import type { HeartbeatTickResult } from "./types.js";
 /** Coordinate ordered project maintenance and queue scheduling with project failure isolation.
  * @param opts - Workspace, gateway observations, scheduling limits, and runtime capabilities.
  */
-export async function tick(opts: {
-  workspaceDir: string;
-  agentId?: string;
-  config: HeartbeatConfig;
-  pluginConfig?: Record<string, unknown>;
-  sessions: SessionLookup | null;
-  logger: { info(msg: string): void; warn(msg: string): void };
-  runtime?: PluginRuntime;
-  runCommand: RunCommand;
-}): Promise<HeartbeatTickResult> {
+export async function tick(opts: HeartbeatRunInput): Promise<HeartbeatTickResult> {
   const { workspaceDir, agentId, config, pluginConfig, sessions, runtime, runCommand } = opts;
 
   // Load instance name for ownership filtering and auto-claiming
@@ -67,7 +46,7 @@ export async function tick(opts: {
       totalCreationsReady: 0,
       totalCreationsPending: 0,
       totalCreationsManual: 0,
-    passes: [],
+      passes: [],
     };
   }
 
@@ -87,21 +66,20 @@ export async function tick(opts: {
 
   const projectExecution =
     pluginConfig?.projectExecution === EXECUTION_MODE.SEQUENTIAL ? EXECUTION_MODE.SEQUENTIAL : EXECUTION_MODE.PARALLEL;
-  let activeProjects = 0;
 
   for (const slug of slugs) {
     try {
       const project = data.projects[slug];
 
-      if (!project) continue;
+      if (!project || (agentId && project.agentId !== agentId)) continue;
 
       const resolvedConfig = await loadConfig(workspaceDir, project.slug);
-      const { provider } = await createProvider({
+      const provider = opts.providerFactory ? await opts.providerFactory(project) : (await createProvider({
         repo: project.repo,
         provider: project.provider,
         runCommand,
         workflow: resolvedConfig.workflow,
-      });
+      })).provider;
 
       const completed = await runHeartbeatPasses(slug, [
         { name: HEARTBEAT_PASS.CREATION, run: async () => {
@@ -145,19 +123,16 @@ export async function tick(opts: {
         continue;
       }
 
-      // Budget check: stop if we've hit the limit
+      // Budget limits dispatch only; later projects still receive maintenance.
       const remaining = config.maxPickupsPerTick - result.totalPickups;
 
-      if (remaining <= 0) break;
+      if (remaining <= 0) continue;
 
-      // Sequential project guard: don't start new projects if one is active
-      const isProjectActive = await checkProjectActive(workspaceDir, slug);
+      // Include all currently active projects, including projects later in registry order.
+      // Re-read after maintenance so completed workers no longer block scheduling.
+      const freshProjects = await readProjects(workspaceDir);
 
-      if (
-        projectExecution === EXECUTION_MODE.SEQUENTIAL &&
-        !isProjectActive &&
-        activeProjects >= 1
-      ) {
+      if (!mayScheduleProject(slug, freshProjects.projects, projectExecution)) {
         result.totalSkipped++;
         continue;
       }
@@ -177,8 +152,6 @@ export async function tick(opts: {
       result.totalPickups += tickResult.pickups.length;
       result.totalSkipped += tickResult.skipped.length;
 
-      // Notifications now handled by dispatchTask
-      if (isProjectActive || tickResult.pickups.length > 0) activeProjects++;
     } catch (err) {
       // Per-project isolation: one failing project doesn't crash the entire tick
       opts.logger.warn(
@@ -188,7 +161,7 @@ export async function tick(opts: {
     }
   }
 
-  await auditLog(workspaceDir, "heartbeat_tick", {
+  await auditLog(workspaceDir, HEARTBEAT_AUDIT_EVENT.TICK, {
     projectsScanned: slugs.length,
     healthFixes: result.totalHealthFixes,
     reviewTransitions: result.totalReviewTransitions,
@@ -200,21 +173,4 @@ export async function tick(opts: {
   });
 
   return result;
-}
-
-/**
- * Check if a project has any active worker.
- */
-export async function checkProjectActive(
-  workspaceDir: string,
-  slug: string,
-): Promise<boolean> {
-  const data = await readProjects(workspaceDir);
-  const project = getProject(data, slug);
-
-  if (!project) return false;
-
-  return Object.values(project.workers).some((w) =>
-    Object.values(w.levels).some(slots => slots?.some(s => s.active) ?? false),
-  );
 }

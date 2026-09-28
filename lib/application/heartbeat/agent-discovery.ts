@@ -1,69 +1,38 @@
-/**
- * Agent discovery — scan workspaces to find active DevClaw agents.
+/** Resolves configured agent workspaces and their owned managed projects. */
+
+import { resolveConfiguredAgentWorkspace } from "../../integrations/openclaw/agent-workspace.js";
+import type { AgentWorkspaceConfig } from "../../integrations/openclaw/types.js";
+import { inspectManagedWorkspace } from "../../state/index.js";
+import { HEARTBEAT_AGENT_ID } from "./const.js";
+import type { AgentDiscoveryResult } from "./types.js";
+
+/** Discover unique agent/workspace pairs using SDK workspace resolution and strict project reads.
+ * The same workspace may contain different agents' projects; each project is processed only by its configured owner.
+ * @param config - Fresh agent inventory from the service configuration.
  */
-
-import fs from "node:fs";
-import path from "node:path";
-
-import { DATA_DIR } from "../../state/index.js";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type Agent = {
-  agentId: string;
-  workspace: string;
-};
-
-// ---------------------------------------------------------------------------
-// Discovery
-// ---------------------------------------------------------------------------
-
-/**
- * Discover DevClaw agents by scanning which agent workspaces have projects.
- * Self-discovering: any agent whose workspace contains projects.json is processed.
- * Also checks the default workspace (agents.defaults.workspace) for projects.
- */
-export function discoverAgents(config: {
-  agents?: {
-    list?: Array<{ id: string; workspace?: string }>;
-    defaults?: { workspace?: string };
-  };
-}): Agent[] {
+export async function discoverAgents(config: AgentWorkspaceConfig): Promise<AgentDiscoveryResult> {
+  const agents: AgentDiscoveryResult["agents"] = [];
+  const errors: string[] = [];
   const seen = new Set<string>();
-  const agents: Agent[] = [];
+  const configured = config.agents?.list ?? [];
+  const candidates = [...new Set([...configured.map(agent => agent.id),
+    ...(configured.length === 0 || config.agents?.defaults?.workspace ? [HEARTBEAT_AGENT_ID.MAIN] : [])])];
 
-  // Check explicit agent list
-  for (const a of config.agents?.list || []) {
-    if (!a.workspace) continue;
+  for (const agentId of candidates) {
     try {
-      if (hasProjects(a.workspace)) {
-        agents.push({ agentId: a.id, workspace: a.workspace });
-        seen.add(a.workspace);
-      }
-    } catch {
-      /* skip */
+      const resolved = await resolveConfiguredAgentWorkspace(config, agentId);
+      const { workspace, projects } = await inspectManagedWorkspace(resolved);
+
+      if (!projects || !Object.values(projects.projects).some(project => project.agentId === agentId)) continue;
+      const key = JSON.stringify([agentId, workspace]);
+
+      if (seen.has(key)) continue;
+      seen.add(key);
+      agents.push({ agentId, workspace });
+    } catch (error) {
+      errors.push(`Agent ${agentId} workspace discovery failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  // Check default workspace (used when no explicit agents are registered)
-  const defaultWorkspace = config.agents?.defaults?.workspace;
-
-  if (defaultWorkspace && !seen.has(defaultWorkspace)) {
-    try {
-      if (hasProjects(defaultWorkspace)) {
-        agents.push({ agentId: "main", workspace: defaultWorkspace });
-      }
-    } catch {
-      /* skip */
-    }
-  }
-
-  return agents;
-}
-
-/** Check if a workspace has the current DevClaw projects.json. */
-export function hasProjects(workspace: string): boolean {
-  return fs.existsSync(path.join(workspace, DATA_DIR, "projects.json"));
+  return { agents, errors };
 }

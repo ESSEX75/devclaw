@@ -1,12 +1,93 @@
 /** Reports and execution contracts shared by heartbeat coordinators. */
 
+import type { PluginRuntime } from "openclaw/plugin-sdk/core";
+
 import type { RunCommand } from "../../context.js";
 import type { Project, WorkflowConfig } from "../../domain/index.js";
+import type { AgentWorkspaceConfig } from "../../integrations/openclaw/types.js";
+import type { IssueProvider } from "../../integrations/providers/index.js";
 import type { ProjectionDiff } from "../../projection/index.js";
 import type { ResolvedConfig } from "../../state/index.js";
+import type { NotificationRuntime } from "../notifications/index.js";
 import type { ProjectionProvider } from "../projection/index.js";
 import type { SessionLookup } from "./health/gateway-sessions.js";
 import type { HealthFix, HealthIssue, WorkerHealthInput } from "./health/types.js";
+
+/** One SDK-resolved agent/workspace pair whose projects belong to that agent. */
+export type Agent = {
+  /** Configured OpenClaw agent identity. */
+  agentId: string;
+  /** Canonical filesystem workspace after symlink normalization. */
+  workspace: string;
+};
+
+/** Discovery result retains failures without suppressing healthy agents. */
+export type AgentDiscoveryResult = {
+  /** Unique agent/workspace pairs with at least one owned project. */
+  agents: Agent[];
+  /** Per-agent invalid or inaccessible workspace findings. */
+  errors: string[];
+};
+
+/** Validated heartbeat schedule and pickup budget. */
+export type HeartbeatConfig = {
+  /** Whether periodic service ticks are enabled. */
+  enabled: boolean;
+  /** Interval between scheduled checks in seconds. */
+  intervalSeconds: number;
+  /** Maximum dispatches across all projects in one agent tick. */
+  maxPickupsPerTick: number;
+};
+
+/** Narrow registered service context consumed by heartbeat lifecycle. */
+export type ServiceContext = {
+  /** OpenClaw logger reporting only actionable lifecycle outcomes. */
+  logger: { info(msg: string): void; warn(msg: string): void; error(msg: string): void };
+  /** Fresh configured agent workspace inventory. */
+  config: AgentWorkspaceConfig;
+};
+
+/** Service dependencies held across scheduled callbacks. */
+export type HeartbeatServiceDependencies = {
+  /** Fresh plugin options for each scheduled run. */
+  pluginConfig?: Record<string, unknown>;
+  /** SDK configuration fallback when no service snapshot exists. */
+  config: AgentWorkspaceConfig;
+  /** Gateway and provider command transport. */
+  runCommand: RunCommand;
+  /** Optional native runtime for exact notification delivery. */
+  runtime?: PluginRuntime;
+};
+
+/** Stoppable service callbacks registered with OpenClaw. */
+export type HeartbeatLifecycle = {
+  /** Starts one timer generation. */
+  start(context: ServiceContext): Promise<void>;
+  /** Cancels timers and waits for the current generation to settle. */
+  stop(context: ServiceContext): Promise<void>;
+};
+
+/** One project tick's resolved application and transport dependencies. */
+export type HeartbeatRunInput = {
+  /** Workspace containing all project stores. */
+  workspaceDir: string;
+  /** Configured agent whose projects may run. */
+  agentId?: string;
+  /** Resolved service pickup budget. */
+  config: HeartbeatConfig;
+  /** Plugin settings including project execution mode. */
+  pluginConfig?: Record<string, unknown>;
+  /** Gateway session observations, possibly unavailable. */
+  sessions: SessionLookup | null;
+  /** Project failure logger. */
+  logger: Pick<ServiceContext["logger"], "info" | "warn">;
+  /** Runtime for exact routed notifications. */
+  runtime?: NotificationRuntime;
+  /** Provider and gateway command capability. */
+  runCommand: RunCommand;
+  /** Optional provider capability supplied by a caller already owning an adapter. */
+  providerFactory?: (project: Project) => Promise<IssueProvider>;
+};
 
 /** Explicit diagnosis or remediation request for all project health checks. */
 export type HealthPassInput = {

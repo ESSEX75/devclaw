@@ -43,6 +43,8 @@ responses. It classifies absent commands narrowly; other process failures propag
 Application setup owns required permissions and approval policy.
 `openclaw/agent-workspace.ts` delegates workspace resolution to the SDK, including
 implicit defaults, so ownership discovery does not duplicate SDK path rules.
+Heartbeat applies strict state-owned registry inspection to those resolved paths
+and scopes each project to its persisted agent identity.
 
 `openclaw/attachment-hook.ts` owns SDK message hook registration and media event
 normalization. It passes complete routing identities to application/tasks and

@@ -106,6 +106,8 @@ to state; application selects the operation and validates configured identifiers
 `readOptionalProjects` supports ownership discovery in uninitialized workspaces.
 Only a missing registry yields `undefined`; malformed or inaccessible registries
 remain errors, and the operation never creates files.
+`inspectManagedWorkspace` canonicalizes an existing SDK-resolved workspace before
+this strict optional read, so symlinked or alternate path spellings share identity.
 
 
 `workers` stores the latest operator delivery decision per issue in

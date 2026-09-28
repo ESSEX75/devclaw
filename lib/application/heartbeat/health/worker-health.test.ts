@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { getProject, getRoleWorker, loadConfig, readIssueStateStore, readProjects, updateSlot } from "../../../state/index.js";
 import { createTestHarness, type TestHarness } from "../../../testing/index.js";
 import { writeIssueRuntimeState } from "../../issue-runtime/index.js";
-import { performHealthPass } from "../passes.js";
+import { performHealthPass } from "../health-pass.js";
 import type { WorkerHealthInput } from "./types.js";
 import { diagnoseWorkerHealth } from "./worker-diagnosis.js";
 import { remediateWorkerHealth } from "./worker-remediation.js";

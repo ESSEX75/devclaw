@@ -148,6 +148,20 @@ when resuming a committed completion.
 
 ## Heartbeat
 
+`service.ts` owns timer start/stop and one in-flight tick per registration.
+`agent-discovery.ts` uses SDK workspace resolution and state-owned strict registry
+inspection, deduplicates canonical agent/workspace pairs, and retains per-agent
+errors. Each agent processes only projects whose persisted `agentId` matches.
+`agent-runner.ts` shares one pickup budget across agents while isolating failing
+workspaces. `tick-runner.ts` runs project maintenance in this order: creation,
+projection, terminal release/notification/archive, worker health, review,
+review skip, test skip. `health-pass.ts`, `maintenance-passes.ts`, and
+`review-passes.ts` own these capability-specific wrappers. Pickup scheduling follows
+maintenance and checks all currently active projects before starting another in
+workspace-sequential mode. A depleted pickup budget never stops maintenance.
+Review callbacks use the issue's persisted endpoint; missing bindings produce
+blocked notification diagnostics without a primary-channel fallback.
+
 Project passes run sequentially and retain findings, plans, applied actions, and
 errors. A failed prerequisite stops subsequent passes for that project; others
 remain isolated. Diagnosis performs reads only, including no audit writes.

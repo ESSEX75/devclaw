@@ -12,7 +12,7 @@ import {
 import { isIssueCreationReady, readIssueStateStore, updateIssueStateStore, withIssueOrchestrationLock } from "../../state/index.js";
 import { archiveManagedIssueLocked } from "../issues/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
-import { HEARTBEAT_PROJECTION_ERROR } from "./const.js";
+import { HEARTBEAT_MISSING_CONFIRMATIONS, HEARTBEAT_MISSING_DURATION_MS, HEARTBEAT_PROJECTION_ERROR } from "./const.js";
 import type { ProjectionIntegrityInput, ProjectionIntegrityResult } from "./types.js";
 
 /** Check provider identity and metadata under the issue lock before reconciling labels.
@@ -58,8 +58,8 @@ export async function projectionIntegrityPass(opts: ProjectionIntegrityInput): P
             confirmations: missing.confirmations,
           });
 
-          const stableMissing = missing.confirmations >= 3
-            && Date.parse(missing.lastConfirmedAt) - Date.parse(missing.firstConfirmedAt) >= 15 * 60_000;
+          const stableMissing = missing.confirmations >= HEARTBEAT_MISSING_CONFIRMATIONS
+            && Date.parse(missing.lastConfirmedAt) - Date.parse(missing.firstConfirmedAt) >= HEARTBEAT_MISSING_DURATION_MS;
 
           if (stableMissing && !state.activeWorker) {
             const archive = await archiveManagedIssueLocked({

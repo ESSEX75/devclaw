@@ -43,6 +43,7 @@ export {
 } from "./issues/index.js";
 export { DATA_DIR, PROJECTS_DIRECTORY_NAME } from "./paths.js";
 export type { ProjectsData } from "./projects/index.js";
+export { inspectManagedWorkspace } from "./projects/index.js";
 export {
   activateWorker,
   deactivateWorker,
