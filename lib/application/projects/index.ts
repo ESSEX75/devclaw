@@ -1,3 +1,4 @@
 /** Exposes project context resolution shared by application commands and adapters. */
 
-export { resolveProject, resolveProvider } from "./context.js";
+export { findProjectByRoute, resolveProject, resolveProjectByRoute, resolveProvider } from "./context.js";
+export type { ProjectContext, ProjectRoute } from "./types.js";

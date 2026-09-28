@@ -20,6 +20,8 @@ Attachment capture requires a complete channel/account/conversation/thread/agent
 identity and exactly one project in the configured owner's workspaces. Missing
 identity is skipped; ambiguous or unreadable registries are errors. SDK event
 parsing and hook registration belong to integrations/openclaw.
+Task creation uses the exact endpoint returned by project context resolution;
+channel-only ambiguity rejects the request before creating a provider issue.
 
 Both attachment entry paths save local bytes before attempting upload. Confirmed
 URLs are persisted through the state repository; a late upload cannot recreate a

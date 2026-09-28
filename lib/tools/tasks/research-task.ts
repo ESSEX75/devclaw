@@ -105,7 +105,7 @@ Example:
       if (!title) throw new Error("title is required");
       if (!description) throw new Error("description is required — provide detailed background context for the architect");
 
-      const { project } = await resolveProject(workspaceDir, channelId);
+      const { project, endpoint } = await resolveProject(workspaceDir, channelId);
       const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const pluginConfig = ctx.pluginConfig;
       const role = "architect";
@@ -151,8 +151,6 @@ Example:
       const workflowState = findStateKeyByLabel(resolvedConfig.workflow, TO_RESEARCH_LABEL);
 
       if (!workflowState) throw new Error(`No workflow state found for label "${TO_RESEARCH_LABEL}".`);
-      const notificationChannel = project.channels.find((entry) => entry.channelId === channelId)
-        ?? project.channels[0];
       const instanceName = await loadInstanceName(workspaceDir, resolvedConfig.instanceName);
       const creation = await createManagedTaskIssue({
         workspaceDir,
@@ -168,9 +166,7 @@ Example:
         assignedRole: role,
         assignedLevel: level,
         owner: instanceName,
-        notifyTarget: notificationChannel
-          ? { channel: notificationChannel.channel, name: notificationChannel.name }
-          : null,
+        notifyTarget: { channel: endpoint.channel, name: endpoint.name },
         idempotencyKey: `research-task:${_id}`,
         requestedBy: "research_task",
       });

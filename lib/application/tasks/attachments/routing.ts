@@ -1,6 +1,7 @@
 /** Resolves incoming media only against complete project notification identities. */
 
 import { readOptionalProjects } from "../../../state/index.js";
+import { findProjectByRoute } from "../../projects/index.js";
 import { MAX_ATTACHMENT_ISSUE_ID } from "./const.js";
 import type { AttachmentMessageRoute, AttachmentProjectContext, AttachmentWorkspace } from "./types.js";
 
@@ -24,13 +25,11 @@ export async function resolveAttachmentProject(workspaces: readonly AttachmentWo
   for (const workspaceDir of candidates) {
     const registry = await readOptionalProjects(workspaceDir);
 
-    for (const project of Object.values(registry?.projects ?? {})) {
-      if (project.agentId !== route.agentId) continue;
-      if (project.channels.some(endpoint => endpoint.channel === route.channel && endpoint.accountId === route.accountId
-        && endpoint.channelId === route.conversationId && endpoint.threadId === route.threadId)) {
-        matches.push({ workspaceDir, project });
-      }
-    }
+    if (!registry) continue;
+    const context = findProjectByRoute(registry, { channel: route.channel, accountId: route.accountId,
+      channelId: route.conversationId, threadId: route.threadId }, route.agentId);
+
+    if (context) matches.push({ workspaceDir, project: context.project });
   }
 
   if (matches.length > 1) throw new Error("Incoming attachment destination is ambiguous across registered projects.");

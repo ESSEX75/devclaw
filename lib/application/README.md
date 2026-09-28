@@ -26,6 +26,16 @@ the capability is not part of a supported public API. Avoid importing a
 subpackage's own entrypoint from that subpackage. Do not create an application
 root barrel: each use case has a specific owner.
 
+`projects/context.ts` owns the small supported project selection API. Channel-only
+selection requires exactly one matching endpoint across the registry, including
+accounts, transports, and topics within one project. Exact route selection compares
+channel, account, conversation, and optional thread together; hooks may further
+restrict by persisted agent owner. Context returns the matched endpoint so task
+creation can persist its binding without looking up or defaulting to another route.
+Provider resolution loads the project's validated workflow and uses its persisted
+provider ID. Setup route validation and registry uniqueness remain with their
+existing owners.
+
 ## Dependencies and boundaries
 
 - Coordinate domain decisions, state persistence, and integration capabilities.

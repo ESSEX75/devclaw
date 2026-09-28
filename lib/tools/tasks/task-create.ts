@@ -66,14 +66,11 @@ export function createTaskCreateTool(ctx: PluginContext): OpenClawPluginToolFact
       const idempotencyKey = requiredString(params.idempotencyKey, "idempotencyKey");
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
-      const { project } = await resolveProject(workspaceDir, channelId);
+      const { project, endpoint } = await resolveProject(workspaceDir, channelId);
       const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const resolvedConfig = await loadConfig(workspaceDir, project.slug);
       const instanceName = await loadInstanceName(workspaceDir, resolvedConfig.instanceName);
-      const sourceChannel = project.channels.find((ch) => ch.channelId === channelId) ?? project.channels[0];
-      const notifyTarget: NotifyBindingRef | null = sourceChannel
-        ? { channel: sourceChannel.channel, name: sourceChannel.name }
-        : null;
+      const notifyTarget: NotifyBindingRef = { channel: endpoint.channel, name: endpoint.name };
 
       const created = await createManagedTaskIssue({
         workspaceDir,
