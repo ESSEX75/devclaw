@@ -4,7 +4,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { DATA_DIR, WORKFLOW_FILE_NAME } from "../paths.js";
-import { AGENTS_FILE_NAME, PROMPTS_DIRECTORY_NAME, ROLE_PROMPT_FILE_EXTENSION } from "./const.js";
+import { FILESYSTEM_ERROR_CODE, STATE_TEXT_ENCODING } from "../persistence/index.js";
+import { AGENTS_FILE_NAME, DEFAULTS_SCOPE, PROMPTS_DIRECTORY_NAME, ROLE_PROMPT_FILE_EXTENSION } from "./const.js";
 import { loadSetupTemplates } from "./templates.js";
 import type { DefaultsScope, WorkflowDocuments, WorkspaceWriteResult } from "./types.js";
 import { backupAndWrite, resetDefaults } from "./workspace-files.js";
@@ -15,9 +16,9 @@ import { backupAndWrite, resetDefaults } from "./workspace-files.js";
 export async function readWorkflowDocuments(workspacePath: string): Promise<WorkflowDocuments> {
   let current: string | null = null;
 
-  try { current = await fs.readFile(path.join(workspacePath, DATA_DIR, WORKFLOW_FILE_NAME), "utf-8"); }
+  try { current = await fs.readFile(path.join(workspacePath, DATA_DIR, WORKFLOW_FILE_NAME), STATE_TEXT_ENCODING); }
   catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+    if (!(error instanceof Error && "code" in error && error.code === FILESYSTEM_ERROR_CODE.NOT_FOUND)) throw error;
   }
 
   return { current, template: (await loadSetupTemplates()).workflow };
@@ -28,9 +29,9 @@ export async function readWorkflowDocuments(workspacePath: string): Promise<Work
  * @param scope - Exact subset of defaults requested by the application.
  */
 export async function resetWorkspaceConfiguration(workspacePath: string, scope: DefaultsScope): Promise<WorkspaceWriteResult> {
-  if (scope === "all") return resetDefaults(workspacePath);
+  if (scope === DEFAULTS_SCOPE.ALL) return resetDefaults(workspacePath);
   const templates = await loadSetupTemplates();
-  const files: Array<[string, string]> = scope === "workflow"
+  const files: Array<[string, string]> = scope === DEFAULTS_SCOPE.WORKFLOW
     ? [[path.join(DATA_DIR, WORKFLOW_FILE_NAME), templates.workflow]]
     : Object.entries(templates.roleInstructions).filter(([, content]) => Boolean(content)).map(([role, content]) => [
       path.join(DATA_DIR, PROMPTS_DIRECTORY_NAME, `${role}${ROLE_PROMPT_FILE_EXTENSION}`), content,
@@ -45,9 +46,9 @@ export async function resetWorkspaceConfiguration(workspacePath: string, scope: 
  * @param workspacePath - Workspace whose instructions may be absent.
  */
 export async function readWorkspaceAgentInstructions(workspacePath: string): Promise<string | null> {
-  try { return await fs.readFile(path.join(workspacePath, AGENTS_FILE_NAME), "utf8"); }
+  try { return await fs.readFile(path.join(workspacePath, AGENTS_FILE_NAME), STATE_TEXT_ENCODING); }
   catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return null;
+    if (error instanceof Error && "code" in error && error.code === FILESYSTEM_ERROR_CODE.NOT_FOUND) return null;
     throw error;
   }
 }

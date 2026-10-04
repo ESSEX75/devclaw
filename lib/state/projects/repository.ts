@@ -4,7 +4,7 @@
 
 import fs from "node:fs/promises";
 
-import { LOCK_FILE_SUFFIX, withFileLock, writeJsonAtomic } from "../persistence/index.js";
+import { FILESYSTEM_ERROR_CODE, LOCK_FILE_SUFFIX, STATE_TEXT_ENCODING, withFileLock, writeJsonAtomic } from "../persistence/index.js";
 import { PROJECTS_LOCK_OPTIONS } from "./const.js";
 import { projectsPath } from "./paths.js";
 import { parseProjectsData } from "./schema.js";
@@ -19,7 +19,7 @@ export async function readProjects(workspaceDir: string): Promise<ProjectsData> 
   const filePath = projectsPath(workspaceDir);
 
   try {
-    return parseProjectsData(JSON.parse(await fs.readFile(filePath, "utf-8")));
+    return parseProjectsData(JSON.parse(await fs.readFile(filePath, STATE_TEXT_ENCODING)));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -38,7 +38,7 @@ export async function readOptionalProjects(workspaceDir: string): Promise<Projec
   } catch (error) {
     const cause = error instanceof Error ? error.cause : undefined;
 
-    if (cause instanceof Error && "code" in cause && cause.code === "ENOENT") return undefined;
+    if (cause instanceof Error && "code" in cause && cause.code === FILESYSTEM_ERROR_CODE.NOT_FOUND) return undefined;
     throw error;
   }
 }

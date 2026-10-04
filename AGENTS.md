@@ -15,7 +15,7 @@ DevClaw is an OpenClaw plugin for multi-project dev/qa pipeline orchestration wi
 - `lib/testing` — test harnesses, fakes, and test-only helpers.
 - `lib/roles` — role registry, model selection, level resolution, and model fetchers.
 
-Layer-specific contracts live in the `README.md` files under each `lib/*` package. Read the complete README for every affected package before changing it.
+Layer-specific contracts live only in the root `lib/<layer>/README.md`. Do not add README files to nested capabilities or subpackages; keep their contracts in the layer README and implementation details in source JSDoc. Read the complete layer README before changing a package.
 
 ## Package APIs
 

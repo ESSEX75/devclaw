@@ -5,7 +5,7 @@ description: Preserve DevClaw package ownership, layer boundaries, public APIs, 
 
 # DevClaw Architecture
 
-Preserve package ownership and dependency direction across the complete repository. Keep this skill focused on shared architectural procedure; package-specific rules belong in the package's `README.md` next to its code.
+Preserve package ownership and dependency direction across the complete repository. Keep this skill focused on shared architectural procedure; package-specific rules belong in the owning layer's root `lib/<layer>/README.md`.
 
 ## Start with package contracts
 
@@ -16,9 +16,9 @@ Before changing code:
 3. Inspect nearby `index.ts` files, existing responsibilities, and current consumers.
 4. Apply both this shared skill and the local package contracts.
 
-If an architectural change alters a package's ownership or boundary, update that package's `README.md` in the same change. Do not copy package-specific rules into this skill.
+If an architectural change alters a package's ownership or boundary, update the owning layer's root `README.md` in the same change. Do not copy package-specific rules into this skill.
 
-Keep the layer README as the ownership, dependency, and API map. A subdirectory or `index.ts` does not require its own README. Add a local README only for a substantial independent contract, such as locking, recovery, persistence ordering, or delivery guarantees; link to it instead of repeating that contract in the parent. Keep file/function inventories in source JSDoc when they add no package-level guarantees.
+Keep README files only at layer roots (`lib/<layer>/README.md`); do not create them in nested capabilities or subpackages, including directories with an `index.ts`. Maintain ownership, API boundaries, locking, recovery, and delivery contracts in the layer README. Keep file/function responsibilities and implementation details in source JSDoc.
 
 ## Ownership and placement
 

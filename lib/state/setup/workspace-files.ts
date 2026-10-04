@@ -11,6 +11,7 @@ import {
   PROJECTS_FILE_NAME,
   WORKFLOW_FILE_NAME,
 } from "../paths.js";
+import { CREATE_ONLY_FILE_FLAG, FILESYSTEM_ERROR_CODE, STATE_TEXT_ENCODING } from "../persistence/index.js";
 import {
   AGENTS_FILE_NAME,
   BACKUP_FILE_SUFFIX,
@@ -136,7 +137,7 @@ export async function scaffoldWorkspace(workspacePath: string, defaultWorkspaceP
 export async function backupAndWrite(filePath: string, content: string): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   if (await fileExists(filePath)) await fs.copyFile(filePath, `${filePath}${BACKUP_FILE_SUFFIX}`);
-  await fs.writeFile(filePath, content, "utf-8");
+  await fs.writeFile(filePath, content, STATE_TEXT_ENCODING);
 }
 
 /**
@@ -150,7 +151,7 @@ export async function fileExists(filePath: string): Promise<boolean> {
 
     return true;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
+    if (error instanceof Error && "code" in error && error.code === FILESYSTEM_ERROR_CODE.NOT_FOUND) return false;
     throw error;
   }
 }
@@ -178,9 +179,9 @@ async function ensureDirectories(dataDir: string): Promise<void> {
 async function writeIfMissing(filePath: string, content: string): Promise<boolean> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   try {
-    await fs.writeFile(filePath, content, { encoding: "utf-8", flag: "wx" });
+    await fs.writeFile(filePath, content, { encoding: STATE_TEXT_ENCODING, flag: CREATE_ONLY_FILE_FLAG });
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "EEXIST") return false;
+    if (error instanceof Error && "code" in error && error.code === FILESYSTEM_ERROR_CODE.ALREADY_EXISTS) return false;
     throw error;
   }
 
@@ -198,7 +199,7 @@ async function copyIfMissing(sourcePath: string, destinationPath: string): Promi
   try {
     await fs.copyFile(sourcePath, destinationPath, fsConstants.COPYFILE_EXCL);
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "EEXIST") return false;
+    if (error instanceof Error && "code" in error && error.code === FILESYSTEM_ERROR_CODE.ALREADY_EXISTS) return false;
     throw error;
   }
 

@@ -64,6 +64,13 @@ Purge refuses linked ancestors and nested entries, and never traverses recursive
 Attachment saves acquire the issue-store lock before the attachment lock and
 reject archived issue identities. Retention follows the same lock order. URL
 updates still reject files removed by cleanup and cannot recreate their index row.
+Saves use unique filenames and publish the index atomically; index-write failure
+removes only the new file. Purge includes unindexed bytes left by interrupted saves,
+validates every entry before deletion, unlinks individually, and removes the index
+last, allowing partial cleanup to resume. Paths require canonical project slugs,
+positive safe issue IDs, and flat safe basenames. Reads never create storage.
+These checks assume trusted workspace ancestors and cooperative local writers;
+they cannot prevent a hostile process swapping paths between inspection and I/O.
 
 ## Projects Registry
 

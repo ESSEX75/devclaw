@@ -3,6 +3,8 @@
  */
 
 import type { RoleId } from "../../domain/index.js";
+import type { ValueOf } from "../../types.js";
+import type { DEFAULTS_SCOPE } from "./const.js";
 
 /** Complete packaged template set consumed by setup and runtime fallbacks. */
 export type SetupTemplates = {
@@ -37,7 +39,7 @@ export type RoleInstructionsResult = {
 };
 
 /** Explicit subset of packaged defaults selected for replacement. */
-export type DefaultsScope = "all" | "workflow" | "prompts";
+export type DefaultsScope = ValueOf<typeof DEFAULTS_SCOPE>;
 
 /** Raw workflow documents available for a read-only application comparison. */
 export type WorkflowDocuments = {
