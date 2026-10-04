@@ -2,10 +2,11 @@
 
 import type { RunCommand } from "../../../context.js";
 import type { Project, WorkflowConfig } from "../../../domain/index.js";
+import type { SessionLookup } from "../../../integrations/openclaw/gateway-sessions.js";
 import type { IssueProvider } from "../../../integrations/providers/provider.js";
+import type { ResolvedConfig } from "../../../state/index.js";
 import type { ValueOf } from "../../../types.js";
-import type { HEALTH_ACTION } from "./const.js";
-import type { SessionLookup } from "./gateway-sessions.js";
+import type { HEALTH_ACTION, HEALTH_ISSUE_SEVERITY, HEALTH_ISSUE_TYPE } from "./const.js";
 
 /** Dependencies for read-only diagnosis and explicit worker remediation. */
 export type WorkerHealthInput = {
@@ -36,24 +37,18 @@ export type WorkerHealthInput = {
 /** Remediation selected by diagnosis, never executed during diagnosis. */
 export type HealthAction = ValueOf<typeof HEALTH_ACTION>;
 
+/** Condition identifier emitted by heartbeat health diagnosis. */
+export type HealthIssueType = ValueOf<typeof HEALTH_ISSUE_TYPE>;
+
+/** Severity assigned to a heartbeat health finding. */
+export type HealthIssueSeverity = ValueOf<typeof HEALTH_ISSUE_SEVERITY>;
+
 /** One diagnosed worker or provider projection condition. */
 export type HealthIssue = {
   /** Condition used to select remediation. */
-  type:
-    | "session_dead"
-    | "inspection_failed"
-    | "label_mismatch"
-    | "stale_worker"
-    | "stuck_label"
-    | "orphan_issue_id"
-    | "issue_gone"
-    | "issue_closed"
-    | "orphaned_label"
-    | "context_overflow"
-    | "session_stalled"
-    | "stateless_issue"
-    | "delivery_unknown";
-  severity: "critical" | "warning";
+  type: HealthIssueType;
+  /** Importance of the diagnosed condition. */
+  severity: HealthIssueSeverity;
   /** Project display name. */
   project: string;
   /** Stable project key. */
@@ -96,4 +91,30 @@ export type HealthFix = {
   appliedAction?: HealthAction;
   /** Failure observed while applying the action, if any. */
   error?: string;
+};
+
+/** Explicit diagnosis or remediation request for all project health checks. */
+export type HealthPassInput = {
+  /** Workspace containing authoritative state. */
+  workspaceDir: string;
+  /** Stable project key. */
+  projectSlug: string;
+  /** Project snapshot used by diagnosis. */
+  project: Project;
+  /** Gateway observations for this tick. */
+  sessions: SessionLookup | null;
+  /** Provider used to inspect or repair the projection. */
+  provider: WorkerHealthInput["provider"];
+  /** Validated project configuration. */
+  resolvedConfig: ResolvedConfig;
+  /** Explicit permission to apply diagnosed actions. */
+  autoFix: boolean;
+  /** Worker age threshold. */
+  staleWorkerHours?: number;
+  /** Required command capability for explicit session remediation. */
+  runCommand: RunCommand;
+  /** Session inactivity threshold. */
+  stallTimeoutMinutes?: number;
+  /** Agent receiving remediation nudges. */
+  agentId?: string;
 };

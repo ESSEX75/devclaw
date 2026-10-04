@@ -5,8 +5,8 @@ import type { RunCommand } from "../../context.js";
 import { ISSUE_INTEGRITY_STATUS, PIPELINE_NOTIFICATION_STATUS, type Project } from "../../domain/index.js";
 import { MESSAGE_DELIVERY_STATUS } from "../../integrations/openclaw/notifications/index.js";
 import type { IssueReader } from "../../integrations/providers/index.js";
-import { readIssueStateStore, reservePipelineNotification } from "../../state/index.js";
-import { NOTIFICATION_AUDIT, NOTIFICATION_BLOCKED, NOTIFICATION_EVENT } from "./const.js";
+import { PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS, readIssueStateStore, reservePipelineNotification } from "../../state/index.js";
+import { NOTIFICATION_AUDIT, NOTIFICATION_BLOCK_REASON, NOTIFICATION_BLOCKED, NOTIFICATION_EVENT } from "./const.js";
 import { getNotificationConfig, notify } from "./notify.js";
 import { recordPipelineNotificationOutcome } from "./record-outcome.js";
 import { resolveIssueNotificationEndpoint } from "./resolve-endpoint.js";
@@ -19,41 +19,52 @@ import type { NotificationDeliveryResult, NotificationRuntime } from "./types.js
  * @param pluginConfig - Current event toggles.
  * @param runtime - Native adapter and exact route configuration.
  * @param runCommand - Optional CLI fallback before native submission.
- * @param maxItems - Maximum pending candidates examined in this pass.
+ * @param maxItems - Maximum successfully reserved attempts in this pass.
  */
 export async function retryPendingPipelineNotifications(
   workspaceDir: string, project: Project, provider: IssueReader,
   pluginConfig: Record<string, unknown> | undefined, runtime: NotificationRuntime | undefined,
   runCommand: RunCommand, maxItems: number,
 ): Promise<number> {
+  const limit = Math.max(0, Math.floor(maxItems));
+
+  if (limit === 0 || Number.isNaN(limit)) return 0;
   const store = await readIssueStateStore(workspaceDir, project.slug);
-  const pending = Object.values(store.issues).filter((state) => state.pipelineNotification
-    && !state.pendingWorkerRelease && !state.activeWorker
-    && state.integrityStatus === ISSUE_INTEGRITY_STATUS.OK
-    && state.pipelineNotification.status !== PIPELINE_NOTIFICATION_STATUS.DELIVERED
-    && state.pipelineNotification.status !== PIPELINE_NOTIFICATION_STATUS.UNKNOWN)
-    .sort((left, right) => Date.parse(left.pipelineNotification!.attemptedAt) - Date.parse(right.pipelineNotification!.attemptedAt));
+  const now = Date.now();
+  const pending = Object.values(store.issues).flatMap((state) => {
+    const notification = state.pipelineNotification;
+
+    if (!notification || state.pendingWorkerRelease || state.activeWorker
+      || state.integrityStatus !== ISSUE_INTEGRITY_STATUS.OK
+      || notification.status === PIPELINE_NOTIFICATION_STATUS.DELIVERED
+      || notification.status === PIPELINE_NOTIFICATION_STATUS.UNKNOWN
+      || (notification.status !== PIPELINE_NOTIFICATION_STATUS.PENDING
+        && Date.parse(notification.attemptedAt) + PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS > now)) return [];
+
+    return [{ state, notification }];
+  }).sort((left, right) => Date.parse(left.notification.attemptedAt) - Date.parse(right.notification.attemptedAt));
   const config = getNotificationConfig(pluginConfig);
   let delivered = 0;
+  let reserved = 0;
 
-  for (const state of pending.slice(0, Math.max(0, maxItems))) {
-    const eventKey = state.pipelineNotification?.eventKey;
-
-    if (!eventKey) continue;
+  for (const { state, notification } of pending) {
+    if (reserved >= limit) break;
+    const eventKey = notification.eventKey;
     const token = await reservePipelineNotification(workspaceDir, project.slug, state.issueId, eventKey);
 
     if (!token) continue;
+    reserved++;
     let outcome: NotificationDeliveryResult;
     let deliveryStarted = false;
 
     try {
       if (config[NOTIFICATION_EVENT.PIPELINE_COMPLETE] === false) {
-        outcome = { status: NOTIFICATION_BLOCKED, delivered: false, reason: "Notification event is disabled." };
+        outcome = { status: NOTIFICATION_BLOCKED, delivered: false, reason: NOTIFICATION_BLOCK_REASON.EVENT_DISABLED };
       } else {
         const endpoint = await resolveIssueNotificationEndpoint(workspaceDir, project, state.issueId);
 
         if (!endpoint) {
-          outcome = { status: NOTIFICATION_BLOCKED, delivered: false, reason: "Stored notification endpoint is missing; restore the exact binding." };
+          outcome = { status: NOTIFICATION_BLOCKED, delivered: false, reason: NOTIFICATION_BLOCK_REASON.MISSING_ENDPOINT };
         } else {
           // Provider and route reads precede all external delivery effects.
           const issue = await provider.getIssue(state.issueId);

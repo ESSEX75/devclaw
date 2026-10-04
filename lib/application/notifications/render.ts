@@ -1,8 +1,44 @@
 /** Renders notification event messages without I/O or delivery side effects. */
 
-import { getCompletionEmoji } from "../../domain/index.js";
-import { NOTIFICATION_EVENT } from "./const.js";
+import { COMPLETION_RESULT, getCompletionEmoji, REVIEW_POLICY } from "../../domain/index.js";
+import { WORKER_SESSION_ACTION } from "../workers/const.js";
+import {
+  MERGE_ACTOR_TEXT,
+  MERGE_REQUEST_PATH_SEGMENT,
+  NOTIFICATION_EVENT,
+  PULL_REQUEST_NUMBER_PATTERN,
+  WORKER_RESULT_TEXT,
+} from "./const.js";
 import type { NotifyEvent } from "./types.js";
+
+/** Issue identity required to render the common provider link. */
+type NotificationIssueLink = {
+  /** Provider-local issue number. */
+  issueId: number;
+  /** Absolute provider issue URL. */
+  issueUrl: string;
+};
+
+/**
+ * Render built-in worker results and preserve custom result names.
+ * @param result - Worker completion result from the event.
+ */
+function workerResultText(result: string): string {
+  switch (result) {
+    case COMPLETION_RESULT.DONE:
+      return WORKER_RESULT_TEXT[COMPLETION_RESULT.DONE];
+    case COMPLETION_RESULT.PASS:
+      return WORKER_RESULT_TEXT[COMPLETION_RESULT.PASS];
+    case COMPLETION_RESULT.FAIL:
+      return WORKER_RESULT_TEXT[COMPLETION_RESULT.FAIL];
+    case COMPLETION_RESULT.REFINE:
+      return WORKER_RESULT_TEXT[COMPLETION_RESULT.REFINE];
+    case COMPLETION_RESULT.BLOCKED:
+      return WORKER_RESULT_TEXT[COMPLETION_RESULT.BLOCKED];
+    default:
+      return result;
+  }
+}
 
 /**
  * Format a worker identification string in a standardized format.
@@ -42,7 +78,7 @@ function formatWorkerString(
  * @param url - Provider pull request or merge request URL.
  */
 function extractPrNumber(url: string): number | null {
-  const m = url.match(/\/(?:pull|merge_requests)\/(\d+)/);
+  const m = url.match(PULL_REQUEST_NUMBER_PATTERN);
 
   return m ? Number(m[1]) : null;
 }
@@ -54,12 +90,20 @@ function extractPrNumber(url: string): number | null {
  */
 function prLink(url: string): string {
   const num = extractPrNumber(url);
-  const isGitLab = url.includes("merge_requests");
+  const isGitLab = url.includes(MERGE_REQUEST_PATH_SEGMENT);
   const label = isGitLab
     ? `Merge Request${num != null ? ` #${num}` : ""}`
     : `Pull Request${num != null ? ` #${num}` : ""}`;
 
   return `[${label}](${url})`;
+}
+
+/** Render optional PR context and the issue link shared by event messages.
+ * @param issue - Issue shown as the final link.
+ * @param prUrl - Related pull request URL when one exists.
+ */
+function relatedLinks(issue: NotificationIssueLink, prUrl?: string): string {
+  return `${prUrl ? `\n🔗 ${prLink(prUrl)}` : ""}\n📋 [Issue #${issue.issueId}](${issue.issueUrl})`;
 }
 
 /**
@@ -75,14 +119,13 @@ export function renderNotificationMessage(event: NotifyEvent): string {
       if (event.mergeResult) message += `\nMerge: ${event.mergeResult}`;
       if (event.testResult) message += `\nTests: ${event.testResult}`;
       if (event.issueClosed) message += "\nIssue closed";
-      if (event.pullRequestUrl) message += `\n🔗 ${prLink(event.pullRequestUrl)}`;
-      message += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
+      message += relatedLinks(event, event.pullRequestUrl);
 
       return message;
     }
 
     case NOTIFICATION_EVENT.WORKER_START: {
-      const action = event.sessionAction === "spawn" ? "🚀 Started" : "▶️ Resumed";
+      const action = event.sessionAction === WORKER_SESSION_ACTION.SPAWN ? "🚀 Started" : "▶️ Resumed";
       const worker = formatWorkerString(event.role, {
         name: event.name,
         level: event.level,
@@ -93,14 +136,7 @@ export function renderNotificationMessage(event: NotifyEvent): string {
 
     case NOTIFICATION_EVENT.WORKER_COMPLETE: {
       const icon = getCompletionEmoji(event.result);
-      const resultText: Record<string, string> = {
-        done: "completed",
-        pass: "PASSED",
-        fail: "FAILED",
-        refine: "needs refinement",
-        blocked: "BLOCKED",
-      };
-      const text = resultText[event.result] ?? event.result;
+      const text = workerResultText(event.result);
       // Header: status + issue reference
       const worker = formatWorkerString(event.role, {
         name: event.name,
@@ -114,8 +150,7 @@ export function renderNotificationMessage(event: NotifyEvent): string {
       }
 
       // Links: PR and issue on separate lines
-      if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
-      msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
+      msg += relatedLinks(event, event.prUrl);
       // Created tasks (e.g. architect implementation tasks)
       if (event.createdTasks && event.createdTasks.length > 0) {
         msg += `\n📌 Created tasks:`;
@@ -135,22 +170,16 @@ export function renderNotificationMessage(event: NotifyEvent): string {
     }
 
     case NOTIFICATION_EVENT.REVIEW_NEEDED: {
-      const icon = event.routing === "human" ? "👀" : "🤖";
-      const who = event.routing === "human" ? "Human review needed" : "Agent review queued";
+      const icon = event.routing === REVIEW_POLICY.HUMAN ? "👀" : "🤖";
+      const who = event.routing === REVIEW_POLICY.HUMAN ? "Human review needed" : "Agent review queued";
       let msg = `${icon} ${who} for #${event.issueId}: ${event.issueTitle}`;
 
-      if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
-      msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
+      msg += relatedLinks(event, event.prUrl);
 
       return msg;
     }
 
     case NOTIFICATION_EVENT.PR_MERGED: {
-      const via: Record<string, string> = {
-        heartbeat: "auto-merged after approval",
-        agent: "merged by agent reviewer",
-        pipeline: "merged by reviewer",
-      };
       let msg = `🔀 PR merged for #${event.issueId}: ${event.issueTitle}`;
 
       if (event.prTitle) msg += `\n📝 ${event.prTitle}`;
@@ -160,9 +189,8 @@ export function renderNotificationMessage(event: NotifyEvent): string {
         msg += `\n🌿 ${event.sourceBranch}`;
       }
 
-      msg += `\n⚡ ${via[event.mergedBy] ?? event.mergedBy}`;
-      if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
-      msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
+      msg += `\n⚡ ${MERGE_ACTOR_TEXT[event.mergedBy]}`;
+      msg += relatedLinks(event, event.prUrl);
 
       return msg;
     }
@@ -170,9 +198,8 @@ export function renderNotificationMessage(event: NotifyEvent): string {
     case NOTIFICATION_EVENT.CHANGES_REQUESTED: {
       let msg = `⚠️ Changes requested on PR for #${event.issueId}: ${event.issueTitle}`;
 
-      if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
-      msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
-      msg += `\n→ Moving to To Improve for developer re-dispatch`;
+      msg += relatedLinks(event, event.prUrl);
+      msg += `\n→ ${event.nextState}`;
 
       return msg;
     }
@@ -180,9 +207,8 @@ export function renderNotificationMessage(event: NotifyEvent): string {
     case NOTIFICATION_EVENT.MERGE_CONFLICT: {
       let msg = `⚠️ Merge conflicts detected on PR for #${event.issueId}: ${event.issueTitle}`;
 
-      if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
-      msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
-      msg += `\n→ Moving to To Improve — developer will rebase and resolve`;
+      msg += relatedLinks(event, event.prUrl);
+      msg += `\n→ ${event.nextState}`;
 
       return msg;
     }
@@ -190,9 +216,8 @@ export function renderNotificationMessage(event: NotifyEvent): string {
     case NOTIFICATION_EVENT.PR_CLOSED: {
       let msg = `🚫 PR closed without merging for #${event.issueId}: ${event.issueTitle}`;
 
-      if (event.prUrl) msg += `\n🔗 ${prLink(event.prUrl)}`;
-      msg += `\n📋 [Issue #${event.issueId}](${event.issueUrl})`;
-      msg += `\n→ Moving to To Improve for developer attention`;
+      msg += relatedLinks(event, event.prUrl);
+      msg += `\n→ ${event.nextState}`;
 
       return msg;
     }

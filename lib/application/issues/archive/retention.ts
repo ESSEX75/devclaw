@@ -1,9 +1,10 @@
 /** Applies bounded retention against exact fresh records, retaining recovery state until cleanup succeeds. */
 
 import { log as auditLog } from "../../../audit.js";
-import { type ArchivedIssueRecord, ATTACHMENT_DISPOSITION, findSlotByIssue } from "../../../domain/index.js";
+import { type ArchivedIssueRecord, ATTACHMENT_DISPOSITION } from "../../../domain/index.js";
 import { applyArchiveRetention, readIssueArchiveStore, readOptionalProjects, withIssueOrchestrationLock } from "../../../state/index.js";
-import { ARCHIVE_EVENT, ARCHIVE_MAINTENANCE_ACTOR, RETENTION_REASON } from "./const.js";
+import { hasProjectWorkerSlot } from "../worker-slot.js";
+import { ARCHIVE_EVENT, ARCHIVE_MAINTENANCE_ACTOR, ARCHIVE_MAINTENANCE_CORRELATION_PREFIX, RETENTION_REASON } from "./const.js";
 import { isArchiveRecordExpired, parseDuration, validateRetentionBudget } from "./planning.js";
 import type { ArchiveMaintenanceResult, ArchivePurgeResult, MaintainIssueArchiveInput, PurgeIssueArchiveInput } from "./types.js";
 
@@ -47,7 +48,8 @@ export async function maintainIssueArchive(opts: MaintainIssueArchiveInput): Pro
 
   for (const record of selected) {
     const removeRecord = isArchiveRecordExpired(record, { ...opts, now });
-    const applied = await applyRetentionRecord(opts, record, removeRecord, ARCHIVE_MAINTENANCE_ACTOR, `maintenance:${opts.projectSlug}:${record.issueId}:${now}`);
+    const applied = await applyRetentionRecord(opts, record, removeRecord, ARCHIVE_MAINTENANCE_ACTOR,
+      `${ARCHIVE_MAINTENANCE_CORRELATION_PREFIX}${opts.projectSlug}:${record.issueId}:${now}`);
 
     if (applied.attachmentsPurged) result.attachmentsPurged.push(record.issueId);
     if (applied.recordRemoved) result.recordsPurged.push(record.issueId);
@@ -68,7 +70,7 @@ async function applyRetentionRecord(opts: RetentionContext, expected: ArchivedIs
     const registry = await readOptionalProjects(opts.workspaceDir);
     const project = registry?.projects[opts.projectSlug];
 
-    if (project && Object.values(project.workers).some(worker => findSlotByIssue(worker, expected.issueId))) {
+    if (project && hasProjectWorkerSlot(project, expected.issueId)) {
       return { applied: false, attachmentsPurged: false, recordRemoved: false };
     }
 

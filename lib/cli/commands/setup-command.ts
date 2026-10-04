@@ -2,11 +2,12 @@
 
 import type { Command } from "commander";
 
-import { runSetup, type SetupOpts } from "../../application/setup/index.js";
 import {
   isScopeApprovalRejectedError,
   isScopeApprovalRequiredError,
-} from "../../application/setup/index.js";
+  runSetup,
+  type SetupOpts,
+} from "../../application/index.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import {
   normalizeChannelBinding,

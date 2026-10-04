@@ -30,6 +30,7 @@ Keep the layer README as the ownership, dependency, and API map. A subdirectory 
 
 ## Subpackage structure
 
+- When a package root contains more than 10 production `.ts` files, excluding `index.ts`, `const.ts`, `types.ts`, `guards.ts`, and test files, review whether cohesive capabilities should become subpackages. Treat this count as a review trigger, not a mandatory file limit; split only along real responsibilities and keep tests beside their implementation.
 - Organize every large package by cohesive responsibility instead of placing unrelated files together at its root.
 - Apply this rule to every current and future package without maintaining an allowlist in this skill.
 - Create a subpackage when several files implement one stable capability, share a public contract, or change for the same architectural reason.
@@ -78,12 +79,14 @@ Prefer focused names that communicate the file's owned responsibility.
 
 ### Nested types and readability
 
+- Declare object-shaped union variants as named file-local types, then define the union alias from those names instead of inline object blocks.
 - Prefer a named file-local type for a nested object shape or array element when its fields and JSDoc make the containing contract harder to scan. For example, use `agents: DoctorAgentToolAccess[]` instead of an inline `Array<{ ... }>` block.
 - Keep the extracted type in the same file without `export` when it is used only there, including when it supports an exported contract in `types.ts`. Export it only when another file needs the named contract, following the exported type placement rules above.
 - Preserve meaningful JSDoc on the extracted type and its fields. Reuse an existing owner type when it already represents the same concept; do not duplicate it merely to shorten the declaration.
 
 ### Constant placement and string literals
 
+- Format object constant registries across multiple lines, with one property per line and a trailing comma; keep the closing brace and `as const` together.
 - Move filesystem and resource identifiers into documented constants even when a value currently appears only once. This includes filenames, directory names, extensions, backup suffixes, relative paths, template paths, and path-segment collections.
 - Move repeated or architecturally meaningful protocol identifiers, prefixes, event names, labels, and policy values into documented constants instead of embedding string literals in implementation code.
 - Put constants shared within a package or subpackage in its `const.ts`. Keep a constant in an implementation file only when it is private to that file and does not represent a filesystem path, resource name, or shared architectural identifier.

@@ -3,69 +3,10 @@
  * Internal state modules import their concrete owners directly to avoid barrel cycles.
  */
 
-export type { AttachmentFile, AttachmentMeta, AttachmentPurgeManifestEntry } from "./attachments/index.js";
-export { getAttachmentPath, listAttachments, purgeIssueAttachments, readAttachmentSource, saveAttachment, updateAttachmentPublicUrl } from "./attachments/index.js";
-export type {
-  ResolvedConfig,
-  ResolvedRoleConfig,
-  ResolvedTimeouts,
-} from "./config/index.js";
-export {
-  getConfiguredRoleIds,
-  getLevelMaxWorkers,
-  isConfiguredRoleId,
-  loadConfig,
-} from "./config/index.js";
-export type {
-  IssueArchiveStore,
-  IssueCreationFailure,
-  IssueCreationOperation,
-  IssueStateStore,
-} from "./issues/index.js";
-export {
-  applyArchiveRetention,
-  archiveIssueState,
-  isIssueCreationReady,
-  newIssueCreationIdentity,
-  readIssueArchiveStore,
-  readIssueCreationStore,
-  readIssueStateStore,
-  reservePipelineNotification,
-  resetIssueStores,
-  settlePipelineNotification,
-  updateIssueArchiveStore,
-  updateIssueCreationStore,
-  updateIssueRuntimeRecord,
-  updateIssueStateStore,
-  withIssueCreationLock,
-  withIssueOrchestrationLock,
-  writeIssueRoleLevel,
-} from "./issues/index.js";
+export * from "./attachments/index.js";
+export * from "./config/index.js";
+export * from "./issues/index.js";
 export { DATA_DIR, PROJECTS_DIRECTORY_NAME } from "./paths.js";
-export type { ProjectsData } from "./projects/index.js";
-export { inspectManagedWorkspace } from "./projects/index.js";
-export {
-  activateWorker,
-  deactivateWorker,
-  getProject,
-  getRoleWorker,
-  parseNotificationEndpoint,
-  parseProjectSlug,
-  readOptionalProjects,
-  readProjects,
-  resolveRepoPath,
-  updateProjects,
-  updateSlot,
-} from "./projects/index.js";
-export {
-  initializeWorkspaceFiles,
-  loadRoleInstructions,
-  refreshSystemInstructionFiles,
-  resetDefaults,
-  scaffoldWorkspace,
-} from "./setup/index.js";
-export type { DefaultsScope } from "./setup/types.js";
-export { writeWorkspaceModels } from "./setup/workflow-models.js";
-export { readWorkflowDocuments, readWorkspaceAgentInstructions, resetWorkspaceConfiguration } from "./setup/workspace-config.js";
-export type { WorkerDeliveryResolution } from "./workers/index.js";
-export { readWorkerDeliveryResolution, writeWorkerDeliveryResolution } from "./workers/index.js";
+export * from "./projects/index.js";
+export * from "./setup/index.js";
+export * from "./workers/index.js";

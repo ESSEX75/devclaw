@@ -17,4 +17,7 @@ export const PR_FEEDBACK_REASON = {
 export const COMMENT_MARKING_ERROR = "comment_marking_error";
 
 /** Acknowledgement operation identifiers retained in audit. */
-export const COMMENT_MARKING_STEP = { ISSUE: "markIssueComment", PR: "markPrComment" } as const;
+export const COMMENT_MARKING_STEP = {
+  ISSUE: "markIssueComment",
+  PR: "markPrComment"
+} as const;

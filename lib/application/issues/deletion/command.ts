@@ -6,13 +6,14 @@
 import { randomUUID } from "node:crypto";
 
 import { log as auditLog } from "../../../audit.js";
-import { findSlotByIssue, ISSUE_ARCHIVE_REASON, ISSUE_INTEGRITY_STATUS, PIPELINE_NOTIFICATION_STATUS } from "../../../domain/index.js";
+import { ISSUE_ARCHIVE_REASON, ISSUE_INTEGRITY_STATUS, PIPELINE_NOTIFICATION_STATUS } from "../../../domain/index.js";
 import {
   isProviderIssueLookupError,
   PROVIDER_ISSUE_LOOKUP_ERROR
 } from "../../../integrations/providers/index.js";
 import { readIssueArchiveStore, readIssueStateStore, readOptionalProjects, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../../state/index.js";
 import { archiveManagedIssueLocked } from "../archive/index.js";
+import { hasProjectWorkerSlot } from "../worker-slot.js";
 import { DELETE_EVENT, DELETE_REASON } from "./const.js";
 import type { DeleteManagedIssueInput, DeleteManagedIssueResult } from "./types.js";
 
@@ -56,7 +57,7 @@ async function deleteManagedIssueLocked(opts: Parameters<typeof deleteManagedIss
 
   const project = (await readOptionalProjects(opts.workspaceDir))?.projects[opts.projectSlug];
 
-  if (project && Object.values(project.workers).some(worker => findSlotByIssue(worker, opts.issueId))) {
+  if (project && hasProjectWorkerSlot(project, opts.issueId)) {
     throw new Error(`Issue #${opts.issueId} has an assigned worker slot and cannot be deleted.`);
   }
 

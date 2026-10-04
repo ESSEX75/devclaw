@@ -5,8 +5,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { createTestHarness } from "../../testing/index.js";
-import { finishWork } from "../../application/workers/index.js";
-import { writeIssueRuntimeState } from "../../application/issue-runtime/index.js";
+import { finishWork, writeIssueRuntimeState } from "../../application/index.js";
 import { DEFAULT_WORKFLOW, ISSUE_PROVIDER } from "../../domain/index.js";
 
 /** Audit fixture location asserted by the adapter regression. */

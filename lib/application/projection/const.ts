@@ -4,4 +4,6 @@
 export const PROJECTION_FAILURE_PREFIX = "managed projection failed for ";
 
 /** Audit events report verified labels separately from overall issue integrity. */
-export const PROJECTION_EVENT = { RECONCILED: "issue_projection_reconciled" } as const;
+export const PROJECTION_EVENT = {
+    RECONCILED: "issue_projection_reconciled"
+} as const;

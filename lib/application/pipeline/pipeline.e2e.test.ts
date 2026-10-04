@@ -11,10 +11,10 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { createTestHarness, type TestHarness } from "../../testing/index.js";
-import { dispatchTask } from "../workers/dispatch-task.js";
+import { dispatchTask } from "../workers/index.js";
 import { executeCompletion } from "./completion.js";
 import { projectTick } from "../queue/tick.js";
-import { reviewPass } from "../heartbeat/review.js";
+import { reviewPass } from "../heartbeat/review/index.js";
 import {
   DEFAULT_WORKFLOW,
   findStateKeyByLabel,

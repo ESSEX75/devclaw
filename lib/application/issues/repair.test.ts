@@ -125,7 +125,7 @@ describe("repairManagedIssue", () => {
     const h = await createTestHarness();
     try {
       await seedState(h.workspaceDir, state(h.project.slug));
-      h.provider.seedIssue({ iid: 123, labels: ["Doing", "bug"], description: "Body" });
+      h.provider.seedIssue({ iid: 123, labels: ["Doing", "owner:other", "bug"], description: "Body" });
       const input = {
         workspaceDir: h.workspaceDir,
         projectSlug: h.project.slug,
@@ -137,10 +137,14 @@ describe("repairManagedIssue", () => {
       };
       const plan = await repairManagedIssue(input);
       const result = await repairManagedIssue({ ...input, apply: true, planToken: plan.planToken });
+      const providerRequests = h.provider.callsTo("ensureLabel").length + h.provider.callsTo("addLabel").length
+        + h.provider.callsTo("removeLabels").length + h.provider.callsTo("editIssue").length + 1;
       const providerIssue = await h.provider.getIssue(123);
       const local = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["123"];
 
       assert.equal(result.status, "repaired");
+      assert.equal(h.provider.callsTo("removeLabels").length, 2);
+      assert.equal(plan.estimatedProviderRequests, providerRequests);
       assert.equal(result.diffAfter?.missingManagedLabels.length, 0);
       assert.ok(providerIssue.labels.includes("bug"));
       assert.ok(providerIssue.labels.includes("To Do"));
@@ -324,6 +328,7 @@ describe("repairManagedIssue", () => {
       const result = await repairManagedIssue({ ...input, apply: true, planToken: plan.planToken });
 
       assert.equal(result.error?.code, ISSUE_REPAIR_ERROR.REPAIR_VERIFICATION_FAILED);
+      assert.equal(result.success, false);
       assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["123"].integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
     } finally {
       await h.cleanup();
@@ -354,6 +359,24 @@ describe("repairManagedIssue", () => {
     } finally {
       await h.cleanup();
     }
+  });
+
+  it("blocks apply while a worker release remains unfinished", async () => {
+    const h = await createTestHarness();
+    try {
+      await seedState(h.workspaceDir, state(h.project.slug, { pendingWorkerRelease: {
+        role: "developer", level: "medior", slotIndex: 0,
+        sessionKey: "worker", startedAt: "2026-09-05T00:00:00.000Z",
+      } }));
+      h.provider.seedIssue({ iid: 123, labels: ["Doing"], description: "Body" });
+      const input = { workspaceDir: h.workspaceDir, projectSlug: h.project.slug, issueId: 123,
+        source: ISSUE_REPAIR_SOURCE.LOCAL_STATE, actor: "test", provider: h.provider, runCommand: h.runCommand };
+      const plan = await repairManagedIssue(input);
+      const result = await repairManagedIssue({ ...input, apply: true, planToken: plan.planToken });
+
+      assert.equal(result.error?.code, ISSUE_REPAIR_ERROR.ACTIVE_WORKER);
+      assert.equal(h.provider.callsTo("addLabel").length, 0);
+    } finally { await h.cleanup(); }
   });
 
   it("serializes concurrent apply attempts and rejects the stale follower", async () => {

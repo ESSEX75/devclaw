@@ -7,24 +7,16 @@ import {
   readIssueCreationStore,
   readIssueStateStore
 } from "../../../state/index.js";
-import {
-  loadProjectionViewContext,
-  summarizeLocalIssueStates,
-} from "./projection-summary.js";
-import type { GetManagedTaskStatusInput, TaskStatusResult } from "./types.js";
+import { summarizeLocalIssueStates } from "./projection-summary.js";
+import type { GetManagedTaskStatusInput, ProjectionViewContext, TaskStatusResult } from "./types.js";
 
 /** Summarize ready open tasks separately from unfinished creation operations.
  * @param opts - Resolved project dependencies and operation-specific input.
  */
 export async function getManagedTaskStatus(opts: GetManagedTaskStatusInput): Promise<TaskStatusResult> {
   const statesByType = getWorkflowStateLabelsByType(opts.workflow);
-  const projectionCtx = await loadProjectionViewContext({
-    workspaceDir: opts.workspaceDir,
-    projectSlug: opts.projectSlug,
-    workflow: opts.workflow,
-    roles: opts.roles,
-  });
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
+  const projectionCtx: ProjectionViewContext = { states: store.issues, workflow: opts.workflow, roles: opts.roles };
   const openLocalStates = [];
 
   for (const state of Object.values(store.issues)) {
@@ -90,7 +82,7 @@ async function summarizeStateBucket(
   statesByType: Pick<WorkflowConfig["states"][string], "label">[],
   openLocalStates: Awaited<ReturnType<typeof readIssueStateStore>>["issues"][string][],
   provider: Pick<IssueReader, "getIssue">,
-  projectionCtx: Awaited<ReturnType<typeof loadProjectionViewContext>>,
+  projectionCtx: ProjectionViewContext,
 ): Promise<TaskStatusResult["hold"]> {
   const bucket: TaskStatusResult["hold"] = {};
 

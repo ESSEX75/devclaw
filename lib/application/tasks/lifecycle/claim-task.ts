@@ -37,10 +37,6 @@ export async function claimManagedTask(input: ClaimManagedTaskInput): Promise<Cl
 
       const issue = await input.provider.getIssue(input.issueId);
 
-      if (issue.state === "closed" || issue.state === "CLOSED") {
-        return { claimed: false, reason: "Issue is closed" };
-      }
-
       await writeIssueRuntimeState({
         workspaceDir: input.workspaceDir,
         project: input.project,

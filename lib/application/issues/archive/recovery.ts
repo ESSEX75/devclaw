@@ -8,7 +8,7 @@ import {
   readIssueStateStore
 } from "../../../state/index.js";
 import { archiveManagedIssue } from "./command.js";
-import { ARCHIVE_RECOVERY_ACTOR } from "./const.js";
+import { ARCHIVE_RECOVERY_ACTOR, ARCHIVE_RECOVERY_CORRELATION_PREFIX, ARCHIVE_RECOVERY_UNKNOWN_REASON } from "./const.js";
 import { validateRetentionBudget } from "./planning.js";
 import type { ArchiveRecoveryInput, ArchiveRecoveryResult } from "./types.js";
 
@@ -32,11 +32,11 @@ export async function recoverTerminalIssueArchives(opts: ArchiveRecoveryInput): 
       archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
       workflow: opts.workflow,
       actor: opts.actor ?? ARCHIVE_RECOVERY_ACTOR,
-      correlationId: `archive:${opts.projectSlug}:${state.issueId}`,
+      correlationId: `${ARCHIVE_RECOVERY_CORRELATION_PREFIX}${opts.projectSlug}:${state.issueId}`,
     });
 
     if (result.archived) archived.push(state.issueId);
-    else skipped.push({ issueId: state.issueId, reason: result.reason ?? "unknown" });
+    else skipped.push({ issueId: state.issueId, reason: result.reason ?? ARCHIVE_RECOVERY_UNKNOWN_REASON });
   }
 
   return { archived, skipped };

@@ -11,7 +11,9 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 ## Package API
 
 - `lib/state/index.ts` is the only supported entrypoint for code outside this layer.
-- The root entrypoint explicitly exports supported operations and contracts; wildcard exports are forbidden.
+- The root entrypoint re-exports supported subpackage APIs with `export *`.
+  Subpackage entrypoints select their public contracts explicitly; the root keeps
+  only the shared filesystem names from `paths.ts` as named exports.
 - Internal state modules import implementation owners directly and never import the root entrypoint.
 - State schemas, parsers, filesystem locks, and persistence helpers stay private unless an exported operation is itself the required boundary API.
 - `lib/state/paths.ts` owns filesystem names shared by multiple state capabilities.
@@ -42,6 +44,8 @@ contracts exposed to other layers only through `lib/state/index.ts`.
   immediately reservable; their initial timestamp records intent creation.
 - Terminal notification reservation returns an exact timestamp token. Settlement
   compares both event identity and token, so stale attempts cannot settle a new send.
+  The lease duration is public so application retries can omit candidates still in
+  backoff; reservation remains the final eligibility check under the store lock.
   Expired in-flight attempts become `unknown`, never automatically reservable.
   Proven unsubmitted (`retryable`) and policy-blocked attempts can be reserved after
   backoff. Delivered events remain deduplicated; unresolved events cannot be replaced.

@@ -4,8 +4,9 @@
 
 import { randomUUID } from "node:crypto";
 
-import { findSlotByIssue, ISSUE_INTEGRITY_STATUS } from "../../../domain/index.js";
+import { ISSUE_INTEGRITY_STATUS } from "../../../domain/index.js";
 import { withIssueOrchestrationLock } from "../../../state/index.js";
+import { hasProjectWorkerSlot } from "../worker-slot.js";
 import { applyLocalSourceRepair, applyProviderSourceRepair, readRateLimit, setRepairIntegrity } from "./apply.js";
 import { auditRepair } from "./audit.js";
 import { REPAIR_EVENT, REPAIR_MODE, REPAIR_STATUS, REPAIR_WARNING } from "./const.js";
@@ -46,7 +47,7 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
       return blocked(plan, ISSUE_REPAIR_ERROR.PLAN_STALE, "Repair plan is missing or no longer matches current snapshots.", false);
     }
 
-    if (refreshed.local.activeWorker || Object.values(refreshed.project.workers).some(worker => findSlotByIssue(worker, input.issueId))) {
+    if (refreshed.local.activeWorker || refreshed.local.pendingWorkerRelease || hasProjectWorkerSlot(refreshed.project, input.issueId)) {
       return blocked(plan, ISSUE_REPAIR_ERROR.ACTIVE_WORKER, "An active worker owns this issue.", true);
     }
 
@@ -103,6 +104,7 @@ export async function repairManagedIssue(input: RepairManagedIssueInput): Promis
 
         return {
           ...after,
+          success: false,
           mode: REPAIR_MODE.APPLY,
           status: REPAIR_STATUS.PARTIAL_FAILURE,
           appliedActions,

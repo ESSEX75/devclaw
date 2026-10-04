@@ -4,11 +4,14 @@ import { log as auditLog } from "../../audit.js";
 import {
   ACTION, COMPLETION_RESULT, DEFAULT_ROLES, DEFAULT_WORKFLOW, findStateByLabel, ISSUE_INTEGRITY_STATUS, NOTIFICATION_CHANNEL, REVIEW_POLICY, STATE_TYPE,
 } from "../../domain/index.js";
+import { PrState } from "../../integrations/providers/index.js";
 import { reservePipelineNotification } from "../../state/index.js";
 import { NOTIFICATION_BLOCKED } from "../notifications/const.js";
 import {
   getNotificationConfig,
+  NOTIFICATION_BLOCK_REASON,
   NOTIFICATION_EVENT,
+  NOTIFICATION_MERGE_ACTOR,
   notify,
   type NotifyEvent,
   type NotifyOptions,
@@ -36,10 +39,14 @@ export async function notifyCompletion(input: CompletionNotificationInput): Prom
   };
   const context = { project: projectName, issueId, issueUrl: issue.web_url };
 
-  if (input.notifyAuxiliary) sendBestEffort({ ...context, type: NOTIFICATION_EVENT.WORKER_COMPLETE, role, level: opts.level,
-    name: workerName, result, summary, nextState, prUrl, createdTasks }, delivery);
-  if (input.notifyAuxiliary && mergedPr) sendBestEffort({ ...context, type: NOTIFICATION_EVENT.PR_MERGED, issueTitle: issue.title,
-    prUrl, prTitle, sourceBranch, targetBranch: project.baseBranch, mergedBy: "pipeline" }, delivery);
+  if (input.notifyAuxiliary) sendBestEffort({
+    ...context, type: NOTIFICATION_EVENT.WORKER_COMPLETE, role, level: opts.level,
+    name: workerName, result, summary, nextState, prUrl, createdTasks
+  }, delivery);
+  if (input.notifyAuxiliary && mergedPr) sendBestEffort({
+    ...context, type: NOTIFICATION_EVENT.PR_MERGED, issueTitle: issue.title,
+    prUrl, prTitle, sourceBranch, targetBranch: project.baseBranch, mergedBy: NOTIFICATION_MERGE_ACTOR.PIPELINE
+  }, delivery);
 
   if (findStateByLabel(workflow, rule.to)?.type === STATE_TYPE.TERMINAL) {
     const eventKey = runtimeState.pipelineNotification?.eventKey;
@@ -51,11 +58,13 @@ export async function notifyCompletion(input: CompletionNotificationInput): Prom
       if (!target || config[NOTIFICATION_EVENT.PIPELINE_COMPLETE] === false) {
         await recordPipelineNotificationOutcome(workspaceDir, projectSlug, issueId, eventKey, token, {
           status: NOTIFICATION_BLOCKED, delivered: false,
-          reason: !target ? "Stored notification endpoint is missing; restore the exact binding." : "Notification event is disabled.",
+          reason: !target ? NOTIFICATION_BLOCK_REASON.MISSING_ENDPOINT : NOTIFICATION_BLOCK_REASON.EVENT_DISABLED,
         });
       } else {
-        const outcome = await notify({ ...context, type: NOTIFICATION_EVENT.PIPELINE_COMPLETE, issueTitle: issue.title,
-          terminalState: rule.to, pullRequestUrl: prUrl, mergeResult: mergedPr ? "merged" : undefined,
+        //TODO: The behavior of the tester, reviewer, etc. is hard-coded.
+        const outcome = await notify({
+          ...context, type: NOTIFICATION_EVENT.PIPELINE_COMPLETE, issueTitle: issue.title,
+          terminalState: rule.to, pullRequestUrl: prUrl, mergeResult: mergedPr ? PrState.MERGED : undefined,
           testResult: role === DEFAULT_ROLES.TESTER ? result : undefined, issueClosed: rule.actions.includes(ACTION.CLOSE_ISSUE),
         }, delivery);
 
@@ -66,6 +75,7 @@ export async function notifyCompletion(input: CompletionNotificationInput): Prom
 
   const routing = runtimeState.reviewPolicy;
 
+  //TODO: The behavior of the tester, reviewer, etc. is hard-coded.
   if (input.notifyAuxiliary && role === DEFAULT_ROLES.DEVELOPER && result === COMPLETION_RESULT.DONE
     && (routing === REVIEW_POLICY.HUMAN || routing === REVIEW_POLICY.AGENT)) {
     sendBestEffort({ ...context, type: NOTIFICATION_EVENT.REVIEW_NEEDED, issueTitle: issue.title, routing, prUrl }, delivery);
@@ -80,6 +90,6 @@ function sendBestEffort(event: NotifyEvent, options: NotifyOptions): void {
   void notify(event, options).catch((error: unknown) => {
     void auditLog(options.workspaceDir, PIPELINE_AUDIT.WARNING, {
       step: event.type, error: error instanceof Error ? error.message : String(error),
-    }).catch(() => {});
+    }).catch(() => { });
   });
 }

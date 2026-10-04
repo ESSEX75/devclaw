@@ -8,7 +8,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { compareWorkspaceConfig, resetWorkspaceConfig } from "../../application/setup/index.js";
+import { compareWorkspaceConfig, resetWorkspaceConfig } from "../../application/index.js";
 
 /** Create the adapter for explicit configuration reset and read-only comparison. */
 export function createConfigTool(): OpenClawPluginToolFactory {

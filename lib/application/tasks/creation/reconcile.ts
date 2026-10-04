@@ -5,7 +5,7 @@
 import { ISSUE_CREATION_STATUS } from "../../../domain/index.js";
 import { readIssueCreationStore, withIssueCreationLock } from "../../../state/index.js";
 import { creationAudit } from "./audit.js";
-import { CREATION_EVENT } from "./const.js";
+import { CREATION_EVENT, CREATION_RECONCILIATION_REQUESTER, CREATION_RESULT_STATUS } from "./const.js";
 import { withCreationPermit } from "./permit.js";
 import { runCreationOperation } from "./runner.js";
 import type { ReconcileManagedTaskCreationsInput, ReconcileManagedTaskCreationsResult } from "./types.js";
@@ -38,7 +38,7 @@ export async function reconcileManagedTaskCreations(opts: ReconcileManagedTaskCr
         notifyTarget: current.input.notifyTarget,
         owner: current.input.owner,
         idempotencyKey: current.idempotencyKey,
-        requestedBy: "heartbeat_creation_reconciliation",
+        requestedBy: CREATION_RECONCILIATION_REQUESTER,
         workflowState: current.input.workflowState,
         assignedRole: current.input.assignedRole,
         assignedLevel: current.input.assignedLevel,
@@ -51,7 +51,7 @@ export async function reconcileManagedTaskCreations(opts: ReconcileManagedTaskCr
       );
 
       if (result.success && result.issue) ready.push(result.issue.iid);
-      else if (result.status === "manual_repair_required") manual.push(result.operationId);
+      else if (result.status === CREATION_RESULT_STATUS.MANUAL_REPAIR_REQUIRED) manual.push(result.operationId);
       else pending.push(result.operationId);
     });
   }

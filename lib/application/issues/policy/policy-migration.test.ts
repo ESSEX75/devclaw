@@ -178,4 +178,41 @@ describe("migrateIssuePolicies", () => {
       await h.cleanup();
     }
   });
+
+  it("skips a reserved project slot even without an active issue worker marker", async () => {
+    const h = await createTestHarness({ workers: { developer: {
+      level: "senior", active: true, issueId: 75, sessionKey: "worker", startTime: "2026-07-01T00:00:00.000Z",
+    } } });
+    try {
+      const store = emptyIssueStateStore(h.project.slug);
+      store.issues["75"] = policyState(h.project.slug);
+      await writeIssueStateStore(h.workspaceDir, h.project.slug, store);
+      h.provider.seedIssue({ iid: 75, labels: ["To Review", "review:human", "test:skip"] });
+
+      const result = await migrateIssuePolicies({ workspaceDir: h.workspaceDir, projectSlug: h.project.slug,
+        reviewPolicy: "agent", provider: h.provider, runCommand: h.runCommand });
+
+      assert.deepEqual(result.changed, []);
+      assert.equal(result.skipped[0]?.reason, "active_worker");
+      assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["75"].reviewPolicy, "human");
+      assert.equal(h.provider.callsTo("addLabel").length, 0);
+    } finally { await h.cleanup(); }
+  });
+
+  it("skips policy changes while a worker release is pending", async () => {
+    const h = await createTestHarness();
+    try {
+      const store = emptyIssueStateStore(h.project.slug);
+      store.issues["75"] = { ...policyState(h.project.slug), pendingWorkerRelease: {
+        role: "developer", level: "senior", slotIndex: 0, sessionKey: "worker", startedAt: "2026-07-01T00:00:00.000Z",
+      } };
+      await writeIssueStateStore(h.workspaceDir, h.project.slug, store);
+
+      const result = await migrateIssuePolicies({ workspaceDir: h.workspaceDir, projectSlug: h.project.slug,
+        reviewPolicy: "agent", dryRun: true, runCommand: h.runCommand });
+
+      assert.deepEqual(result.changed, []);
+      assert.equal(result.skipped[0]?.reason, "active_worker");
+    } finally { await h.cleanup(); }
+  });
 });

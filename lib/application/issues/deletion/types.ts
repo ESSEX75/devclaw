@@ -1,8 +1,6 @@
 /** Contracts for deletion administration of managed issues. */
 
-import {
-  type IssueProvider
-} from "../../../integrations/providers/index.js";
+import { type IssueProvider } from "../../../integrations/providers/index.js";
 
 /** Structured result for dry-run, success, or recoverable partial failure. */
 export type DeleteManagedIssueResult = {

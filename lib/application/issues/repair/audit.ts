@@ -3,7 +3,7 @@
  */
 
 import { log as auditLog } from "../../../audit.js";
-import type { IssueRepairResult, RepairManagedIssueInput } from "./types.js";
+import type { IssueRepairResult, RepairEvent, RepairManagedIssueInput } from "./types.js";
 
 /** Record one repair checkpoint after its preceding effect.
  * @param input - Validated command input and runtime dependencies.
@@ -13,7 +13,7 @@ import type { IssueRepairResult, RepairManagedIssueInput } from "./types.js";
  */
 export async function auditRepair(
   input: RepairManagedIssueInput,
-  event: string,
+  event: RepairEvent,
   correlationId: string,
   result: IssueRepairResult,
 ): Promise<void> {

@@ -2,8 +2,7 @@
 
 import type { Command } from "commander";
 
-import { deleteManagedIssue, getIssueArchiveStatus, purgeIssueArchive } from "../../application/issues/index.js";
-import { resolveProvider } from "../../application/projects/index.js";
+import { deleteManagedIssue, getIssueArchiveStatus, purgeIssueArchive, resolveProvider } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { loadConfig } from "../../state/index.js";
 import { resetIssueStores } from "../../state/index.js";

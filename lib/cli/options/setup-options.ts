@@ -4,7 +4,7 @@ import {
   isSetupNotificationChannel,
   type SetupNotificationChannel,
   type SetupRuntime,
-} from "../../application/setup/index.js";
+} from "../../application/index.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
 import type { ConfiguredAgent, SetupCliOptions } from "./types.js";
 

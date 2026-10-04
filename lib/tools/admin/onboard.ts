@@ -6,7 +6,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { getOnboardingContext } from "../../application/setup/index.js";
+import { getOnboardingContext } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 
 /** Create the conversational onboarding adapter.

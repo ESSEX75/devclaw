@@ -2,12 +2,10 @@
 
 import type { RunCommand } from "../../context.js";
 import type {
-  ActiveIssueWorker, CompletionRule, IssueRuntimeState, NotificationEndpoint, Project, ReviewPolicy, TestPolicy, TransitionAction, WorkflowConfig,
+  ActiveIssueWorker, CompletionRule, IssueRuntimeState, NotificationEndpoint, Project, TransitionAction, WorkflowConfig, WorkflowPolicyRouting,
 } from "../../domain/index.js";
 import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
-import type { ValueOf } from "../../types.js";
 import type { NotificationCreatedTask, NotificationRuntime } from "../notifications/index.js";
-import type { REVIEW_OUTCOME } from "./const.js";
 
 /** A validated workflow transition with its provider actions. */
 export type TransitionPlan = {
@@ -51,19 +49,6 @@ export type CompletionOutput = {
   issueReopened?: boolean;
 };
 
-/** Review provider outcome that selects a workflow transition or no-op. */
-export type ReviewOutcome =
-  | {
-    /** Provider observation selecting a configured transition or no-op. */
-    kind: Exclude<ValueOf<typeof REVIEW_OUTCOME>, typeof REVIEW_OUTCOME.MERGE_FAILED>;
-  }
-  | {
-    /** Confirmed merge failure selects the configured recovery event. */
-    kind: typeof REVIEW_OUTCOME.MERGE_FAILED;
-    /** Provider failure diagnostic. */
-    error: string;
-  };
-
 /** Arguments for a transition while its caller holds the issue lock. */
 export type CommitTransitionInput = {
   /** Workspace containing the authoritative issue record. */
@@ -89,12 +74,7 @@ export type CommitTransitionInput = {
   /** Reject a stale local state instead of repeating provider effects. */
   checkLocalState?: boolean;
   /** Routing policy that must still match before heartbeat actions run. */
-  routing?: {
-    /** Local field used to select this pass. */
-    field: "reviewPolicy" | "testPolicy";
-    /** Expected policy value from candidate selection. */
-    value: ReviewPolicy | TestPolicy;
-  };
+  routing?: WorkflowPolicyRouting;
   /** Policy-specific provider actions performed only after the state check. */
   beforeCommit?: () => Promise<void>;
   /** Provider lifecycle actions performed after the visible label transition. */

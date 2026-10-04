@@ -8,6 +8,7 @@ import { type IssueRuntimeState, type Project, STATE_TYPE, type WorkflowConfig }
 import { createProvider, type IssueProvider } from "../../../integrations/providers/index.js";
 import { loadConfig, readIssueStateStore, readProjects, updateIssueStateStore, withIssueOrchestrationLock } from "../../../state/index.js";
 import { reconcileManagedLabelsLocked } from "../../projection/index.js";
+import { hasProjectWorkerSlot } from "../worker-slot.js";
 import { POLICY_EVENT, POLICY_SKIP_REASON } from "./const.js";
 import type { IssuePolicyMigrationChange, IssuePolicyMigrationResult, MigrationOptions, PolicyChangePlan } from "./types.js";
 
@@ -29,7 +30,7 @@ export async function migrateIssuePolicies(opts: MigrationOptions): Promise<Issu
     if (selectedIds && !selectedIds.has(key)) continue;
     if (selectedStates && !selectedStates.has(state.workflowState)) continue;
     if (opts.dryRun) {
-      const plan = planPolicyChange(state, opts, config.workflow);
+      const plan = planPolicyChange(state, opts, config.workflow, hasProjectWorkerSlot(project, state.issueId));
 
       if (plan.reason) skipped.push({ issueId: state.issueId, reason: plan.reason });
       else if (plan.change) changed.push(plan.change);
@@ -51,7 +52,8 @@ export async function migrateIssuePolicies(opts: MigrationOptions): Promise<Issu
         return;
       }
 
-      const plan = planPolicyChange(current, opts, config.workflow);
+      const currentProject = await requireProject(opts.workspaceDir, project.slug);
+      const plan = planPolicyChange(current, opts, config.workflow, hasProjectWorkerSlot(currentProject, state.issueId));
 
       if (plan.reason && plan.reason !== POLICY_SKIP_REASON.NO_CHANGE) {
         skipped.push({ issueId: state.issueId, reason: plan.reason });
@@ -116,9 +118,10 @@ export async function migrateIssuePolicies(opts: MigrationOptions): Promise<Issu
  * @param state - Fresh authoritative runtime record used by this operation.
  * @param opts - Resolved project dependencies and the requested administrative operation.
  * @param workflow - Resolved project workflow including custom terminal states.
+ * @param workerSlotOccupied - Whether the project registry reserves this issue under the same issue lock.
  */
-function planPolicyChange(state: IssueRuntimeState, opts: MigrationOptions, workflow: WorkflowConfig): PolicyChangePlan {
-  if (state.activeWorker) return { reason: POLICY_SKIP_REASON.ACTIVE_WORKER };
+function planPolicyChange(state: IssueRuntimeState, opts: MigrationOptions, workflow: WorkflowConfig, workerSlotOccupied: boolean): PolicyChangePlan {
+  if (state.activeWorker || state.pendingWorkerRelease || workerSlotOccupied) return { reason: POLICY_SKIP_REASON.ACTIVE_WORKER };
   if ((state.closedAt || workflow.states[state.workflowState]?.type === STATE_TYPE.TERMINAL) && !opts.includeClosed) {
     return { reason: POLICY_SKIP_REASON.CLOSED };
   }

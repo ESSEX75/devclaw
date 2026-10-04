@@ -2,16 +2,15 @@
 
 import {
   getStateLabels,
-  ISSUE_ARCHIVE_REASON,
   PIPELINE_NOTIFICATION_STATUS,
   STATE_TYPE,
 } from "../../domain/index.js";
 import { readIssueStateStore, readOptionalProjects,readWorkerDeliveryResolution } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { archiveManagedIssueLocked } from "../issues/index.js";
 import { NOTIFICATION_EVENT } from "../notifications/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { findTransitionWorker, releaseTransitionWorkerLocked } from "./recovery.js";
+import { archiveTerminalIssueLocked } from "./terminal-archive.js";
 import type { CommitTransitionInput } from "./types.js";
 
 /** Apply provider label, persist local truth, reconcile projection, and optionally archive.
@@ -80,20 +79,15 @@ export async function commitWorkflowTransitionLocked(input: CommitTransitionInpu
   });
 
   if (input.archiveTerminal && workflow.states[plan.toState]?.type === STATE_TYPE.TERMINAL) {
-    const archived = await archiveManagedIssueLocked({
+    await archiveTerminalIssueLocked({
       workspaceDir,
       projectSlug: project.slug,
       issueId,
-      archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
       workflow,
-      snapshot: { title: issue.title, issueUrl: issue.web_url },
+      issue,
       actor: owner,
-      correlationId: `terminal:${project.slug}:${issueId}:${plan.toState}`,
+      workflowState: plan.toState,
     });
-
-    if (!archived.archived && archived.reason !== "notification_pending") {
-      throw new Error(`Terminal issue #${issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
-    }
   }
 
   return true;

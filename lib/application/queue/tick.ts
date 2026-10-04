@@ -21,10 +21,6 @@ import { planQueuePickup } from "./plan.js";
 import { findNextIssueForRole } from "./scan.js";
 import type { ProjectTickOptions, ProjectTickResult, QueueClaim, TickAction } from "./types.js";
 
-// ---------------------------------------------------------------------------
-// projectTick
-// ---------------------------------------------------------------------------
-
 /**
  * Scan one project's queue and fill free worker slots.
  *
@@ -203,8 +199,10 @@ export async function projectTick(opts: ProjectTickOptions): Promise<ProjectTick
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
-      skipped.push({ role, code: isProviderIssueLookupError(error) ? error.code : QUEUE_REASON.DISPATCH_FAILED,
-        reason: `Queue ${role} failed: ${message}` });
+      skipped.push({
+        role, code: isProviderIssueLookupError(error) ? error.code : QUEUE_REASON.DISPATCH_FAILED,
+        reason: `Queue ${role} failed: ${message}`
+      });
       continue;
     }
   }

@@ -2,15 +2,17 @@
 
 import { log as auditLog } from "../../../audit.js";
 import { DEFAULT_WORKFLOW, findStateKeyByLabel, getActiveLabel, getRevertLabel } from "../../../domain/index.js";
-import { sendToAgent } from "../../../integrations/openclaw/session.js";
+import { AGENT_TURN_STATUS } from "../../../integrations/openclaw/const.js";
+import { submitAgentTurn } from "../../../integrations/openclaw/session.js";
 import {
   getProject, getRoleWorker, readIssueStateStore, readProjects,
   updateIssueRuntimeRecord, updateSlot, withIssueOrchestrationLock,
 } from "../../../state/index.js";
+import { releaseTransitionWorkerLocked } from "../../pipeline/recovery.js";
 import { commitWorkflowTransitionLocked } from "../../pipeline/transition.js";
 import { reconcileManagedLabelsLocked } from "../../projection/index.js";
 import { reconcileUncertainDispatch } from "../../workers/index.js";
-import { HEALTH_ACTION, NUDGE_MESSAGE } from "./const.js";
+import { HEALTH_ACTION, NUDGE_COMMAND_TIMEOUT_MS, NUDGE_MESSAGE, NUDGE_RETRY_INTERVAL_MS } from "./const.js";
 import type { HealthFix, WorkerHealthInput } from "./types.js";
 import { diagnoseWorkerHealth } from "./worker-diagnosis.js";
 
@@ -60,11 +62,30 @@ export async function remediateWorkerHealth(input: WorkerHealthInput, finding: H
       if (!issueId || !state) return fresh;
       await reconcileManagedLabelsLocked({ workspaceDir, projectSlug, issueId, workflow, provider: input.provider, owner: "heartbeat_worker_health" });
     } else if (fresh.plannedAction === HEALTH_ACTION.NUDGE) {
-      if (!issueId || !slot.sessionKey) return fresh;
-      sendToAgent(slot.sessionKey, NUDGE_MESSAGE, {
-        workspaceDir, projectName: project.name, role, level, slotIndex, issueId,
-        agentId: input.agentId, runCommand: input.runCommand,
+      if (!issueId || !slot.sessionKey || !state?.activeWorker) return fresh;
+      const lastNudgeAt = state.activeWorker.lastNudgeAt;
+
+      if (lastNudgeAt && Date.now() - Date.parse(lastNudgeAt) < NUDGE_RETRY_INTERVAL_MS) return fresh;
+      const attemptedAt = new Date().toISOString();
+
+      await updateIssueRuntimeRecord(workspaceDir, projectSlug, issueId, (previous) => {
+        if (!previous?.activeWorker) throw new Error("Worker disappeared before health nudge.");
+
+        return { ...previous, activeWorker: { ...previous.activeWorker, lastNudgeAt: attemptedAt } };
       });
+      const outcome = await submitAgentTurn(slot.sessionKey, NUDGE_MESSAGE, {
+        workspaceDir, projectName: project.name, role, level, slotIndex, issueId,
+        agentId: input.agentId, runCommand: input.runCommand, fromLabel: `health-nudge-${attemptedAt}`,
+        dispatchTimeoutMs: NUDGE_COMMAND_TIMEOUT_MS,
+      });
+
+      fresh.appliedAction = HEALTH_ACTION.NUDGE;
+      if (outcome.kind !== AGENT_TURN_STATUS.ACCEPTED) {
+        fresh.error = outcome.reason;
+
+        return fresh;
+      }
+
       fresh.nudgeSent = true;
     } else if (fresh.plannedAction === HEALTH_ACTION.REQUEUE) {
       if (!issueId || !state) return { ...fresh, error: "Local issue state is not initialized; explicit repair is required." };
@@ -82,22 +103,29 @@ export async function remediateWorkerHealth(input: WorkerHealthInput, finding: H
       if (!committed) return fresh;
       fresh.labelReverted = `${from} → ${to}`;
     } else if (fresh.plannedAction === HEALTH_ACTION.RELEASE || fresh.plannedAction === HEALTH_ACTION.CLEAR_REFERENCE) {
-      let released = false;
+      if (issueId && state?.activeWorker) {
+        if (state.pendingWorkerRelease) return { ...fresh, error: "Issue already has an unfinished worker release." };
+        if (state.activeWorker.startedAt !== (slot.startTime ?? "")) {
+          return { ...fresh, error: "Worker start time disagrees with its project slot." };
+        }
 
-      await updateSlot(workspaceDir, projectSlug, role, level, slotIndex, (current) => {
-        if (current.issueId !== slot.issueId || current.sessionKey !== slot.sessionKey
-          || current.startTime !== slot.startTime || current.active !== slot.active) return current;
-        released = true;
-
-        return { ...current, active: false, issueId: null, startTime: null, previousLabel: null, lastIssueId: current.issueId };
-      });
-      if (!released) return fresh;
-      if (issueId && state?.activeWorker?.sessionKey === slot.sessionKey) {
         await updateIssueRuntimeRecord(workspaceDir, projectSlug, issueId, (previous) => {
-          if (!previous) throw new Error("Issue disappeared during worker remediation.");
+          if (!previous?.activeWorker) throw new Error("Worker disappeared before health release.");
 
-          return { ...previous, activeWorker: null };
+          return { ...previous, activeWorker: null, pendingWorkerRelease: previous.activeWorker, updatedAt: new Date().toISOString() };
         });
+        await releaseTransitionWorkerLocked(workspaceDir, projectSlug, issueId);
+      } else {
+        let released = false;
+
+        await updateSlot(workspaceDir, projectSlug, role, level, slotIndex, (current) => {
+          if (current.issueId !== slot.issueId || current.sessionKey !== slot.sessionKey
+            || current.startTime !== slot.startTime || current.active !== slot.active) return current;
+          released = true;
+
+          return { ...current, active: false, issueId: null, startTime: null, previousLabel: null, lastIssueId: current.issueId };
+        });
+        if (!released) return fresh;
       }
     } else return fresh;
     fresh.fixed = true;

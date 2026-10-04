@@ -13,7 +13,17 @@ import type { Issue, IssueProvider, ProviderRateLimitStatus } from "../../../int
 import type { ProjectionDiff, ProjectionMetadata } from "../../../projection/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 import type { ValueOf } from "../../../types.js";
-import type { ISSUE_REPAIR_ERROR, ISSUE_REPAIR_SOURCE, REPAIR_METADATA_ACTION, REPAIR_MODE, REPAIR_STATUS } from "./const.js";
+import type {
+  ISSUE_REPAIR_ERROR,
+  ISSUE_REPAIR_SOURCE,
+  REPAIR_ACTION,
+  REPAIR_EVENT,
+  REPAIR_LOCAL_FIELDS,
+  REPAIR_METADATA_ACTION,
+  REPAIR_MODE,
+  REPAIR_STATUS,
+  REPAIR_WARNING,
+} from "./const.js";
 
 /** Supported repair source. */
 export type IssueRepairSource = ValueOf<typeof ISSUE_REPAIR_SOURCE>;
@@ -21,10 +31,19 @@ export type IssueRepairSource = ValueOf<typeof ISSUE_REPAIR_SOURCE>;
 /** Stable repair failure code. */
 export type IssueRepairErrorCode = ValueOf<typeof ISSUE_REPAIR_ERROR>;
 
+/** Local runtime field permitted for explicit provider-source import. */
+export type RepairLocalField = typeof REPAIR_LOCAL_FIELDS[number];
+
+/** Stable operation reported by a repair plan or completed apply. */
+export type RepairAction = ValueOf<typeof REPAIR_ACTION>;
+
+/** Stable audit checkpoint emitted during repair. */
+export type RepairEvent = ValueOf<typeof REPAIR_EVENT>;
+
 /** One local field change proposed when provider projection is authoritative. */
 export type IssueRepairLocalChange = {
   /** Allowed local runtime field selected for explicit provider-source import. */
-  field: "workflowState" | "workflowLabel" | "assignedRole" | "assignedLevel" | "owner" | "reviewPolicy" | "testPolicy" | "notifyTarget";
+  field: RepairLocalField;
   /** Value observed before the proposed mutation. */
   before: unknown;
   /** Value selected after the proposed mutation. */
@@ -68,9 +87,9 @@ export type IssueRepairResult = {
   /** Applied changes or whether a repair plan requires mutation. */
   changed: boolean;
   /** Stable operation identifiers proposed by the repair plan. */
-  plannedActions: string[];
+  plannedActions: RepairAction[];
   /** Operation identifiers completed before the reported outcome. */
-  appliedActions?: string[];
+  appliedActions?: RepairAction[];
   /** Nonfatal preflight diagnostics. */
   warnings: RepairWarning[];
   /** Conservative request budget for the planned provider mutations. */
@@ -145,7 +164,7 @@ type RepairMetadataDiff = {
 /** Nonfatal diagnostic about repair preflight. */
 type RepairWarning = {
   /** Stable diagnostic or failure classification. */
-  code: string;
+  code: ValueOf<typeof REPAIR_WARNING>;
   /** Operator-readable failure or warning detail. */
   message: string;
 };

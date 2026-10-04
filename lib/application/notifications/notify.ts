@@ -6,7 +6,7 @@ import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
 import { deliverNotificationMessage, MESSAGE_DELIVERY_PATH } from "../../integrations/openclaw/notifications/index.js";
 import { inspectProjectRoute } from "../setup/index.js";
 import { auditNotificationOutcome } from "./audit.js";
-import { NOTIFICATION_AUDIT_OUTCOME, NOTIFICATION_BLOCKED, NOTIFICATION_EVENT_TYPES } from "./const.js";
+import { NOTIFICATION_AUDIT_OUTCOME, NOTIFICATION_BLOCK_REASON, NOTIFICATION_BLOCKED, NOTIFICATION_EVENT_TYPES } from "./const.js";
 import { renderNotificationMessage } from "./render.js";
 import type { NotificationConfig, NotificationDeliveryResult, NotificationRuntime, NotificationTarget, NotifyEvent, NotifyOptions } from "./types.js";
 
@@ -19,7 +19,7 @@ export async function notify(event: NotifyEvent, opts: NotifyOptions): Promise<N
   if (opts.config?.[event.type] === false) {
     await auditNotificationOutcome(opts.workspaceDir, event, { kind: NOTIFICATION_AUDIT_OUTCOME.SKIP, reason: "event disabled" }).catch(() => {});
 
-    return { status: NOTIFICATION_BLOCKED, delivered: false, reason: "Notification event is disabled." };
+    return { status: NOTIFICATION_BLOCKED, delivered: false, reason: NOTIFICATION_BLOCK_REASON.EVENT_DISABLED };
   }
 
   const channel = opts.channel ?? NOTIFICATION_CHANNEL.TELEGRAM;

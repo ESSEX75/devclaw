@@ -9,15 +9,13 @@ import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFact
 import { z } from "zod";
 
 import {
+  isScopeApprovalRejectedError,
+  isScopeApprovalRequiredError,
   isSetupNotificationChannel,
   runSetup,
   SETUP_NOTIFICATION_CHANNELS,
   type SetupOpts,
-} from "../../application/setup/index.js";
-import {
-  isScopeApprovalRejectedError,
-  isScopeApprovalRequiredError,
-} from "../../application/setup/index.js";
+} from "../../application/index.js";
 import { EXECUTION_MODE } from "../../domain/index.js";
 
 /** Validate optional tool inputs without trusting schema enforcement by the caller. */

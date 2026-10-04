@@ -74,6 +74,7 @@ describe("notifications", () => {
         issueId: 10,
         issueUrl: "https://example.com/issues/10",
         issueTitle: "Needs changes",
+        nextState: "To Improve",
       }, {
         workspaceDir: tmpDir,
         channelId: "another-chat",
@@ -156,6 +157,7 @@ describe("notifications", () => {
           issueId: 10,
           issueUrl: "https://example.com/issues/10",
           issueTitle: "Needs changes",
+          nextState: "To Improve",
         },
         {
           workspaceDir: tmpDir,
@@ -199,6 +201,7 @@ describe("notifications", () => {
           issueId: 10,
           issueUrl: "https://example.com/issues/10",
           issueTitle: "Needs changes",
+          nextState: "To Improve",
         },
         {
           workspaceDir: tmpDir,
@@ -233,6 +236,7 @@ describe("notifications", () => {
           issueId: 10,
           issueUrl: "https://example.com/issues/10",
           issueTitle: "Needs changes",
+          nextState: "To Improve",
         },
         {
           workspaceDir: tmpDir,
@@ -273,7 +277,7 @@ describe("notifications", () => {
     try {
       const result = await notify({
         type: "changesRequested", project: "test-project", issueId: 10,
-        issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes",
+        issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes", nextState: "To Improve",
       }, {
         workspaceDir: tmpDir, channelId: "telegram:123", channel: NOTIFICATION_CHANNEL.TELEGRAM,
         accountId: "dev", agentId: "dev-agent", runtime, runCommand,
@@ -295,7 +299,7 @@ describe("notifications", () => {
     try {
       const result = await notify({
         type: "changesRequested", project: "test-project", issueId: 10,
-        issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes",
+        issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes", nextState: "To Improve",
       }, {
         workspaceDir: tmpDir, channelId: "telegram:123", channel: NOTIFICATION_CHANNEL.TELEGRAM,
         accountId: "dev", agentId: "dev-agent", runtime: runtimeWithoutSender(), runCommand,
@@ -330,7 +334,7 @@ describe("notifications", () => {
     try {
       const receipt = await notify({
         type: "changesRequested", project: "test-project", issueId: 10,
-        issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes",
+        issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes", nextState: "To Improve",
       }, {
         workspaceDir: tmpDir, channelId: "telegram:123", channel: NOTIFICATION_CHANNEL.TELEGRAM,
         accountId: "dev", agentId: "dev-agent", runtime, runCommand,
@@ -354,7 +358,7 @@ it("audits unreadable route configuration without submitting a message", async (
   try {
     const result = await notify({
       type: "changesRequested", project: "test-project", issueId: 10,
-      issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes",
+      issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes", nextState: "To Improve",
     }, {
       workspaceDir: tmpDir, channelId: "telegram:123", channel: NOTIFICATION_CHANNEL.TELEGRAM,
       accountId: "dev", agentId: "dev-agent", runtime,

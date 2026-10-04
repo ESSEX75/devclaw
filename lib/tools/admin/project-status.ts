@@ -8,8 +8,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { getIssueArchiveStatus } from "../../application/issues/index.js";
-import { resolveProject } from "../../application/projects/index.js";
+import { getIssueArchiveStatus, resolveProject } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { EXECUTION_MODE, STATE_TYPE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";

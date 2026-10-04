@@ -8,13 +8,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createSetupRuntime as createRuntime } from "../../testing/index.js";
-import { resolveProjectToolOwners } from "./tool-ownership.js";
-import { DEVCLAW_AGENT_TOOLS } from "./const.js";
+import { resolveProjectToolOwners } from "./permissions/index.js";
+import { DEVCLAW_AGENT_TOOLS } from "./permissions/index.js";
 import { readProjects } from "../../state/index.js";
 import { DOCTOR_FINDING_CODE } from "../doctor/const.js";
 import { runRoutingDoctor } from "../doctor/index.js";
 import { writePluginConfig } from "./plugin-config.js";
-
 
 describe("writePluginConfig", () => {
   it("grants DevClaw tools to the configured agent and preserves session denials", async () => {

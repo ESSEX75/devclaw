@@ -249,3 +249,9 @@ export const RESULT_EMOJI = {
 
 /** Fallback emoji displayed for an unknown completion result. */
 export const DEFAULT_RESULT_EMOJI = "📋";
+
+/** Saved review-policy field used for local workflow selection and rechecks. */
+export const REVIEW_ROUTING_FIELD = "reviewPolicy";
+
+/** Saved test-policy field used for local workflow selection and rechecks. */
+export const TEST_ROUTING_FIELD = "testPolicy";

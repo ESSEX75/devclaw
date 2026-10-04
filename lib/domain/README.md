@@ -16,6 +16,9 @@ notification routing labels, `issues` owns provider IDs and issue ownership,
 `projects` owns project and worker-slot structures, `workers` owns shared worker
 delivery status, and `workflow` owns state machine semantics and workflow routing.
 
+Workflow owns saved policy selectors and their local issue-field identifiers shared
+by candidate selection and transition rechecks.
+
 Workflow owns policy-label prefixes shared by projection rendering, repair parsing,
 and application label effects. Issue semantics own the diagnostic used to preserve
 a non-OK integrity status when its original diagnostic owner is unknown.
@@ -38,7 +41,8 @@ outside `lib/domain`.
 
 - `lib/domain/index.ts` is the public entrypoint for the complete domain package.
 - Every domain subpackage exposes its supported API through its own `index.ts`.
-- Root and subpackage entrypoints enumerate supported value and type exports explicitly; wildcard exports are forbidden.
+- The root entrypoint re-exports the supported subpackage APIs with `export *`;
+  subpackage entrypoints explicitly select the values and types they expose.
 - Code outside `lib/domain` imports domain entities from `lib/domain/index.ts`.
 - Cross-subpackage imports use the target subpackage's `index.ts`.
 - Domain internals never import from the root `lib/domain/index.ts` barrel.

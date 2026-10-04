@@ -26,6 +26,8 @@ export type BuildTaskMessageInput = {
   baseBranch: string;
   /** Recent provider discussion considered when rendering worker context. */
   comments?: Pick<IssueComment, "author" | "body" | "created_at">[];
+  /** Explicit omission/truncation notice produced by the context selector. */
+  discussionNotice?: string;
   /** Effective role configuration determining completion results and level presentation. */
   resolvedRole?: ResolvedRoleConfig;
   /** Current pull-request context, when available. */
@@ -34,6 +36,42 @@ export type BuildTaskMessageInput = {
   prFeedback?: PrFeedback;
   /** Pre-formatted attachment context string (from formatAttachmentsForTask) */
   attachmentContext?: string;
+};
+
+/** Estimated task input allowance, independent of an existing session's occupancy. */
+export type TaskContextBudget = {
+  /** Total estimate available to the task input and reserved capacity. */
+  maxInputTokens: number;
+  /** Capacity withheld from the task for additional prompts and worker operation. */
+  reservedTokens: number;
+};
+
+/** Required task sections and discussion considered by the deterministic selector. */
+export type SelectTaskContextInput = {
+  /** Required message sections; discussion is selected separately. */
+  message: Omit<BuildTaskMessageInput, "comments" | "discussionNotice">;
+  /** Provider discussion in oldest-to-newest order. */
+  comments: IssueComment[];
+  /** Extra system instructions included in the same input estimate. */
+  roleInstructions: string;
+  /** Optional explicit input allowance; package defaults apply when absent. */
+  budget?: TaskContextBudget;
+};
+
+/** Rendered input and exact full comments eligible for acknowledgement. */
+export type TaskContextSelection = {
+  /** Task message including any visible discussion omissions. */
+  taskMessage: string;
+  /** Original comments included in full; fragments never qualify. */
+  comments: IssueComment[];
+  /** Number of original comments omitted entirely. */
+  omittedCommentCount: number;
+  /** Number of comments represented by an explicitly marked fragment. */
+  truncatedCommentCount: number;
+  /** Conservative UTF-8 byte-based estimate for message plus role instructions. */
+  estimatedInputTokens: number;
+  /** Required sections cannot fit; dispatch must fail before reservation. */
+  mandatoryPartsExceedBudget: boolean;
 };
 
 /** Inputs consumed by buildConflictFixMessage after adapter validation. */

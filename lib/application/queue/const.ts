@@ -12,4 +12,7 @@ export const QUEUE_REASON = {
 } as const;
 
 /** Discriminants for the queue's pure slot plan. */
-export const QUEUE_PLAN = { BLOCKED: "blocked", READY: "ready" } as const;
+export const QUEUE_PLAN = {
+  BLOCKED: "blocked",
+  READY: "ready"
+} as const;

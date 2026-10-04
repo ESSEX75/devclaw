@@ -47,3 +47,24 @@ it("refuses claim, approval, and prepared-level changes before creation readines
   assert.deepEqual(await readIssueStateStore(harness.workspaceDir, harness.project.slug), before);
   assert.equal(effects.mock.callCount(), 0);
 });
+
+it("transfers an initialized issue using local state even when the provider issue is closed", async t => {
+  const harness = await createTestHarness();
+  t.after(() => harness.cleanup());
+  const created = await createManagedTaskIssue({
+    workspaceDir: harness.workspaceDir, project: harness.project,
+    providerType: ISSUE_PROVIDER.GITHUB, provider: harness.provider, workflow: DEFAULT_WORKFLOW,
+    title: "Transfer owner", description: "Use local ownership", idempotencyKey: "claim-closed", requestedBy: "test",
+  });
+
+  assert.ok(created.issue);
+  await harness.provider.closeIssue(created.issue.iid);
+  const result = await claimManagedTask({
+    workspaceDir: harness.workspaceDir, project: harness.project,
+    issueId: created.issue.iid, instanceName: "new-owner", force: true, provider: harness.provider,
+    providerType: ISSUE_PROVIDER.GITHUB, workflow: DEFAULT_WORKFLOW, roles: ["developer"],
+  });
+
+  assert.deepEqual(result, { claimed: true });
+  assert.equal((await readIssueStateStore(harness.workspaceDir, harness.project.slug)).issues[String(created.issue.iid)].owner, "new-owner");
+});

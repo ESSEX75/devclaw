@@ -15,9 +15,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { resolveProject, resolveProvider } from "../../application/projects/index.js";
-import { createManagedTaskIssue } from "../../application/tasks/index.js";
-import { dispatchTask } from "../../application/workers/index.js";
+import { createManagedTaskIssue, dispatchTask, resolveProject, resolveProvider } from "../../application/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { countActiveSlots, findStateKeyByLabel, getActiveLabel } from "../../domain/index.js";

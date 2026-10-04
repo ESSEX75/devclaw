@@ -3,6 +3,7 @@
 import { DEFAULT_ROLES, type IssueRuntimeState, REVIEW_POLICY, TEST_POLICY } from "../../domain/index.js";
 import { QUEUE_REASON } from "./const.js";
 
+//TODO: The behavior of the tester, reviewer, etc. is hard-coded.
 /** Explain why the saved policy forbids this built-in role; custom roles remain eligible.
  * Null snapshots retain their existing unrestricted meaning and never inherit changed defaults.
  * @param state - Authoritative issue policy snapshot.

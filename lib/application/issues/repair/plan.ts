@@ -21,7 +21,8 @@ import {
 } from "../../../domain/index.js";
 import { diffIssueProjection, expectedManagedLabels, extractIssueMetadata, metadataMatches } from "../../../projection/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
-import { REPAIR_ACTION, REPAIR_METADATA_ACTION, REPAIR_MODE, REPAIR_PLAN_HASH_ALGORITHM, REPAIR_STATUS, REPAIR_WARNING } from "./const.js";
+import { countManagedLabelMutationRequests } from "../../projection/index.js";
+import { REPAIR_ACTION, REPAIR_LOCAL_FIELDS, REPAIR_METADATA_ACTION, REPAIR_MODE, REPAIR_PLAN_HASH_ALGORITHM, REPAIR_STATUS, REPAIR_WARNING } from "./const.js";
 import { ISSUE_REPAIR_ERROR, ISSUE_REPAIR_SOURCE } from "./const.js";
 import { repairFailure } from "./failure.js";
 import type { IssueRepairLocalChange, IssueRepairResult, RepairContext, RepairManagedIssueInput } from "./types.js";
@@ -56,7 +57,7 @@ export function buildRepairPlan(input: RepairManagedIssueInput, context: RepairC
     || metadataAction === REPAIR_METADATA_ACTION.REPLACE
     || localChanges.length > 0;
   const estimatedProviderRequests = input.source === ISSUE_REPAIR_SOURCE.LOCAL_STATE
-    ? diff.missingManagedLabels.length * 2 + (diff.unexpectedManagedLabels.length ? 1 : 0) + (metadataAction === REPAIR_METADATA_ACTION.REPLACE ? 1 : 0) + 1
+    ? countManagedLabelMutationRequests(diff, context.workflow) + Number(metadataAction === REPAIR_METADATA_ACTION.REPLACE) + 1
     : 1;
   const tokenPayload = JSON.stringify({
     project: input.projectSlug,
@@ -230,11 +231,8 @@ function parseNotifyTarget(labels: string[], project: Project): NotifyBindingRef
  */
 function diffLocalState(before: IssueRuntimeState, after: IssueRuntimeState): IssueRepairLocalChange[] {
   const changes: IssueRepairLocalChange[] = [];
-  const fields: IssueRepairLocalChange["field"][] = [
-    "workflowState", "workflowLabel", "assignedRole", "assignedLevel", "owner", "reviewPolicy", "testPolicy", "notifyTarget",
-  ];
 
-  for (const field of fields) {
+  for (const field of REPAIR_LOCAL_FIELDS) {
     if (JSON.stringify(before[field]) !== JSON.stringify(after[field])) changes.push({ field, before: before[field], after: after[field] });
   }
 

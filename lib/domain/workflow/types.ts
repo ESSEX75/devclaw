@@ -11,9 +11,11 @@ import {
   EXECUTION_MODE,
   REVIEW_CHECK,
   REVIEW_POLICY,
+  REVIEW_ROUTING_FIELD,
   ROUTING_LABELS,
   STATE_TYPE,
   TEST_POLICY,
+  TEST_ROUTING_FIELD,
   WORKFLOW_EVENT,
   WORKFLOW_STATE_KEYS,
   WORKFLOW_STATE_LABELS,
@@ -222,3 +224,22 @@ export type RoleDefinition<TLevelId extends string = LevelId> = {
   /** Whether the role is enabled in the workflow pipeline. */
   enabled?: boolean;
 };
+
+/** Selects a saved review policy for workflow eligibility or a transition recheck. */
+type ReviewPolicyRouting = {
+  /** Local issue field holding the saved review policy. */
+  field: typeof REVIEW_ROUTING_FIELD;
+  /** Expected review policy. */
+  value: ReviewPolicy;
+};
+
+/** Selects a saved test policy for workflow eligibility or a transition recheck. */
+type TestPolicyRouting = {
+  /** Local issue field holding the saved test policy. */
+  field: typeof TEST_ROUTING_FIELD;
+  /** Expected test policy. */
+  value: TestPolicy;
+};
+
+/** Saved policy selector pairing each local field with its allowed policy values. */
+export type WorkflowPolicyRouting = ReviewPolicyRouting | TestPolicyRouting;

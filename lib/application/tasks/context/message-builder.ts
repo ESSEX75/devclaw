@@ -5,7 +5,6 @@
 import { getFallbackEmoji } from "../../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 import { formatPrContext, formatPrFeedback, PR_FEEDBACK_REASON } from "../../review/index.js";
-import { TASK_COMMENT_LIMIT } from "./const.js";
 import type { BuildConflictFixMessageInput, BuildTaskMessageInput } from "./types.js";
 
 /**
@@ -48,14 +47,14 @@ export function buildTaskMessage(opts: BuildTaskMessageInput): string {
   // Include comments if present
   if (opts.comments && opts.comments.length > 0) {
     parts.push(``, `## Comments`);
-    const recentComments = opts.comments.slice(-TASK_COMMENT_LIMIT);
-
-    for (const comment of recentComments) {
+    for (const comment of opts.comments) {
       const date = new Date(comment.created_at).toLocaleString();
 
       parts.push(``, `**${comment.author}** (${date}):`, comment.body);
     }
   }
+
+  if (opts.discussionNotice) parts.push(``, opts.discussionNotice);
 
   if (opts.prContext) parts.push(...formatPrContext(opts.prContext));
   if (opts.prFeedback) {

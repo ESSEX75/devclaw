@@ -2,7 +2,7 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
-import { registerHeartbeatService } from "./lib/application/heartbeat/index.js";
+import { registerHeartbeatService } from "./lib/application/index.js";
 // Infrastructure
 import { registerCli } from "./lib/cli/register.js";
 import { createPluginContext } from "./lib/context.js";

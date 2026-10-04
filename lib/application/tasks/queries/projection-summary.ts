@@ -6,21 +6,7 @@ import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState } from "
 import type { IssueReader } from "../../../integrations/providers/capabilities.js";
 import type { Issue } from "../../../integrations/providers/provider.js";
 import { diffIssueProjection } from "../../../projection/index.js";
-import { readIssueStateStore } from "../../../state/index.js";
-import type { LoadProjectionViewContextInput, ProjectionViewContext, TaskIssueProjectionView, TaskIssueSummary } from "./types.js";
-
-/** Read authoritative runtime state for consistent projection diagnostics.
- * @param opts - Resolved project dependencies and operation-specific input.
- */
-export async function loadProjectionViewContext(opts: LoadProjectionViewContextInput): Promise<ProjectionViewContext> {
-  const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
-
-  return {
-    states: store.issues,
-    workflow: opts.workflow,
-    roles: opts.roles,
-  };
-}
+import type { ProjectionViewContext, TaskIssueProjectionView, TaskIssueSummary } from "./types.js";
 
 /** Combine provider identity with local assignment and projection differences.
  * @param issue - Provider issue snapshot being summarized.
@@ -39,7 +25,7 @@ export function summarizeTaskIssue(issue: Issue, ctx: ProjectionViewContext): Ta
   };
 }
 
-/** Read provider observations for local issues while retaining unavailable issues in output.
+/** Read provider observations for local issues and surface lookup failures to callers.
  * @param states - Local records to enrich in deterministic issue order.
  * @param provider - Provider capability or identifier used for this operation.
  * @param projectionCtx - Authoritative snapshot and workflow used for projection comparison.
@@ -51,15 +37,8 @@ export async function summarizeLocalIssueStates(
 ): Promise<TaskIssueSummary[]> {
   const result: TaskIssueSummary[] = [];
 
-  for (const state of states.sort((a, b) => a.issueId - b.issueId)) {
-    const issue = await provider.getIssue(state.issueId).catch(() => ({
-      iid: state.issueId,
-      title: `Issue #${state.issueId}`,
-      description: "",
-      labels: [],
-      state: "unknown",
-      web_url: "",
-    }));
+  for (const state of [...states].sort((a, b) => a.issueId - b.issueId)) {
+    const issue = await provider.getIssue(state.issueId);
 
     result.push(summarizeTaskIssue(issue, projectionCtx));
   }

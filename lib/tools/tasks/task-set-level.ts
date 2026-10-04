@@ -7,7 +7,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { setTaskLevel } from "../../application/tasks/index.js";
+import { setTaskLevel } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 

@@ -52,6 +52,7 @@ async function editTaskBodyLocked(input: EditTaskBodyInput) {
 
   const resolvedConfig = await loadConfig(workspaceDir, project.slug);
   const initialStateLabel = getInitialStateLabel(resolvedConfig.workflow);
+  //TODO: The behavior of the tester, reviewer, etc. is hard-coded.
   const architectActiveStates = Object.values(resolvedConfig.workflow.states)
     .filter((s) => s.type === STATE_TYPE.ACTIVE && s.role === DEFAULT_ROLES.ARCHITECT)
     .map((s) => s.label);

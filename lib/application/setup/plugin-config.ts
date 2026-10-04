@@ -8,10 +8,9 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
 import type { ExecutionMode } from "../../domain/index.js";
-import { HEARTBEAT_DEFAULTS } from "../heartbeat/defaults.js";
+import { HEARTBEAT_DEFAULTS } from "../heartbeat/service/defaults.js";
 import { ACTIVE_MEMORY_PLUGIN_ID, CONFIG_RELOAD_MODE, DEVCLAW_PLUGIN_ID, SUBAGENT_ARCHIVE_AFTER_MINUTES } from "./const.js";
-import { resolveProjectToolOwners } from "./tool-ownership.js";
-import { buildAgentToolPolicy } from "./tool-policy.js";
+import { buildAgentToolPolicy, resolveProjectToolOwners } from "./permissions/index.js";
 import type { SetupRuntime } from "./types.js";
 
 /**

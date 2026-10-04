@@ -10,6 +10,7 @@ import type { PrContext, PrFeedback } from "./types.js";
 export function formatPrContext(prContext: PrContext): string[] {
   const parts: string[] = [``, `## Pull Request`, `🔗 ${prContext.url}`];
 
+  //TODO: You need to compress based on context, not just crop.
   if (prContext.diff) {
     const diff = prContext.diff.length > PR_DIFF_LIMIT
       ? prContext.diff.slice(0, PR_DIFF_LIMIT) + "\n... (diff truncated, see PR for full changes)"

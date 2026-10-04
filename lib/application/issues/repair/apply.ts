@@ -10,7 +10,7 @@ import { applyManagedLabelDiff } from "../../projection/index.js";
 import { ISSUE_REPAIR_ERROR, REPAIR_ACTION, REPAIR_METADATA_ACTION } from "./const.js";
 import { repairFailure } from "./failure.js";
 import { expectedMetadataFor, importProviderProjection } from "./plan.js";
-import type { IssueRepairResult, RepairContext, RepairManagedIssueInput, RepairProvider } from "./types.js";
+import type { IssueRepairResult, RepairAction, RepairContext, RepairManagedIssueInput, RepairProvider } from "./types.js";
 
 /** Apply local truth to provider labels and metadata.
  * @param input - Validated command input and runtime dependencies.
@@ -21,7 +21,7 @@ export async function applyLocalSourceRepair(
   input: RepairManagedIssueInput,
   context: RepairContext,
   plan: IssueRepairResult,
-): Promise<string[]> {
+): Promise<RepairAction[]> {
   await applyManagedLabelDiff({
     issueId: input.issueId,
     provider: context.provider,
@@ -49,7 +49,7 @@ export async function applyProviderSourceRepair(
   input: RepairManagedIssueInput,
   context: RepairContext,
   plan: IssueRepairResult,
-): Promise<string[]> {
+): Promise<RepairAction[]> {
   const imported = importProviderProjection(context);
 
   await updateIssueStateStore(input.workspaceDir, input.projectSlug, (store) => {
@@ -59,14 +59,7 @@ export async function applyProviderSourceRepair(
     let updated = { ...state };
 
     for (const change of plan.localChanges) {
-      if (change.field === "workflowState") updated = { ...updated, workflowState: imported.workflowState };
-      else if (change.field === "workflowLabel") updated = { ...updated, workflowLabel: imported.workflowLabel };
-      else if (change.field === "assignedRole") updated = { ...updated, assignedRole: imported.assignedRole };
-      else if (change.field === "assignedLevel") updated = { ...updated, assignedLevel: imported.assignedLevel };
-      else if (change.field === "owner") updated = { ...updated, owner: imported.owner };
-      else if (change.field === "reviewPolicy") updated = { ...updated, reviewPolicy: imported.reviewPolicy };
-      else if (change.field === "testPolicy") updated = { ...updated, testPolicy: imported.testPolicy };
-      else updated = { ...updated, notifyTarget: imported.notifyTarget };
+      updated = { ...updated, [change.field]: imported[change.field] };
     }
 
     updated.updatedAt = new Date().toISOString();

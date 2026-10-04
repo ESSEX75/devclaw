@@ -194,9 +194,9 @@ function checkImportBoundary({ sourceFile, sourceLayer, targetFile, targetLayer,
     targetLayer === "application" &&
     sourceLayer !== "application" &&
     targetFile &&
-    !/^lib\/application\/[^/]+\/index\.ts$/.test(targetRelative.split(path.sep).join("/"))
+    targetRelative.split(path.sep).join("/") !== "lib/application/index.ts"
   ) {
-    return "code outside application must import a supported application subpackage entrypoint";
+    return "code outside application must import the application public entrypoint";
   }
 
   if (sourceLayer === "domain" && ["application", "state", "integrations", "tools", "cli"].includes(targetLayer)) {

@@ -10,7 +10,7 @@
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 import { z } from "zod";
 
-import { manageTaskAttachments } from "../../application/tasks/index.js";
+import { manageTaskAttachments } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 

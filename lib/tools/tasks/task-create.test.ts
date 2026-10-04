@@ -8,7 +8,7 @@ import { extractIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
 import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, STATE_TYPE, type WorkflowConfig, WORKFLOW_EVENT } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
-import { createManagedTaskIssue } from "../../application/tasks/index.js";
+import { createManagedTaskIssue } from "../../application/index.js";
 
 describe("task_create managed initial-state flow", () => {
   it("preserves a custom hold initial state without resolving its queue transition", async () => {

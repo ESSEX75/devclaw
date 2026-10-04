@@ -1,6 +1,5 @@
 /** Supported heartbeat service, diagnostics, and health APIs. */
 
-export { HEARTBEAT_DEFAULTS } from "./defaults.js";
-export type { HealthFix } from "./health.js";
-export { checkWorkerHealth, fetchGatewaySessions, scanOrphanedLabels } from "./health.js";
-export { registerHeartbeatService } from "./service.js";
+export type { HealthFix } from "./health/index.js";
+export { checkWorkerHealth } from "./health/index.js";
+export { HEARTBEAT_DEFAULTS, registerHeartbeatService } from "./service/index.js";

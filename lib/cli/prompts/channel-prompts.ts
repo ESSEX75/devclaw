@@ -6,7 +6,7 @@ import {
   SETUP_NOTIFICATION_CHANNELS,
   type SetupNotificationChannel,
   type SetupRuntime,
-} from "../../application/setup/index.js";
+} from "../../application/index.js";
 import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
 import {
   formatAgentLabel,

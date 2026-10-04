@@ -12,8 +12,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { resolveProject, resolveProvider } from "../../application/projects/index.js";
-import { createManagedTaskIssue } from "../../application/tasks/index.js";
+import { createManagedTaskIssue, resolveProject, resolveProvider } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import type { NotifyBindingRef } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";

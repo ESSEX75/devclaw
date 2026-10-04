@@ -1,9 +1,9 @@
 /** Resolves setup targets, route validation, and model changes without side effects. */
 
 import { loadConfig } from "../../state/index.js";
-import { getAgentId, getAgentWorkspacePath, resolveWorkspacePath } from "./agent-config.js";
-import { planChannelBinding } from "./binding-manager.js";
+import { getAgentId, getAgentWorkspacePath, resolveWorkspacePath } from "./agents/index.js";
 import { SETUP_OPERATION, UNKNOWN_AGENT_ID } from "./const.js";
+import { planChannelBinding } from "./routing/index.js";
 import type { ModelConfig, SetupOpts, SetupResult } from "./types.js";
 
 /** Resolve a validated setup plan; performs reads only and never invokes command transport.

@@ -9,12 +9,13 @@ import { createProvider } from "../../integrations/providers/index.js";
 import { loadConfig } from "../../state/index.js";
 import { readProjects } from "../../state/index.js";
 import { projectTick } from "../queue/tick.js";
-import { HEARTBEAT_AUDIT_EVENT, HEARTBEAT_PASS } from "./const.js";
-import { performHealthPass } from "./health-pass.js";
+import { HEARTBEAT_AUDIT_EVENT, HEARTBEAT_PASS, HEARTBEAT_PASS_FAILURE_POLICY } from "./const.js";
+import { performHealthPass } from "./health/index.js";
 import { performIssueArchivePass, performIssueCreationPass, performProjectionIntegrityPass } from "./maintenance-passes.js";
 import { runHeartbeatPasses } from "./pass-runner.js";
-import { performReviewPass, performReviewSkipPass, performTestSkipPass } from "./review-passes.js";
+import { performReviewPass, performReviewSkipPass } from "./review/index.js";
 import { mayScheduleProject } from "./scheduler.js";
+import { testSkipPass } from "./test/index.js";
 import type { HeartbeatRunInput, HeartbeatTickResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -81,7 +82,7 @@ export async function tick(opts: HeartbeatRunInput): Promise<HeartbeatTickResult
         workflow: resolvedConfig.workflow,
       })).provider;
 
-      const completed = await runHeartbeatPasses(slug, [
+      const recovered = await runHeartbeatPasses(slug, [
         { name: HEARTBEAT_PASS.CREATION, run: async () => {
           const creations = await performIssueCreationPass(workspaceDir, project, provider, resolvedConfig);
 
@@ -98,7 +99,7 @@ export async function tick(opts: HeartbeatRunInput): Promise<HeartbeatTickResult
         { name: HEARTBEAT_PASS.HEALTH, run: async () => {
           const fixes = await performHealthPass({
             workspaceDir, projectSlug: slug, project, sessions, provider, resolvedConfig,
-            staleWorkerHours: resolvedConfig.timeouts.staleWorkerHours, instanceName, runCommand,
+            staleWorkerHours: resolvedConfig.timeouts.staleWorkerHours, runCommand,
             stallTimeoutMinutes: resolvedConfig.timeouts.stallTimeoutMinutes, agentId, autoFix: true,
           });
 
@@ -106,6 +107,16 @@ export async function tick(opts: HeartbeatRunInput): Promise<HeartbeatTickResult
 
           return fixes;
         } },
+      ], result.passes);
+
+      if (!recovered) {
+        opts.logger.warn(`Heartbeat pass failed for project ${slug}: ${result.passes.at(-1)?.errors.join("; ")}`);
+        result.totalSkipped++;
+        continue;
+      }
+
+      const workflowReportStart = result.passes.length;
+      const advanced = await runHeartbeatPasses(slug, [
         { name: HEARTBEAT_PASS.REVIEW, run: async () => {
           result.totalReviewTransitions += await performReviewPass(workspaceDir, slug, project, provider, resolvedConfig, pluginConfig, runtime, runCommand);
         } },
@@ -113,12 +124,18 @@ export async function tick(opts: HeartbeatRunInput): Promise<HeartbeatTickResult
           result.totalReviewSkipTransitions += await performReviewSkipPass(workspaceDir, slug, project, provider, resolvedConfig, pluginConfig, runtime, runCommand);
         } },
         { name: HEARTBEAT_PASS.TEST_SKIP, run: async () => {
-          result.totalTestSkipTransitions += await performTestSkipPass(workspaceDir, slug, project, provider, resolvedConfig);
+          result.totalTestSkipTransitions += await testSkipPass({
+            workspaceDir, projectName: slug, project, provider, workflow: resolvedConfig.workflow,
+          });
         } },
-      ], result.passes);
+      ], result.passes, HEARTBEAT_PASS_FAILURE_POLICY.CONTINUE);
 
-      if (!completed) {
-        opts.logger.warn(`Heartbeat pass failed for project ${slug}: ${result.passes.at(-1)?.errors.join("; ")}`);
+      if (!advanced) {
+        const failures = result.passes.slice(workflowReportStart)
+          .filter((pass) => pass.errors.length > 0)
+          .map((pass) => `${pass.name}: ${pass.errors.join("; ")}`);
+
+        opts.logger.warn(`Heartbeat workflow failed for project ${slug}: ${failures.join("; ")}`);
         result.totalSkipped++;
         continue;
       }

@@ -5,7 +5,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { editTaskBody } from "../../application/tasks/index.js";
+import { editTaskBody } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 

@@ -74,6 +74,20 @@ describe("findNextIssueForRole local state", () => {
     });
   });
 
+  it("retains a locally queued issue after it is closed at the provider", async () => {
+    await withStore([state()], async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 123, labels: ["To Do"], state: "closed" });
+
+      const next = await findNextIssueForRole(
+        provider, "developer", DEFAULT_WORKFLOW, undefined,
+        { workspaceDir: tmpDir, projectSlug: "devclaw" },
+      );
+
+      assert.equal(next?.issue.iid, 123);
+      assert.equal(next?.localState.workflowState, "todo");
+    });
+  });
+
   it("skips initialized managed issues with integrity_error", async () => {
     await withStore([state({
       integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,

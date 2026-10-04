@@ -1,7 +1,11 @@
 /** Attachment command identifiers and bounded presentation policy. */
 
 /** Supported manual attachment actions. */
-export const ATTACHMENT_ACTION = { LIST: "list", GET: "get", ADD: "add" } as const;
+export const ATTACHMENT_ACTION = {
+  LIST: "list",
+  GET: "get",
+  ADD: "add"
+} as const;
 
 /** Fallback media type for unknown file formats. */
 export const DEFAULT_ATTACHMENT_MIME = "application/octet-stream";

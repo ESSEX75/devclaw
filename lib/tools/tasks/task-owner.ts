@@ -8,8 +8,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { resolveProject, resolveProvider } from "../../application/projects/index.js";
-import { claimManagedTask } from "../../application/tasks/index.js";
+import { claimManagedTask, resolveProject, resolveProvider } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import {
   getAllQueueLabels,

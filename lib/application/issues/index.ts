@@ -1,6 +1,7 @@
 /** Exposes managed issue lifecycle commands and their supported results. */
 
 export {
+  ARCHIVE_BLOCK_REASON,
   archiveManagedIssue,
   archiveManagedIssueLocked,
   getIssueArchiveStatus,

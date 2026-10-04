@@ -33,8 +33,6 @@ export async function findNextIssueForRole(
     if (resolution && !resolution.completed) continue;
     const issue = await provider.getIssue(state.issueId);
 
-    if (issue.state.toLowerCase() === "closed") continue;
-
     return { issue, label: state.workflowLabel, localState: state };
   }
 

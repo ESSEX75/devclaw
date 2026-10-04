@@ -7,10 +7,10 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { resolveProject, resolveProvider } from "../../application/projects/index.js";
-import { listManagedTasks } from "../../application/tasks/index.js";
+import { ALL_TASK_STATES, listManagedTasks, resolveProject, resolveProvider } from "../../application/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
+import { STATE_TYPE } from "../../domain/index.js";
 import { loadConfig } from "../../state/index.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
@@ -33,7 +33,7 @@ export function createTaskListTool(ctx: PluginContext): OpenClawPluginToolFactor
         },
         stateType: {
           type: "string",
-          enum: ["queue", "active", "hold", "terminal", "all"],
+          enum: [...Object.values(STATE_TYPE), ALL_TASK_STATES],
           description: "Filter by state type. Defaults to all non-terminal states.",
         },
         label: {
@@ -45,7 +45,8 @@ export function createTaskListTool(ctx: PluginContext): OpenClawPluginToolFactor
           description: "Text search in issue titles (case-insensitive).",
         },
         limit: {
-          type: "number",
+          type: "integer",
+          minimum: 0,
           description: "Max issues per state. Defaults to 20.",
         },
       },
@@ -54,7 +55,15 @@ export function createTaskListTool(ctx: PluginContext): OpenClawPluginToolFactor
     async execute(_id: string, params: Record<string, unknown>) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
       const channelId = resolveChannelId(toolCtx, params.channelId as string | undefined);
-      const stateType = params.stateType as string | undefined;
+      const requestedStateType = params.stateType;
+      const stateType = requestedStateType === ALL_TASK_STATES
+        ? ALL_TASK_STATES
+        : Object.values(STATE_TYPE).find((state) => state === requestedStateType);
+
+      if (requestedStateType !== undefined && stateType === undefined) {
+        throw new Error(`Unknown state type "${String(requestedStateType)}".`);
+      }
+
       const label = params.label as string | undefined;
       const search = params.search as string | undefined;
       const limit = (params.limit as number) ?? 20;

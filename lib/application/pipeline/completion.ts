@@ -5,10 +5,9 @@
  */
 
 import { log as auditLog } from "../../audit.js";
-import { ACTION, DEFAULT_WORKFLOW, findStateByLabel, ISSUE_ARCHIVE_REASON, STATE_TYPE } from "../../domain/index.js";
+import { ACTION, DEFAULT_WORKFLOW, findStateByLabel, STATE_TYPE } from "../../domain/index.js";
 import { getProject, getRoleWorker, loadConfig, readIssueStateStore, readProjects, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { archiveManagedIssueLocked } from "../issues/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { renderCompletionAnnouncement } from "./announcement.js";
 import { notifyCompletion } from "./completion-notifications.js";
@@ -16,6 +15,7 @@ import { PIPELINE_AUDIT, PIPELINE_OWNER } from "./const.js";
 import { planCompletion, planMergeFailure } from "./plan.js";
 import { applyCompletionLifecycle, executeCompletionActions } from "./provider-actions.js";
 import { releaseTransitionWorkerLocked } from "./recovery.js";
+import { archiveTerminalIssueLocked } from "./terminal-archive.js";
 import { commitWorkflowTransitionLocked } from "./transition.js";
 import type { CompletionInput, CompletionOutput } from "./types.js";
 
@@ -179,20 +179,15 @@ async function executeCompletionLocked(opts: CompletionInput): Promise<Completio
   const targetState = findStateByLabel(workflow, rule.to);
 
   if (targetState?.type === STATE_TYPE.TERMINAL) {
-    const archived = await archiveManagedIssueLocked({
+    await archiveTerminalIssueLocked({
       workspaceDir,
       projectSlug,
       issueId,
-      archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
       workflow,
-      snapshot: { title: issue.title, issueUrl: issue.web_url },
+      issue,
       actor: PIPELINE_OWNER.COMPLETION,
-      correlationId: `terminal:${projectSlug}:${issueId}:${runtimeState.workflowState}`,
+      workflowState: runtimeState.workflowState,
     });
-
-    if (!archived.archived && archived.reason !== "notification_pending") {
-      throw new Error(`Terminal issue #${issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
-    }
   }
 
   const announcement = renderCompletionAnnouncement(opts, issue.web_url, prUrl, nextState);

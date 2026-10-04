@@ -9,12 +9,11 @@ import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type Project } from "../../domain/index.js";
+import { ACTION, ISSUE_PROVIDER, NOTIFICATION_CHANNEL, WORKFLOW_EVENT, type Project } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { projectionIntegrityPass } from "./projection.js";
-import { reviewPass } from "./review.js";
-import { reviewSkipPass } from "./review-skip.js";
-import { testSkipPass } from "./test-skip.js";
+import { reviewPass, reviewSkipPass } from "./review/index.js";
+import { testSkipPass } from "./test/index.js";
 import { transitionHeartbeatIssue } from "./transition-state.js";
 
 async function withProject<T>(fn: (ctx: {
@@ -278,6 +277,35 @@ describe("heartbeat transition state sync", () => {
       assert.equal(count, 1);
       assert.equal(provider.callsTo("mergePr").length, 1);
       assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["94"]?.workflowLabel, "To Improve");
+    });
+  });
+
+  it("preserves review state when a configured provider action fails", async () => {
+    await withProject(async ({ workspaceDir, project, provider, runCommand }) => {
+      const workflow = structuredClone(DEFAULT_WORKFLOW);
+      workflow.states.toReview.on = { ...workflow.states.toReview.on,
+        [WORKFLOW_EVENT.SKIP]: { target: "toTest", actions: [ACTION.CLOSE_ISSUE] } };
+      const issue = provider.seedIssue({ iid: 95, labels: ["To Review", "review:skip"] });
+      await writeIssueRuntimeState({ workspaceDir, project, issue, providerType: project.provider,
+        workflow, workflowState: "toReview", workflowLabel: "To Review", reviewPolicy: "skip" });
+      provider.closeIssue = async () => { throw new Error("provider close failed"); };
+
+      await assert.rejects(reviewSkipPass({ workspaceDir, projectName: project.name, project,
+        workflow, provider, repoPath: project.repo, runCommand }), /provider close failed/);
+      assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["95"]?.workflowLabel, "To Review");
+    });
+  });
+
+  it("surfaces provider lookup errors during local candidate selection", async () => {
+    await withProject(async ({ workspaceDir, project, provider, runCommand }) => {
+      const issue = provider.seedIssue({ iid: 96, labels: ["To Review", "review:skip"] });
+      await writeIssueRuntimeState({ workspaceDir, project, issue, providerType: project.provider,
+        workflow: DEFAULT_WORKFLOW, workflowState: "toReview", workflowLabel: "To Review", reviewPolicy: "skip" });
+      provider.getIssue = async () => { throw new Error("provider lookup failed"); };
+
+      await assert.rejects(reviewSkipPass({ workspaceDir, projectName: project.name, project,
+        workflow: DEFAULT_WORKFLOW, provider, repoPath: project.repo, runCommand }), /provider lookup failed/);
+      assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["96"]?.workflowLabel, "To Review");
     });
   });
 });

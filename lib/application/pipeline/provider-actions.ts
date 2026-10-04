@@ -2,8 +2,8 @@
 
 import { log as auditLog } from "../../audit.js";
 import { ACTION, type CompletionRule } from "../../domain/index.js";
-import { type Issue, PrState } from "../../integrations/providers/index.js";
-import { PIPELINE_AUDIT } from "./const.js";
+import { type Issue, PROVIDER_ISSUE_STATE, PrState } from "../../integrations/providers/index.js";
+import { PIPELINE_AUDIT, PIPELINE_GIT_PULL_COMMAND } from "./const.js";
 import type { CompletionActions, CompletionInput } from "./types.js";
 
 /** Perform configured actions; read failures preserve the source state for a later retry.
@@ -23,7 +23,7 @@ export async function executeCompletionActions(opts: CompletionInput, rule: Comp
   for (const action of rule.actions) {
     switch (action) {
       case ACTION.GIT_PULL:
-        try { await rc(["git", "pull"], { timeoutMs: gitPullMs, cwd: repoPath }); } catch (err) {
+        try { await rc([...PIPELINE_GIT_PULL_COMMAND], { timeoutMs: gitPullMs, cwd: repoPath }); } catch (err) {
           auditLog(workspaceDir, PIPELINE_AUDIT.WARNING, { step: ACTION.GIT_PULL, issue: issueId, role, error: err instanceof Error ? err.message : String(err) }).catch(() => { });
         }
 
@@ -89,7 +89,7 @@ export async function executeCompletionActions(opts: CompletionInput, rule: Comp
  * @param issue - Provider snapshot read before the attempt.
  */
 export async function applyCompletionLifecycle(opts: CompletionInput, rule: CompletionRule<string>, issue: Issue): Promise<void> {
-  let closed = issue.state === "closed";
+  let closed = issue.state === PROVIDER_ISSUE_STATE.CLOSED;
 
   for (const action of rule.actions) {
     if (action === ACTION.CLOSE_ISSUE && !closed) {

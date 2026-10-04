@@ -1,11 +1,11 @@
 /** Applies validated setup plans shared by CLI and tools. */
 
 import { initializeWorkspaceFiles, refreshSystemInstructionFiles, resetDefaults, scaffoldWorkspace, writeWorkspaceModels } from "../../state/index.js";
-import { createAgent } from "./agent-config.js";
-import { ensureChannelBinding } from "./binding-manager.js";
+import { createAgent } from "./agents/index.js";
 import { SETUP_OPERATION } from "./const.js";
+import { ensureRequiredOpenClawScopes } from "./permissions/index.js";
 import { writePluginConfig } from "./plugin-config.js";
-import { ensureRequiredOpenClawScopes } from "./scopes.js";
+import { ensureChannelBinding } from "./routing/index.js";
 import { planSetup } from "./setup-plan.js";
 import type { SetupOpts, SetupResult } from "./types.js";
 

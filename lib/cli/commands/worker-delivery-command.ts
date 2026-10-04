@@ -2,7 +2,7 @@
 
 import type { Command } from "commander";
 
-import { resolveWorkerDelivery } from "../../application/workers/index.js";
+import { resolveWorkerDelivery } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { WORKER_DELIVERY_RESOLUTION } from "../../domain/index.js";
 import { getDefaultWorkspaceDir } from "../options/setup-options.js";

@@ -56,6 +56,12 @@ export const REPAIR_ACTION = {
   UPDATE_ALLOWED_LOCAL_FIELDS: "update_allowed_local_fields",
 } as const;
 
+/** Local runtime fields that explicit provider-source repair may import. */
+export const REPAIR_LOCAL_FIELDS = [
+  "workflowState", "workflowLabel", "assignedRole", "assignedLevel",
+  "owner", "reviewPolicy", "testPolicy", "notifyTarget",
+] as const;
+
 /** Audit checkpoints for repair execution and verification. */
 export const REPAIR_EVENT = {
   DRY_RUN: "issue_repair_dry_run",

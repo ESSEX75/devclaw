@@ -117,6 +117,45 @@ describe("retryPendingPipelineNotifications", () => {
       await harness.cleanup();
     }
   });
+
+  it("does not let a backoff attempt consume the only send slot", async () => {
+    const h = await createTestHarness({ projectName: "test-project", channelId: "telegram:123" });
+    const store = createEmptyIssueStateStoreForTesting(h.project.slug);
+    const sent: unknown[] = [];
+
+    try {
+      const waiting = pendingTerminalIssue(h.project.slug);
+
+      waiting.issueId = 41;
+      const waitingMarker = waiting.pipelineNotification;
+
+      assert.ok(waitingMarker);
+      waitingMarker.attemptedAt = new Date(Date.now() - 1_000).toISOString();
+      const ready = pendingTerminalIssue(h.project.slug);
+
+      const readyMarker = ready.pipelineNotification;
+
+      assert.ok(readyMarker);
+      readyMarker.status = PIPELINE_NOTIFICATION_STATUS.PENDING;
+      readyMarker.attemptedAt = new Date().toISOString();
+      store.issues["41"] = waiting;
+      store.issues["42"] = ready;
+      await replaceIssueStateStoreForTesting(h.workspaceDir, h.project.slug, store);
+      h.provider.seedIssue({ iid: 42, title: "Ready issue" });
+
+      const delivered = await retryPendingPipelineNotifications(
+        h.workspaceDir, h.project, h.provider, undefined, notificationRuntime(sent), h.runCommand, 1,
+      );
+      const persisted = await readIssueStateStore(h.workspaceDir, h.project.slug);
+
+      assert.equal(delivered, 1);
+      assert.equal(sent.length, 1);
+      assert.equal(persisted.issues["41"].pipelineNotification?.status, PIPELINE_NOTIFICATION_STATUS.RETRYABLE);
+      assert.equal(persisted.issues["42"].pipelineNotification?.status, PIPELINE_NOTIFICATION_STATUS.DELIVERED);
+    } finally {
+      await h.cleanup();
+    }
+  });
 });
 
 

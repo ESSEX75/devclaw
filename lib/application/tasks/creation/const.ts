@@ -3,7 +3,7 @@
 import { ISSUE_CREATION_STATUS, ISSUE_INTEGRITY_STATUS } from "../../../domain/index.js";
 
 /** Durable checkpoints persisted in each creation operation. */
-export const CREATION_STEPS={
+export const CREATION_STEPS = {
   PREFLIGHT: "preflight_completed",
   PROVIDER_STARTED: "provider_create_started",
   PROVIDER_CREATED: "provider_created",
@@ -13,13 +13,13 @@ export const CREATION_STEPS={
 } as const;
 
 /** Conservative provider request budget before starting creation. */
-export const CREATION_REQUEST_BUDGET=4;
+export const CREATION_REQUEST_BUDGET = 4;
 
 /** Retry delay when a throttled provider supplies no reset timestamp. */
-export const CREATION_RETRY_DELAY_MS=60_000;
+export const CREATION_RETRY_DELAY_MS = 60_000;
 
 /** Audit events emitted while creating or recovering a managed issue. */
-export const CREATION_EVENT={
+export const CREATION_EVENT = {
   FAILED: "issue_creation_failed",
   LOCAL_STATE_COMMITTED: "issue_creation_local_state_committed",
   MANUAL_REPAIR_REQUIRED: "issue_creation_manual_repair_required",
@@ -43,7 +43,14 @@ export const CREATION_RESULT_STATUS = {
 } as const;
 
 /** Projection readiness categories exposed by the creation result. */
-export const CREATION_RESULT_INTEGRITY = { OK: ISSUE_INTEGRITY_STATUS.OK, PENDING: "pending", ERROR: "error" } as const;
+export const CREATION_RESULT_INTEGRITY = {
+  OK: ISSUE_INTEGRITY_STATUS.OK,
+  PENDING: "pending",
+  ERROR: "error"
+} as const;
 
 /** Digest used to bind idempotency keys to immutable creation input. */
 export const CREATION_PAYLOAD_HASH = "sha256";
+
+/** Caller identity recorded when heartbeat resumes a managed creation operation. */
+export const CREATION_RECONCILIATION_REQUESTER = "heartbeat_creation_reconciliation";

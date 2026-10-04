@@ -26,6 +26,15 @@ export const ARCHIVE_MAINTENANCE_ACTOR = "heartbeat_archive_maintenance";
 /** Actor identity for recovering interrupted terminal archival. */
 export const ARCHIVE_RECOVERY_ACTOR = "heartbeat_archive_recovery";
 
+/** Correlation prefix for interrupted terminal archive recovery. */
+export const ARCHIVE_RECOVERY_CORRELATION_PREFIX = "archive:";
+
+/** Fallback reason when a selected recovery reports no refusal. */
+export const ARCHIVE_RECOVERY_UNKNOWN_REASON = "unknown";
+
+/** Correlation prefix for periodic retention maintenance. */
+export const ARCHIVE_MAINTENANCE_CORRELATION_PREFIX = "maintenance:";
+
 /** Source snapshot digest algorithm. */
 export const ARCHIVE_HASH_ALGORITHM = "sha256";
 

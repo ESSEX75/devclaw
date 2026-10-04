@@ -1,6 +1,6 @@
 /** Terminal setup option and agent display contracts. */
 
-import type { SetupNotificationChannel } from "../../application/setup/index.js";
+import type { SetupNotificationChannel } from "../../application/index.js";
 import type { ExecutionMode } from "../../domain/index.js";
 
 /** Parsed terminal setup flags before application validation. */

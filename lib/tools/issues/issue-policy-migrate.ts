@@ -5,7 +5,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { migrateIssuePolicies } from "../../application/issues/index.js";
+import { migrateIssuePolicies } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { isReviewPolicy, isTestPolicy, type ReviewPolicy, type TestPolicy } from "../../domain/index.js";
 import { requireWorkspaceDir } from "../helpers.js";

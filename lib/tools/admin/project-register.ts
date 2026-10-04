@@ -15,7 +15,7 @@ import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFact
 import {
   validateDestinationAvailability,
   validateProjectRoute,
-} from "../../application/setup/index.js";
+} from "../../application/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import {

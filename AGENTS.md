@@ -28,7 +28,11 @@ Layer-specific contracts live in the `README.md` files under each `lib/*` packag
 
 ## Runtime State Contract
 
-For initialized DevClaw-managed issues, local issue runtime state is the source of truth. Provider labels and issue body metadata are a visible projection of that state. Manual provider label edits do not become authoritative runtime state unless an explicit repair/backfill flow handles them.
+For each initialized DevClaw-managed issue, `<workspace>/devclaw/projects/<project>/issues.json` is the source of truth for its workflow and runtime state. Provider labels and issue body metadata are a visible projection of that state; provider observations may verify or reconcile the projection, but must not determine workflow transitions, queue eligibility, or worker ownership.
+
+Normal queue, heartbeat, and health paths must start from local issue state. Do not fall back to provider labels when an issue has no local record, and do not scan provider-only issues to infer managed runtime state. A missing local record means the issue is uninitialized until an explicit initialization or repair flow handles it. Manual provider label edits never become authoritative runtime state implicitly.
+
+Project worker slots in `projects.json` are separate reservation and capacity records. Check them against `issues.json` when diagnosing ownership; a slot or provider label alone must not establish an issue's workflow state.
 
 ## No-Legacy Policy
 

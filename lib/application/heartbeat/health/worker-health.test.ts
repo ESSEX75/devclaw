@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { getProject, getRoleWorker, loadConfig, readIssueStateStore, readProjects, updateSlot } from "../../../state/index.js";
 import { createTestHarness, type TestHarness } from "../../../testing/index.js";
 import { writeIssueRuntimeState } from "../../issue-runtime/index.js";
-import { performHealthPass } from "../health-pass.js";
+import { performHealthPass } from "./pass.js";
 import type { WorkerHealthInput } from "./types.js";
 import { diagnoseWorkerHealth } from "./worker-diagnosis.js";
 import { remediateWorkerHealth } from "./worker-remediation.js";
@@ -64,12 +64,14 @@ describe("worker diagnosis and remediation", () => {
     assert.equal(getRoleWorker(project, "developer").levels.medior?.[0]?.sessionKey, "replacement");
   });
 
-  it("keeps the complete diagnostic health pass read-only, including provider-only issues", async () => {
+  it("keeps the health pass read-only and ignores issues absent from local state", async () => {
     harness.provider.seedIssue({ iid: 43, labels: ["developer:medior"] });
     const resolvedConfig = await loadConfig(input.workspaceDir, input.projectSlug);
     const before = await snapshot(harness.workspaceDir);
     const findings = await performHealthPass({ ...input, resolvedConfig, autoFix: false });
-    assert.ok(findings.some((fix) => fix.issue.type === "stateless_issue" && fix.issue.issueId === 43));
+    assert.ok(!findings.some((fix) => fix.issue.issueId === 43));
+    assert.equal(harness.provider.callsTo("listIssuesByLabel").length, 0);
+    assert.equal(harness.provider.callsTo("listIssues").length, 0);
     assert.deepEqual(await snapshot(harness.workspaceDir), before);
     assert.equal(harness.commands.commands.length, 0);
     assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
@@ -122,5 +124,51 @@ describe("worker diagnosis and remediation", () => {
     assert.ok(project);
     assert.equal(getRoleWorker(project, "developer").levels.medior?.[0]?.active, true);
     assert.ok((await harness.provider.getIssue(42)).labels.includes("Doing"));
+  });
+
+  it("retains a worker when its locally active issue is closed at the provider", async () => {
+    input.sessions?.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
+    await harness.provider.closeIssue(42);
+    const findings = await checkWorkerHealth({ ...input, autoFix: true });
+
+    assert.deepEqual(findings, []);
+    const state = (await readIssueStateStore(input.workspaceDir, input.projectSlug)).issues["42"];
+    assert.equal(state?.activeWorker?.sessionKey, "worker");
+    assert.equal(state?.pendingWorkerRelease ?? null, null);
+    const project = getProject(await readProjects(input.workspaceDir), input.projectSlug);
+    assert.ok(project);
+    assert.equal(getRoleWorker(project, "developer").levels.medior?.[0]?.issueId, 42);
+  });
+
+  it("retains a worker when its locally active issue is absent at the provider", async () => {
+    input.sessions?.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
+    harness.provider.issues.delete(42);
+    const findings = await checkWorkerHealth({ ...input, autoFix: true });
+
+    assert.deepEqual(findings, []);
+    assert.equal((await readIssueStateStore(input.workspaceDir, input.projectSlug)).issues["42"]?.activeWorker?.sessionKey, "worker");
+    const project = getProject(await readProjects(input.workspaceDir), input.projectSlug);
+    assert.ok(project);
+    assert.equal(getRoleWorker(project, "developer").levels.medior?.[0]?.issueId, 42);
+  });
+
+  it("records a failed nudge attempt and does not resubmit it on the next tick", async () => {
+    input.sessions?.set("worker", { key: "worker", updatedAt: Date.now() - 20 * 60_000,
+      percentUsed: 90, contextTokens: 2_000 });
+    let submissions = 0;
+    input.runCommand = async () => {
+      submissions++;
+      throw new Error("gateway unavailable");
+    };
+    const first = await checkWorkerHealth({ ...input, autoFix: true });
+    const second = await checkWorkerHealth({ ...input, autoFix: true });
+
+    assert.equal(first[0]?.plannedAction, "nudge");
+    assert.equal(first[0]?.fixed, false);
+    assert.match(first[0]?.error ?? "", /gateway unavailable/);
+    assert.equal(second[0]?.plannedAction, "nudge");
+    assert.equal(second[0]?.appliedAction, undefined);
+    assert.equal(submissions, 1);
+    assert.ok((await readIssueStateStore(input.workspaceDir, input.projectSlug)).issues["42"]?.activeWorker?.lastNudgeAt);
   });
 });

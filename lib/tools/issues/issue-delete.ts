@@ -5,9 +5,7 @@
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { deleteManagedIssue } from "../../application/issues/index.js";
-import { resolveProjectByRoute, resolveProvider } from "../../application/projects/index.js";
-import { validateProjectRoute } from "../../application/setup/index.js";
+import { deleteManagedIssue, resolveProjectByRoute, resolveProvider, validateProjectRoute } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { isNotificationChannel } from "../../domain/index.js";
 import { requireWorkspaceDir } from "../helpers.js";

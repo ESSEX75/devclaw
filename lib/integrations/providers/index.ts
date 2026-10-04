@@ -5,7 +5,7 @@
 import { ISSUE_PROVIDER, type IssueProviderId, type WorkflowConfig } from "../../domain/index.js";
 
 export type * from "./capabilities.js";
-export { PR_COMMENT_KIND } from "./const.js";
+export { PR_COMMENT_KIND, PROVIDER_ISSUE_STATE } from "./const.js";
 export * from "./lookup-errors.js";
 export * from "./operation-errors.js";
 export * from "./provider.js";

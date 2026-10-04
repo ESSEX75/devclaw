@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { DEFAULT_WORKFLOW, ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
-import { summarizeTaskIssue, type ProjectionViewContext } from "../../application/tasks/index.js";
+import { summarizeTaskIssue, type ProjectionViewContext } from "../../application/index.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {

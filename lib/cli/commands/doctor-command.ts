@@ -4,7 +4,7 @@
 
 import type { Command } from "commander";
 
-import { runRoutingDoctor } from "../../application/doctor/index.js";
+import { runRoutingDoctor } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 
 /** Register `devclaw doctor` on the parent CLI command. */

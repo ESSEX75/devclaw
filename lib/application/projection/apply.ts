@@ -13,7 +13,16 @@ import {
   STEP_ROUTING_COLOR,
   type WorkflowConfig,
 } from "../../domain/index.js";
+import type { ProjectionDiff } from "../../projection/index.js";
 import type { ApplyManagedLabelDiffInput } from "./types.js";
+
+/** Provider removal batches separated by workflow-state ownership. */
+type UnexpectedManagedLabels = {
+  /** Unexpected managed labels outside the workflow state set. */
+  staleNonState: string[];
+  /** Unexpected workflow state labels. */
+  staleStates: string[];
+};
 
 /**
  * Apply only managed labels represented by the deterministic projection diff.
@@ -27,13 +36,32 @@ export async function applyManagedLabelDiff(input: ApplyManagedLabelDiffInput): 
     await input.provider.addLabel(input.issueId, label);
   }
 
-  const staleNonState = input.diff.unexpectedManagedLabels.filter((label) => !stateLabels.includes(label));
-  const staleStates = input.diff.unexpectedManagedLabels.filter((label) => stateLabels.includes(label));
+  const { staleNonState, staleStates } = partitionUnexpectedLabels(input.diff, stateLabels);
 
   if (staleNonState.length > 0) await input.provider.removeLabels(input.issueId, staleNonState);
   if (staleStates.length > 0) await input.provider.removeLabels(input.issueId, staleStates);
 }
 
+/** Count the provider mutations performed for one managed-label diff.
+ * @param diff - Deterministic missing and unexpected managed labels.
+ * @param workflow - Resolved state labels used to group removal requests.
+ */
+export function countManagedLabelMutationRequests(diff: ProjectionDiff, workflow: WorkflowConfig): number {
+  const { staleNonState, staleStates } = partitionUnexpectedLabels(diff, getStateLabels(workflow));
+
+  return diff.missingManagedLabels.length * 2 + Number(staleNonState.length > 0) + Number(staleStates.length > 0);
+}
+
+/** Split unexpected managed labels into the two provider removal batches.
+ * @param diff - Deterministic projection diff being applied or counted.
+ * @param stateLabels - Configured workflow state labels.
+ */
+function partitionUnexpectedLabels(diff: ProjectionDiff, stateLabels: string[]): UnexpectedManagedLabels {
+  return {
+    staleNonState: diff.unexpectedManagedLabels.filter((label) => !stateLabels.includes(label)),
+    staleStates: diff.unexpectedManagedLabels.filter((label) => stateLabels.includes(label)),
+  };
+}
 
 /**
  * Resolve the managed color for one label using configured workflow and roles.

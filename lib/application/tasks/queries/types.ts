@@ -1,8 +1,12 @@
 /** Queries task contracts, shared by the owning capability. */
 
-import type { IssueRuntimeState, WorkerDeliveryState, WorkflowConfig } from "../../../domain/index.js";
+import type { IssueRuntimeState, WorkerDeliveryState, WorkflowConfig, WorkflowStateConfig } from "../../../domain/index.js";
 import type { IssueReader } from "../../../integrations/providers/index.js";
 import type { IssueCreationFailure, IssueCreationOperation } from "../../../state/index.js";
+import type { ALL_TASK_STATES } from "./const.js";
+
+/** Workflow classification or explicit request to include every state. */
+type TaskStateFilter = WorkflowStateConfig["type"] | typeof ALL_TASK_STATES;
 
 /** Issues grouped under one configured state label. */
 type StateBucket = Record<string, StateGroup>;
@@ -82,7 +86,7 @@ type CreationGroups = {
 /** Applied task list filters echoed to callers. */
 type TaskListFilter = {
   /** Optional workflow classification filter. */
-  stateType: string | null;
+  stateType: TaskStateFilter | null;
   /** Provider-visible workflow label selected by configuration. */
   label: string | null;
   /** Optional case-insensitive title substring filter. */
@@ -114,7 +118,7 @@ export type TaskListStateGroup = {
   /** Provider-visible workflow label selected by configuration. */
   label: string;
   /** Configured workflow state classification. */
-  type: string;
+  type: WorkflowStateConfig["type"];
   /** Configured role responsible for the workflow state or worker task. */
   role?: string;
   /** Task summaries belonging to the selected workflow state. */
@@ -206,23 +210,11 @@ export type ListManagedTasksInput = {
   /** Provider capability or identifier used for this operation. */
   provider: Pick<IssueReader, "getIssue">;
   /** Optional workflow classification filter. */
-  stateType?: string;
+  stateType?: TaskStateFilter;
   /** Provider-visible workflow label selected by configuration. */
   label?: string;
   /** Optional case-insensitive title substring filter. */
   search?: string;
   /** Maximum summaries per state; defaults to the task query policy. */
   limit?: number;
-};
-
-/** Inputs consumed by loadProjectionViewContext after adapter validation. */
-export type LoadProjectionViewContextInput = {
-  /** Configured workspace containing authoritative project state. */
-  workspaceDir: string;
-  /** Canonical project identifier addressing local state. */
-  projectSlug: string;
-  /** Effective project workflow including custom states. */
-  workflow: WorkflowConfig;
-  /** Effective role identifiers or resolved role configurations. */
-  roles: string[];
 };

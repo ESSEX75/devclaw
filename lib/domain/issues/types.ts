@@ -78,6 +78,8 @@ export type ActiveIssueWorker = {
   sessionKey: string | null;
   /** ISO timestamp when work started. */
   startedAt: string;
+  /** Last durable health nudge attempt for this worker run. */
+  lastNudgeAt?: string;
   /** Unresolved gateway submission requiring reconciliation before any retry. */
   delivery?: WorkerDeliveryState;
 };

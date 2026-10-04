@@ -48,6 +48,19 @@ describe("task query use cases", () => {
       assert.strictEqual(result.states[0]?.label, "Planning");
       assert.strictEqual(result.states[0]?.issues[0]?.id, created.issue.iid);
       assert.strictEqual(result.states[0]?.issues[0]?.projection.localState?.workflowState, "planning");
+
+      const input = {
+        workspaceDir: tmpDir,
+        projectSlug: "devclaw",
+        workflow: DEFAULT_WORKFLOW,
+        roles: ["developer"],
+        label: "Planning",
+      };
+      const unavailableProvider = { getIssue: async () => { throw new Error("provider unavailable"); } };
+
+      await assert.rejects(listManagedTasks({ ...input, provider, limit: -1 }), /non-negative integer/);
+      await assert.rejects(listManagedTasks({ ...input, provider: unavailableProvider }), /provider unavailable/);
+      await assert.rejects(listManagedTasks({ ...input, provider: unavailableProvider, search: "search" }), /provider unavailable/);
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
@@ -91,6 +104,13 @@ describe("task query use cases", () => {
       assert.strictEqual(status.summary.totalQueued, 0);
       assert.strictEqual(status.summary.totalActive, 0);
       assert.strictEqual(status.hold.Planning?.issues[0]?.id, created.issue.iid);
+      await assert.rejects(getManagedTaskStatus({
+        workspaceDir: tmpDir,
+        projectSlug: "devclaw",
+        workflow: DEFAULT_WORKFLOW,
+        roles: ["developer"],
+        provider: { getIssue: async () => { throw new Error("provider unavailable"); } },
+      }), /provider unavailable/);
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }

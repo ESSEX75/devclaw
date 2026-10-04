@@ -10,8 +10,8 @@ import {
   ISSUE_REPAIR_SOURCE,
   type IssueRepairSource,
   repairManagedIssue,
-} from "../../application/issues/index.js";
-import { resolveProject } from "../../application/projects/index.js";
+  resolveProject,
+} from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { getProject, readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";

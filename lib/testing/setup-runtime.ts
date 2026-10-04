@@ -2,7 +2,7 @@
 
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
-import type { SetupRuntime } from "../application/setup/index.js";
+import type { SetupRuntime } from "../application/index.js";
 import type { RunCommand } from "../context.js";
 
 /** Create isolated config state and record committed mutations and external commands.

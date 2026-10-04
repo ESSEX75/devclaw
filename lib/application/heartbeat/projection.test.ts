@@ -15,6 +15,7 @@ import { TestProvider } from "../../testing/test-provider.js";
 import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../integrations/providers/index.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
+import { getHeartbeatCandidates } from "./local-candidates.js";
 import { projectionIntegrityPass } from "./projection.js";
 
 /** Build initialized state with explicit overrides for each integrity scenario.
@@ -169,6 +170,31 @@ describe("projectionIntegrityPass", () => {
       assert.ok(issue.labels.includes("To Do"));
       assert.ok(issue.labels.includes("bug"));
       assert.ok(!issue.labels.includes("Doing"));
+    });
+  });
+
+  it("verifies and repairs the projection of a provider-closed managed issue", async () => {
+    await withStore(state(), async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 123, labels: ["Doing"], description: metadata(), state: "closed" });
+      const candidates = await getHeartbeatCandidates({
+        workspaceDir: tmpDir, projectSlug: "devclaw", workflowLabel: "To Do", provider,
+      });
+
+      assert.equal(candidates.length, 1);
+
+      const result = await projectionIntegrityPass({
+        workspaceDir: tmpDir,
+        project: { slug: "devclaw" },
+        provider,
+        workflow: DEFAULT_WORKFLOW,
+        roles: ["developer"],
+      });
+
+      assert.equal(result.checked, 1);
+      assert.equal(result.skipped, 0);
+      assert.equal(result.repaired, 1);
+      assert.equal((await readIssueStateStore(tmpDir, "devclaw")).issues["123"].workflowState, "todo");
+      assert.ok((await provider.getIssue(123)).labels.includes("To Do"));
     });
   });
 

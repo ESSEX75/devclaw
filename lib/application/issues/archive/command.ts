@@ -12,7 +12,6 @@ import {
   STATE_TYPE,
   type WorkflowConfig,
 } from "../../../domain/index.js";
-import { findSlotByIssue } from "../../../domain/index.js";
 import {
   archiveIssueState,
   readIssueArchiveStore,
@@ -21,6 +20,7 @@ import {
   withIssueOrchestrationLock
 } from "../../../state/index.js";
 import { loadConfig, readOptionalProjects } from "../../../state/index.js";
+import { hasProjectWorkerSlot } from "../worker-slot.js";
 import { ARCHIVE_BLOCK_REASON, ARCHIVE_EVENT } from "./const.js";
 import { hashIssueState } from "./identity.js";
 import type { ArchiveIssueInput, ArchiveIssueResult } from "./types.js";
@@ -54,7 +54,7 @@ export async function archiveManagedIssueLocked(opts: ArchiveIssueInput): Promis
   const registry = await readOptionalProjects(opts.workspaceDir);
   const project = registry?.projects[opts.projectSlug];
 
-  if (project && Object.values(project.workers).some(worker => findSlotByIssue(worker, opts.issueId))) {
+  if (project && hasProjectWorkerSlot(project, opts.issueId)) {
     return { issueId: opts.issueId, archived: false, reason: ARCHIVE_BLOCK_REASON.WORKER_SLOT };
   }
 

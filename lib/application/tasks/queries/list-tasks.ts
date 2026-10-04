@@ -8,11 +8,8 @@ import {
 } from "../../../domain/index.js";
 import { isIssueCreationReady, readIssueStateStore } from "../../../state/index.js";
 import { ALL_TASK_STATES, DEFAULT_TASK_LIST_LIMIT } from "./const.js";
-import {
-  loadProjectionViewContext,
-  summarizeLocalIssueStates,
-} from "./projection-summary.js";
-import type { ListManagedTasksInput, TaskListResult, TaskListStateGroup } from "./types.js";
+import { summarizeLocalIssueStates } from "./projection-summary.js";
+import type { ListManagedTasksInput, ProjectionViewContext, TaskListResult, TaskListStateGroup } from "./types.js";
 
 /** State selected for a task listing. */
 type FetchEntry = Pick<TaskListStateGroup, "label" | "type" | "role">;
@@ -22,13 +19,13 @@ type FetchEntry = Pick<TaskListStateGroup, "label" | "type" | "role">;
  */
 export async function listManagedTasks(opts: ListManagedTasksInput): Promise<TaskListResult> {
   const limit = opts.limit ?? DEFAULT_TASK_LIST_LIMIT;
-  const projectionCtx = await loadProjectionViewContext({
-    workspaceDir: opts.workspaceDir,
-    projectSlug: opts.projectSlug,
-    workflow: opts.workflow,
-    roles: opts.roles,
-  });
+
+  if (!Number.isSafeInteger(limit) || limit < 0) {
+    throw new Error("Task list limit must be a non-negative integer.");
+  }
+
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
+  const projectionCtx: ProjectionViewContext = { states: store.issues, workflow: opts.workflow, roles: opts.roles };
   const localStates: IssueRuntimeState[] = [];
 
   for (const state of Object.values(store.issues)) {
@@ -48,9 +45,9 @@ export async function listManagedTasks(opts: ListManagedTasksInput): Promise<Tas
       const filtered: IssueRuntimeState[] = [];
 
       for (const state of states) {
-        const issue = await opts.provider.getIssue(state.issueId).catch(() => null);
+        const issue = await opts.provider.getIssue(state.issueId);
 
-        if ((issue?.title ?? `Issue #${state.issueId}`).toLowerCase().includes(searchLower)) {
+        if (issue.title.toLowerCase().includes(searchLower)) {
           filtered.push(state);
         }
       }
@@ -82,7 +79,7 @@ export async function listManagedTasks(opts: ListManagedTasksInput): Promise<Tas
  * @param stateType - Optional workflow classification filter.
  * @param label - Provider-visible workflow label selected by configuration.
  */
-function resolveTaskListLabels(workflow: WorkflowConfig, stateType?: string, label?: string): FetchEntry[] {
+function resolveTaskListLabels(workflow: WorkflowConfig, stateType?: ListManagedTasksInput["stateType"], label?: string): FetchEntry[] {
   if (label) {
     const stateConfig = findStateByLabel(workflow, label);
 

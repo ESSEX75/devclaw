@@ -11,7 +11,7 @@ describe("setup architecture boundaries", () => {
         for (const specifier of ["node:fs", "node:fs/promises", "fs", "fs/promises"]) {
           assert.ok(checkSetupAdapterBoundary(name, undefined, specifier));
         }
-        assert.equal(checkSetupAdapterBoundary(name, "application", "../../application/setup/index.js"), null);
+        assert.equal(checkSetupAdapterBoundary(name, "application", "../../application/index.js"), null);
       }
     }
   });

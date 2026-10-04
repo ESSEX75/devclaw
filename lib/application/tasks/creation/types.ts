@@ -86,14 +86,20 @@ export type CreateManagedTaskInput = {
   assignedLevel?: string | null;
 };
 
-/** Inputs for a bounded heartbeat reconciliation pass. */
-export type ReconcileManagedTaskCreationsInput = Pick<
+/** Resolved creation dependencies shared by every operation in a reconciliation pass. */
+type CreationReconciliationContext = Pick<
   CreateManagedTaskInput,
   "workspaceDir" | "project" | "providerType" | "provider" | "workflow" | "roles"
-> & {
+>;
+
+/** Bounds the amount of unfinished creation work inspected in one pass. */
+type CreationReconciliationLimit = {
   /** Maximum number of unfinished operations inspected in this pass. */
   maxItems: number;
 };
+
+/** Inputs for a bounded heartbeat reconciliation pass. */
+export type ReconcileManagedTaskCreationsInput = CreationReconciliationContext & CreationReconciliationLimit;
 
 /** Outcome of a bounded reconciliation pass. */
 export type ReconcileManagedTaskCreationsResult = {

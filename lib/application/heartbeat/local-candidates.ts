@@ -2,21 +2,14 @@
  * local-candidates.ts — Local issue-state candidate selection for heartbeat passes.
  */
 
-import { ISSUE_INTEGRITY_STATUS, type IssueRuntimeState } from "../../domain/index.js";
-import type { IssueReader } from "../../integrations/providers/capabilities.js";
-import type { Issue } from "../../integrations/providers/provider.js";
+import { ISSUE_INTEGRITY_STATUS } from "../../domain/index.js";
 import { isIssueCreationReady, readIssueStateStore } from "../../state/index.js";
+import type { HeartbeatCandidate, HeartbeatCandidateInput } from "./types.js";
 
-export async function getHeartbeatCandidates(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  workflowLabel: string;
-  provider: Pick<IssueReader, "getIssue">;
-  routing?: {
-    field: "reviewPolicy" | "testPolicy";
-    value: string;
-  };
-}): Promise<Array<{ issue: Issue; localState: IssueRuntimeState }>> {
+/** Select initialized local issues and fetch provider context without importing provider labels as state.
+ * @param opts - Local selection, optional saved policy, and provider read capability.
+ */
+export async function getHeartbeatCandidates(opts: HeartbeatCandidateInput): Promise<HeartbeatCandidate[]> {
   const store = await readIssueStateStore(opts.workspaceDir, opts.projectSlug);
   const states = Object.values(store.issues)
     .filter((state) =>
@@ -27,18 +20,13 @@ export async function getHeartbeatCandidates(opts: {
     )
     .sort((a, b) => a.issueId - b.issueId);
 
-  const candidates: Array<{ issue: Issue; localState: IssueRuntimeState }> = [];
+  const candidates: HeartbeatCandidate[] = [];
 
   for (const localState of states) {
     if (!await isIssueCreationReady(opts.workspaceDir, opts.projectSlug, localState.creationOperationId)) continue;
-    try {
-      const issue = await opts.provider.getIssue(localState.issueId);
+    const issue = await opts.provider.getIssue(localState.issueId);
 
-      if (issue.state === "closed" || issue.state === "CLOSED") continue;
-      candidates.push({ issue, localState });
-    } catch {
-      // Projection pass handles provider-missing cleanup and provider errors.
-    }
+    candidates.push({ issue, localState });
   }
 
   return candidates;
