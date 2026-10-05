@@ -5,6 +5,7 @@
  */
 
 import type { NotificationEndpoint } from "../../../domain/index.js";
+import { findConfiguredAgent } from "../../../integrations/openclaw/agent-registry.js";
 import type { ProjectsData } from "../../../state/index.js";
 import { ROUTE_DIAGNOSTIC_CODE, TOPIC_PEER_SEPARATOR } from "./const.js";
 import { matchesGroupDestination } from "./route-matching.js";
@@ -53,7 +54,7 @@ export function inspectExactRoute(
   peerId: string,
 ): RouteDiagnostic[] {
   const diagnostics: RouteDiagnostic[] = [];
-  const agent = config.agents?.list?.find((candidate) => candidate.id === agentId);
+  const agent = findConfiguredAgent(config, agentId);
 
   if (!agent) {
     diagnostics.push({

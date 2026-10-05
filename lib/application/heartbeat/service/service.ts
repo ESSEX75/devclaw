@@ -55,7 +55,7 @@ export function createHeartbeatLifecycle(pluginCtx: HeartbeatServiceDependencies
             const config = resolveHeartbeatConfig(pluginCtx.pluginConfig);
 
             if (!config.enabled || generation !== currentGeneration) return;
-            const discovery = await discoverAgents(svcCtx.config ?? pluginCtx.config);
+            const discovery = await discoverAgents(pluginCtx.runtime?.config.current() ?? svcCtx.config ?? pluginCtx.config);
 
             for (const error of discovery.errors) svcCtx.logger.warn(error);
             if (discovery.agents.length === 0) {

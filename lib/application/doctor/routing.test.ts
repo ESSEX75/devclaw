@@ -71,6 +71,20 @@ describe("routing doctor", () => {
     assert.equal(buildRoutingDoctorReport(allowed, registry).ok, true);
   });
 
+  it("reports active entries policies and routes without legacy agents", () => {
+    const fixture = createSetupRuntime({
+      agents: { entries: { "dev-agent": { tools: { alsoAllow: [...DEVCLAW_AGENT_TOOLS] } } },
+        list: [{ id: "legacy" }] },
+      channels: { telegram: { accounts: { dev: {} } } },
+      bindings: [{ agentId: "dev-agent", match: { channel: "telegram", accountId: "dev",
+        peer: { kind: "group", id: "chat-1" } } }],
+    });
+    const report = buildRoutingDoctorReport(fixture.runtime.config.current(), projects);
+
+    assert.equal(report.ok, true);
+    assert.deepEqual(report.agents, [{ agentId: "dev-agent", devclawToolsAllowed: true }]);
+  });
+
   it("reports retention ordering as information without promising cleanup", () => {
     const retention = { archiveRetention: "1d", attachmentsRetention: "30d",
       deletedProviderRetention: "1d", maxPerHeartbeat: 10 };

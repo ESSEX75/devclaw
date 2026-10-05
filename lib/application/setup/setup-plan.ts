@@ -1,5 +1,6 @@
 /** Resolves setup targets, route validation, and model changes without side effects. */
 
+import { findConfiguredAgent } from "../../integrations/openclaw/agent-registry.js";
 import { loadConfig } from "../../state/index.js";
 import { getAgentId, getAgentWorkspacePath, resolveWorkspacePath } from "./agents/index.js";
 import { SETUP_OPERATION, UNKNOWN_AGENT_ID } from "./const.js";
@@ -25,12 +26,18 @@ export async function planSetup(opts: SetupOpts): Promise<SetupResult> {
 
   if (!workspacePath) throw new Error("Setup requires either newAgentName, agentId, or workspacePath");
   const current = opts.runtime.config.current();
-  const config = { ...current, agents: { ...current.agents, list: [...(current.agents?.list ?? [])] } };
+  const config = { ...current, agents: { ...current.agents,
+    entries: current.agents?.entries ? { ...current.agents.entries } : undefined,
+    list: current.agents?.list ? [...current.agents.list] : undefined } };
 
   if (agentCreated) {
-    if (config.agents?.list?.some(agent => agent.id === agentId)) throw new Error(`Agent "${agentId}" already exists in openclaw.json.`);
-    config.agents.list.push({ id: agentId, workspace: workspacePath });
-  } else if (opts.agentId && !config.agents?.list?.some(agent => agent.id === opts.agentId)) {
+    if (findConfiguredAgent(config, agentId)) throw new Error(`Agent "${agentId}" already exists in openclaw.json.`);
+    if (config.agents.entries !== undefined) config.agents.entries[agentId] = { workspace: workspacePath };
+    else {
+      config.agents.list ??= [];
+      config.agents.list.push({ id: agentId, workspace: workspacePath });
+    }
+  } else if (opts.agentId && !findConfiguredAgent(config, opts.agentId)) {
     throw new Error(`Agent "${agentId}" does not exist.`);
   }
 

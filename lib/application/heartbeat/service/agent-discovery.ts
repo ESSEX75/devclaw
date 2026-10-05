@@ -1,5 +1,6 @@
 /** Resolves configured agent workspaces and their owned managed projects. */
 
+import { listConfiguredAgents } from "../../../integrations/openclaw/agent-registry.js";
 import { resolveConfiguredAgentWorkspace } from "../../../integrations/openclaw/agent-workspace.js";
 import type { AgentWorkspaceConfig } from "../../../integrations/openclaw/types.js";
 import { inspectManagedWorkspace } from "../../../state/index.js";
@@ -14,7 +15,7 @@ export async function discoverAgents(config: AgentWorkspaceConfig): Promise<Agen
   const agents: AgentDiscoveryResult["agents"] = [];
   const errors: string[] = [];
   const seen = new Set<string>();
-  const configured = config.agents?.list ?? [];
+  const configured = listConfiguredAgents(config);
   const candidates = [...new Set([...configured.map(agent => agent.id),
     ...(configured.length === 0 || config.agents?.defaults?.workspace ? [HEARTBEAT_AGENT_ID.MAIN] : [])])];
 

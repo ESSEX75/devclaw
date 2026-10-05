@@ -6,6 +6,7 @@ import fs from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { findConfiguredAgent } from "../../../integrations/openclaw/agent-registry.js";
 import { resolveConfiguredAgentWorkspace } from "../../../integrations/openclaw/agent-workspace.js";
 import { CONFIG_RELOAD_MODE } from "../const.js";
 import type { SetupRuntime } from "../types.js";
@@ -39,24 +40,23 @@ export async function createAgent(
      * @param cfg - Writable SDK configuration draft.
      */
     mutate(cfg) {
-      const existingAgent = cfg.agents?.list?.find((agent) => agent.id === agentId);
+      const existingAgent = findConfiguredAgent(cfg, agentId);
 
       if (existingAgent) {
         throw new Error(`Agent "${agentId}" already exists in openclaw.json.`);
       }
 
       cfg.agents ??= {};
-      cfg.agents.list ??= [];
       const defaultsModel = cfg.agents.defaults?.model;
       const model = typeof defaultsModel === "string" ? defaultsModel : defaultsModel?.primary;
 
-      cfg.agents.list.push({
-        id: agentId,
-        name,
-        workspace: defaultAgentWorkspace,
-        agentDir: defaultAgentDir,
-        ...(model ? { model } : {}),
-      });
+      const entry = { name, workspace: defaultAgentWorkspace, agentDir: defaultAgentDir, ...(model ? { model } : {}) };
+
+      if (cfg.agents.entries !== undefined) cfg.agents.entries[agentId] = entry;
+      else {
+        cfg.agents.list ??= [];
+        cfg.agents.list.push({ id: agentId, ...entry });
+      }
     },
     afterWrite: {
       mode: CONFIG_RELOAD_MODE.NONE,
@@ -106,7 +106,7 @@ export function getAgentWorkspacePath(
  */
 export async function resolveWorkspacePath(runtime: SetupRuntime, agentId: string): Promise<string> {
   const cfg = runtime.config.current();
-  const agent = cfg.agents?.list?.find((a) => a.id === agentId);
+  const agent = findConfiguredAgent(cfg, agentId);
 
   if (!agent) {
     throw new Error(`Agent "${agentId}" not found in openclaw.json.`);

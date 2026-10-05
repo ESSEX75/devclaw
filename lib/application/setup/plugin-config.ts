@@ -8,6 +8,7 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 
 import type { ExecutionMode } from "../../domain/index.js";
+import { findConfiguredAgent } from "../../integrations/openclaw/agent-registry.js";
 import { HEARTBEAT_DEFAULTS } from "../heartbeat/service/defaults.js";
 import { ACTIVE_MEMORY_PLUGIN_ID, CONFIG_RELOAD_MODE, DEVCLAW_PLUGIN_ID, SUBAGENT_ARCHIVE_AFTER_MINUTES } from "./const.js";
 import { buildAgentToolPolicy, resolveProjectToolOwners } from "./permissions/index.js";
@@ -37,7 +38,7 @@ export async function writePluginConfig(
      * @param config - Writable SDK configuration under mutation protection.
      */
     async mutate(config) {
-      if (agentId && !config.agents?.list?.some(agent => agent.id === agentId)) throw new Error(`Agent "${agentId}" does not exist.`);
+      if (agentId && !findConfiguredAgent(config, agentId)) throw new Error(`Agent "${agentId}" does not exist.`);
       const authorized = agentId ? new Set([agentId, ...await resolveProjectToolOwners(config)]) : undefined;
 
       ensurePluginStructure(config);
@@ -53,8 +54,14 @@ export async function writePluginConfig(
       ensureTelegramLinkPreviewDisabled(config);
 
       if (agentId) {
-        for (const agent of config.agents?.list ?? []) {
-          agent.tools = buildAgentToolPolicy(agent.tools, authorized?.has(agent.id) === true);
+        if (config.agents?.entries !== undefined) {
+          for (const [id, agent] of Object.entries(config.agents.entries)) {
+            agent.tools = buildAgentToolPolicy(agent.tools, authorized?.has(id) === true);
+          }
+        } else {
+          for (const agent of config.agents?.list ?? []) {
+            agent.tools = buildAgentToolPolicy(agent.tools, authorized?.has(agent.id) === true);
+          }
         }
 
         allowActiveMemoryForAgent(config, agentId);

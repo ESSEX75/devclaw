@@ -12,6 +12,9 @@ export async function resolveConfiguredAgentWorkspace(config: AgentWorkspaceConf
   // Copy only resolver inputs so readonly SDK snapshots need no unsafe cast.
   return resolveAgentWorkspaceDir({ agents: config.agents ? {
     defaults: config.agents.defaults ? { workspace: config.agents.defaults.workspace } : undefined,
+    entries: config.agents.entries === undefined ? undefined : Object.fromEntries(
+      Object.entries(config.agents.entries).map(([id, agent]) => [id, { workspace: agent.workspace, default: agent.default }]),
+    ),
     list: config.agents.list?.map(agent => ({ id: agent.id, workspace: agent.workspace, default: agent.default })),
   } : undefined }, agentId);
 }

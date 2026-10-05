@@ -83,6 +83,7 @@ type AgentWorkspaceInventory = {
   /** Default workspace root when no per-agent override exists. */
   readonly defaults?: { /** Filesystem workspace root. */ readonly workspace?: string };
   /** Configured agent identifiers and workspace overrides. */
+  readonly entries?: Readonly<Record<string, Omit<AgentWorkspaceEntry, "id">>>;
   readonly list?: readonly AgentWorkspaceEntry[];
 };
 

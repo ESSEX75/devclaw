@@ -53,6 +53,7 @@ type RouteBinding = {
 /** Agent inventory available for route validation. */
 type RouteAgentRoster = {
   /** Configured agent identities. */
+  readonly entries?: Readonly<Record<string, Omit<RouteAgent, "id">>>;
   readonly list?: readonly RouteAgent[];
 };
 

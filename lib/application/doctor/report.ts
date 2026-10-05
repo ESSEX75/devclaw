@@ -1,5 +1,6 @@
 /** Builds deterministic doctor findings from loaded routing and archive observations. */
 
+import { listConfiguredAgents } from "../../integrations/openclaw/agent-registry.js";
 import type { ProjectsData, ResolvedConfig } from "../../state/index.js";
 import { parseDuration } from "../issues/index.js";
 import { DEVCLAW_AGENT_TOOLS, inspectConfiguredProjectRoutes } from "../setup/index.js";
@@ -32,7 +33,7 @@ export function buildRoutingDoctorReport(
   }
 
   const toolNames: ReadonlySet<string> = new Set(DEVCLAW_AGENT_TOOLS);
-  const agents = (config.agents?.list ?? []).map((agent) => {
+  const agents = listConfiguredAgents(config).map((agent) => {
     const allowed = new Set([...(agent.tools?.allow ?? []), ...(agent.tools?.alsoAllow ?? [])]);
     const deny = new Set(agent.tools?.deny ?? []);
     const allAllowed = DEVCLAW_AGENT_TOOLS.every((tool) => allowed.has(tool) && !deny.has(tool));

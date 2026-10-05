@@ -1,6 +1,7 @@
 /** Registers SDK media capture and passes complete normalized routing to application orchestration. */
 
 import { extractIssueReferences, processAttachmentMessage, resolveAttachmentProject, resolveProvider } from "../../application/index.js";
+import { listConfiguredAgents } from "./agent-registry.js";
 import { resolveConfiguredAgentWorkspace } from "./agent-workspace.js";
 import { ATTACHMENT_AGENT_SESSION, ATTACHMENT_MESSAGE_HOOK, ATTACHMENT_TOPIC_SEPARATOR } from "./attachment-const.js";
 import { extractMediaAttachments } from "./attachment-media.js";
@@ -24,9 +25,10 @@ export function registerAttachmentHook(api: AttachmentHookRegistrar, ctx: Attach
     if (!attachments.length || !issueIds.length || !eventCtx.accountId || !eventCtx.conversationId || !agentId) return;
     try {
       const config = ctx.runtime.config.current();
-      const configuredAgents = config.agents?.list ?? [];
+      const configuredAgents = listConfiguredAgents(config);
       // With no explicit list, resolve the owner supplied by the SDK session using SDK defaults.
-      const owners = configuredAgents.length ? configuredAgents.filter(agent => agent.id === agentId) : [{ id: agentId }];
+      const owners = config.agents?.entries !== undefined || config.agents?.list !== undefined
+        ? configuredAgents.filter(agent => agent.id === agentId) : [{ id: agentId }];
       const workspaces = await Promise.all(owners.map(async agent => ({
         agentId: agent.id, workspaceDir: await resolveConfiguredAgentWorkspace(config, agent.id),
       })));

@@ -121,3 +121,18 @@ it("extends an explicit allow policy without producing the SDK allow/alsoAllow c
   assert.ok(policy?.deny?.includes("other_denial"));
   assert.ok(!policy?.deny?.includes("task_start"));
 });
+
+it("applies tool isolation only to active entries", async () => {
+  const { runtime } = createRuntime({ agents: { entries: {
+    owner: { tools: { alsoAllow: ["existing_tool"] } },
+    foreign: { tools: { alsoAllow: ["task_start"] } },
+  }, list: [{ id: "legacy", tools: { alsoAllow: ["task_start"] } }] } });
+  await writePluginConfig(runtime, "owner");
+  const agents = runtime.config.current().agents;
+
+  for (const tool of DEVCLAW_AGENT_TOOLS) {
+    assert.ok(agents?.entries?.owner?.tools?.alsoAllow?.includes(tool));
+    assert.ok(agents?.entries?.foreign?.tools?.deny?.includes(tool));
+  }
+  assert.deepEqual(agents?.list?.[0]?.tools?.alsoAllow, ["task_start"]);
+});

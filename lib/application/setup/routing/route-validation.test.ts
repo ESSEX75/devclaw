@@ -89,3 +89,15 @@ it("accepts channel peers as the SDK group equivalent", () => {
     bindings: [{ agentId: "dev-agent", match: { channel: "telegram", accountId: "dev", peer: { kind: "channel", id: "-1003911014709:topic:5" } } }],
   }, "dev-agent", endpoint), []);
 });
+
+it("validates only entries when both registries are present", () => {
+  const config = {
+    agents: { entries: { "dev-agent": {} }, list: [{ id: "legacy" }] },
+    channels: { telegram: { accounts: { dev: {} } } },
+    bindings: [{ agentId: "dev-agent", match: { channel: "telegram", accountId: "dev",
+      peer: { kind: "group", id: "-1003911014709:topic:5" } } }],
+  };
+
+  assert.deepEqual(inspectProjectRoute(config, "dev-agent", endpoint), []);
+  assert.ok(inspectProjectRoute(config, "legacy", endpoint).some(diagnostic => diagnostic.code === ROUTE_DIAGNOSTIC_CODE.AGENT_NOT_FOUND));
+});

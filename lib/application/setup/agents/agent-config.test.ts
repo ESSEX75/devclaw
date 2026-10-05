@@ -60,6 +60,23 @@ describe("createAgent", () => {
     await fs.access(path.join(openClawHome, "agents", expectedAgentId, "sessions"));
   });
 
+  it("creates in entries when both registries exist and ignores the legacy list", async () => {
+    const openClawHome = await makeOpenClawHome();
+    const { runtime, writes } = createRuntime({ agents: { entries: { owner: {} }, list: [{ id: "legacy" }] } });
+    const result = await createAgent(runtime, "New Agent", { openClawHome });
+
+    assert.equal(result.agentId, "new-agent");
+    assert.equal(writes[0]?.nextConfig.agents?.entries?.["new-agent"]?.workspace, result.workspacePath);
+    assert.deepEqual(writes[0]?.nextConfig.agents?.list?.map(agent => agent.id), ["legacy"]);
+  });
+
+  it("rejects a duplicate in entries during setup preview", async () => {
+    const { runtime } = createRuntime({ agents: { entries: { "new-agent": {} }, list: [] } });
+
+    await assert.rejects(runSetup({ runtime, runCommand: async () => { throw new Error("Unexpected command"); },
+      newAgentName: "New Agent", dryRun: true }), /already exists/);
+  });
+
   it("previews setup without writing OpenClaw config or workspace files", async () => {
     const { runtime, writes } = createRuntime({
       agents: {
