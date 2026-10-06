@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
-import { TASK_COMPLEXITY } from "./const.js";
+import { TASK_COMPLEXITY } from "../complexity/index.js";
 import { selectLevel } from "./level-selection.js";
 import type { ResolvedRoleDefinition } from "./types.js";
 

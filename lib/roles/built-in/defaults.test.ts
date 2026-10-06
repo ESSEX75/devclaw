@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
-import { DEFAULT_ROLES, isBuiltInLevelId } from "../domain/index.js";
+import { DEFAULT_ROLES, isBuiltInLevelId } from "../../domain/index.js";
 import { getAllBuiltInDefaultModels, getAllRoleIds, getBuiltInLevelsForRole, getBuiltInRole, getBuiltInSessionKeyRolePattern, getFallbackEmoji, requireBuiltInRole } from "./queries.js";
 
 it("exposes every built-in role with a complete default scale", () => {

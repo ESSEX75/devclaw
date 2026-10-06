@@ -1,8 +1,8 @@
 /** Maps explicit or classified complexity onto the effective role's configured capability ranks. */
 
-import { TASK_COMPLEXITY } from "./const.js";
-import { classifyTaskComplexity } from "./task-complexity.js";
-import type { LevelSelection, ResolvedRoleDefinition, TaskComplexity } from "./types.js";
+import type { TaskComplexity } from "../complexity/index.js";
+import { classifyTaskComplexity, TASK_COMPLEXITY } from "../complexity/index.js";
+import type { LevelSelection, ResolvedRoleDefinition } from "./types.js";
 
 /** Select a configured level, honoring explicit complexity before textual classification.
  * Simple uses the lowest rank, complex the highest, and medium the configured default.

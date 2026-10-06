@@ -13,21 +13,21 @@ Text complexity classification is independent of role scales. Complex signals ta
 - Keep built-in registry data and deterministic role/level lookups here.
 - Accept resolved runtime role configuration when custom roles or overrides must be supported; do not reject valid custom identifiers through built-in-only guards.
 - Keep queue scheduling, worker dispatch, persistence, and provider operations in their owning packages.
-- Import supported operations and types through `lib/roles/index.ts`. Default data in `defaults.ts` is internal and is not re-exported.
+- External consumers import supported operations and types through `lib/roles/index.ts`. Inside roles, use sibling capability entrypoints; never import the root or a capability's own barrel internally.
+- Default data in `built-in/defaults.ts` is private to that capability and is not re-exported from either entrypoint.
 - Iterate built-in roles through `getAllRoleIds()` and read independent readonly snapshots through `getBuiltInRole()` or `requireBuiltInRole()`. Mutating a returned snapshot cannot change future reads.
 - Built-in queries are explicitly named; runtime role/level membership and model selection use resolved configuration. No role can be inferred uniquely from a shared level identifier.
 
 ## Responsibilities
 
-| File | Responsibility |
+| Capability | Responsibility |
 | --- | --- |
-| `defaults.ts` | Built-in role definitions used by the first configuration layer. |
-| `queries.ts` | Isolated snapshots and supported built-in presentation queries. |
-| `const.ts` | Built-in model IDs, fallback emoji, and complexity policy values. |
-| `types.ts` | Readonly built-in snapshots and runtime selection contracts. |
-| `guards.ts` | Validation of untrusted explicit complexity values. |
-| `task-complexity.ts` | Text classification independent of role scales. |
-| `level-selection.ts` | Mapping complexity to configured ranks and default level. |
-| `model-resolution.ts` | Strict lookup of a configured level's model. |
+| `built-in` | Default definitions, isolated snapshots, and presentation queries. Owns built-in model IDs and readonly snapshot types. |
+| `complexity` | Text classification, complexity policy constants, category types, and validation of explicit signals. Has no dependency on role scales. |
+| `selection` | Mapping complexity to configured ranks/default level and strict lookup of configured models. Owns minimal resolved contracts and depends only on the complexity capability. |
+
+Each capability exposes supported operations and types through its own `index.ts`.
+Tests stay beside implementation; constants and types stay with their capability.
+The root entrypoint preserves the external roles API. Contracts live only in this README.
 
 Run `npm run check` and relevant role/configuration tests after changing this package.

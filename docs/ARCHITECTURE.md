@@ -122,7 +122,7 @@ DevClaw provides equivalent guardrails for everything except auto-reporting, whi
 
 ## Roles
 
-DevClaw ships with four built-in roles, defined in `lib/roles/defaults.ts`. Built-in developer/tester use junior/medior/senior; architect/reviewer use junior/senior. Custom roles and levels are defined in workflow.yaml, with explicit capability ranks and model assignments.
+DevClaw ships with four built-in roles, defined in `lib/roles/built-in/defaults.ts`. Built-in developer/tester use junior/medior/senior; architect/reviewer use junior/senior. Custom roles and levels are defined in workflow.yaml, with explicit capability ranks and model assignments.
 
 | Role | ID | Levels | Default Level | Completion Results |
 |---|---|---|---|---|

@@ -1,6 +1,6 @@
 /** Defines the built-in role defaults used by the lowest-precedence configuration layer. */
 
-import { COMPLETION_RESULT, DEFAULT_LEVELS, DEFAULT_ROLES, type RoleId, WORKFLOW_EVENT } from "../domain/index.js";
+import { COMPLETION_RESULT, DEFAULT_LEVELS, DEFAULT_ROLES, type RoleId, WORKFLOW_EVENT } from "../../domain/index.js";
 import { BUILT_IN_MODELS } from "./const.js";
 import type { BuiltInRoleConfig } from "./types.js";
 

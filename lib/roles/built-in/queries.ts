@@ -1,6 +1,6 @@
 /** Provides isolated snapshots and presentation queries over built-in role defaults. */
 
-import { isBuiltInLevelId, isBuiltInRoleId, type LevelId, type RoleId } from "../domain/index.js";
+import { isBuiltInLevelId, isBuiltInRoleId, type LevelId, type RoleId } from "../../domain/index.js";
 import { DEFAULT_ROLE_EMOJI } from "./const.js";
 import { BUILT_IN_ROLE_DEFAULTS } from "./defaults.js";
 import type { BuiltInRoleConfig } from "./types.js";

@@ -1,9 +1,6 @@
-/** Exposes built-in role snapshots and pure selection over resolved runtime role configuration. */
+/** Exposes supported roles capabilities to external consumers through one stable package API. */
 
-export { TASK_COMPLEXITY } from "./const.js";
-export { isTaskComplexity } from "./guards.js";
-export { selectLevel } from "./level-selection.js";
-export { resolveModelForLevel } from "./model-resolution.js";
+export type { BuiltInRoleConfig, BuiltInRoleLevelConfig } from "./built-in/index.js";
 export {
   getAllBuiltInDefaultModels,
   getAllRoleIds,
@@ -12,13 +9,8 @@ export {
   getBuiltInSessionKeyRolePattern,
   getFallbackEmoji,
   requireBuiltInRole,
-} from "./queries.js";
-export { classifyTaskComplexity } from "./task-complexity.js";
-export type {
-  BuiltInRoleConfig,
-  BuiltInRoleLevelConfig,
-  LevelSelection,
-  ResolvedRoleDefinition,
-  TaskComplexity,
-  TaskComplexitySelection,
-} from "./types.js";
+} from "./built-in/index.js";
+export type { TaskComplexity, TaskComplexitySelection } from "./complexity/index.js";
+export { classifyTaskComplexity, isTaskComplexity, TASK_COMPLEXITY } from "./complexity/index.js";
+export type { LevelSelection, ResolvedRoleDefinition } from "./selection/index.js";
+export { resolveModelForLevel, selectLevel } from "./selection/index.js";

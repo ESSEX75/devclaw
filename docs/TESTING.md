@@ -9,7 +9,7 @@ DevClaw uses Node.js built-in test runner (`node:test`) with `node:assert/strict
 npm test
 
 # Run a specific test file
-npx tsx --test lib/roles/defaults.test.ts
+npx tsx --test lib/roles/built-in/defaults.test.ts
 
 # Run lightweight architecture diagnostics
 npm run arch:check
@@ -36,10 +36,10 @@ changes.
 
 | File | What it tests |
 |---|---|
-| [lib/roles/defaults.test.ts](../lib/roles/defaults.test.ts) | Built-in default completeness, snapshot isolation, and presentation queries |
-| [lib/roles/model-resolution.test.ts](../lib/roles/model-resolution.test.ts) | Strict model lookup; removed, unknown, and invalid levels |
-| [lib/roles/level-selection.test.ts](../lib/roles/level-selection.test.ts) | Custom ranks, defaults, and explicit complexity |
-| [lib/roles/task-complexity.test.ts](../lib/roles/task-complexity.test.ts) | Signal precedence, word boundaries, phrases, and description length |
+| [lib/roles/built-in/defaults.test.ts](../lib/roles/built-in/defaults.test.ts) | Built-in default completeness, snapshot isolation, and presentation queries |
+| [lib/roles/selection/model-resolution.test.ts](../lib/roles/selection/model-resolution.test.ts) | Strict model lookup; removed, unknown, and invalid levels |
+| [lib/roles/selection/level-selection.test.ts](../lib/roles/selection/level-selection.test.ts) | Custom ranks, defaults, and explicit complexity |
+| [lib/roles/complexity/task-complexity.test.ts](../lib/roles/complexity/task-complexity.test.ts) | Signal precedence, word boundaries, phrases, and description length |
 | [lib/state/projects/projects.test.ts](../lib/state/projects/projects.test.ts) | Project state: read/write, worker state, atomic file operations |
 | [lib/integrations/openclaw/bootstrap-hook.test.ts](../lib/integrations/openclaw/bootstrap-hook.test.ts) | Bootstrap hook: role instruction loading, source tracking, overloads |
 | [lib/application/tasks/attachments.test.ts](../lib/application/tasks/attachments.test.ts) | File attachment handling |
@@ -269,16 +269,16 @@ test:
 
 ```bash
 # Run by file
-npx tsx --test lib/roles/defaults.test.ts
+npx tsx --test lib/roles/built-in/defaults.test.ts
 
 # Run by name pattern
-npx tsx --test --test-name-pattern "should have all expected roles" lib/**/*.test.ts
+npx tsx --test --test-name-pattern "exposes every built-in role" lib/**/*.test.ts
 ```
 
 ### Debug with Node inspector
 
 ```bash
-node --inspect-brk node_modules/.bin/tsx --test lib/roles/defaults.test.ts
+node --inspect-brk node_modules/.bin/tsx --test lib/roles/built-in/defaults.test.ts
 ```
 
 Then open Chrome DevTools at `chrome://inspect`.

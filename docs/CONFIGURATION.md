@@ -183,13 +183,13 @@ without the outgoing transition, work cannot continue after it finishes.
 | reviewer | junior | `anthropic/claude-haiku-4-5` |
 | reviewer | senior | `anthropic/claude-sonnet-4-5` |
 
-**Source:** [`lib/roles/defaults.ts`](../lib/roles/defaults.ts)
+**Source:** [`lib/roles/built-in/defaults.ts`](../lib/roles/built-in/defaults.ts)
 
 **Model resolution order:**
 
 1. Project `workflow.yaml` → `roles.<role>.levels.<level>.model`
 2. Workspace `workflow.yaml` → `roles.<role>.levels.<level>.model`
-3. Built-in defaults from `lib/roles/defaults.ts`
+3. Built-in defaults from `lib/roles/built-in/defaults.ts`
 
 These layers are merged before runtime selection. Workers read the model from the
 selected configured level. Unknown levels fail; a level string is never treated
