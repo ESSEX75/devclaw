@@ -20,6 +20,7 @@ export function selectLevel(
   roleConfig: ResolvedRoleDefinition,
   complexity?: TaskComplexity,
 ): LevelSelection {
+  //TODO: Configure the model level selection correctly.
   const levels = Object.entries(roleConfig.levels).sort(([, left], [, right]) => left.rank - right.rank);
   const lowest = levels[0]?.[0];
   const highest = levels[levels.length - 1]?.[0];

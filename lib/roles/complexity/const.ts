@@ -1,5 +1,6 @@
 /** Owns complexity identifiers and the deterministic text-classification policy. */
 
+//TODO: Configure the model level selection correctly.
 /** Explicit complexity signals supported by configured level selection. */
 export const TASK_COMPLEXITY = {
   SIMPLE: "simple",

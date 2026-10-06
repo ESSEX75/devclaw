@@ -115,8 +115,19 @@ function createCommandInterceptor(): {
 
     commands.push(captured);
 
+    const patch = captured.sessionPatch;
+    const separator = patch?.model.indexOf("/") ?? -1;
+    const stdout = patch ? JSON.stringify({
+      ok: true,
+      key: patch.key,
+      resolved: {
+        modelProvider: separator > 0 ? patch.model.slice(0, separator) : "test",
+        model: separator > 0 ? patch.model.slice(separator + 1) : patch.model,
+      },
+    }) : "{}";
+
     return {
-      stdout: "{}",
+      stdout,
       stderr: "",
       code: 0,
       signal: null,

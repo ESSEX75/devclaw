@@ -56,6 +56,7 @@ separate READMEs. Their file responsibilities and API details belong in source J
   and releases the exact slot. Completion requires an unambiguous current run and,
   for developers, a live conflict-free open PR; pipeline rechecks under lock.
 - Dispatch requires a resolved role and resolves the selected level's explicit model before reservation. Removed or unknown levels fail without restoring registry defaults or interpreting levels as raw model IDs.
+- After reservation, dispatch awaits confirmed session model setup before provider transition or worker submission. Setup failure releases the exact reservation while retaining the queued issue; uncertainty in a model patch alone does not imply a submitted worker turn.
 - Notifications use the persisted exact endpoint without redirecting. Transport fallback
   is allowed only before submission. Terminal release precedes delivery and archival;
   unknown attempts require exact operator settlement and never automatically resend.
