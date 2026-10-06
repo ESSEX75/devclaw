@@ -27,6 +27,26 @@ function dispatchInput(h: Awaited<ReturnType<typeof createTestHarness>>, issueId
 }
 
 describe("worker delivery outcome", () => {
+  it("rejects an unknown level before reservation, provider transition, or gateway commands", async (t) => {
+    const h = await createTestHarness();
+    h.provider.seedIssue({ iid: 83, labels: ["To Do"] });
+    const transition = t.mock.method(h.provider, "transitionLabel");
+    const runCommand = t.mock.fn(h.runCommand);
+    const workersBefore = (await h.readProjects()).projects[h.project.slug].workers;
+
+    try {
+      await assert.rejects(dispatchTask({
+        ...dispatchInput(h, 83, runCommand), level: "provider/raw-model",
+      }), /Unknown configured level/);
+      assert.deepEqual((await h.readProjects()).projects[h.project.slug].workers, workersBefore);
+      assert.equal(transition.mock.callCount(), 0);
+      assert.equal(runCommand.mock.callCount(), 0);
+      assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["83"], undefined);
+    } finally {
+      await h.cleanup();
+    }
+  });
+
   it("rejects oversized required task input before reservation or provider transition", async (t) => {
     const h = await createTestHarness();
     h.provider.seedIssue({ iid: 81, labels: ["To Do"] });

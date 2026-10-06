@@ -30,7 +30,7 @@ export type DispatchPlanInput = {
   /** Fresh slot snapshot before reservation. */
   slot: SlotState;
   /** Resolved role configuration for model selection. */
-  resolvedRole?: ResolvedRoleConfig;
+  resolvedRole: ResolvedRoleConfig;
   /** Whether context budget checks require replacing the current session. */
   clearExisting: boolean;
 };

@@ -20,7 +20,7 @@ import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { countActiveSlots, findStateKeyByLabel, getActiveLabel } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
-import { resolveModel } from "../../roles/index.js";
+import { resolveModelForLevel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import { loadConfig } from "../../state/index.js";
 import { getRoleWorker } from "../../state/index.js";
@@ -134,7 +134,7 @@ Example:
           ? `simple ${description}`
           : description;
       const level = selectLevel(title, selectionDescription, role, resolvedRole).level;
-      const model = resolveModel(role, level, resolvedRole);
+      const model = resolveModelForLevel(level, resolvedRole);
 
       if (dryRun) {
         return jsonResult({

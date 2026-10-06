@@ -183,7 +183,10 @@ without the outgoing transition, work cannot continue after it finishes.
 1. Project `workflow.yaml` → `roles.<role>.levels.<level>.model`
 2. Workspace `workflow.yaml` → `roles.<role>.levels.<level>.model`
 3. Built-in defaults from `ROLE_REGISTRY`
-4. Passthrough — treat the level string as a raw model ID
+
+These layers are merged before runtime selection. Workers read the model from the
+selected configured level. Unknown levels fail; a level string is never treated
+as a raw model ID.
 
 ### Workflow States
 

@@ -2,7 +2,7 @@
 
 import { formatWorkerSessionKey } from "../../../integrations/openclaw/session-identity.js";
 import { slotName } from "../../../names.js";
-import { resolveModel } from "../../../roles/index.js";
+import { resolveModelForLevel } from "../../../roles/index.js";
 import { WORKER_SESSION_ACTION } from "../const.js";
 import type { DispatchPlan, DispatchPlanInput } from "./types.js";
 
@@ -23,7 +23,7 @@ export function buildDispatchPlan(input: DispatchPlanInput): DispatchPlan {
 
   return {
     role, level, slotIndex,
-    model: resolveModel(role, level, input.resolvedRole),
+    model: resolveModelForLevel(level, input.resolvedRole),
     botName,
     sessionKey,
     sessionAction: reusable ? WORKER_SESSION_ACTION.SEND : WORKER_SESSION_ACTION.SPAWN,

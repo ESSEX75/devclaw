@@ -5,6 +5,7 @@
  * To add a new role, add an entry to registry.ts — everything else derives from it.
  */
 
+export { resolveModelForLevel } from "./model-resolution.js";
 export { ROLE_REGISTRY } from "./registry.js";
 export {
   // Role/level aliases (used by migration + tests)
@@ -31,7 +32,6 @@ export {
   isValidResult,
   isValidRole,
   requireRole,
-  resolveModel,
   roleForLevel,
 } from "./selectors.js";
 export type { ResolvedRoleDefinition, RoleConfig, RoleLevelConfig } from "./types.js";

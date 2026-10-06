@@ -4,6 +4,8 @@ This package owns the built-in role registry, level lookup, model selection, wor
 
 Model assignments are explicit role-level configuration values. This package does not discover external model catalogs or invoke an LLM to generate assignments.
 
+Runtime model resolution requires a complete resolved role and reads only its configured levels. Unknown levels and empty assignments fail; registry defaults are applied by the configuration pipeline, never during dispatch.
+
 ## Boundary Rules
 
 - Keep built-in registry data and deterministic role/level lookups here.

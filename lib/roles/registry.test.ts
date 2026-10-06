@@ -6,7 +6,7 @@ import assert from "node:assert";
 import { describe, it } from "node:test";
 
 import type { ResolvedRoleConfig } from "../state/index.js";
-import { getAllDefaultModels, getAllLevels, getAllRoleIds, getCompletionResults, getDefaultLevel, getDefaultModel, getEmoji, getFallbackEmoji, getLevelsForRole, getRole, getSessionKeyRolePattern, isLevelForRole, isValidResult, isValidRole, requireRole, resolveModel, ROLE_REGISTRY, roleForLevel } from "./index.js";
+import { getAllDefaultModels, getAllLevels, getAllRoleIds, getCompletionResults, getDefaultLevel, getDefaultModel, getEmoji, getFallbackEmoji, getLevelsForRole, getRole, getSessionKeyRolePattern, isLevelForRole, isValidResult, isValidRole, requireRole, resolveModelForLevel, ROLE_REGISTRY, roleForLevel } from "./index.js";
 
 describe("role registry", () => {
   it("should have all expected roles", () => {
@@ -107,15 +107,7 @@ describe("models", () => {
       enabled: true,
     };
 
-    assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
-  });
-
-  it("should fall back to default", () => {
-    assert.strictEqual(resolveModel("developer", "junior"), "anthropic/claude-haiku-4-5");
-  });
-
-  it("should pass through unknown level as model ID", () => {
-    assert.strictEqual(resolveModel("developer", "anthropic/claude-opus-4-6"), "anthropic/claude-opus-4-6");
+    assert.strictEqual(resolveModelForLevel("junior", resolvedRole), "custom/model");
   });
 
   it("should resolve a configured model for a custom level", () => {
@@ -126,10 +118,10 @@ describe("models", () => {
       enabled: true,
     };
 
-    assert.strictEqual(resolveModel("security_auditor", "principal", resolvedRole), "model/security-deep");
+    assert.strictEqual(resolveModelForLevel("principal", resolvedRole), "model/security-deep");
   });
 
-  it("should resolve with resolved role overriding defaults selectively", () => {
+  it("should reject a level absent from the resolved role", () => {
     const resolvedRole: ResolvedRoleConfig = {
       levels: { junior: { rank: 1, model: "custom/model", maxWorkers: 2 } },
       defaultLevel: "junior",
@@ -137,9 +129,9 @@ describe("models", () => {
       enabled: true,
     };
 
-    assert.strictEqual(resolveModel("developer", "junior", resolvedRole), "custom/model");
-    // Levels absent from a partial fixture fall through to registry defaults.
-    assert.strictEqual(resolveModel("developer", "medior", resolvedRole), "anthropic/claude-sonnet-4-5");
+    assert.strictEqual(resolveModelForLevel("junior", resolvedRole), "custom/model");
+    // Missing configured levels fail instead of restoring removed registry defaults.
+    assert.throws(() => resolveModelForLevel("medior", resolvedRole), /Unknown configured level/);
   });
 });
 

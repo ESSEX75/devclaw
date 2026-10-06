@@ -7,7 +7,7 @@
 
 import { isBuiltInLevelId, isBuiltInRoleId, type LevelId, type RoleId, type WorkflowEvent } from "../domain/index.js";
 import { ROLE_REGISTRY } from "./registry.js";
-import type { ResolvedRoleDefinition, RoleConfig } from "./types.js";
+import type { RoleConfig } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Role IDs
@@ -111,29 +111,6 @@ export function getAllDefaultModels(): Record<string, Record<string, string>> {
   }
 
   return result;
-}
-
-/**
- * Resolve a level to a full model ID.
- *
- * Resolution order:
- * 1. Resolved config from workflow.yaml (three-layer merge)
- * 2. Registry default model
- * 3. Passthrough (treat level as raw model ID)
- */
-export function resolveModel(
-  role: string,
-  level: string,
-  resolvedRole?: ResolvedRoleDefinition,
-): string {
-  const configuredModel = resolvedRole?.levels[level]?.model;
-
-  if (configuredModel) return configuredModel;
-
-  const canonical = canonicalLevel(role, level);
-
-  // Built-in registry default, then passthrough for raw model IDs.
-  return canonical ? getDefaultModel(role, canonical) ?? canonical : level;
 }
 
 // ---------------------------------------------------------------------------
