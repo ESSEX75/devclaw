@@ -1,21 +1,21 @@
 /** Defines the built-in role defaults used by the lowest-precedence configuration layer. */
 
 import { COMPLETION_RESULT, DEFAULT_LEVELS, DEFAULT_ROLES, type RoleId, WORKFLOW_EVENT } from "../../domain/index.js";
-import { BUILT_IN_MODELS } from "./const.js";
+import { BUILT_IN_EMOJI, BUILT_IN_LEVEL_RANK, BUILT_IN_MODELS, BUILT_IN_ROLE_DISPLAY_NAMES } from "./const.js";
 import type { BuiltInRoleConfig } from "./types.js";
 
 /** Package-private default data; consumers receive isolated snapshots through queries. */
 export const BUILT_IN_ROLE_DEFAULTS: Readonly<Record<RoleId, BuiltInRoleConfig>> = {
   [DEFAULT_ROLES.DEVELOPER]: {
     id: DEFAULT_ROLES.DEVELOPER,
-    displayName: "DEVELOPER",
+    displayName: BUILT_IN_ROLE_DISPLAY_NAMES[DEFAULT_ROLES.DEVELOPER],
     levels: {
-      [DEFAULT_LEVELS.JUNIOR]: { rank: 1, model: BUILT_IN_MODELS.FAST, emoji: "⚡" },
-      [DEFAULT_LEVELS.MEDIOR]: { rank: 2, model: BUILT_IN_MODELS.BALANCED, emoji: "🔧" },
-      [DEFAULT_LEVELS.SENIOR]: { rank: 3, model: BUILT_IN_MODELS.DEEP, emoji: "🧠" },
+      [DEFAULT_LEVELS.JUNIOR]: { rank: BUILT_IN_LEVEL_RANK.FIRST, model: BUILT_IN_MODELS.FAST, emoji: BUILT_IN_EMOJI.QUICK },
+      [DEFAULT_LEVELS.MEDIOR]: { rank: BUILT_IN_LEVEL_RANK.SECOND, model: BUILT_IN_MODELS.BALANCED, emoji: BUILT_IN_EMOJI.DEVELOPMENT },
+      [DEFAULT_LEVELS.SENIOR]: { rank: BUILT_IN_LEVEL_RANK.THIRD, model: BUILT_IN_MODELS.DEEP, emoji: BUILT_IN_EMOJI.DEEP_ANALYSIS },
     },
     defaultLevel: DEFAULT_LEVELS.MEDIOR,
-    fallbackEmoji: "🔧",
+    fallbackEmoji: BUILT_IN_EMOJI.DEVELOPMENT,
     completion: {
       [COMPLETION_RESULT.DONE]: WORKFLOW_EVENT.COMPLETE,
       [COMPLETION_RESULT.BLOCKED]: WORKFLOW_EVENT.BLOCKED,
@@ -24,14 +24,14 @@ export const BUILT_IN_ROLE_DEFAULTS: Readonly<Record<RoleId, BuiltInRoleConfig>>
 
   [DEFAULT_ROLES.TESTER]: {
     id: DEFAULT_ROLES.TESTER,
-    displayName: "TESTER",
+    displayName: BUILT_IN_ROLE_DISPLAY_NAMES[DEFAULT_ROLES.TESTER],
     levels: {
-      [DEFAULT_LEVELS.JUNIOR]: { rank: 1, model: BUILT_IN_MODELS.FAST, emoji: "⚡" },
-      [DEFAULT_LEVELS.MEDIOR]: { rank: 2, model: BUILT_IN_MODELS.BALANCED, emoji: "🔍" },
-      [DEFAULT_LEVELS.SENIOR]: { rank: 3, model: BUILT_IN_MODELS.DEEP, emoji: "🧠" },
+      [DEFAULT_LEVELS.JUNIOR]: { rank: BUILT_IN_LEVEL_RANK.FIRST, model: BUILT_IN_MODELS.FAST, emoji: BUILT_IN_EMOJI.QUICK },
+      [DEFAULT_LEVELS.MEDIOR]: { rank: BUILT_IN_LEVEL_RANK.SECOND, model: BUILT_IN_MODELS.BALANCED, emoji: BUILT_IN_EMOJI.TESTING },
+      [DEFAULT_LEVELS.SENIOR]: { rank: BUILT_IN_LEVEL_RANK.THIRD, model: BUILT_IN_MODELS.DEEP, emoji: BUILT_IN_EMOJI.DEEP_ANALYSIS },
     },
     defaultLevel: DEFAULT_LEVELS.MEDIOR,
-    fallbackEmoji: "🔍",
+    fallbackEmoji: BUILT_IN_EMOJI.TESTING,
     completion: {
       [COMPLETION_RESULT.PASS]: WORKFLOW_EVENT.PASS,
       [COMPLETION_RESULT.FAIL]: WORKFLOW_EVENT.FAIL,
@@ -42,13 +42,13 @@ export const BUILT_IN_ROLE_DEFAULTS: Readonly<Record<RoleId, BuiltInRoleConfig>>
 
   [DEFAULT_ROLES.ARCHITECT]: {
     id: DEFAULT_ROLES.ARCHITECT,
-    displayName: "ARCHITECT",
+    displayName: BUILT_IN_ROLE_DISPLAY_NAMES[DEFAULT_ROLES.ARCHITECT],
     levels: {
-      [DEFAULT_LEVELS.JUNIOR]: { rank: 1, model: BUILT_IN_MODELS.BALANCED, emoji: "📐" },
-      [DEFAULT_LEVELS.SENIOR]: { rank: 2, model: BUILT_IN_MODELS.DEEP, emoji: "🏗️" },
+      [DEFAULT_LEVELS.JUNIOR]: { rank: BUILT_IN_LEVEL_RANK.FIRST, model: BUILT_IN_MODELS.BALANCED, emoji: BUILT_IN_EMOJI.DESIGN },
+      [DEFAULT_LEVELS.SENIOR]: { rank: BUILT_IN_LEVEL_RANK.SECOND, model: BUILT_IN_MODELS.DEEP, emoji: BUILT_IN_EMOJI.ARCHITECTURE },
     },
     defaultLevel: DEFAULT_LEVELS.JUNIOR,
-    fallbackEmoji: "🏗️",
+    fallbackEmoji: BUILT_IN_EMOJI.ARCHITECTURE,
     completion: {
       [COMPLETION_RESULT.DONE]: WORKFLOW_EVENT.COMPLETE,
       [COMPLETION_RESULT.BLOCKED]: WORKFLOW_EVENT.BLOCKED,
@@ -57,13 +57,13 @@ export const BUILT_IN_ROLE_DEFAULTS: Readonly<Record<RoleId, BuiltInRoleConfig>>
 
   [DEFAULT_ROLES.REVIEWER]: {
     id: DEFAULT_ROLES.REVIEWER,
-    displayName: "REVIEWER",
+    displayName: BUILT_IN_ROLE_DISPLAY_NAMES[DEFAULT_ROLES.REVIEWER],
     levels: {
-      [DEFAULT_LEVELS.JUNIOR]: { rank: 1, model: BUILT_IN_MODELS.FAST, emoji: "👁️" },
-      [DEFAULT_LEVELS.SENIOR]: { rank: 2, model: BUILT_IN_MODELS.BALANCED, emoji: "🔬" },
+      [DEFAULT_LEVELS.JUNIOR]: { rank: BUILT_IN_LEVEL_RANK.FIRST, model: BUILT_IN_MODELS.FAST, emoji: BUILT_IN_EMOJI.REVIEW },
+      [DEFAULT_LEVELS.SENIOR]: { rank: BUILT_IN_LEVEL_RANK.SECOND, model: BUILT_IN_MODELS.BALANCED, emoji: BUILT_IN_EMOJI.DETAILED_REVIEW },
     },
     defaultLevel: DEFAULT_LEVELS.JUNIOR,
-    fallbackEmoji: "👁️",
+    fallbackEmoji: BUILT_IN_EMOJI.REVIEW,
     completion: {
       [COMPLETION_RESULT.APPROVE]: WORKFLOW_EVENT.APPROVE,
       [COMPLETION_RESULT.REJECT]: WORKFLOW_EVENT.REJECT,
