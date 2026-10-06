@@ -273,7 +273,7 @@ Each project is fully isolated — separate queue, separate workers, separate st
 
 ## Developer levels
 
-DevClaw assigns tasks to developer levels instead of raw model names. This makes the system intuitive — you're assigning a "junior" to fix a typo, not configuring model parameters. All roles use the same level scheme.
+DevClaw assigns tasks to developer levels instead of raw model names. This makes the system intuitive — you're assigning a "junior" to fix a typo, not configuring model parameters. Roles have configured level scales; built-in developer/tester use junior/medior/senior, while architect/reviewer use junior/senior.
 
 | Role | Level | Default Model | When to assign |
 |------|-------|---------------|----------------|

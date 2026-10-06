@@ -1,9 +1,4 @@
-/**
- * roles/types.ts — Type definitions for the role registry.
- *
- * RoleConfig is the single interface describing everything about a role.
- * All role-related behavior should be derived from this config.
- */
+/** Owns built-in role snapshots and minimal resolved contracts for pure runtime selection. */
 
 import type { CompletionEventMap, LevelId, RoleId, RoleLevelDefinition } from "../domain/index.js";
 import type { ValueOf } from "../types.js";
@@ -29,38 +24,31 @@ export type LevelSelection = {
 };
 
 /** Complete built-in definition of one worker capability level. */
-export type RoleLevelConfig = RoleLevelDefinition & {
+export type BuiltInRoleLevelConfig = Readonly<RoleLevelDefinition & {
   /** Announcement emoji. */
   emoji: string;
-};
+}>;
 
-/** Configuration for a single worker role. */
-export type RoleConfig = {
+/** Independent readonly snapshot of one built-in role; runtime overrides live in resolved configuration. */
+export type BuiltInRoleConfig = {
   /** Unique role identifier (e.g., "developer", "tester", "architect"). */
-  id: RoleId;
+  readonly id: RoleId;
   /** Human-readable display name. */
-  displayName: string;
+  readonly displayName: string;
   /** Complete level definitions keyed by built-in level identifier. */
-  levels: Readonly<Partial<Record<LevelId, RoleLevelConfig>>>;
+  readonly levels: Readonly<Partial<Record<LevelId, BuiltInRoleLevelConfig>>>;
   /** Default level when none specified. */
-  defaultLevel: LevelId;
+  readonly defaultLevel: LevelId;
   /** Fallback emoji when level-specific emoji not found. */
-  fallbackEmoji: string;
+  readonly fallbackEmoji: string;
   /** Explicit mapping from valid completion results to workflow events. */
-  completion: CompletionEventMap;
-  /** Regex pattern fragment for session key matching (e.g., "developer|tester|architect"). */
-  sessionKeyPattern: string;
-  /** Notification config per event type. */
-  notifications: {
-    onStart: boolean;
-    onComplete: boolean;
-  };
+  readonly completion: Readonly<CompletionEventMap>;
 };
 
 /** Minimal resolved role shape accepted by role-selection behavior. */
 export type ResolvedRoleDefinition = {
   /** Runtime levels keyed by configured identifier. */
-  levels: Record<string, RoleLevelDefinition>;
+  readonly levels: Readonly<Record<string, Readonly<RoleLevelDefinition>>>;
   /** Level selected when no complexity signal overrides it. */
-  defaultLevel: string;
+  readonly defaultLevel: string;
 };

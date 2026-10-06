@@ -5,7 +5,7 @@ DevClaw uses a three-layer configuration system. All role, workflow, and timeout
 ## Three-Layer Config Resolution
 
 ```
-Layer 1: Built-in defaults (ROLE_REGISTRY + DEFAULT_WORKFLOW)
+Layer 1: Built-in role defaults + DEFAULT_WORKFLOW
 Layer 2: Workspace:  <workspace>/devclaw/workflow.yaml
 Layer 3: Project:    <workspace>/devclaw/projects/<project>/workflow.yaml
 ```
@@ -183,13 +183,13 @@ without the outgoing transition, work cannot continue after it finishes.
 | reviewer | junior | `anthropic/claude-haiku-4-5` |
 | reviewer | senior | `anthropic/claude-sonnet-4-5` |
 
-**Source:** [`lib/roles/registry.ts`](../lib/roles/registry.ts)
+**Source:** [`lib/roles/defaults.ts`](../lib/roles/defaults.ts)
 
 **Model resolution order:**
 
 1. Project `workflow.yaml` → `roles.<role>.levels.<level>.model`
 2. Workspace `workflow.yaml` → `roles.<role>.levels.<level>.model`
-3. Built-in defaults from `ROLE_REGISTRY`
+3. Built-in defaults from `lib/roles/defaults.ts`
 
 These layers are merged before runtime selection. Workers read the model from the
 selected configured level. Unknown levels fail; a level string is never treated

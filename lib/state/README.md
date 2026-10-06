@@ -91,6 +91,7 @@ they cannot prevent a hostile process swapping paths between inspection and I/O.
 - Disabling a built-in role preserves its inherited definition; sparse later overrides keep it disabled until `enabled: true` is explicit. Removed levels require a complete definition to be restored.
 - Instance identity follows the same workspace → project override precedence.
 - Resolution completes runtime contracts before separate role/workflow cross-reference integrity checks.
+- Built-in role and workflow definitions enter only through the initial configuration layer; resolution completes merged values without restoring removed levels or regenerating role defaults. Runtime fallback policy values belong to `config/const.ts`.
 - Project configuration paths are addressed only by the validated canonical slug.
 - Only `loadConfig` and resolved runtime selectors are public outside state; parsing details remain internal.
 

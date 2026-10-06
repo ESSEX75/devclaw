@@ -11,7 +11,7 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
 import type { PluginContext } from "../../context.js";
-import { getSessionKeyRolePattern } from "../../roles/index.js";
+import { getBuiltInSessionKeyRolePattern } from "../../roles/index.js";
 import { loadRoleInstructions } from "../../state/index.js";
 
 /**
@@ -28,7 +28,7 @@ import { loadRoleInstructions } from "../../state/index.js";
 export function parseDevClawSessionKey(
   sessionKey: string,
 ): { projectSlug: string; role: string } | null {
-  const rolePattern = getSessionKeyRolePattern();
+  const rolePattern = getBuiltInSessionKeyRolePattern();
   // Named/numeric format: ...-{role}-{level}-{nameOrIndex}
   const newMatch = sessionKey.match(
     new RegExp(`:subagent:(.+)-(${rolePattern})-[^-]+-[^-]+$`),

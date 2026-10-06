@@ -20,7 +20,7 @@ DevClaw's level selection does exactly this. When a task comes in, the plugin ro
 | Standard (features, bug fixes)   | Medior   | Mid-level — think and build |
 | Complex (architecture, security) | Senior   | The architect — design and reason |
 
-All three roles — DEVELOPER, TESTER, and ARCHITECT — use the same junior/medior/senior scheme (architect uses junior/senior). The orchestrator picks the level per task, and the plugin resolves it to the appropriate model via the role registry and workflow config.
+Built-in DEVELOPER and TESTER use junior/medior/senior; ARCHITECT and REVIEWER use junior/senior. Custom roles use their configured levels and ranks. The plugin selects a level per task and reads its explicit model from the resolved workflow configuration.
 
 This isn't just cost optimization. It mirrors what effective managers do instinctively: match the delegation level to the task, not to a fixed assumption about the delegate.
 

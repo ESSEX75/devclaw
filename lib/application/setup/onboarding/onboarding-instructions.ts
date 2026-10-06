@@ -1,13 +1,13 @@
 /** Renders conversational setup instructions without workspace or configuration I/O. */
 
 import { NOTIFICATION_CHANNEL } from "../../../domain/index.js";
-import { getAllDefaultModels } from "../../../roles/index.js";
+import { getAllBuiltInDefaultModels } from "../../../roles/index.js";
 import type { ModelConfig } from "../types.js";
 
 /** Render role-level model assignments for onboarding guidance.
  * @param models - Explicit assignments or built-in defaults for a new workspace.
  */
-function buildModelTable(models: ModelConfig = getAllDefaultModels()): string {
+function buildModelTable(models: ModelConfig = getAllBuiltInDefaultModels()): string {
   const lines: string[] = [];
 
   for (const [role, levels] of Object.entries(models)) {

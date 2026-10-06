@@ -2,13 +2,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DEFAULT_WORKFLOW, WORKFLOW_EVENT } from "../../domain/index.js";
-import { getAllRoleIds, getRole } from "../../roles/index.js";
+import { getAllRoleIds, getBuiltInRole } from "../../roles/index.js";
 import { planCompletion, planMergeFailure, planWorkflowEvent } from "./plan.js";
 
 describe("workflow transition plans", () => {
   it("plans every built-in role result through the configured workflow", () => {
     for (const roleId of getAllRoleIds()) {
-      const role = getRole(roleId);
+      const role = getBuiltInRole(roleId);
       assert.ok(role);
       for (const result of Object.keys(role.completion)) {
         const plan = planCompletion(DEFAULT_WORKFLOW, roleId, result, role.completion);
@@ -20,7 +20,7 @@ describe("workflow transition plans", () => {
   });
 
   it("rejects unknown results and mismatched source states before a transition exists", () => {
-    const developer = getRole("developer");
+    const developer = getBuiltInRole("developer");
     assert.ok(developer);
     assert.throws(() => planCompletion(DEFAULT_WORKFLOW, "developer", "unknown", developer.completion));
     assert.equal(planWorkflowEvent(DEFAULT_WORKFLOW, "Done", WORKFLOW_EVENT.APPROVED), null);

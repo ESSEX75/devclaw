@@ -7,7 +7,7 @@ import {
   type SetupNotificationChannel,
   type SetupRuntime,
 } from "../../application/index.js";
-import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
+import { getAllBuiltInDefaultModels, getAllRoleIds, getBuiltInLevelsForRole } from "../../roles/index.js";
 import {
   formatAgentLabel,
   formatSelectedChannelBinding,
@@ -191,7 +191,7 @@ async function collectChannelBinding(
 
 function hasModelOverrides(opts: SetupCliOptions): boolean {
   for (const role of getAllRoleIds()) {
-    for (const level of getLevelsForRole(role)) {
+    for (const level of getBuiltInLevelsForRole(role)) {
       const key = `${role}${level.charAt(0).toUpperCase()}${level.slice(1)}`;
 
       if (opts[key]) return true;
@@ -211,11 +211,11 @@ async function collectModelOptions(
 
   if (useDefaults) return opts;
 
-  const defaults = getAllDefaultModels();
+  const defaults = getAllBuiltInDefaultModels();
   const next = { ...opts };
 
   for (const role of getAllRoleIds()) {
-    for (const level of getLevelsForRole(role)) {
+    for (const level of getBuiltInLevelsForRole(role)) {
       const key = `${role}${level.charAt(0).toUpperCase()}${level.slice(1)}`;
       const defaultModel = defaults[role]?.[level] ?? "";
       const answer = (await rl.question(`${role}.${level} model [${defaultModel}]: `)).trim();

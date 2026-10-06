@@ -122,7 +122,7 @@ DevClaw provides equivalent guardrails for everything except auto-reporting, whi
 
 ## Roles
 
-DevClaw ships with four built-in roles, defined in `lib/roles/registry.ts`. All roles use the same level scheme (junior/medior/senior) — levels describe task complexity, not the role.
+DevClaw ships with four built-in roles, defined in `lib/roles/defaults.ts`. Built-in developer/tester use junior/medior/senior; architect/reviewer use junior/senior. Custom roles and levels are defined in workflow.yaml, with explicit capability ranks and model assignments.
 
 | Role | ID | Levels | Default Level | Completion Results |
 |---|---|---|---|---|
@@ -133,7 +133,7 @@ DevClaw ships with four built-in roles, defined in `lib/roles/registry.ts`. All 
 
 Roles and their levels are extensible through `workflow.yaml`. A custom role
 provides its levels, unique capability ranks, default level, models, completion mapping, and corresponding
-workflow states in configuration; it does not need an entry in `ROLE_REGISTRY`.
+workflow states in configuration; it does not need an entry in the built-in defaults.
 Built-in roles remain registry-backed defaults and can be overridden or disabled
 entirely (`tester: false`).
 
@@ -727,7 +727,7 @@ Provider selection is handled by `createProvider()` in `lib/integrations/provide
 DevClaw uses a three-layer config system with `workflow.yaml` files:
 
 ```
-Layer 1: Built-in defaults (ROLE_REGISTRY + DEFAULT_WORKFLOW)
+Layer 1: Built-in role defaults + DEFAULT_WORKFLOW
 Layer 2: Workspace:  <workspace>/devclaw/workflow.yaml
 Layer 3: Project:    <workspace>/devclaw/projects/<project>/workflow.yaml
 ```

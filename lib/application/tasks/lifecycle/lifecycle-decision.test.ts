@@ -7,8 +7,9 @@ import {
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   type IssueRuntimeState,
+  type RoleId,
 } from "../../../domain/index.js";
-import { ROLE_REGISTRY } from "../../../roles/index.js";
+import { requireBuiltInRole } from "../../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 import { resolveRoleLevel, resolveStartTaskDecision } from "./lifecycle-decision.js";
 
@@ -37,8 +38,8 @@ const baseState: IssueRuntimeState = {
 /** Resolve a built-in role fixture with usable worker capacity.
  * @param role - Built-in role whose configured levels are exercised.
  */
-function roleConfig(role: keyof typeof ROLE_REGISTRY): ResolvedRoleConfig {
-  const definition = ROLE_REGISTRY[role];
+function roleConfig(role: RoleId): ResolvedRoleConfig {
+  const definition = requireBuiltInRole(role);
   const levels: ResolvedRoleConfig["levels"] = {};
 
   for (const [level, config] of Object.entries(definition.levels)) {
