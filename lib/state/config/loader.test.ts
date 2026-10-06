@@ -171,6 +171,60 @@ workflow:
 });
 
 describe("custom role resolution", () => {
+  it("preserves instance names and applies project precedence", async () => {
+    const workspaceDir = await createWorkspace("instance:\n  name: workspace-team\n");
+    const projectDir = path.join(workspaceDir, "devclaw", "projects", "sample-app");
+
+    await fs.mkdir(projectDir, { recursive: true });
+    await fs.writeFile(path.join(projectDir, "workflow.yaml"), "timeouts:\n  gatewayMs: 1234\n", "utf8");
+    assert.equal((await loadConfig(workspaceDir)).instanceName, "workspace-team");
+    assert.equal((await loadConfig(workspaceDir, "sample-app")).instanceName, "workspace-team");
+    await fs.writeFile(path.join(projectDir, "workflow.yaml"), "instance:\n  name: project-team\n", "utf8");
+    assert.equal((await loadConfig(workspaceDir, "sample-app")).instanceName, "project-team");
+  });
+
+  it("preserves disabled role definitions until explicitly re-enabled", async () => {
+    const workspaceDir = await createWorkspace("roles:\n  developer: false\n");
+    const projectDir = path.join(workspaceDir, "devclaw", "projects", "sample-app");
+
+    await fs.mkdir(projectDir, { recursive: true });
+    await fs.writeFile(path.join(projectDir, "workflow.yaml"), "roles:\n  developer:\n    levels:\n      senior:\n        model: model/project-senior\n", "utf8");
+    const disabled = (await loadConfig(workspaceDir, "sample-app")).roles.developer;
+
+    assert.equal(disabled.enabled, false);
+    assert.equal(disabled.levels.senior.model, "model/project-senior");
+    await fs.writeFile(path.join(projectDir, "workflow.yaml"), "roles:\n  developer:\n    enabled: true\n", "utf8");
+    const enabled = (await loadConfig(workspaceDir, "sample-app")).roles.developer;
+
+    assert.equal(enabled.enabled, true);
+    assert.equal(enabled.levels.senior.rank, 3);
+    assert.equal(enabled.defaultLevel, "medior");
+    assert.equal(enabled.completion.done, "COMPLETE");
+  });
+
+  it("retains workspace role overrides when a project disables the role", async () => {
+    const workspaceDir = await createWorkspace("roles:\n  developer:\n    levels:\n      senior:\n        model: model/workspace-senior\n");
+    const projectDir = path.join(workspaceDir, "devclaw", "projects", "sample-app");
+
+    await fs.mkdir(projectDir, { recursive: true });
+    await fs.writeFile(path.join(projectDir, "workflow.yaml"), "roles:\n  developer: false\n", "utf8");
+    const role = (await loadConfig(workspaceDir, "sample-app")).roles.developer;
+
+    assert.equal(role.enabled, false);
+    assert.equal(role.levels.senior.model, "model/workspace-senior");
+  });
+
+  it("requires a complete definition when restoring a removed level", async () => {
+    const workspaceDir = await createWorkspace("roles:\n  developer:\n    levels:\n      senior: false\n");
+    const projectDir = path.join(workspaceDir, "devclaw", "projects", "sample-app");
+
+    await fs.mkdir(projectDir, { recursive: true });
+    await fs.writeFile(path.join(projectDir, "workflow.yaml"), "roles:\n  developer:\n    levels:\n      senior:\n        model: model/restored\n", "utf8");
+    await assert.rejects(loadConfig(workspaceDir, "sample-app"), /roles\.developer\.levels\.senior\.rank/);
+    await fs.writeFile(path.join(projectDir, "workflow.yaml"), "roles:\n  developer:\n    levels:\n      senior:\n        rank: 3\n        model: model/restored\n", "utf8");
+    assert.equal((await loadConfig(workspaceDir, "sample-app")).roles.developer.levels.senior.model, "model/restored");
+  });
+
   it("inherits built-in level fields when overriding only its model", async () => {
     const workspaceDir = await createWorkspace(`
 roles:

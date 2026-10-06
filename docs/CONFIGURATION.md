@@ -62,6 +62,12 @@ Each level accepts `rank`, `model`, `maxWorkers`, and `emoji`. After all layers 
 `rank` and `model` are required. Worker capacity comes from the level's `maxWorkers`,
 then `workflow.maxWorkersPerLevel`, then the built-in default.
 
+Disabling a built-in role with `false` preserves its inherited configuration.
+A higher layer must explicitly set `enabled: true` to re-enable it; changing a
+model alone leaves it disabled. Custom roles use `enabled: false` for disabling.
+Removing a level with `false` discards its inherited definition; restoring it
+requires both `rank` and `model`.
+
 Role and level identifiers are extensible. A custom role must provide a complete
 definition after workspace and project layers are merged:
 
