@@ -2,6 +2,8 @@
 
 This package owns the built-in role registry, level lookup, model selection, worker naming, and role instruction loading used by orchestration.
 
+Model assignments are explicit role-level configuration values. This package does not discover external model catalogs or invoke an LLM to generate assignments.
+
 ## Boundary Rules
 
 - Keep built-in registry data and deterministic role/level lookups here.

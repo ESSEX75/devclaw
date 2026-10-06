@@ -74,6 +74,7 @@ separate READMEs. Their file responsibilities and API details belong in source J
   bindings and rejects conflicting owners; inspection does not prove live connectivity.
   Ownership and SDK configuration are not one transaction. Denied/pending scope evidence
   overrides positive fields; an unavailable scope command is nonblocking.
+- Onboarding collects explicit role-level model overrides or accepts defaults. Reconfiguration guidance reads effective enabled workspace roles, including custom levels; it does not discover models or invoke LLM selection.
 
 Within workers, shared root evidence operations/constants may be imported directly
 to avoid command-barrel cycles; recovery must not depend on dispatch. In setup,

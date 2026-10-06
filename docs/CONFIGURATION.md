@@ -412,7 +412,6 @@ Restrict DevClaw tools to your orchestrator agent. Setup writes these tools to `
             "channel_list",
             "setup",
             "onboard",
-            "autoconfigure_models",
             "research_task",
             "workflow_guide",
             "config"

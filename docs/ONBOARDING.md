@@ -91,6 +91,12 @@ onboard({ "mode": "first-run" })
 
 The tool returns step-by-step instructions that guide the agent through the setup conversation.
 
+Model assignments are explicit: accept the defaults or provide a model ID for each
+role-level change. Existing assignments are preserved when `models` is omitted.
+Reconfiguration guidance shows effective workspace assignments, including custom
+roles and levels. Define new roles and levels in `workflow.yaml` before updating
+their models through `setup`. OpenClaw model authentication is configured separately.
+
 **Direct setup (skip conversation):**
 ```json
 setup({

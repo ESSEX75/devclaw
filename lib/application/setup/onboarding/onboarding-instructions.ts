@@ -2,12 +2,15 @@
 
 import { NOTIFICATION_CHANNEL } from "../../../domain/index.js";
 import { getAllDefaultModels } from "../../../roles/index.js";
+import type { ModelConfig } from "../types.js";
 
-/** Render built-in model defaults for onboarding guidance. */
-function buildModelTable(): string {
+/** Render role-level model assignments for onboarding guidance.
+ * @param models - Explicit assignments or built-in defaults for a new workspace.
+ */
+function buildModelTable(models: ModelConfig = getAllDefaultModels()): string {
   const lines: string[] = [];
 
-  for (const [role, levels] of Object.entries(getAllDefaultModels())) {
+  for (const [role, levels] of Object.entries(models)) {
     for (const [level, model] of Object.entries(levels)) {
       lines.push(`  - **${role} ${level}**: ${model}`);
     }
@@ -16,13 +19,15 @@ function buildModelTable(): string {
   return lines.join("\n");
 }
 
-/** Describe explicit configuration operations for an existing workspace. */
-export function buildReconfigContext(): string {
-  const modelTable = buildModelTable();
+/** Describe explicit configuration operations for an existing workspace.
+ * @param models - Effective workspace assignments, including custom roles and levels.
+ */
+export function buildReconfigContext(models: ModelConfig): string {
+  const modelTable = buildModelTable(models);
 
   return `# DevClaw Reconfiguration
 
-The user wants to reconfigure DevClaw. Default model configuration:
+The user wants to reconfigure DevClaw. Current workspace model configuration:
 
 ${modelTable}
 
@@ -53,7 +58,7 @@ DevClaw turns each Telegram group into an autonomous development team:
 
 **Step 1: Agent Selection**
 Ask: "Do you want to configure DevClaw for the current agent, or create a new dedicated agent?"
-- Current agent → no \`newAgentName\` needed
+- Current agent → collect its exact \`agentId\` or \`workspacePath\` for setup
 - New agent → ask for agent name
 - Selected/new agent → ask for:
   1. **Channel setup**: "Bind this agent to an existing channel account? (telegram/default, telegram/dev, whatsapp/default, none)"
@@ -66,33 +71,23 @@ Ask: "Do you want to configure DevClaw for the current agent, or create a new de
 
 **Step 2: Model Configuration**
 
-1. **Call \`autoconfigure_models\`** to automatically discover and assign models:
-   - Discovers all authenticated models in OpenClaw
-   - Uses AI to intelligently assign them to DevClaw roles
-   - Returns a ready-to-use model configuration
+Built-in model defaults for a new workspace:
+${buildModelTable()}
 
-2. **Handle the result**:
-   - If \`success: false\` and \`modelCount: 0\`:
-     - **BLOCK setup** - show the authentication instructions from the message
-     - **DO NOT proceed** - exit onboarding until user configures API keys
-   - If \`success: true\`:
-     - Present the model assignment table to the user
-     - Store the \`models\` object for Step 3
+1. For an existing workspace, read its effective role-level configuration; preserve existing assignments.
+2. Present the assignments and ask whether to keep them or change specific role levels.
+3. Collect an explicit model ID for each requested role-level change.
+4. Pass only those changes through \`setup.models\`; omit \`models\` when keeping current settings or accepting defaults.
+5. Define new roles and levels in \`devclaw/workflow.yaml\` first, including rank, model, defaultLevel, and completion mappings.
+   Custom roles also need a prompt and workflow queue/active states.
 
-3. **Optional: Prefer specific provider**
-   - If user wants only models from one provider (e.g., "only use Anthropic"):
-   - Call \`autoconfigure_models({ preferProvider: "anthropic" })\`
-
-4. **Confirm with user**
-   - Ask: "Does this look good, or would you like to customize any roles?"
-   - If approved → proceed to Step 3 with the \`models\` configuration
-   - If they want changes → ask which specific roles to modify
-   - If they want different provider → go back to step 3
+Model authentication is configured separately in OpenClaw. Setup does not invoke an LLM to choose models or require a model-discovery command.
 
 **Step 3: Run Setup**
 Call \`setup\` with the collected answers:
 ` +
-      `- Current agent: \`setup({ channelBinding: "${NOTIFICATION_CHANNEL.TELEGRAM}"|"${NOTIFICATION_CHANNEL.WHATSAPP}"|null, channelAccountId: "<accountId>"|null, ` +
+      `- Current agent: \`setup({ agentId: "<agentId>", channelBinding: "${NOTIFICATION_CHANNEL.TELEGRAM}"|"${NOTIFICATION_CHANNEL.WHATSAPP}"|null, ` +
+      `channelAccountId: "<accountId>"|null, ` +
       `channelPeerId: "<groupId[:topic:topicId]>"|null, ` +
     `models: { developer: { ... }, tester: { ... } } })\`
 ` +
