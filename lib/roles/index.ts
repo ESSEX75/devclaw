@@ -5,6 +5,9 @@
  * To add a new role, add an entry to registry.ts — everything else derives from it.
  */
 
+export { TASK_COMPLEXITY } from "./const.js";
+export { isTaskComplexity } from "./guards.js";
+export { selectLevel } from "./level-selection.js";
 export { resolveModelForLevel } from "./model-resolution.js";
 export { ROLE_REGISTRY } from "./registry.js";
 export {
@@ -34,4 +37,5 @@ export {
   requireRole,
   roleForLevel,
 } from "./selectors.js";
-export type { ResolvedRoleDefinition, RoleConfig, RoleLevelConfig } from "./types.js";
+export { classifyTaskComplexity } from "./task-complexity.js";
+export type { LevelSelection, ResolvedRoleDefinition, RoleConfig, RoleLevelConfig, TaskComplexity, TaskComplexitySelection } from "./types.js";

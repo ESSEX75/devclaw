@@ -20,8 +20,7 @@ import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { countActiveSlots, findStateKeyByLabel, getActiveLabel } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
-import { resolveModelForLevel } from "../../roles/index.js";
-import { selectLevel } from "../../roles/model-selector.js";
+import { isTaskComplexity, resolveModelForLevel, selectLevel, TASK_COMPLEXITY } from "../../roles/index.js";
 import { loadConfig } from "../../state/index.js";
 import { getRoleWorker } from "../../state/index.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
@@ -29,6 +28,9 @@ import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 /** Queue label for research tasks. */
 const TO_RESEARCH_LABEL = "To Research";
 
+/** Create the research adapter with explicit complexity validation before task effects.
+ * @param ctx - Plugin runtime dependencies used for project resolution and dispatch.
+ */
 export function createResearchTaskTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "research_task",
@@ -81,8 +83,8 @@ Example:
         },
         complexity: {
           type: "string",
-          enum: ["simple", "medium", "complex"],
-          description: "Suggests architect level: simple → lowest rank, medium → default, complex → highest rank. Defaults to medium.",
+          enum: Object.values(TASK_COMPLEXITY),
+          description: "Selects level: simple → lowest rank, medium → default, complex → highest rank. When omitted, analyzes task text.",
         },
         dryRun: {
           type: "boolean",
@@ -96,7 +98,12 @@ Example:
       const title = params.title as string;
       const description = (params.description as string) ?? "";
       const focusAreas = (params.focusAreas as string[]) ?? [];
-      const complexity = (params.complexity as "simple" | "medium" | "complex") ?? "medium";
+      const complexity = params.complexity;
+
+      if (complexity !== undefined && !isTaskComplexity(complexity)) {
+        throw new Error("complexity must be simple, medium, or complex.");
+      }
+
       const dryRun = (params.dryRun as boolean) ?? false;
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
@@ -127,13 +134,7 @@ Example:
         project: project.name, title, complexity, focusAreas, dryRun,
       });
 
-      // Select level: use complexity hint to guide the heuristic
-      const selectionDescription = complexity === "complex"
-        ? `system-wide ${description}`
-        : complexity === "simple"
-          ? `simple ${description}`
-          : description;
-      const level = selectLevel(title, selectionDescription, role, resolvedRole).level;
+      const level = selectLevel(title, description, role, resolvedRole, complexity).level;
       const model = resolveModelForLevel(level, resolvedRole);
 
       if (dryRun) {

@@ -6,7 +6,7 @@ import {
   type WorkflowConfig,
   type WorkflowStateConfig
 } from "../../../domain/index.js";
-import { selectLevel } from "../../../roles/model-selector.js";
+import { selectLevel } from "../../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 import type { QueueTarget, ResolveRoleLevelInput, ResolveStartTaskDecisionInput, StartTaskDecision } from "./types.js";
 
@@ -63,7 +63,7 @@ export function resolveRoleLevel(input: ResolveRoleLevelInput): string {
   if (
     runtimeState.assignedRole === targetRole
     && runtimeState.assignedLevel
-    && roleConfig.levels[runtimeState.assignedLevel]
+    && Object.hasOwn(roleConfig.levels, runtimeState.assignedLevel)
   ) {
     return runtimeState.assignedLevel;
   }
@@ -90,7 +90,7 @@ export function validateRoleLevel(
   level: string,
   roleConfig: ResolvedRoleConfig,
 ): void {
-  if (!roleConfig.levels[level]) {
+  if (!Object.hasOwn(roleConfig.levels, level)) {
     throw new Error(`Invalid level "${level}" for role "${role}". Valid: ${Object.keys(roleConfig.levels).join(", ")}`);
   }
 }

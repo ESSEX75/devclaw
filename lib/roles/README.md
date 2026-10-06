@@ -6,6 +6,8 @@ Model assignments are explicit role-level configuration values. This package doe
 
 Runtime model resolution requires a complete resolved role and reads only its configured levels. Unknown levels and empty assignments fail; registry defaults are applied by the configuration pipeline, never during dispatch.
 
+Text complexity classification is independent of role scales. Complex signals take priority over simple keywords, with whole-word/phrase matching. Level selection maps explicit or classified complexity to minimum rank, configured default, or maximum rank; explicit complexity wins over text. Both operations are pure and accept custom configured scales.
+
 ## Boundary Rules
 
 - Keep built-in registry data and deterministic role/level lookups here.

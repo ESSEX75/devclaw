@@ -7,8 +7,7 @@ import { describe, it } from "node:test";
 
 import { DEFAULT_WORKFLOW, getActiveLabel, getCompletionEmoji, getCompletionRule, getQueueLabels, getStateLabels, hasWorkflowStates, WORKFLOW_EVENT } from "../../domain/index.js";
 import { parseDevClawSessionKey } from "../../integrations/openclaw/bootstrap-hook.js";
-import { getDefaultModel, getEmoji, isLevelForRole, resolveModelForLevel, roleForLevel } from "../../roles/index.js";
-import { selectLevel } from "../../roles/model-selector.js";
+import { getDefaultModel, getEmoji, isLevelForRole, resolveModelForLevel, roleForLevel, selectLevel } from "../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../state/index.js";
 
 const architectRole: ResolvedRoleConfig = {

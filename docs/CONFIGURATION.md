@@ -97,6 +97,13 @@ level for complex tasks, and `defaultLevel` otherwise. Runtime routing,
 worker slots, persisted issue state, and projected `role:level` labels all use
 the resolved role definition rather than the built-in registry.
 
+Text classification gives complex signals priority over simple signals and matches
+whole words or phrases. An explicit `research_task.complexity` overrides text:
+`simple` selects the lowest rank, `medium` selects `defaultLevel`, and `complex`
+selects the highest rank. Without that parameter, research uses text classification.
+Task lifecycle operations preserve a valid explicit level or existing assignment
+before applying automatic selection.
+
 #### Place a custom role in the workflow
 
 Defining `roles.<role>` only configures the worker's levels and
