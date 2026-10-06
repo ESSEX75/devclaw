@@ -1,4 +1,5 @@
 /** Registers explicit managed-issue repair and policy administration commands. */
+
 import type { Command } from "commander";
 
 import {
@@ -6,7 +7,7 @@ import {
   type IssueRepairSource,
   migrateIssuePolicies,
   repairManagedIssue,
-} from "../../application/issues/index.js";
+} from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import type { ReviewPolicy, TestPolicy } from "../../domain/index.js";
 import { getDefaultWorkspaceDir } from "../options/setup-options.js";

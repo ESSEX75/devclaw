@@ -6,6 +6,7 @@
  *
  * Replaces the manual steps of running glab/gh label create + editing projects.json.
  */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -14,7 +15,7 @@ import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFact
 import {
   validateDestinationAvailability,
   validateProjectRoute,
-} from "../../application/setup/index.js";
+} from "../../application/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import {

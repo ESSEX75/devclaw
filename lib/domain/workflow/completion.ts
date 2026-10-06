@@ -1,6 +1,7 @@
 /**
  * workflow/completion.ts — Completion rules derived from workflow transitions.
  */
+
 import { DEFAULT_RESULT_EMOJI, RESULT_EMOJI } from "./const.js";
 import { isCompletionResult } from "./guards.js";
 import { findStateByLabel, findStateKeyByLabel, getActiveLabel } from "./queries.js";

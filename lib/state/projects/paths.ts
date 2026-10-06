@@ -1,6 +1,7 @@
 /**
  * Provides filesystem path resolution for project registry files and repository roots.
  */
+
 import { homedir } from "node:os";
 import path from "node:path";
 

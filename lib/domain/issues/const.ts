@@ -30,8 +30,16 @@ export const ISSUE_INTEGRITY_STATUS = {
 
 /** Persistence states for a terminal pipeline notification. */
 export const PIPELINE_NOTIFICATION_STATUS = {
+  /** Terminal intent committed before a delivery attempt is reserved. */
+  PENDING: "pending",
   /** Delivery has been reserved but is not yet confirmed. */
   ATTEMPTING: "attempting",
+  /** No transport ran; policy or routing must be corrected before delivery. */
+  BLOCKED: "blocked",
+  /** Transport was unavailable before submission; a later retry is safe. */
+  RETRYABLE: "retryable",
+  /** Acceptance is uncertain; inspect external evidence before retrying. */
+  UNKNOWN: "unknown",
   /** The notification adapter confirmed delivery. */
   DELIVERED: "delivered",
 } as const;
@@ -89,3 +97,6 @@ export const ISSUE_CREATION_ERROR = {
   /** Creation saga failed in a non-recoverable state requiring manual operator intervention. */
   MANUAL_REPAIR_REQUIRED: "MANUAL_REPAIR_REQUIRED",
 } as const;
+
+/** Preserves an existing non-OK status whose diagnostic owner was not recorded. */
+export const UNVERIFIED_INTEGRITY_ERROR = "Existing integrity failure requires independent verification.";

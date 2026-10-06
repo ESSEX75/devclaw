@@ -1,4 +1,5 @@
 /** Exposes the supported workflow state-machine API to the domain package. */
+
 export { getCompletionEmoji, getCompletionRule, getNextStateDescription } from "./completion.js";
 export {
   ACTION,
@@ -8,14 +9,17 @@ export {
   DEFAULT_ROLE_LABEL_COLOR,
   DEFAULT_ROLES,
   EXECUTION_MODE,
+  POLICY_LABEL_PREFIX,
   RESULT_EMOJI,
   REVIEW_CHECK,
   REVIEW_POLICY,
+  REVIEW_ROUTING_FIELD,
   ROLE_LABEL_COLORS,
   ROUTING_LABELS,
   STATE_TYPE,
   STEP_ROUTING_COLOR,
   TEST_POLICY,
+  TEST_ROUTING_FIELD,
   WORKFLOW_EVENT,
   WORKFLOW_STATE_COLORS,
   WORKFLOW_STATE_KEYS,
@@ -76,6 +80,7 @@ export type {
   WorkflowDefinition,
   WorkflowEvent,
   WorkflowLabel,
+  WorkflowPolicyRouting,
   WorkflowStateConfig,
   WorkflowStateKey,
 } from "./types.js";

@@ -1,13 +1,18 @@
 /**
  * projects/mutations.ts — State mutations for project worker slots.
  */
-import type { SlotState } from "../../domain/index.js";
-import { emptySlot, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
+
+import type { SlotState, WorkerDeliveryState, WorkflowConfig } from "../../domain/index.js";
+import { countActiveSlots, emptySlot, EXECUTION_MODE, findFreeSlot, findSlotByIssue } from "../../domain/index.js";
 import { updateProjects } from "./repository.js";
 import type { ProjectsData } from "./types.js";
 
 /** Parameters for activating a worker slot with a new task. */
 type ActivateWorkerParams = {
+  /** Optional project-wide role exclusivity checked under the registry lock. */
+  roleExecution?: WorkflowConfig["roleExecution"];
+  /** Optional configured capacity; rejects out-of-range or excess active reservations. */
+  maxWorkers?: number;
   /** Provider-local issue assigned to the worker slot. */
   issueId: number;
   /** Configured role level whose slot should be activated. */
@@ -22,6 +27,8 @@ type ActivateWorkerParams = {
   slotIndex?: number;
   /** Deterministic fun name for this slot. */
   name?: string;
+  /** Durable pre-submission reservation marker. */
+  delivery?: WorkerDeliveryState;
 };
 
 /** Options for locating and deactivating a worker slot. */
@@ -77,7 +84,8 @@ export async function updateSlot(
 
 /**
  * Mark a worker slot as active with a new task.
- * Routes by level to the correct slot array.
+ * Checks requested capacity and role exclusivity atomically with the reservation.
+ * A new delivery cannot replace an already active assignment for the same issue.
  * @param workspaceDir - Workspace containing the project registry.
  * @param projectSlug - Canonical slug of the project whose worker becomes active.
  * @param role - Configured role whose worker becomes active.
@@ -98,6 +106,16 @@ export async function activateWorker(
 
     const slots = rw.levels[params.level] ?? [];
 
+    if (params.roleExecution === EXECUTION_MODE.SEQUENTIAL
+      && Object.entries(project.workers).some(([otherRole, worker]) => otherRole !== role && countActiveSlots(worker) > 0)) {
+      throw new Error("Sequential: another role has an active reservation.");
+    }
+
+    if (params.delivery && Object.values(project.workers).some((worker) =>
+      Object.values(worker.levels).some((workers) => workers?.some((slot) => slot.active && slot.issueId === params.issueId)))) {
+      throw new Error(`Issue #${params.issueId} already has a reserved worker slot.`);
+    }
+
     rw.levels[params.level] = slots;
 
     const freeSlot = findFreeSlot(rw, params.level);
@@ -108,6 +126,11 @@ export async function activateWorker(
 
     if (idx === null) {
       throw new Error(`No free ${role}:${params.level} worker slot exists for project ${projectSlug}.`);
+    }
+
+    if (params.maxWorkers !== undefined && (idx < 0 || !Number.isInteger(idx) || idx >= params.maxWorkers
+      || slots.filter((slot) => slot.active).length >= params.maxWorkers)) {
+      throw new Error(`Configured ${role}:${params.level} capacity is exhausted.`);
     }
 
     // Ensure slot exists
@@ -131,6 +154,7 @@ export async function activateWorker(
       previousLabel: params.previousLabel ?? null,
       name: params.name ?? currentSlot.name,
       lastIssueId: null,
+      delivery: params.delivery,
     };
 
     project.workers[role] = rw;

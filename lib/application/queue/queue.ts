@@ -1,11 +1,13 @@
 /**
  * Queue service — workflow queue helpers.
  */
+
 import {
   DEFAULT_WORKFLOW,
   STATE_TYPE,
   type WorkflowConfig,
 } from "../../domain/index.js";
+import type { QueueStateLabelsByType } from "./types.js";
 
 /**
  * Get state labels grouped by type from workflow config.
@@ -13,8 +15,8 @@ import {
  */
 export function getStateLabelsByType(
   workflow: WorkflowConfig = DEFAULT_WORKFLOW,
-): Record<"hold" | "active" | "queue", Array<{ label: string; role?: string; priority?: number }>> {
-  const result: Record<"hold" | "active" | "queue", Array<{ label: string; role?: string; priority?: number }>> = {
+): QueueStateLabelsByType {
+  const result: QueueStateLabelsByType = {
     hold: [],
     active: [],
     queue: [],

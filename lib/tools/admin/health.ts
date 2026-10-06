@@ -8,18 +8,20 @@
  *   - stuck_label: inactive but issue has Doing/Testing label
  *   - orphan_issue_id: inactive but issueId set
  *   - issue_gone: active but issue deleted/closed
- *   - orphaned_label: active label but no worker tracking it
+ *   - issue_state_missing: slot references an issue absent from issues.json
  *
  * Read-only by default (surfaces issues). Pass fix=true to apply fixes.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { checkWorkerHealth, fetchGatewaySessions, type HealthFix, scanOrphanedLabels } from "../../application/heartbeat/health.js";
+import { checkWorkerHealth, type HealthFix, resolveProvider } from "../../application/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
+import { fetchGatewaySessions } from "../../integrations/openclaw/gateway-sessions.js";
 import { getConfiguredRoleIds, loadConfig } from "../../state/index.js";
 import { readProjects } from "../../state/index.js";
-import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir } from "../helpers.js";
 
 export function createHealthTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -74,18 +76,6 @@ export function createHealthTool(ctx: PluginContext): OpenClawPluginToolFactory 
           });
 
           issues.push(...healthFixes.map((f) => ({ ...f, project: project.name, role })));
-
-          // Orphaned label scan (active labels with no tracking worker)
-          const orphanFixes = await scanOrphanedLabels({
-            workspaceDir,
-            projectSlug: slug,
-            project,
-            role,
-            autoFix: fix,
-            provider,
-          });
-
-          issues.push(...orphanFixes.map((f) => ({ ...f, project: project.name, role })));
         }
       }
 

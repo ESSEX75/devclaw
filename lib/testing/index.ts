@@ -5,6 +5,7 @@
  * - TestProvider: In-memory IssueProvider with call tracking
  * - createTestHarness: Scaffolds temp workspace + mock runCommand
  */
+
 export {
   type BootstrapResult,
   type CapturedCommand,
@@ -13,6 +14,7 @@ export {
   type HarnessOptions,
   type TestHarness,
 } from "./harness.js";
+export { createSetupRuntime } from "./setup-runtime.js";
 export {
   createEmptyIssueStateStoreForTesting,
   replaceIssueArchiveStoreForTesting,

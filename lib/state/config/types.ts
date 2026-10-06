@@ -4,6 +4,7 @@
  * A single workflow.yaml combines structured role levels and workflow behavior.
  * Three-layer resolution: built-in → workspace → per-project.
  */
+
 import type {
   CompletionEventMap,
   ReviewCheckType,

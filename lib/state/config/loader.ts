@@ -1,4 +1,5 @@
 /** Orchestrates the current three-layer configuration pipeline. */
+
 import path from "node:path";
 
 import { DATA_DIR, PROJECTS_DIRECTORY_NAME, WORKFLOW_FILE_NAME } from "../paths.js";

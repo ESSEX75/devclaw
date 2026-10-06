@@ -32,6 +32,12 @@ export const WORKFLOW_STATE_KEYS = {
   RESEARCHING: "researching",
 } as const;
 
+/** Managed workflow policy label namespaces shared by rendering, parsing, and provider effects. */
+export const POLICY_LABEL_PREFIX = {
+  REVIEW: "review:",
+  TEST: "test:",
+} as const;
+
 /** Routing labels applied to issues to delegate tests or reviews. */
 export const ROUTING_LABELS = {
   /** Require human code review. */
@@ -243,3 +249,9 @@ export const RESULT_EMOJI = {
 
 /** Fallback emoji displayed for an unknown completion result. */
 export const DEFAULT_RESULT_EMOJI = "📋";
+
+/** Saved review-policy field used for local workflow selection and rechecks. */
+export const REVIEW_ROUTING_FIELD = "reviewPolicy";
+
+/** Saved test-policy field used for local workflow selection and rechecks. */
+export const TEST_ROUTING_FIELD = "testPolicy";

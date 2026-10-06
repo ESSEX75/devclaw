@@ -1,6 +1,7 @@
 /**
  * Validates the only supported active managed-issue store schema.
  */
+
 import { z } from "zod";
 
 import {
@@ -10,8 +11,20 @@ import {
   PIPELINE_NOTIFICATION_STATUS,
   REVIEW_POLICY,
   TEST_POLICY,
+  WORKER_DELIVERY_STATUS,
 } from "../../../domain/index.js";
 import type { IssueStateStore } from "./types.js";
+
+/** Validates worker identity retained through a committed slot release. */
+const ActiveWorkerSchema = z.object({
+  role: z.string(), level: z.string(), slotIndex: z.number().int().nonnegative(),
+  sessionKey: z.string().nullable(), startedAt: z.string(), lastNudgeAt: z.string().datetime().optional(),
+  delivery: z.object({
+    operationId: z.string().uuid().optional(),
+    status: z.enum(WORKER_DELIVERY_STATUS), recordedAt: z.string(), reason: z.string(),
+    checkedAt: z.string().optional(), sessionObserved: z.boolean().nullable().optional(),
+  }).strict().optional(),
+}).strict();
 
 /** Strict schema for one authoritative active issue runtime record. */
 const RuntimeIssueSchema = z.object({
@@ -21,19 +34,17 @@ const RuntimeIssueSchema = z.object({
   assignedLevel: z.string().nullable(), owner: z.string().nullable(),
   reviewPolicy: z.enum(REVIEW_POLICY).nullable(), testPolicy: z.enum(TEST_POLICY).nullable(),
   notifyTarget: z.object({ channel: z.enum(NOTIFICATION_CHANNEL), name: z.string() }).strict().nullable(),
-  activeWorker: z.object({
-    role: z.string(), level: z.string(), slotIndex: z.number().int().nonnegative(),
-    sessionKey: z.string().nullable(), startedAt: z.string(),
-  }).strict().nullable(),
+  activeWorker: ActiveWorkerSchema.nullable(),
+  pendingWorkerRelease: ActiveWorkerSchema.nullable().optional(),
   integrityStatus: z.enum(ISSUE_INTEGRITY_STATUS), integrityErrors: z.array(z.string()),
-  projectionVersion: z.number().int().positive(), createdAt: z.string(), updatedAt: z.string(),
+  createdAt: z.string(), updatedAt: z.string(),
   closedAt: z.string().nullable(),
   providerMissing: z.object({
     confirmations: z.number().int().positive(), firstConfirmedAt: z.string(), lastConfirmedAt: z.string(),
   }).strict().nullable(),
   pipelineNotification: z.object({
     eventKey: z.string(), status: z.enum(PIPELINE_NOTIFICATION_STATUS),
-    attemptedAt: z.string(), deliveredAt: z.string().optional(),
+    attemptedAt: z.string(), deliveredAt: z.string().optional(), reason: z.string().optional(),
   }).strict().nullable(),
 }).strict();
 

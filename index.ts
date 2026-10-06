@@ -1,10 +1,12 @@
+/** Registers DevClaw tools, CLI, services, and SDK hooks at the plugin boundary. */
+
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
-import { registerHeartbeatService } from "./lib/application/heartbeat/index.js";
-import { registerAttachmentHook } from "./lib/application/tasks/attachment-hook.js";
+import { registerHeartbeatService } from "./lib/application/index.js";
 // Infrastructure
 import { registerCli } from "./lib/cli/register.js";
 import { createPluginContext } from "./lib/context.js";
+import { registerAttachmentHook } from "./lib/integrations/openclaw/attachment-hook.js";
 import { registerBootstrapHook } from "./lib/integrations/openclaw/bootstrap-hook.js";
 import { toolRegistry } from "./lib/tools/registry.js";
 

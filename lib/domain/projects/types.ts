@@ -1,8 +1,10 @@
 /**
  * projects/types.ts — Domain types for projects, worker slots, and notification channels.
  */
+
 import type { IssueProviderId } from "../issues/index.js";
 import type { NotificationEndpoint } from "../notifications/index.js";
+import type { WorkerDeliveryState } from "../workers/index.js";
 
 /** Slot state. Level is structural (implied by position in the levels map). */
 export type SlotState = {
@@ -20,6 +22,8 @@ export type SlotState = {
   name?: string;
   /** Last issue this slot worked on (preserved on deactivation for feedback cycle detection). */
   lastIssueId?: number | null;
+  /** Unresolved delivery marker that prevents automatic health requeue. */
+  delivery?: WorkerDeliveryState;
 };
 
 /** Per-level worker state: levels map instead of flat slots array. */

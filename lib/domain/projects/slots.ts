@@ -1,6 +1,7 @@
 /**
  * projects/slots.ts — Pure slot helpers (no I/O).
  */
+
 import type { RoleWorkerState, SlotLocation, SlotState } from "./types.js";
 
 // ---------------------------------------------------------------------------

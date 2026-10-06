@@ -1,0 +1,102 @@
+/**
+ * Tests for agent config creation.
+ * Run with: npx tsx --test lib/application/setup/agents/agent-config.test.ts
+ */
+import { afterEach, describe, it } from "node:test";
+import assert from "node:assert";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+import { createSetupRuntime as createRuntime } from "../../../testing/index.js";
+import { createAgent } from "./agent-config.js";
+import { runSetup } from "../run-setup.js";
+
+let tmpDir: string | undefined;
+
+async function makeOpenClawHome(): Promise<string> {
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-agent-test-"));
+  return path.join(tmpDir, ".openclaw");
+}
+
+afterEach(async () => {
+  if (tmpDir) {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    tmpDir = undefined;
+  }
+});
+
+describe("createAgent", () => {
+  it("updates OpenClaw config directly without an external agent CLI", async () => {
+    const name = `DevClaw Test ${Date.now()}`;
+    const expectedAgentId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const openClawHome = await makeOpenClawHome();
+
+    const { runtime, writes } = createRuntime({
+      agents: {
+        defaults: { model: "openai/gpt-5.4" },
+        list: [],
+      },
+    });
+
+    const result = await createAgent(runtime, name, { openClawHome });
+
+    assert.strictEqual(result.agentId, expectedAgentId);
+    assert.strictEqual(writes.length, 1, "createAgent should perform one config write");
+    assert.deepStrictEqual(writes[0]?.afterWrite, {
+      mode: "none",
+      reason: "DevClaw setup continues with a second config write that owns reload handling.",
+    });
+
+    const agent = writes[0]?.nextConfig.agents?.list?.find((entry) => entry.id === expectedAgentId);
+    assert.ok(agent, "new agent should be written to agents.list");
+    assert.strictEqual(agent.name, name);
+    assert.strictEqual(agent.model, "openai/gpt-5.4");
+    assert.strictEqual(agent.workspace, result.workspacePath);
+
+    assert.strictEqual(writes[0]?.nextConfig.bindings, undefined);
+
+    await fs.access(result.workspacePath);
+    await fs.access(path.join(openClawHome, "agents", expectedAgentId, "agent"));
+    await fs.access(path.join(openClawHome, "agents", expectedAgentId, "sessions"));
+  });
+
+  it("creates in entries when both registries exist and ignores the legacy list", async () => {
+    const openClawHome = await makeOpenClawHome();
+    const { runtime, writes } = createRuntime({ agents: { entries: { owner: {} }, list: [{ id: "legacy" }] } });
+    const result = await createAgent(runtime, "New Agent", { openClawHome });
+
+    assert.equal(result.agentId, "new-agent");
+    assert.equal(writes[0]?.nextConfig.agents?.entries?.["new-agent"]?.workspace, result.workspacePath);
+    assert.deepEqual(writes[0]?.nextConfig.agents?.list?.map(agent => agent.id), ["legacy"]);
+  });
+
+  it("rejects a duplicate in entries during setup preview", async () => {
+    const { runtime } = createRuntime({ agents: { entries: { "new-agent": {} }, list: [] } });
+
+    await assert.rejects(runSetup({ runtime, runCommand: async () => { throw new Error("Unexpected command"); },
+      newAgentName: "New Agent", dryRun: true }), /already exists/);
+  });
+
+  it("previews setup without writing OpenClaw config or workspace files", async () => {
+    const { runtime, writes } = createRuntime({
+      agents: {
+        defaults: { model: "openai/gpt-5.4" },
+        list: [],
+      },
+    });
+
+    const result = await runSetup({
+      runtime,
+      runCommand: async () => { throw new Error("Preview must not invoke commands"); },
+      newAgentName: "Preview Agent",
+      dryRun: true,
+    });
+
+    assert.strictEqual(result.dryRun, true);
+    assert.strictEqual(result.agentId, "preview-agent");
+    assert.strictEqual(writes.length, 0);
+    assert.ok(result.plannedChanges.some((change) => change.includes("Create OpenClaw agent")));
+
+    await assert.rejects(fs.access(result.workspacePath));
+  });
+});

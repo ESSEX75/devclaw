@@ -5,6 +5,7 @@
  * No external dependencies — pure TypeScript.
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { DEFAULT_WORKFLOW, getStateLabels, type WorkflowConfig } from "../domain/index.js";
 import type { CreateIssueInput } from "../integrations/providers/capabilities.js";
 import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../integrations/providers/lookup-errors.js";
@@ -279,6 +280,9 @@ export class TestProvider implements IssueProvider {
   async mergePr(issueId: number): Promise<void> {
     this.calls.push({ method: "mergePr", args: { issueId } });
     if (this.mergePrFailures.has(issueId)) {
+      const observed = this.prStatuses.get(issueId);
+
+      if (observed) this.prStatuses.set(issueId, { ...observed, mergeable: false });
       throw new Error(`Merge conflict: cannot merge PR for issue #${issueId}`);
     }
 
@@ -324,7 +328,12 @@ export class TestProvider implements IssueProvider {
     // no-op in test provider
   }
 
-  async reactToPrReview(_issueId: number, _reviewId: number, _emoji: string): Promise<void> {
+  /** Accept inline comment acknowledgement without external effects.
+   * @param _issueId - Owning issue identifier.
+   * @param _commentId - Provider inline comment identifier.
+   * @param _emoji - Requested reaction.
+   */
+  async reactToPrReviewComment(_issueId: number, _commentId: number, _emoji: string): Promise<void> {
     // no-op in test provider
   }
 
@@ -336,7 +345,12 @@ export class TestProvider implements IssueProvider {
     return false; // test provider: no existing reactions
   }
 
-  async prReviewHasReaction(_issueId: number, _reviewId: number, _emoji: string): Promise<boolean> {
+  /** Report inline comments as unmarked in the default test provider.
+   * @param _issueId - Owning issue identifier.
+   * @param _commentId - Provider inline comment identifier.
+   * @param _emoji - Requested reaction.
+   */
+  async prReviewCommentHasReaction(_issueId: number, _commentId: number, _emoji: string): Promise<boolean> {
     return false; // test provider: no existing reactions
   }
 

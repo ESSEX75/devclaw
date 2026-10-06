@@ -8,6 +8,7 @@
  * - `false` for a level: removes that inherited level during resolution
  * - Primitives: override
  */
+
 import type { DevClawConfig, LevelOverride, RoleOverride, StateOverride } from "./types.js";
 
 /**

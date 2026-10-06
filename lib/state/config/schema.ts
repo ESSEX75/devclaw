@@ -1,6 +1,7 @@
 /**
  * Strict validation for raw and merged DevClaw workflow configuration.
  */
+
 import { z } from "zod";
 
 import type { WorkflowConfig } from "../../domain/index.js";
@@ -18,8 +19,10 @@ import type { DevClawConfig } from "./types.js";
 
 /** Pattern accepted for configuration-owned identifiers. */
 const IDENTIFIER_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
+
 /** Maximum provider label length accepted by workflow configuration. */
 const LABEL_MAX_LENGTH = 50;
+
 /** Pattern accepted for six-digit provider label colors. */
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
@@ -27,8 +30,10 @@ const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const IdentifierSchema = z.string()
   .min(1)
   .regex(IDENTIFIER_PATTERN, "must start with a letter and contain only letters, numbers, underscores, or hyphens");
+
 /** Reusable schema for provider-visible workflow labels. */
 const LabelSchema = z.string().trim().min(1).max(LABEL_MAX_LENGTH);
+
 /** Reusable schema for provider-visible hexadecimal colors. */
 const ColorSchema = z.string().regex(HEX_COLOR_PATTERN, "must be a six-digit hexadecimal color");
 
@@ -41,6 +46,7 @@ const TransitionTargetSchema = z.object({
 
 /** Complete set of workflow event identifiers accepted as transition keys. */
 const WORKFLOW_EVENTS: ReadonlySet<string> = new Set(Object.values(WORKFLOW_EVENT));
+
 /** Schema for event-indexed workflow transitions. */
 const WorkflowTransitionsSchema = z.record(z.string(), TransitionTargetSchema)
   .superRefine((transitions, context) => {
@@ -174,6 +180,7 @@ const InstanceConfigSchema = z.object({
 
 /** Schema for bounded duration strings accepted by archive maintenance. */
 const DurationSchema = z.string().regex(/^\d+(?:ms|s|m|h|d)$/, "must be a duration such as 90d, 12h, or 0d");
+
 /** Strict optional schema for archive retention and heartbeat limits. */
 const IssueArchiveMaintenanceSchema = z.object({
   deletedProviderRetention: DurationSchema.optional(),

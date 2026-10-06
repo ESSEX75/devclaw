@@ -2,9 +2,10 @@
  * task_edit_body — Update issue title and/or description through the task
  * application use case.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { editTaskBody } from "../../application/tasks/edit-task-body.js";
+import { editTaskBody } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 

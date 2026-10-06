@@ -4,76 +4,31 @@
  * Core function: projectTick() scans one project's queue and fills free worker slots.
  * Called by: work_finish (next pipeline step), heartbeat service (sweep).
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
-import type { RunCommand } from "../../context.js";
 import {
   countActiveSlots,
   EXECUTION_MODE,
-  findFreeSlot,
   getActiveLabel,
   reconcileSlots,
-  REVIEW_POLICY,
-  TEST_POLICY,
-  type WorkflowConfig,
 } from "../../domain/index.js";
-import { createProvider } from "../../integrations/providers/index.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
+import { createProvider, isProviderIssueLookupError } from "../../integrations/providers/index.js";
 import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/index.js";
-import { withIssueOrchestrationLock, writeIssueRoleLevel } from "../../state/index.js";
+import { withIssueOrchestrationLock } from "../../state/index.js";
 import { getProject, getRoleWorker, readProjects } from "../../state/index.js";
-import { resolveRoleLevel } from "../tasks/lifecycle-decision.js";
-import { dispatchTaskLocked } from "../workers/dispatch-task.js";
+import { dispatchTaskLocked } from "../workers/index.js";
+import { QUEUE_PLAN, QUEUE_REASON } from "./const.js";
+import { planQueuePickup } from "./plan.js";
 import { findNextIssueForRole } from "./scan.js";
-
-// ---------------------------------------------------------------------------
-// projectTick
-// ---------------------------------------------------------------------------
-
-export type TickAction = {
-  project: string;
-  projectSlug: string;
-  issueId: number;
-  issueTitle: string;
-  issueUrl: string;
-  role: string;
-  level: string;
-  sessionAction: "spawn" | "send";
-  announcement: string;
-};
-
-export type ProjectTickResult = {
-  pickups: TickAction[];
-  skipped: Array<{ role?: string; reason: string }>;
-};
+import type { ProjectTickOptions, ProjectTickResult, QueueClaim, TickAction } from "./types.js";
 
 /**
  * Scan one project's queue and fill free worker slots.
  *
  * Does NOT run health checks (that's the heartbeat service's job).
- * Non-destructive: only dispatches if slots are free and issues are queued.
+ * Reservations recheck project constraints atomically before provider or gateway effects.
+ * @param opts - Project, resolved dependencies, and pickup bounds.
  */
-export async function projectTick(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  agentId?: string;
-  sessionKey?: string;
-  pluginConfig?: Record<string, unknown>;
-  dryRun?: boolean;
-  maxPickups?: number;
-  /** Only attempt this role. Used by work_finish to fill the next pipeline step. */
-  targetRole?: string;
-  /** Optional provider override (for testing). Uses createProvider if omitted. */
-  provider?: IssueProvider;
-  /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
-  runtime?: PluginRuntime;
-  /** Workflow config (defaults to DEFAULT_WORKFLOW) */
-  workflow?: WorkflowConfig;
-  /** Instance name for ownership filtering and auto-claiming. */
-  instanceName?: string;
-  /** Injected runCommand for dependency injection. */
-  runCommand?: RunCommand;
-}): Promise<ProjectTickResult> {
+export async function projectTick(opts: ProjectTickOptions): Promise<ProjectTickResult> {
   const {
     workspaceDir, projectSlug, agentId, sessionKey, pluginConfig, dryRun,
     maxPickups, targetRole, runtime, instanceName, runCommand,
@@ -86,12 +41,13 @@ export async function projectTick(opts: {
   const resolvedConfig = await loadConfig(workspaceDir, project.slug);
   const workflow = opts.workflow ?? resolvedConfig.workflow;
 
-  const provider = opts.provider ?? (await createProvider({
-    repo: project.repo,
-    provider: project.provider,
-    runCommand: runCommand!,
-    workflow,
-  })).provider;
+  let provider = opts.provider;
+
+  if (!provider) {
+    if (!runCommand) throw new Error("runCommand is required to create the queue provider.");
+    provider = (await createProvider({ repo: project.repo, provider: project.provider, runCommand, workflow })).provider;
+  }
+
   const roleExecution = workflow.roleExecution ?? EXECUTION_MODE.PARALLEL;
   const enabledRoles = getConfiguredRoleIds(resolvedConfig);
   const roles = targetRole ? [targetRole] : enabledRoles;
@@ -101,8 +57,13 @@ export async function projectTick(opts: {
   let pickupCount = 0;
 
   for (const role of roles) {
+    if (!enabledRoles.includes(role)) {
+      skipped.push({ role, code: QUEUE_REASON.ROLE_UNAVAILABLE, reason: "Role is not configured or is disabled" });
+      continue;
+    }
+
     if (maxPickups !== undefined && pickupCount >= maxPickups) {
-      skipped.push({ role, reason: "Max pickups reached" });
+      skipped.push({ role, code: QUEUE_REASON.PICKUP_LIMIT, reason: "Max pickups reached" });
       continue;
     }
 
@@ -114,48 +75,23 @@ export async function projectTick(opts: {
     const levelMaxWorkers = getLevelMaxWorkers(resolvedConfig.roles[role]);
 
     // Check sequential role execution: any other role must be inactive
-    const otherRoles = enabledRoles.filter((candidate) => candidate !== role);
+    const otherRoles = Object.keys(fresh.workers).filter((candidate) => candidate !== role);
 
     if (roleExecution === EXECUTION_MODE.SEQUENTIAL && otherRoles.some((candidate) => countActiveSlots(getRoleWorker(fresh, candidate)) > 0)) {
-      skipped.push({ role, reason: "Sequential: other role active" });
+      skipped.push({ role, code: QUEUE_REASON.SEQUENTIAL, reason: "Sequential: other role active" });
       continue;
     }
 
-    // Review policy gate: fallback for issues dispatched before step routing labels existed
-    if (role === "reviewer") {
-      const policy = workflow.reviewPolicy ?? REVIEW_POLICY.HUMAN;
-
-      if (policy === REVIEW_POLICY.HUMAN) {
-        skipped.push({ role, reason: "Review policy: human (heartbeat handles via PR polling)" });
-        continue;
-      }
-
-      if (policy === REVIEW_POLICY.SKIP) {
-        skipped.push({ role, reason: "Review policy: skip (heartbeat handles via review-skip pass)" });
-        continue;
-      }
-    }
-
-    // Test policy gate: fallback for issues dispatched before test routing labels existed
-    if (role === "tester") {
-      const policy = workflow.testPolicy ?? TEST_POLICY.SKIP;
-
-      if (policy === TEST_POLICY.SKIP) {
-        skipped.push({ role, reason: "Test policy: skip (heartbeat handles via test-skip pass)" });
-        continue;
-      }
-    }
-
-    const next = await findNextIssueForRole(provider, role, workflow, instanceName, { workspaceDir, projectSlug });
-
-    if (!next) continue;
-
     try {
+      const next = await findNextIssueForRole(provider, role, workflow, instanceName, { workspaceDir, projectSlug });
+
+      if (!next) continue;
+
       const claim = await withIssueOrchestrationLock(
         workspaceDir,
         projectSlug,
         next.issue.iid,
-        async (): Promise<{ action: TickAction | null; reason?: string }> => {
+        async (): Promise<QueueClaim> => {
           const lockedNext = await findNextIssueForRole(
             provider,
             role,
@@ -178,41 +114,25 @@ export async function projectTick(opts: {
 
           if (
             roleExecution === EXECUTION_MODE.SEQUENTIAL
-            && otherRoles.some((candidate) => countActiveSlots(getRoleWorker(lockedProject, candidate)) > 0)
+            && Object.entries(lockedProject.workers).some(([candidate, worker]) => candidate !== role && countActiveSlots(worker) > 0)
           ) {
             return { action: null, reason: "Sequential: other role active" };
-          }
-
-          if (role === "reviewer") {
-            const routing = lockedNext.localState.reviewPolicy;
-
-            if (routing === "human" || routing === "skip") {
-              return { action: null, reason: `review:${routing} policy` };
-            }
-          }
-
-          if (role === "tester" && lockedNext.localState.testPolicy === "skip") {
-            return { action: null, reason: "test:skip policy" };
           }
 
           const resolvedRole = resolvedConfig.roles[role];
 
           if (!resolvedRole) return { action: null, reason: "Role is not configured" };
-
-          const selectedLevel = resolveRoleLevel({
-            runtimeState: lockedNext.localState,
-            targetRole: role,
+          const pickup = planQueuePickup({
+            issue: lockedNext.issue,
+            localState: lockedNext.localState,
+            role,
             roleConfig: resolvedRole,
-            issueTitle: lockedNext.issue.title,
-            issueDescription: lockedNext.issue.description ?? "",
+            worker: lockedRoleWorker,
           });
-          const freeSlot = findFreeSlot(lockedRoleWorker, selectedLevel);
 
-          if (freeSlot === null) return { action: null, reason: `${selectedLevel} slots full` };
+          if (pickup.kind === QUEUE_PLAN.BLOCKED) return { action: null, code: pickup.code, reason: pickup.reason };
 
           if (dryRun) {
-            const existingSession = lockedRoleWorker.levels[selectedLevel]?.[freeSlot]?.sessionKey;
-
             return {
               action: {
                 project: project.name,
@@ -221,8 +141,8 @@ export async function projectTick(opts: {
                 issueTitle: lockedNext.issue.title,
                 issueUrl: lockedNext.issue.web_url,
                 role,
-                level: selectedLevel,
-                sessionAction: existingSession ? "send" : "spawn",
+                level: pickup.level,
+                sessionAction: pickup.sessionAction,
                 announcement: `[DRY RUN] Would pick up #${lockedNext.issue.iid}`,
               },
             };
@@ -230,17 +150,10 @@ export async function projectTick(opts: {
 
           if (!runCommand) throw new Error("runCommand is required for queue dispatch.");
 
-          await writeIssueRoleLevel(
-            workspaceDir,
-            projectSlug,
-            lockedNext.issue.iid,
-            role,
-            selectedLevel,
-          );
-
           const targetLabel = getActiveLabel(workflow, role);
           const dispatch = await dispatchTaskLocked({
             workspaceDir,
+            roleExecution,
             agentId,
             project: lockedProject,
             issueId: lockedNext.issue.iid,
@@ -248,14 +161,14 @@ export async function projectTick(opts: {
             issueDescription: lockedNext.issue.description ?? "",
             issueUrl: lockedNext.issue.web_url,
             role,
-            level: selectedLevel,
+            level: pickup.level,
             fromLabel: lockedNext.label,
             toLabel: targetLabel,
             provider,
             pluginConfig,
             sessionKey,
             runtime,
-            slotIndex: freeSlot,
+            slotIndex: pickup.slotIndex,
             instanceName,
             runCommand,
           });
@@ -277,7 +190,7 @@ export async function projectTick(opts: {
       );
 
       if (!claim.action) {
-        skipped.push({ role, reason: claim.reason ?? "Issue claim changed" });
+        skipped.push({ role, code: claim.code, reason: claim.reason ?? "Issue claim changed" });
         continue;
       }
 
@@ -286,7 +199,10 @@ export async function projectTick(opts: {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
-      skipped.push({ role, reason: `Dispatch failed: ${message}` });
+      skipped.push({
+        role, code: isProviderIssueLookupError(error) ? error.code : QUEUE_REASON.DISPATCH_FAILED,
+        reason: `Queue ${role} failed: ${message}`
+      });
       continue;
     }
   }

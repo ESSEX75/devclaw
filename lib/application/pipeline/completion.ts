@@ -3,101 +3,27 @@
  *
  * Uses workflow config to determine transitions and side effects.
  */
+
 import { log as auditLog } from "../../audit.js";
-import type { RunCommand } from "../../context.js";
-import {
-  ACTION,
-  COMPLETION_RESULT,
-  type CompletionEventMap,
-  type CompletionRule,
-  DEFAULT_WORKFLOW,
-  findStateByLabel,
-  findStateKeyByLabel,
-  getCompletionEmoji,
-  getCompletionRule,
-  getNextStateDescription,
-  ISSUE_ARCHIVE_REASON,
-  NOTIFICATION_CHANNEL,
-  type NotificationEndpoint,
-  STATE_TYPE,
-  WORKFLOW_EVENT,
-  type WorkflowConfig,
-} from "../../domain/index.js";
-import type { IssueProvider } from "../../integrations/providers/provider.js";
-import { loadConfig } from "../../state/index.js";
-import {
-  confirmPipelineNotification,
-  reservePipelineNotification,
-  withIssueOrchestrationLock,
-} from "../../state/index.js";
-import { deactivateWorker, getProject, getRoleWorker, readProjects } from "../../state/index.js";
+import { ACTION, DEFAULT_WORKFLOW, findStateByLabel, STATE_TYPE } from "../../domain/index.js";
+import { getProject, getRoleWorker, loadConfig, readIssueStateStore, readProjects, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
-import { archiveManagedIssue } from "../issues/index.js";
-import {
-  getNotificationConfig,
-  type NotificationRuntime,
-  notify,
-} from "../notifications/notify.js";
-import { resolveIssueNotificationEndpoint } from "../notifications/resolve-endpoint.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
-
-export type { CompletionRule };
-
-export type CompletionOutput = {
-  labelTransition: string;
-  announcement: string;
-  nextState: string;
-  prUrl?: string;
-  issueUrl?: string;
-  issueClosed?: boolean;
-  issueReopened?: boolean;
-};
-
-/**
- * Get completion rule for a role:result pair.
- * Uses workflow config when available.
- */
-export function getRule(
-  role: string,
-  result: string,
-  completion: CompletionEventMap,
-  workflow: WorkflowConfig = DEFAULT_WORKFLOW,
-): CompletionRule<string> | undefined {
-  const event = completion[result];
-
-  return event
-    ? getCompletionRule(workflow, role, event) ?? undefined
-    : undefined;
-}
+import { renderCompletionAnnouncement } from "./announcement.js";
+import { notifyCompletion } from "./completion-notifications.js";
+import { PIPELINE_AUDIT, PIPELINE_OWNER } from "./const.js";
+import { planCompletion, planMergeFailure } from "./plan.js";
+import { applyCompletionLifecycle, executeCompletionActions } from "./provider-actions.js";
+import { releaseTransitionWorkerLocked } from "./recovery.js";
+import { archiveTerminalIssueLocked } from "./terminal-archive.js";
+import { commitWorkflowTransitionLocked } from "./transition.js";
+import type { CompletionInput, CompletionOutput } from "./types.js";
 
 /**
  * Execute the completion side-effects for a role:result pair.
+ * @param opts - Resolved worker completion request and runtime dependencies.
  */
-export async function executeCompletion(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  role: string;
-  result: string;
-  issueId: number;
-  summary?: string;
-  prUrl?: string;
-  provider: IssueProvider;
-  repoPath: string;
-  projectName: string;
-  channels: NotificationEndpoint[];
-  pluginConfig?: Record<string, unknown>;
-  /** Plugin runtime for direct API access (avoids CLI subprocess timeouts) */
-  runtime?: NotificationRuntime;
-  /** Workflow config (defaults to DEFAULT_WORKFLOW) */
-  workflow?: WorkflowConfig;
-  /** Tasks created during this work session (e.g. architect implementation tasks) */
-  createdTasks?: Array<{ id: number; title: string; url: string }>;
-  /** Level of the completing worker */
-  level?: string;
-  /** Slot index within the level's array */
-  slotIndex?: number;
-  runCommand: RunCommand;
-}): Promise<CompletionOutput> {
+export async function executeCompletion(opts: CompletionInput): Promise<CompletionOutput> {
   return withIssueOrchestrationLock(
     opts.workspaceDir,
     opts.projectSlug,
@@ -106,171 +32,103 @@ export async function executeCompletion(opts: {
   );
 }
 
-async function executeCompletionLocked(opts: {
-  workspaceDir: string;
-  projectSlug: string;
-  role: string;
-  result: string;
-  issueId: number;
-  summary?: string;
-  prUrl?: string;
-  provider: IssueProvider;
-  repoPath: string;
-  projectName: string;
-  channels: NotificationEndpoint[];
-  pluginConfig?: Record<string, unknown>;
-  runtime?: NotificationRuntime;
-  workflow?: WorkflowConfig;
-  createdTasks?: Array<{ id: number; title: string; url: string }>;
-  level?: string;
-  slotIndex?: number;
-  runCommand: RunCommand;
-}): Promise<CompletionOutput> {
-  const rc = opts.runCommand;
+/** Plan, execute, commit, release, and notify while holding the issue lock.
+ * @param opts - Worker completion request whose source state must still be current.
+ */
+async function executeCompletionLocked(opts: CompletionInput): Promise<CompletionOutput> {
   const {
-    workspaceDir, projectSlug, role, result, issueId, summary, provider,
-    repoPath, projectName, channels, pluginConfig, runtime,
+    workspaceDir, projectSlug, role, result, issueId, provider,
+    projectName,
     workflow = DEFAULT_WORKFLOW,
-    createdTasks,
   } = opts;
 
   const key = `${role}:${result}`;
   const config = await loadConfig(workspaceDir, projectSlug);
-  const completionEvent = config.roles[role]?.completion[result];
+  const completion = config.roles[role]?.completion;
 
-  if (!completionEvent) {
-    throw new Error(`No completion event configured for ${key}`);
-  }
+  if (!completion) throw new Error(`No completion event configured for ${key}`);
+  const completionPlan = planCompletion(workflow, role, result, completion);
+  const { rule } = completionPlan;
 
-  const rule = getCompletionRule(workflow, role, completionEvent);
-
-  if (!rule) throw new Error(`No completion rule for ${key}`);
-
-  const { timeouts } = config;
   const project = getProject(await readProjects(workspaceDir), projectSlug);
 
   if (!project) {
     throw new Error(`Project "${projectSlug}" not found.`);
   }
 
-  const providerType = project.provider;
-  let prUrl = opts.prUrl;
-  let mergedPr = false;
-  let prTitle: string | undefined;
-  let sourceBranch: string | undefined;
-  let mergeFailure: { error: string } | null = null;
+  let currentState = (await readIssueStateStore(workspaceDir, projectSlug)).issues[String(issueId)];
 
-  // Execute pre-notification actions
-  for (const action of rule.actions) {
-    switch (action) {
-      case ACTION.GIT_PULL:
-        try { await rc(["git", "pull"], { timeoutMs: timeouts.gitPullMs, cwd: repoPath }); } catch (err) {
-          auditLog(workspaceDir, "pipeline_warning", { step: "gitPull", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
-        }
-
-        break;
-      case ACTION.DETECT_PR:
-        if (!prUrl) {
-          try {
-            // Try open PR first (developer just finished — MR is still open), fall back to merged
-            const prStatus = await provider.getPrStatus(issueId);
-
-            prUrl = prStatus.url ?? await provider.getMergedMRUrl(issueId) ?? undefined;
-            prTitle = prStatus.title;
-            sourceBranch = prStatus.sourceBranch;
-          } catch (err) {
-            auditLog(workspaceDir, "pipeline_warning", { step: "detectPr", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
-          }
-        }
-
-        break;
-      case ACTION.MERGE_PR:
-        try {
-          // Grab PR metadata before merging (the MR is still open at this point)
-          if (!prTitle) {
-            try {
-              const prStatus = await provider.getPrStatus(issueId);
-
-              prUrl = prUrl ?? prStatus.url ?? undefined;
-              prTitle = prStatus.title;
-              sourceBranch = prStatus.sourceBranch;
-            } catch { /* best-effort */ }
-          }
-
-          await provider.mergePr(issueId);
-          mergedPr = true;
-        } catch (err) {
-          const error = (err as Error).message ?? String(err);
-
-          await auditLog(workspaceDir, "pipeline_action_failed", {
-            step: "mergePr",
-            issue: issueId,
-            role,
-            error,
-            from: rule.from,
-            attemptedTo: rule.to,
-          });
-          mergeFailure = { error };
-        }
-
-        break;
-    }
-
-    if (mergeFailure) break;
+  if (currentState && currentState.workflowLabel !== rule.from && currentState.workflowLabel !== rule.to) {
+    throw new Error(`Completion for #${issueId} expected ${rule.from}, found ${currentState.workflowLabel}.`);
   }
 
-  // Get issue early (for URL in notification + channel routing)
-  const issue = await provider.getIssue(issueId);
-  const notifyTarget = await resolveIssueNotificationEndpoint(workspaceDir, project, issueId);
+  if (opts.expectedWorker) {
+    const expected = opts.expectedWorker;
+    const slot = project.workers[expected.role]?.levels[expected.level]?.[expected.slotIndex];
+
+    if (!slot?.active || slot.issueId !== issueId || slot.sessionKey !== expected.sessionKey || (slot.startTime ?? "") !== expected.startedAt) {
+      throw new Error(`Worker changed before completion of issue #${issueId}.`);
+    }
+  }
+
+  const deliveryResolution = await readWorkerDeliveryResolution(workspaceDir, projectSlug, issueId);
+
+  if (deliveryResolution && !deliveryResolution.completed) throw new Error(`Issue #${issueId} has a pending operator delivery resolution.`);
+
+  const currentIssue = await provider.getIssue(issueId);
+
+  if (!currentState && !currentIssue.labels.includes(rule.from)) {
+    throw new Error(`Completion for #${issueId} expected provider label ${rule.from}.`);
+  }
+
+  if (!currentState) {
+    currentState = await writeIssueRuntimeState({ workspaceDir, project, issue: currentIssue,
+      providerType: project.provider, workflow, workflowLabel: rule.from });
+  }
+
+  const resuming = currentState.workflowLabel === rule.to && rule.from !== rule.to;
+
+  if (resuming && currentState.activeWorker) throw new Error(`Issue #${issueId} has a new active worker.`);
+  const actions = resuming
+    ? { prUrl: opts.prUrl, mergedPr: false, mergeFailure: null }
+    : await executeCompletionActions(opts, rule, config.timeouts.gitPullMs);
+  const { prUrl, mergeFailure } = actions;
+
+  const issue = currentIssue;
 
   if (mergeFailure) {
-    const failedTransition = getMergeFailedTransition(workflow, rule.from);
+    const failedTransition = planMergeFailure(workflow, rule.from);
 
     if (!failedTransition) {
       throw new Error(`mergePr failed for #${issueId}, and workflow has no MERGE_FAILED recovery transition: ${mergeFailure.error}`);
     }
 
-    await provider.transitionLabel(issueId, rule.from, failedTransition.label);
-
-    await writeIssueRuntimeState({
+    await commitWorkflowTransitionLocked({
       workspaceDir,
-      project: { slug: projectSlug, channels },
-      issue: {
-        ...issue,
-        labels: issue.labels.filter((label) => label !== rule.from).concat(failedTransition.label),
-      },
-      providerType,
-      workflow,
-      workflowState: failedTransition.key,
-      workflowLabel: failedTransition.label,
-      activeWorker: null,
-    });
-    await reconcileManagedLabelsLocked({
-      workspaceDir,
-      projectSlug,
+      project,
       issueId,
-      workflow,
-      roles: Object.keys(config.roles),
       provider,
-      owner: "pipeline_merge_failure",
+      issue,
+      workflow,
+      plan: failedTransition,
+      roles: Object.keys(config.roles),
+      owner: PIPELINE_OWNER.MERGE_FAILURE,
     });
 
-    await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId });
-
-    await auditLog(workspaceDir, "pipeline_transition", {
+    await auditLog(workspaceDir, PIPELINE_AUDIT.TRANSITION, {
       project: projectName,
       issue: issueId,
       role,
       from: rule.from,
-      to: failedTransition.label,
+      to: failedTransition.toLabel,
       reason: "merge_failed",
       error: mergeFailure.error,
     });
 
     return {
-      labelTransition: `${rule.from} → ${failedTransition.label}`,
-      announcement: `⚠️ MERGE FAILED #${issueId} — ${mergeFailure.error}\n📋 [Issue #${issueId}](${issue.web_url})\n→ ${failedTransition.label}.`,
-      nextState: failedTransition.label,
+      labelTransition: `${rule.from} → ${failedTransition.toLabel}`,
+      announcement: `⚠️ MERGE FAILED #${issueId} — ${mergeFailure.error}\n📋 [Issue #${issueId}](${issue.web_url})\n→ ${failedTransition.toLabel}.`,
+      nextState: failedTransition.toLabel,
       prUrl,
       issueUrl: issue.web_url,
       issueClosed: false,
@@ -279,14 +137,12 @@ async function executeCompletionLocked(opts: {
   }
 
   // Get next state description from workflow
-  const nextState = getNextStateDescription(workflow, role, completionEvent);
+  const nextState = completionPlan.nextState;
 
   // Retrieve worker name from project state (best-effort)
   let workerName: string | undefined;
-  let targetBranch: string | undefined;
 
   try {
-    targetBranch = project.baseBranch;
     if (opts.level !== undefined && opts.slotIndex !== undefined) {
       const roleWorker = getRoleWorker(project, role);
       const slot = roleWorker.levels[opts.level]?.[opts.slotIndex];
@@ -297,223 +153,44 @@ async function executeCompletionLocked(opts: {
     // Best-effort — don't fail notification if name retrieval fails
   }
 
-  // Send notification early (before deactivation and label transition which can fail)
-  const notifyConfig = getNotificationConfig(pluginConfig);
-
-  notify(
-    {
-      type: "workerComplete",
-      project: projectName,
-      issueId,
-      issueUrl: issue.web_url,
-      role,
-      level: opts.level,
-      name: workerName,
-      result,
-      summary,
-      nextState,
-      prUrl,
-      createdTasks,
-    },
-    {
-      workspaceDir,
-      config: notifyConfig,
-      channelId: notifyTarget?.channelId,
-      channel: notifyTarget?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
-      threadId: notifyTarget?.threadId,
-      runtime,
-      accountId: notifyTarget?.accountId,
-      agentId: project.agentId,
-    },
-  ).catch((err) => {
-    auditLog(workspaceDir, "pipeline_warning", { step: "notify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
-  });
-
-  // Send merge notification when PR was merged during this completion
-  if (mergedPr) {
-    notify(
-      {
-        type: "prMerged",
-        project: projectName,
-        issueId,
-        issueUrl: issue.web_url,
-        issueTitle: issue.title,
-        prUrl,
-        prTitle,
-        sourceBranch,
-        targetBranch,
-        mergedBy: "pipeline",
-      },
-      {
-        workspaceDir,
-        config: notifyConfig,
-        channelId: notifyTarget?.channelId,
-        channel: notifyTarget?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
-        threadId: notifyTarget?.threadId,
-        runtime,
-        accountId: notifyTarget?.accountId,
-        agentId: project.agentId,
-      },
-    ).catch((err) => {
-      auditLog(workspaceDir, "pipeline_warning", { step: "mergeNotify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
-    });
-  }
-
-  // Transition label first (critical — if this fails, issue still has correct state)
-  // Then execute post-transition actions (close/reopen)
-  // Finally deactivate worker (last — ensures label is set even if deactivation fails)
-
-  await provider.transitionLabel(issueId, rule.from, rule.to);
-
-  // Execute post-transition actions
-  for (const action of rule.actions) {
-    switch (action) {
-      case ACTION.CLOSE_ISSUE:
-        await provider.closeIssue(issueId);
-        break;
-      case ACTION.REOPEN_ISSUE:
-        await provider.reopenIssue(issueId);
-        break;
-    }
-  }
-
-  const runtimeState = await writeIssueRuntimeState({
+  if (!resuming) await commitWorkflowTransitionLocked({
     workspaceDir,
-    project: { slug: projectSlug, channels },
-    issue: {
-      ...issue,
-      labels: issue.labels.filter((label) => label !== rule.from).concat(rule.to),
-    },
-    providerType,
-    workflow,
-    workflowLabel: rule.to,
-    activeWorker: null,
-    closedAt: rule.actions.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : undefined,
-  });
-
-  await reconcileManagedLabelsLocked({
-    workspaceDir,
-    projectSlug,
+    project,
     issueId,
-    workflow,
-    roles: Object.keys(config.roles),
     provider,
-    owner: "pipeline_completion",
+    workflow,
+    plan: completionPlan.transition,
+    owner: PIPELINE_OWNER.COMPLETION,
+    issue,
+    closedAt: rule.actions.includes(ACTION.CLOSE_ISSUE) ? new Date().toISOString() : rule.actions.includes(ACTION.REOPEN_ISSUE) ? null : undefined,
+    roles: Object.keys(config.roles),
+    afterLabel: () => applyCompletionLifecycle(opts, rule, issue),
   });
+  if (resuming) {
+    await releaseTransitionWorkerLocked(workspaceDir, projectSlug, issueId);
+    await reconcileManagedLabelsLocked({ workspaceDir, projectSlug, issueId, provider, workflow, roles: Object.keys(config.roles), owner: PIPELINE_OWNER.COMPLETION });
+  }
 
+  const runtimeState = (await readIssueStateStore(workspaceDir, projectSlug)).issues[String(issueId)];
+
+  if (!runtimeState) throw new Error(`Completion state for #${issueId} was not persisted.`);
+
+  await notifyCompletion({ opts, project, issue, runtimeState, plan: completionPlan, actions, workerName, notifyAuxiliary: !resuming });
   const targetState = findStateByLabel(workflow, rule.to);
 
-  if (
-    targetState?.type === STATE_TYPE.TERMINAL
-    && notifyTarget
-    && notifyConfig.pipelineComplete !== false
-  ) {
-    const eventKey = `pipelineComplete:${runtimeState.workflowState}`;
-    const reserved = await reservePipelineNotification(workspaceDir, projectSlug, issueId, eventKey);
-
-    if (reserved) {
-      const delivered = await notify(
-        {
-          type: "pipelineComplete",
-          project: projectName,
-          issueId,
-          issueTitle: issue.title,
-          issueUrl: issue.web_url,
-          terminalState: rule.to,
-          pullRequestUrl: prUrl,
-          mergeResult: mergedPr ? "merged" : undefined,
-          testResult: role === "tester" ? result : undefined,
-          issueClosed: rule.actions.includes(ACTION.CLOSE_ISSUE),
-        },
-        {
-          workspaceDir,
-          config: notifyConfig,
-          channelId: notifyTarget.channelId,
-          channel: notifyTarget.channel,
-          threadId: notifyTarget.threadId,
-          runtime,
-          accountId: notifyTarget.accountId,
-          agentId: project.agentId,
-          runCommand: rc,
-        },
-      );
-
-      if (delivered) {
-        await confirmPipelineNotification(workspaceDir, projectSlug, issueId, eventKey);
-      }
-    }
-  }
-
-  // Deactivate worker last (non-critical — session cleanup)
-  await deactivateWorker(workspaceDir, projectSlug, role, { level: opts.level, slotIndex: opts.slotIndex, issueId });
-
-  // Send review routing notification when developer completes
-  if (role === "developer" && result === COMPLETION_RESULT.DONE) {
-    // Re-fetch issue to get labels after transition
-    const updated = await provider.getIssue(issueId);
-    const routing = runtimeState.reviewPolicy === "human" || runtimeState.reviewPolicy === "agent"
-      ? runtimeState.reviewPolicy
-      : null;
-
-    if (routing === "human" || routing === "agent") {
-      notify(
-        {
-          type: "reviewNeeded",
-          project: projectName,
-          issueId,
-          issueUrl: updated.web_url,
-          issueTitle: updated.title,
-          routing,
-          prUrl,
-        },
-        {
-          workspaceDir,
-          config: notifyConfig,
-          channelId: notifyTarget?.channelId,
-          channel: notifyTarget?.channel ?? NOTIFICATION_CHANNEL.TELEGRAM,
-          threadId: notifyTarget?.threadId,
-          runtime,
-          accountId: notifyTarget?.accountId,
-          agentId: project.agentId,
-        },
-      ).catch((err) => {
-        auditLog(workspaceDir, "pipeline_warning", { step: "reviewNotify", issue: issueId, role, error: (err as Error).message ?? String(err) }).catch(() => { });
-      });
-    }
-  }
-
   if (targetState?.type === STATE_TYPE.TERMINAL) {
-    const archived = await archiveManagedIssue({
+    await archiveTerminalIssueLocked({
       workspaceDir,
       projectSlug,
       issueId,
-      archiveReason: ISSUE_ARCHIVE_REASON.TERMINAL,
-      snapshot: { title: issue.title, issueUrl: issue.web_url },
-      actor: "pipeline_completion",
-      correlationId: `terminal:${projectSlug}:${issueId}:${runtimeState.workflowState}`,
+      workflow,
+      issue,
+      actor: PIPELINE_OWNER.COMPLETION,
+      workflowState: runtimeState.workflowState,
     });
-
-    if (!archived.archived && archived.reason !== "notification_pending") {
-      throw new Error(`Terminal issue #${issueId} could not be archived: ${archived.reason ?? "unknown"}.`);
-    }
   }
 
-  // Build announcement using workflow-derived emoji
-  const emoji = getCompletionEmoji(result);
-  const label = key.replace(":", " ").toUpperCase();
-  let announcement = `${emoji} ${label} #${issueId}`;
-
-  if (summary) announcement += ` — ${summary}`;
-  announcement += `\n📋 [Issue #${issueId}](${issue.web_url})`;
-  if (prUrl) announcement += `\n🔗 [PR](${prUrl})`;
-  if (createdTasks && createdTasks.length > 0) {
-    announcement += `\n📌 Created tasks:`;
-    for (const t of createdTasks) {
-      announcement += `\n  - [#${t.id}: ${t.title}](${t.url})`;
-    }
-  }
-
-  announcement += `\n${nextState}.`;
+  const announcement = renderCompletionAnnouncement(opts, issue.web_url, prUrl, nextState);
 
   return {
     labelTransition: `${rule.from} → ${rule.to}`,
@@ -524,24 +201,4 @@ async function executeCompletionLocked(opts: {
     issueClosed: rule.actions.includes(ACTION.CLOSE_ISSUE),
     issueReopened: rule.actions.includes(ACTION.REOPEN_ISSUE),
   };
-}
-
-function getMergeFailedTransition(
-  workflow: WorkflowConfig,
-  fromLabel: string,
-): { key: string; label: string } | null {
-  const fromState = findStateByLabel(workflow, fromLabel);
-  const mergeFailed = fromState?.on?.[WORKFLOW_EVENT.MERGE_FAILED];
-
-  if (mergeFailed) {
-    const key = mergeFailed.target;
-    const state = workflow.states[key];
-
-    return state ? { key, label: state.label } : null;
-  }
-
-  const toImprove = findStateByLabel(workflow, "To Improve");
-  const toImproveKey = toImprove ? findStateKeyByLabel(workflow, toImprove.label) : null;
-
-  return toImprove && toImproveKey ? { key: toImproveKey, label: toImprove.label } : null;
 }

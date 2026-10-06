@@ -6,6 +6,10 @@ CLI modules parse terminal input, call application use cases, and format termina
 output. Business behavior belongs in `lib/application`, not inside command
 handlers.
 
+The `worker-delivery` command previews or applies an operator-verified conclusion
+for an unresolved worker turn. It requires the exact session key, delivery operation ID, and an audit reason;
+application code validates the fresh issue and slot before changing either.
+
 ## Boundary Rules
 
 - Keep command parsing and terminal rendering here.
@@ -14,3 +18,8 @@ handlers.
   case exists.
 
 Use `npm run arch:check:strict` after changing this layer.
+
+Setup calls the same application command as the setup tool, including preflight
+and dry-run validation. `--eject-defaults`, `--reset-defaults`, and
+`--refresh-instructions` select standalone file operations; ordinary setup preserves
+existing files. Doctor remains read-only.

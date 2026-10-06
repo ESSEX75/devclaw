@@ -1,4 +1,5 @@
 /** Resolves validated merged configuration into application-facing runtime contracts. */
+
 import { DEFAULT_WORKFLOW, isBuiltInRoleId } from "../../domain/index.js";
 import { getAllRoleIds, requireRole } from "../../roles/index.js";
 import { copyBuiltInLevels } from "./defaults.js";

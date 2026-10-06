@@ -1,6 +1,7 @@
 /**
  * Queries over fully resolved role configuration.
  */
+
 import type { ResolvedConfig, ResolvedRoleConfig } from "./types.js";
 
 /**

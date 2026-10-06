@@ -1,51 +1,34 @@
 /**
  * projection.ts — Heartbeat projection integrity pass.
  */
+
 import { log as auditLog } from "../../audit.js";
-import type { Project } from "../../domain/index.js";
-import { ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, type WorkflowConfig } from "../../domain/index.js";
-import type { IssueReader, LabelProjector } from "../../integrations/providers/capabilities.js";
+import { ISSUE_ARCHIVE_REASON, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, UNVERIFIED_INTEGRITY_ERROR } from "../../domain/index.js";
 import { isProviderIssueLookupError, PROVIDER_ISSUE_LOOKUP_ERROR } from "../../integrations/providers/index.js";
 import {
   extractIssueMetadata,
   metadataMatches,
-  type ProjectionDiff,
 } from "../../projection/index.js";
-import { isIssueCreationReady, readIssueStateStore, updateIssueStateStore } from "../../state/index.js";
-import { archiveManagedIssue } from "../issues/index.js";
-import { reconcileManagedLabels } from "../projection/index.js";
+import { isIssueCreationReady, readIssueStateStore, updateIssueStateStore, withIssueOrchestrationLock } from "../../state/index.js";
+import { archiveManagedIssueLocked } from "../issues/index.js";
+import { reconcileManagedLabelsLocked } from "../projection/index.js";
+import {
+  HEARTBEAT_MISSING_CONFIRMATIONS,
+  HEARTBEAT_MISSING_DURATION_MS,
+  HEARTBEAT_PROJECTION_AUDIT_EVENT,
+  HEARTBEAT_PROJECTION_AUDIT_REASON,
+  HEARTBEAT_PROJECTION_ERROR,
+  HEARTBEAT_PROJECTION_OWNER,
+  HEARTBEAT_PROVIDER_DELETED_CORRELATION_PREFIX,
+  PROJECTION_INTEGRITY_ACTION,
+} from "./const.js";
+import type { ProjectionIntegrityInput, ProjectionIntegrityResult } from "./types.js";
 
-export type ProjectionIntegrityAction =
-  | "label_repair"
-  | "metadata_error"
-  | "provider_missing"
-  | "provider_fetch_error";
-
-export type ProjectionIntegrityEvent = {
-  issueId: number;
-  action: ProjectionIntegrityAction;
-  diff?: ProjectionDiff;
-  errors?: string[];
-};
-
-export type ProjectionIntegrityResult = {
-  checked: number;
-  removed: number;
-  repaired: number;
-  errors: number;
-  skipped: number;
-  events: ProjectionIntegrityEvent[];
-};
-
-export async function projectionIntegrityPass(opts: {
-  workspaceDir: string;
-  project: Pick<Project, "slug">;
-  provider: Pick<IssueReader, "getIssue">
-    & Pick<LabelProjector, "ensureLabel" | "addLabel" | "removeLabels">;
-  workflow: WorkflowConfig;
-  roles: string[];
-  now?: Date;
-}): Promise<ProjectionIntegrityResult> {
+/** Check provider identity and metadata under the issue lock before reconciling labels.
+ * Only diagnostics verified by this pass can be cleared; unrelated blockers remain.
+ * @param opts - Resolved project/provider dependencies and optional observation timestamp.
+ */
+export async function projectionIntegrityPass(opts: ProjectionIntegrityInput): Promise<ProjectionIntegrityResult> {
   const { workspaceDir, project, provider, workflow, roles } = opts;
   const store = await readIssueStateStore(workspaceDir, project.slug);
   const states = Object.values(store.issues);
@@ -58,130 +41,139 @@ export async function projectionIntegrityPass(opts: {
     events: [],
   };
 
-  for (const state of states) {
-    if (!await isIssueCreationReady(workspaceDir, project.slug, state.creationOperationId)) continue;
-    result.checked++;
-    let issue: Awaited<ReturnType<typeof provider.getIssue>>;
+  for (const candidate of states) {
+    await withIssueOrchestrationLock(workspaceDir, project.slug, candidate.issueId, async () => {
+      const state = (await readIssueStateStore(workspaceDir, project.slug)).issues[String(candidate.issueId)];
 
-    try {
-      issue = await provider.getIssue(state.issueId);
-    } catch (err) {
-      if (isProviderIssueLookupError(err) && err.code === PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND) {
-        result.events.push({ issueId: state.issueId, action: "provider_missing" });
-        const missing = await recordProviderMissing(workspaceDir, project.slug, state.issueId, opts.now ?? new Date());
+      if (!state) return;
+      if (!await isIssueCreationReady(workspaceDir, project.slug, state.creationOperationId)) return;
+      result.checked++;
+      let issue: Awaited<ReturnType<typeof provider.getIssue>>;
 
-        await auditLog(workspaceDir, "issue_provider_deleted_detected", {
-          projectSlug: project.slug,
-          issueId: state.issueId,
-          provider: state.provider,
-          actor: "heartbeat_projection",
-          reason: "confirmed_issue_not_found",
-          correlationId: `provider-deleted:${project.slug}:${state.issueId}`,
-          confirmations: missing.confirmations,
-        });
+      try {
+        issue = await provider.getIssue(state.issueId);
+      } catch (err) {
+        if (isProviderIssueLookupError(err) && err.code === PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND) {
+          result.events.push({ issueId: state.issueId, action: PROJECTION_INTEGRITY_ACTION.PROVIDER_MISSING });
+          const missing = await recordProviderMissing(workspaceDir, project.slug, state.issueId, opts.now ?? new Date());
+          const correlationId = `${HEARTBEAT_PROVIDER_DELETED_CORRELATION_PREFIX}${project.slug}:${state.issueId}`;
 
-        const stableMissing = missing.confirmations >= 3
-          && Date.parse(missing.lastConfirmedAt) - Date.parse(missing.firstConfirmedAt) >= 15 * 60_000;
-
-        if (stableMissing && !state.activeWorker) {
-          const archive = await archiveManagedIssue({
-            workspaceDir,
+          await auditLog(workspaceDir, HEARTBEAT_PROJECTION_AUDIT_EVENT.PROVIDER_DELETED_DETECTED, {
             projectSlug: project.slug,
             issueId: state.issueId,
-            archiveReason: "provider_deleted",
-            providerDeletedAt: missing.lastConfirmedAt,
-            actor: "heartbeat_projection",
-            correlationId: `provider-deleted:${project.slug}:${state.issueId}`,
+            provider: state.provider,
+            actor: HEARTBEAT_PROJECTION_OWNER.INSPECTION,
+            reason: HEARTBEAT_PROJECTION_AUDIT_REASON.ISSUE_NOT_FOUND,
+            correlationId,
+            confirmations: missing.confirmations,
           });
 
-          if (archive.archived) result.removed++;
-        } else {
-          result.skipped++;
+          const stableMissing = missing.confirmations >= HEARTBEAT_MISSING_CONFIRMATIONS
+            && Date.parse(missing.lastConfirmedAt) - Date.parse(missing.firstConfirmedAt) >= HEARTBEAT_MISSING_DURATION_MS;
+
+          if (stableMissing && !state.activeWorker) {
+            const archive = await archiveManagedIssueLocked({
+              workspaceDir,
+              projectSlug: project.slug,
+              issueId: state.issueId,
+              archiveReason: ISSUE_ARCHIVE_REASON.PROVIDER_DELETED,
+              providerDeletedAt: missing.lastConfirmedAt,
+              actor: HEARTBEAT_PROJECTION_OWNER.INSPECTION,
+              correlationId,
+            });
+
+            if (archive.archived) result.removed++;
+          } else {
+            result.skipped++;
+          }
+
+          return;
         }
 
-        continue;
+        result.errors++;
+        const message = err instanceof Error ? err.message : String(err);
+        const errors = [`${HEARTBEAT_PROJECTION_ERROR.FETCH_PREFIX}${message}`];
+
+        result.events.push({ issueId: state.issueId, action: PROJECTION_INTEGRITY_ACTION.PROVIDER_FETCH_ERROR, errors });
+        await markIntegrityError(workspaceDir, project.slug, state.issueId, errors);
+        await auditLog(workspaceDir, HEARTBEAT_PROJECTION_AUDIT_EVENT.INTEGRITY_ERROR, {
+          projectSlug: project.slug,
+          issueId: state.issueId,
+          reason: HEARTBEAT_PROJECTION_AUDIT_REASON.PROVIDER_FETCH_ERROR,
+          errors,
+        });
+
+        return;
       }
 
-      result.errors++;
-      const message = err instanceof Error ? err.message : String(err);
-      const errors = [`provider issue fetch failed: ${message}`];
+      if (state.providerMissing) await clearProviderMissing(workspaceDir, project.slug, state.issueId);
 
-      result.events.push({ issueId: state.issueId, action: "provider_fetch_error", errors });
-      await markIntegrityError(workspaceDir, project.slug, state.issueId, errors);
-      await auditLog(workspaceDir, "issue_projection_integrity_error", {
+      const metadata = extractIssueMetadata(issue.description ?? "");
+      const expectedMetadata = {
         projectSlug: project.slug,
         issueId: state.issueId,
-        reason: "provider_fetch_error",
-        errors,
-      });
-      continue;
-    }
+      };
 
-    if (state.providerMissing) await clearProviderMissing(workspaceDir, project.slug, state.issueId);
+      if (!metadataMatches(metadata, expectedMetadata)) {
+        result.errors++;
+        const errors = [
+          metadata
+            ? HEARTBEAT_PROJECTION_ERROR.METADATA_MISMATCH
+            : HEARTBEAT_PROJECTION_ERROR.METADATA_MISSING,
+        ];
 
-    if (issue.state === "closed" || issue.state === "CLOSED") {
-      result.skipped++;
-      continue;
-    }
+        result.events.push({ issueId: state.issueId, action: PROJECTION_INTEGRITY_ACTION.METADATA_ERROR, errors });
+        await markIntegrityError(workspaceDir, project.slug, state.issueId, errors);
+        await auditLog(workspaceDir, HEARTBEAT_PROJECTION_AUDIT_EVENT.INTEGRITY_ERROR, {
+          projectSlug: project.slug,
+          issueId: state.issueId,
+          reason: metadata ? HEARTBEAT_PROJECTION_AUDIT_REASON.METADATA_MISMATCH
+            : HEARTBEAT_PROJECTION_AUDIT_REASON.METADATA_MISSING,
+          errors,
+        });
 
-    const metadata = extractIssueMetadata(issue.description ?? "");
-    const expectedMetadata = {
-      projectSlug: project.slug,
-      issueId: state.issueId,
-      projectionVersion: state.projectionVersion,
-    };
-
-    if (!metadataMatches(metadata, expectedMetadata)) {
-      result.errors++;
-      const errors = [
-        metadata
-          ? "issue metadata does not match local issue state"
-          : "issue metadata is missing",
-      ];
-
-      result.events.push({ issueId: state.issueId, action: "metadata_error", errors });
-      await markIntegrityError(workspaceDir, project.slug, state.issueId, errors);
-      await auditLog(workspaceDir, "issue_projection_integrity_error", {
-        projectSlug: project.slug,
-        issueId: state.issueId,
-        reason: metadata ? "metadata_mismatch" : "metadata_missing",
-        errors,
-      });
-      continue;
-    }
-
-    const { diff } = await reconcileManagedLabels({
-      workspaceDir,
-      projectSlug: project.slug,
-      issueId: state.issueId,
-      workflow,
-      roles,
-      provider,
-      owner: "heartbeat_projection_repair",
-    });
-
-    if (diff.missingManagedLabels.length === 0 && diff.unexpectedManagedLabels.length === 0) {
-      if (state.integrityStatus !== ISSUE_INTEGRITY_STATUS.OK || state.integrityErrors.length > 0) {
-        await setIntegrityStatus(workspaceDir, project.slug, state.issueId, ISSUE_INTEGRITY_STATUS.OK, []);
+        return;
       }
 
-      continue;
-    }
+      const { diff } = await reconcileManagedLabelsLocked({
+        workspaceDir,
+        projectSlug: project.slug,
+        issueId: state.issueId,
+        workflow,
+        roles,
+        provider,
+        owner: HEARTBEAT_PROJECTION_OWNER.REPAIR,
+      });
 
-    result.repaired++;
-    result.events.push({ issueId: state.issueId, action: "label_repair", diff });
-    await setIntegrityStatus(workspaceDir, project.slug, state.issueId, ISSUE_INTEGRITY_STATUS.OK, []);
-    await auditLog(workspaceDir, "issue_projection_label_repair", {
-      projectSlug: project.slug,
-      issueId: state.issueId,
-      missingManagedLabels: diff.missingManagedLabels,
-      unexpectedManagedLabels: diff.unexpectedManagedLabels,
+      if (diff.missingManagedLabels.length === 0 && diff.unexpectedManagedLabels.length === 0) {
+        if (state.integrityStatus !== ISSUE_INTEGRITY_STATUS.OK || state.integrityErrors.length > 0) {
+          await setIntegrityStatus(workspaceDir, project.slug, state.issueId, ISSUE_INTEGRITY_STATUS.OK, []);
+        }
+
+        return;
+      }
+
+      result.repaired++;
+      result.events.push({ issueId: state.issueId, action: PROJECTION_INTEGRITY_ACTION.LABEL_REPAIR, diff });
+      await setIntegrityStatus(workspaceDir, project.slug, state.issueId, ISSUE_INTEGRITY_STATUS.OK, []);
+      await auditLog(workspaceDir, HEARTBEAT_PROJECTION_AUDIT_EVENT.LABEL_REPAIR, {
+        projectSlug: project.slug,
+        issueId: state.issueId,
+        missingManagedLabels: diff.missingManagedLabels,
+        unexpectedManagedLabels: diff.unexpectedManagedLabels,
+      });
     });
   }
 
   return result;
 }
 
+/** Record confirmed absence while preserving independent failures.
+ * @param workspaceDir - Workspace containing issue state.
+ * @param projectSlug - Canonical owning project.
+ * @param issueId - Provider issue identifier.
+ * @param now - Time of the confirmed absence.
+ */
 async function recordProviderMissing(
   workspaceDir: string,
   projectSlug: string,
@@ -197,11 +189,16 @@ async function recordProviderMissing(
       ? { ...issue.providerMissing, confirmations: issue.providerMissing.confirmations + 1, lastConfirmedAt: timestamp }
       : { confirmations: 1, firstConfirmedAt: timestamp, lastConfirmedAt: timestamp };
 
+    const retainedErrors = issue.integrityErrors.filter(message => !message.startsWith(HEARTBEAT_PROJECTION_ERROR.MISSING_PREFIX));
+
+    if (issue.integrityStatus !== ISSUE_INTEGRITY_STATUS.OK && issue.integrityErrors.length === 0) retainedErrors.push(UNVERIFIED_INTEGRITY_ERROR);
     const updated = {
       ...issue,
       providerMissing: missing,
-      integrityStatus: ISSUE_INTEGRITY_STATUS.PROJECTION_DRIFT,
-      integrityErrors: [`provider_missing_pending:${missing.confirmations}`],
+      integrityStatus: retainedErrors.length > 0 || issue.integrityStatus === ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
+        ? ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR : ISSUE_INTEGRITY_STATUS.PROJECTION_DRIFT,
+      integrityErrors: [...retainedErrors,
+        `${HEARTBEAT_PROJECTION_ERROR.MISSING_PREFIX}${missing.confirmations}`],
       updatedAt: timestamp,
     };
 
@@ -209,17 +206,23 @@ async function recordProviderMissing(
   });
 }
 
+/** Clear only provider-missing diagnostics after a successful lookup.
+ * @param workspaceDir - Workspace containing issue state.
+ * @param projectSlug - Canonical owning project.
+ * @param issueId - Provider issue identifier.
+ */
 async function clearProviderMissing(workspaceDir: string, projectSlug: string, issueId: number): Promise<void> {
   await updateIssueStateStore(workspaceDir, projectSlug, (data) => {
     const issue = data.issues[String(issueId)];
 
     if (!issue) return { store: data, result: undefined };
-    const clearIntegrity = issue.integrityErrors.every((message) => message.startsWith("provider_missing_pending:"));
+    const integrityErrors = issue.integrityErrors.filter(message => !message.startsWith(HEARTBEAT_PROJECTION_ERROR.MISSING_PREFIX));
+    const clearIntegrity = integrityErrors.length === 0 && integrityErrors.length !== issue.integrityErrors.length;
     const updated = {
       ...issue,
       providerMissing: null,
       integrityStatus: clearIntegrity ? ISSUE_INTEGRITY_STATUS.OK : issue.integrityStatus,
-      integrityErrors: clearIntegrity ? [] : issue.integrityErrors,
+      integrityErrors,
       updatedAt: new Date().toISOString(),
     };
 
@@ -227,6 +230,12 @@ async function clearProviderMissing(workspaceDir: string, projectSlug: string, i
   });
 }
 
+/** Add observed heartbeat errors without discarding independent blockers.
+ * @param workspaceDir - Workspace containing issue state.
+ * @param projectSlug - Canonical owning project.
+ * @param issueId - Provider issue identifier.
+ * @param errors - Observed errors retained until their own verification succeeds.
+ */
 async function markIntegrityError(
   workspaceDir: string,
   projectSlug: string,
@@ -236,6 +245,13 @@ async function markIntegrityError(
   await setIntegrityStatus(workspaceDir, projectSlug, issueId, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR, errors);
 }
 
+/** Merge failures or clear only verified heartbeat provider/metadata diagnostics.
+ * @param workspaceDir - Workspace containing issue state.
+ * @param projectSlug - Canonical owning project.
+ * @param issueId - Provider issue identifier.
+ * @param integrityStatus - Whether this observation verified heartbeat projection checks.
+ * @param integrityErrors - New diagnostics; empty on successful verification.
+ */
 async function setIntegrityStatus(
   workspaceDir: string,
   projectSlug: string,
@@ -247,7 +263,20 @@ async function setIntegrityStatus(
     const issue = data.issues[String(issueId)];
 
     if (!issue) return { store: data, result: undefined };
-    const updated = { ...issue, integrityStatus, integrityErrors, updatedAt: new Date().toISOString() };
+    const retained = integrityStatus === ISSUE_INTEGRITY_STATUS.OK
+      ? issue.integrityErrors.filter(message => message !== HEARTBEAT_PROJECTION_ERROR.METADATA_MISSING
+        && message !== HEARTBEAT_PROJECTION_ERROR.METADATA_MISMATCH && !message.startsWith(HEARTBEAT_PROJECTION_ERROR.FETCH_PREFIX))
+      : [...issue.integrityErrors];
+
+    if (integrityErrors.length > 0 && issue.integrityStatus !== ISSUE_INTEGRITY_STATUS.OK && issue.integrityErrors.length === 0) {
+      retained.push(UNVERIFIED_INTEGRITY_ERROR);
+    }
+
+    const errors = [...new Set([...retained, ...integrityErrors])];
+    const clearedOwnedErrors = retained.length !== issue.integrityErrors.length;
+    const status = errors.length > 0 ? ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR
+      : clearedOwnedErrors ? ISSUE_INTEGRITY_STATUS.OK : issue.integrityStatus;
+    const updated = { ...issue, integrityStatus: status, integrityErrors: errors, updatedAt: new Date().toISOString() };
 
     return { store: { ...data, issues: { ...data.issues, [String(issueId)]: updated } }, result: undefined };
   });

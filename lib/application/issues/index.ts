@@ -1,5 +1,16 @@
-/** Public application API for managed-issue archival and deletion lifecycle. */
-export * from "./archive.js";
-export * from "./delete.js";
-export * from "./policy-migration.js";
-export * from "./repair.js";
+/** Exposes managed issue lifecycle commands and their supported results. */
+
+export {
+  ARCHIVE_BLOCK_REASON,
+  archiveManagedIssue,
+  archiveManagedIssueLocked,
+  getIssueArchiveStatus,
+  maintainIssueArchive,
+  parseDuration,
+  purgeIssueArchive,
+  recoverTerminalIssueArchives
+} from "./archive/index.js";
+export { deleteManagedIssue } from "./deletion/index.js";
+export { migrateIssuePolicies } from "./policy/index.js";
+export type { IssueRepairSource } from "./repair/index.js";
+export { isIssueRepairFailure, ISSUE_REPAIR_SOURCE, repairManagedIssue } from "./repair/index.js";

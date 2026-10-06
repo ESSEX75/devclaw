@@ -31,7 +31,6 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
-    projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,
@@ -70,24 +69,24 @@ describe("projection labels", () => {
 
 describe("projection metadata", () => {
   it("renders and extracts compact issue metadata", () => {
-    const metadata = { projectSlug: "devclaw", issueId: 123, projectionVersion: 1 };
+    const metadata = { projectSlug: "devclaw", issueId: 123 };
     const rendered = renderIssueMetadata(metadata);
 
-    assert.strictEqual(rendered, '<!-- devclaw:issue-metadata {"projectSlug":"devclaw","issueId":123,"projectionVersion":1} -->');
+    assert.strictEqual(rendered, '<!-- devclaw:issue-metadata {"projectSlug":"devclaw","issueId":123} -->');
     assert.deepStrictEqual(extractIssueMetadata(rendered), metadata);
   });
 
   it("replaces existing metadata and appends missing metadata", () => {
-    const metadata = { projectSlug: "devclaw", issueId: 123, projectionVersion: 1 };
+    const metadata = { projectSlug: "devclaw", issueId: 123 };
     assert.strictEqual(replaceIssueMetadata("Body", metadata), `Body\n\n${renderIssueMetadata(metadata)}`);
     assert.strictEqual(
-      replaceIssueMetadata(`Body\n\n${renderIssueMetadata({ projectSlug: "x", issueId: 1, projectionVersion: 1 })}`, metadata),
+      replaceIssueMetadata(`Body\n\n${renderIssueMetadata({ projectSlug: "x", issueId: 1 })}`, metadata),
       `Body\n\n${renderIssueMetadata(metadata)}`,
     );
   });
 
   it("detects metadata mismatch without requiring a full state hash", () => {
-    const expected = { projectSlug: "devclaw", issueId: 123, projectionVersion: 1 };
+    const expected = { projectSlug: "devclaw", issueId: 123 };
     assert.strictEqual(metadataMatches(expected, expected), true);
     assert.strictEqual(metadataMatches({ ...expected, issueId: 999 }, expected), false);
   });

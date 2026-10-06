@@ -1,12 +1,12 @@
 /** Registers archive status/purge and confirmed provider issue deletion commands. */
+
 import type { Command } from "commander";
 
-import { deleteManagedIssue, getIssueArchiveStatus, purgeIssueArchive } from "../../application/issues/index.js";
+import { deleteManagedIssue, getIssueArchiveStatus, purgeIssueArchive, resolveProvider } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { loadConfig } from "../../state/index.js";
 import { resetIssueStores } from "../../state/index.js";
 import { readProjects } from "../../state/index.js";
-import { resolveProvider } from "../../tools/helpers.js";
 import { getDefaultWorkspaceDir } from "../options/setup-options.js";
 
 /** Register non-legacy issue archive and deletion CLI operations. */

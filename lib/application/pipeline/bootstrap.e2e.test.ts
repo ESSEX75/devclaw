@@ -9,7 +9,7 @@
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert";
 import { createTestHarness, type TestHarness } from "../../testing/index.js";
-import { dispatchTask } from "../workers/dispatch-task.js";
+import { dispatchTask } from "../workers/index.js";
 
 describe("E2E bootstrap — extraSystemPrompt injection", () => {
   let h: TestHarness;

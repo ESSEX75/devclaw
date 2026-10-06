@@ -1,3 +1,5 @@
+/** Exercises heartbeat projection checks and ownership of persisted diagnostics. */
+
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import fs from "node:fs/promises";
@@ -13,8 +15,12 @@ import { TestProvider } from "../../testing/test-provider.js";
 import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../integrations/providers/index.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
+import { getHeartbeatCandidates } from "./local-candidates.js";
 import { projectionIntegrityPass } from "./projection.js";
 
+/** Build initialized state with explicit overrides for each integrity scenario.
+ * @param overrides - Fields replacing healthy defaults.
+ */
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
     projectSlug: "devclaw",
@@ -31,7 +37,6 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
-    projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,
@@ -41,6 +46,10 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   };
 }
 
+/** Execute a projection scenario against isolated storage and a deterministic provider.
+ * @param issueState - Initial authoritative issue record.
+ * @param fn - Scenario to execute before cleanup.
+ */
 async function withStore<T>(issueState: IssueRuntimeState, fn: (tmpDir: string, provider: TestProvider) => Promise<T>): Promise<T> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-projection-"));
   const provider = new TestProvider();
@@ -54,11 +63,62 @@ async function withStore<T>(issueState: IssueRuntimeState, fn: (tmpDir: string, 
   }
 }
 
+/** Render the trusted issue identity for provider fixtures.
+ * @param issueId - Identity written to the provider body.
+ */
 function metadata(issueId = 123): string {
-  return renderIssueMetadata({ projectSlug: "devclaw", issueId, projectionVersion: 1 });
+  return renderIssueMetadata({ projectSlug: "devclaw", issueId });
 }
 
 describe("projectionIntegrityPass", () => {
+  it("clears verified metadata errors while preserving an independent blocker", async () => {
+    await withStore(state({ integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,
+      integrityErrors: ["worker ownership conflict"] }), async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 123, labels: ["To Do"], description: "Body" });
+      const input = { workspaceDir: tmpDir, project: { slug: "devclaw" }, provider,
+        workflow: DEFAULT_WORKFLOW, roles: ["developer"] };
+      await projectionIntegrityPass(input);
+      assert.deepEqual((await readIssueStateStore(tmpDir, "devclaw")).issues["123"].integrityErrors,
+        ["worker ownership conflict", "issue metadata is missing"]);
+      await provider.editIssue(123, { body: metadata() });
+      await projectionIntegrityPass(input);
+      await projectionIntegrityPass(input);
+      const fresh = (await readIssueStateStore(tmpDir, "devclaw")).issues["123"];
+      assert.deepEqual(fresh.integrityErrors, ["worker ownership conflict"]);
+      assert.equal(fresh.integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
+    });
+  });
+
+  it("recovers metadata-only errors once their metadata and labels are verified", async () => {
+    await withStore(state({ integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,
+      integrityErrors: ["issue metadata is missing"] }), async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 123, labels: ["To Do"], description: metadata() });
+      await projectionIntegrityPass({ workspaceDir: tmpDir, project: { slug: "devclaw" }, provider,
+        workflow: DEFAULT_WORKFLOW, roles: ["developer"] });
+      const fresh = (await readIssueStateStore(tmpDir, "devclaw")).issues["123"];
+      assert.equal(fresh.integrityStatus, ISSUE_INTEGRITY_STATUS.OK);
+      assert.deepEqual(fresh.integrityErrors, []);
+    });
+  });
+
+  it("preserves independent blockers across confirmed provider absence and recovery", async () => {
+    await withStore(state({ integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,
+      integrityErrors: ["worker ownership conflict"] }), async (tmpDir, provider) => {
+      const input = { workspaceDir: tmpDir, project: { slug: "devclaw" }, provider,
+        workflow: DEFAULT_WORKFLOW, roles: ["developer"] };
+      await projectionIntegrityPass({ ...input, now: new Date("2026-06-22T00:00:00Z") });
+      await projectionIntegrityPass({ ...input, now: new Date("2026-06-22T00:08:00Z") });
+      const third = await projectionIntegrityPass({ ...input, now: new Date("2026-06-22T00:16:00Z") });
+      assert.equal(third.removed, 0);
+      provider.seedIssue({ iid: 123, labels: ["To Do"], description: metadata() });
+      await projectionIntegrityPass(input);
+      const fresh = (await readIssueStateStore(tmpDir, "devclaw")).issues["123"];
+      assert.equal(fresh.providerMissing, null);
+      assert.deepEqual(fresh.integrityErrors, ["worker ownership conflict"]);
+      assert.equal(fresh.integrityStatus, ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR);
+    });
+  });
+
   it("keeps local state for authorization failures", async () => {
     class UnauthorizedProvider extends TestProvider {
       override async getIssue(issueId: number): Promise<Awaited<ReturnType<TestProvider["getIssue"]>>> {
@@ -110,6 +170,31 @@ describe("projectionIntegrityPass", () => {
       assert.ok(issue.labels.includes("To Do"));
       assert.ok(issue.labels.includes("bug"));
       assert.ok(!issue.labels.includes("Doing"));
+    });
+  });
+
+  it("verifies and repairs the projection of a provider-closed managed issue", async () => {
+    await withStore(state(), async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 123, labels: ["Doing"], description: metadata(), state: "closed" });
+      const candidates = await getHeartbeatCandidates({
+        workspaceDir: tmpDir, projectSlug: "devclaw", workflowLabel: "To Do", provider,
+      });
+
+      assert.equal(candidates.length, 1);
+
+      const result = await projectionIntegrityPass({
+        workspaceDir: tmpDir,
+        project: { slug: "devclaw" },
+        provider,
+        workflow: DEFAULT_WORKFLOW,
+        roles: ["developer"],
+      });
+
+      assert.equal(result.checked, 1);
+      assert.equal(result.skipped, 0);
+      assert.equal(result.repaired, 1);
+      assert.equal((await readIssueStateStore(tmpDir, "devclaw")).issues["123"].workflowState, "todo");
+      assert.ok((await provider.getIssue(123)).labels.includes("To Do"));
     });
   });
 

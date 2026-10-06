@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { DEFAULT_WORKFLOW, ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
-import { summarizeTaskIssue, type ProjectionViewContext } from "../../application/tasks/index.js";
+import { summarizeTaskIssue, type ProjectionViewContext } from "../../application/index.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
@@ -19,7 +19,6 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
-    projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,

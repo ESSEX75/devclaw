@@ -2,6 +2,7 @@
  * Exposes managed-issue repair to authorized project agents.
  * This adapter validates untrusted tool input and delegates repair semantics to the application layer.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import {
@@ -9,9 +10,10 @@ import {
   ISSUE_REPAIR_SOURCE,
   type IssueRepairSource,
   repairManagedIssue,
-} from "../../application/issues/index.js";
+  resolveProject,
+} from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
-import { readProjects } from "../../state/index.js";
+import { getProject, readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
 const INPUT_FIELDS = new Set([
@@ -59,14 +61,13 @@ export function createIssueRepairTool(ctx: PluginContext): OpenClawPluginToolFac
 
       if (apply && !planToken) throw new Error("planToken from a matching dry-run is required for apply.");
       const workspaceDir = requireWorkspaceDir(toolCtx);
-      const projects = await readProjects(workspaceDir);
-      const matches = Object.values(projects.projects).filter((project) => (
-        projectInput ? project.slug === projectInput : project.channels.some((endpoint) => endpoint.channelId === channelId)
-      ));
+      const project = projectInput
+        ? getProject(await readProjects(workspaceDir), projectInput)
+        : channelId
+          ? (await resolveProject(workspaceDir, channelId)).project
+          : undefined;
 
-      if (matches.length !== 1) throw new Error("Project selection must resolve to exactly one configured project.");
-      const project = matches[0];
-
+      if (!project) throw new Error("Project selection must resolve to exactly one configured project.");
       if (!toolCtx.agentId || toolCtx.agentId !== project.agentId) {
         throw new Error(`Project "${project.slug}" belongs to agent "${project.agentId}".`);
       }

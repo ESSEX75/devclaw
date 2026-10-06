@@ -6,7 +6,8 @@ import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 
 import { getLabelColors, getStateLabels } from "../../domain/index.js";
-import { getConfiguredRoleIds, getResolvedRole, isConfiguredRoleId, loadConfig } from "./index.js";
+import { getConfiguredRoleIds, isConfiguredRoleId, loadConfig } from "./index.js";
+import { getResolvedRole } from "./selectors.js";
 
 /** Temporary workspaces removed after each configuration loader test. */
 const temporaryWorkspaces: string[] = [];

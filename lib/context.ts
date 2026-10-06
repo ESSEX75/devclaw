@@ -4,6 +4,7 @@
  * Created once in register() and threaded to all tools, services, and hooks.
  * Replaces the global singleton in run-command.ts with explicit injection.
  */
+
 import type { OpenClawPluginApi, PluginRuntime } from "openclaw/plugin-sdk/core";
 
 /**

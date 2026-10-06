@@ -1,6 +1,7 @@
 /**
  * Persists current active managed-issue state under its project-level store lock.
  */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 

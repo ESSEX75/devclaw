@@ -1,8 +1,13 @@
-import { describe, it, expect } from "vitest";
-import { formatPrFeedback, type PrFeedback } from "./pr-context.js";
+/** Checks PR feedback rendering through the standard Node test runner. */
+
+import { PR_COMMENT_KIND } from "../../integrations/providers/index.js";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { formatPrFeedback } from "./format.js";
+import type { PrFeedback } from "./types.js";
 
 describe("formatPrFeedback", () => {
-  it("returns empty array when no comments", () => {
+  it("retains conflict context when no comments", () => {
     const feedback: PrFeedback = {
       url: "https://github.com/user/repo/pull/123",
       branchName: "feature/123-test",
@@ -10,7 +15,7 @@ describe("formatPrFeedback", () => {
       comments: [],
     };
     const result = formatPrFeedback(feedback, "main");
-    expect(result).toEqual([]);
+    assert.ok(result.join("\n").includes("feature/123-test"));
   });
 
   it("includes branch name in conflict resolution instructions", () => {
@@ -20,6 +25,7 @@ describe("formatPrFeedback", () => {
       reason: "merge_conflict",
       comments: [
         {
+          kind: PR_COMMENT_KIND.CONVERSATION,
           id: 1,
           author: "reviewer",
           body: "Conflicts detected",
@@ -30,18 +36,19 @@ describe("formatPrFeedback", () => {
     const result = formatPrFeedback(feedback, "main");
     const text = result.join("\n");
 
-    expect(text).toContain("feature/456-test");
-    expect(text).toContain("🔹 Branch: `feature/456-test`");
-    expect(text).toContain("git checkout feature/456-test");
-    expect(text).toContain("git push --force-with-lease origin feature/456-test");
+    assert.ok(text.includes("feature/456-test"));
+    assert.ok(text.includes("🔹 Branch: `feature/456-test`"));
+    assert.ok(text.includes("git checkout feature/456-test"));
+    assert.ok(text.includes("git push --force-with-lease origin feature/456-test"));
   });
 
-  it("uses fallback branch name when not provided", () => {
+  it("asks to identify the source branch when not provided", () => {
     const feedback: PrFeedback = {
       url: "https://github.com/user/repo/pull/123",
       reason: "merge_conflict",
       comments: [
         {
+          kind: PR_COMMENT_KIND.CONVERSATION,
           id: 1,
           author: "reviewer",
           body: "Conflicts detected",
@@ -52,8 +59,8 @@ describe("formatPrFeedback", () => {
     const result = formatPrFeedback(feedback, "main");
     const text = result.join("\n");
 
-    expect(text).toContain("your-branch");
-    expect(text).toContain("🔹 Branch: `your-branch`");
+    assert.ok(!text.includes("your-branch"));
+    assert.ok(text.includes("Find the source branch using the PR URL"));
   });
 
   it("includes step-by-step instructions for conflict resolution", () => {
@@ -63,6 +70,7 @@ describe("formatPrFeedback", () => {
       reason: "merge_conflict",
       comments: [
         {
+          kind: PR_COMMENT_KIND.CONVERSATION,
           id: 1,
           author: "reviewer",
           body: "Fix the conflicts",
@@ -74,16 +82,16 @@ describe("formatPrFeedback", () => {
     const text = result.join("\n");
 
     // Check all steps are present
-    expect(text).toContain("1. Fetch and check out the PR branch");
-    expect(text).toContain("2. Rebase onto `develop`");
-    expect(text).toContain("3. Resolve any conflicts");
-    expect(text).toContain("4. Force-push to the SAME branch");
-    expect(text).toContain("5. Verify the PR shows as mergeable");
+    assert.ok(text.includes("1. Fetch and check out the PR branch"));
+    assert.ok(text.includes("2. Rebase onto `develop`"));
+    assert.ok(text.includes("3. Resolve any conflicts"));
+    assert.ok(text.includes("4. Force-push to the SAME branch"));
+    assert.ok(text.includes("5. Verify the PR shows as mergeable"));
 
     // Check warning about not creating new PR
-    expect(text).toContain("⚠️ Do NOT create a new PR");
-    expect(text).toContain("Do NOT switch branches");
-    expect(text).toContain("Update THIS PR only");
+    assert.ok(text.includes("⚠️ Do NOT create a new PR"));
+    assert.ok(text.includes("Do NOT switch branches"));
+    assert.ok(text.includes("Update THIS PR only"));
   });
 
   it("correctly formats changes_requested feedback", () => {
@@ -93,6 +101,7 @@ describe("formatPrFeedback", () => {
       reason: "changes_requested",
       comments: [
         {
+          kind: PR_COMMENT_KIND.CONVERSATION,
           id: 1,
           author: "reviewer",
           body: "Please make these changes",
@@ -103,10 +112,10 @@ describe("formatPrFeedback", () => {
     const result = formatPrFeedback(feedback, "main");
     const text = result.join("\n");
 
-    expect(text).toContain("⚠️ Changes were requested");
-    expect(text).toContain("Please make these changes");
+    assert.ok(text.includes("⚠️ Changes were requested"));
+    assert.ok(text.includes("Please make these changes"));
     // Should NOT have conflict resolution instructions
-    expect(text).not.toContain("Conflict Resolution Instructions");
+    assert.ok(!text.includes("Conflict Resolution Instructions"));
   });
 
   it("includes comment location information when available", () => {
@@ -116,6 +125,7 @@ describe("formatPrFeedback", () => {
       reason: "changes_requested",
       comments: [
         {
+          kind: PR_COMMENT_KIND.CONVERSATION,
           id: 1,
           author: "reviewer",
           body: "Fix this logic",
@@ -128,7 +138,7 @@ describe("formatPrFeedback", () => {
     const result = formatPrFeedback(feedback, "main");
     const text = result.join("\n");
 
-    expect(text).toContain("(src/index.ts:42)");
+    assert.ok(text.includes("(src/index.ts:42)"));
   });
 
   it("uses correct base branch in rebase command", () => {
@@ -138,6 +148,7 @@ describe("formatPrFeedback", () => {
       reason: "merge_conflict",
       comments: [
         {
+          kind: PR_COMMENT_KIND.CONVERSATION,
           id: 1,
           author: "reviewer",
           body: "Conflicts",
@@ -149,11 +160,11 @@ describe("formatPrFeedback", () => {
     // Test with "main" base branch
     let result = formatPrFeedback(feedback, "main");
     let text = result.join("\n");
-    expect(text).toContain("git rebase main");
+    assert.ok(text.includes("git rebase main"));
 
     // Test with "develop" base branch
     result = formatPrFeedback(feedback, "develop");
     text = result.join("\n");
-    expect(text).toContain("git rebase develop");
+    assert.ok(text.includes("git rebase develop"));
   });
 });

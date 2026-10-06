@@ -11,12 +11,13 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { createTestHarness, type TestHarness } from "../../testing/index.js";
-import { dispatchTask } from "../workers/dispatch-task.js";
+import { dispatchTask } from "../workers/index.js";
 import { executeCompletion } from "./completion.js";
 import { projectTick } from "../queue/tick.js";
-import { reviewPass } from "../heartbeat/review.js";
+import { reviewPass } from "../heartbeat/review/index.js";
 import {
   DEFAULT_WORKFLOW,
+  findStateKeyByLabel,
   countActiveSlots,
   ISSUE_PROVIDER,
   type LevelId,
@@ -32,7 +33,7 @@ import { readProjects, getRoleWorker, getProject } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
 import { slotName } from "../../names.js";
-import type { NotificationRuntime } from "../notifications/notify.js";
+import type { NotificationRuntime } from "../notifications/index.js";
 
 function notificationRuntime(project: Project): NotificationRuntime {
   const endpoint = project.channels[0];
@@ -49,7 +50,7 @@ function notificationRuntime(project: Project): NotificationRuntime {
           match: {
             channel: endpoint.channel,
             accountId: endpoint.accountId,
-            peer: { id: endpoint.channelId },
+            peer: { kind: "group", id: endpoint.channelId },
           },
         }],
       }),
@@ -103,6 +104,26 @@ describe("E2E pipeline", () => {
       testPolicy: args.testPolicy ?? null,
     });
     return issue;
+  }
+
+  /** Simulate dispatch by updating both provider projection and authoritative state.
+   * @param issueId - Issue entering an active worker state.
+   * @param from - Current visible workflow label.
+   * @param to - Active workflow label.
+   */
+  async function activateFixtureState(issueId: number, from: string, to: string): Promise<void> {
+    await h.provider.transitionLabel(issueId, from, to);
+    const key = findStateKeyByLabel(DEFAULT_WORKFLOW, to);
+    if (!key) throw new Error(`Unknown fixture state: ${to}`);
+    await writeIssueRuntimeState({
+      workspaceDir: h.workspaceDir,
+      project: h.project,
+      issue: await h.provider.getIssue(issueId),
+      providerType: h.project.provider,
+      workflow: DEFAULT_WORKFLOW,
+      workflowState: key,
+      workflowLabel: to,
+    });
   }
 
   // =========================================================================
@@ -547,7 +568,7 @@ describe("E2E pipeline", () => {
           tester: { active: true, issueId: 40, level: "medior" },
         },
       });
-      h.provider.seedIssue({ iid: 40, title: "Check signup", labels: ["Testing"] });
+      h.provider.seedIssue({ iid: 40, title: "Check signup", labels: ["Testing"], state: "closed" });
     });
 
     it("should transition Testing → To Improve, reopen issue", async () => {
@@ -972,7 +993,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "reviewer", {
         issueId: 100, level: "junior",
       });
-      await h.provider.transitionLabel(100, "To Review", "Reviewing");
+      await activateFixtureState(100, "To Review", "Reviewing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -995,7 +1016,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "tester", {
         issueId: 100, level: "medior",
       });
-      await h.provider.transitionLabel(100, "To Test", "Testing");
+      await activateFixtureState(100, "To Test", "Testing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -1079,7 +1100,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "tester", {
         issueId: 200, level: "medior",
       });
-      await h.provider.transitionLabel(200, "To Test", "Testing");
+      await activateFixtureState(200, "To Test", "Testing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -1144,7 +1165,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "reviewer", {
         issueId: 300, level: "junior",
       });
-      await h.provider.transitionLabel(300, "To Review", "Reviewing");
+      await activateFixtureState(300, "To Review", "Reviewing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -1201,7 +1222,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "reviewer", {
         issueId: 300, level: "junior",
       });
-      await h.provider.transitionLabel(300, "To Review", "Reviewing");
+      await activateFixtureState(300, "To Review", "Reviewing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -1224,7 +1245,7 @@ describe("E2E pipeline", () => {
       await activateWorker(h.workspaceDir, h.project.slug, "tester", {
         issueId: 300, level: "medior",
       });
-      await h.provider.transitionLabel(300, "To Test", "Testing");
+      await activateFixtureState(300, "To Test", "Testing");
 
       await executeCompletion({
         workspaceDir: h.workspaceDir,
@@ -1257,7 +1278,9 @@ describe("E2E pipeline", () => {
 
     it("reviewPolicy: human should skip reviewer dispatch", async () => {
       h = await createTestHarness();
-      h.provider.seedIssue({ iid: 80, title: "Needs review", labels: ["To Review"] });
+      await seedManagedQueueIssue({ iid: 80, title: "Needs review", labels: ["To Review"],
+        workflowState: "toReview", workflowLabel: "To Review", assignedRole: "reviewer", assignedLevel: "junior",
+        reviewPolicy: REVIEW_POLICY.HUMAN });
 
       const result = await projectTick({
         workspaceDir: h.workspaceDir,
@@ -1269,9 +1292,9 @@ describe("E2E pipeline", () => {
       });
 
       assert.strictEqual(result.pickups.length, 0, "Should NOT dispatch reviewer");
-      const reviewerSkip = result.skipped.find((s) => s.role === "reviewer");
-      assert.ok(reviewerSkip, "Should have skipped reviewer");
-      assert.ok(reviewerSkip!.reason.includes("human"), `Skip reason: ${reviewerSkip!.reason}`);
+      assert.equal(h.provider.callsTo("getIssue").length, 0, "Saved policy filters the issue before provider lookup");
+      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.commands.taskMessages().length, 0);
     });
 
     it("reviewPolicy: agent should dispatch reviewer", async () => {
@@ -1305,7 +1328,9 @@ describe("E2E pipeline", () => {
 
     it("reviewPolicy: skip should never dispatch reviewer", async () => {
       h = await createTestHarness();
-      h.provider.seedIssue({ iid: 82, title: "Small fix", labels: ["To Review"] });
+      await seedManagedQueueIssue({ iid: 82, title: "Small fix", labels: ["To Review"],
+        workflowState: "toReview", workflowLabel: "To Review", assignedRole: "reviewer", assignedLevel: "junior",
+        reviewPolicy: REVIEW_POLICY.SKIP });
 
       const result = await projectTick({
         workspaceDir: h.workspaceDir,
@@ -1318,9 +1343,9 @@ describe("E2E pipeline", () => {
       });
 
       assert.strictEqual(result.pickups.length, 0, "Should NOT dispatch reviewer under skip policy");
-      const reviewerSkip = result.skipped.find((s) => s.role === "reviewer");
-      assert.ok(reviewerSkip, "Should have skipped reviewer");
-      assert.ok(reviewerSkip!.reason.includes("skip"), `Skip reason: ${reviewerSkip!.reason}`);
+      assert.equal(h.provider.callsTo("getIssue").length, 0, "Saved policy filters the issue before provider lookup");
+      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.commands.taskMessages().length, 0);
     });
 
     it("reviewPolicy: human should still allow developer and tester dispatch", async () => {
@@ -1527,9 +1552,9 @@ describe("E2E pipeline", () => {
       });
 
       assert.strictEqual(result.pickups.length, 0, "Should NOT dispatch reviewer for review:human");
-      const reviewerSkip = result.skipped.find((s) => s.role === "reviewer");
-      assert.ok(reviewerSkip, "Should have skipped reviewer");
-      assert.ok(reviewerSkip!.reason.includes("review:human"), `Skip reason: ${reviewerSkip!.reason}`);
+      assert.equal(h.provider.callsTo("getIssue").length, 0, "Saved policy filters the issue before provider lookup");
+      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.commands.taskMessages().length, 0);
     });
 
     it("projectTick should dispatch reviewer when local reviewPolicy=agent", async () => {

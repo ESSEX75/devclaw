@@ -9,14 +9,15 @@
  * - A sub-agent finds a bug and needs to file a follow-up issue
  * - Breaking down an epic into smaller tasks
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { createManagedTaskIssue } from "../../application/tasks/index.js";
+import { createManagedTaskIssue, resolveProject, resolveProvider } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import type { NotifyBindingRef } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
 import { loadConfig } from "../../state/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 export function createTaskCreateTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
@@ -64,14 +65,11 @@ export function createTaskCreateTool(ctx: PluginContext): OpenClawPluginToolFact
       const idempotencyKey = requiredString(params.idempotencyKey, "idempotencyKey");
       const workspaceDir = requireWorkspaceDir(toolCtx);
 
-      const { project } = await resolveProject(workspaceDir, channelId);
+      const { project, endpoint } = await resolveProject(workspaceDir, channelId);
       const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const resolvedConfig = await loadConfig(workspaceDir, project.slug);
       const instanceName = await loadInstanceName(workspaceDir, resolvedConfig.instanceName);
-      const sourceChannel = project.channels.find((ch) => ch.channelId === channelId) ?? project.channels[0];
-      const notifyTarget: NotifyBindingRef | null = sourceChannel
-        ? { channel: sourceChannel.channel, name: sourceChannel.name }
-        : null;
+      const notifyTarget: NotifyBindingRef = { channel: endpoint.channel, name: endpoint.name };
 
       const created = await createManagedTaskIssue({
         workspaceDir,

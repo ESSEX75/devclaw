@@ -1,9 +1,11 @@
+/** Exercises notification policy and delivery evidence through the application API. */
+
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { notify, type NotificationRuntime } from "./notify.js";
+import { getNotificationConfig, notify, type NotificationRuntime } from "./index.js";
 import type { RunCommand } from "../../context.js";
 import { NOTIFICATION_CHANNEL } from "../../domain/index.js";
 
@@ -29,7 +31,7 @@ function runtimeWithSendText(
           match: {
             channel: "telegram",
             accountId: "dev",
-            peer: { id: "telegram:123" },
+            peer: { kind: "group", id: "telegram:123" },
           },
         }],
       }),
@@ -50,6 +52,12 @@ function runtimeWithoutSender(): NotificationRuntime {
 }
 
 describe("notifications", () => {
+  it("accepts only boolean toggles for supported events", () => {
+    assert.deepEqual(getNotificationConfig({ notifications: {
+      workerStart: false, prMerged: "false", unrelated: false,
+    } }), { workerStart: false });
+  });
+
   it("blocks delivery when the exact route is not bound to the project agent", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-notify-"));
     const calls: string[][] = [];
@@ -66,6 +74,7 @@ describe("notifications", () => {
         issueId: 10,
         issueUrl: "https://example.com/issues/10",
         issueTitle: "Needs changes",
+        nextState: "To Improve",
       }, {
         workspaceDir: tmpDir,
         channelId: "another-chat",
@@ -76,7 +85,7 @@ describe("notifications", () => {
         runCommand,
       });
 
-      assert.equal(result, null);
+      assert.equal(result.delivered, false);
       assert.equal(calls.length, 0);
       const events = await readAuditEvents(tmpDir);
 
@@ -148,6 +157,7 @@ describe("notifications", () => {
           issueId: 10,
           issueUrl: "https://example.com/issues/10",
           issueTitle: "Needs changes",
+          nextState: "To Improve",
         },
         {
           workspaceDir: tmpDir,
@@ -175,7 +185,7 @@ describe("notifications", () => {
     }
   });
 
-  it("records one fallback success after runtime delivery fails", async () => {
+  it("does not resend through CLI when runtime acceptance is unknown", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-notify-"));
     const calls: string[][] = [];
     const runCommand: RunCommand = async (argv: string[]) => {
@@ -191,6 +201,7 @@ describe("notifications", () => {
           issueId: 10,
           issueUrl: "https://example.com/issues/10",
           issueTitle: "Needs changes",
+          nextState: "To Improve",
         },
         {
           workspaceDir: tmpDir,
@@ -205,10 +216,10 @@ describe("notifications", () => {
         },
       );
 
-      assert.strictEqual(result?.path, "fallback");
-      assert.strictEqual(calls.length, 1);
+      assert.strictEqual(result.status, "unknown");
+      assert.strictEqual(calls.length, 0);
       const events = await readAuditEvents(tmpDir);
-      assert.deepStrictEqual(events.map((event) => event.event), ["notify_attempt", "notify_sent"]);
+      assert.deepStrictEqual(events.map((event) => event.event), ["notify_attempt", "notify_unknown"]);
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
@@ -225,6 +236,7 @@ describe("notifications", () => {
           issueId: 10,
           issueUrl: "https://example.com/issues/10",
           issueTitle: "Needs changes",
+          nextState: "To Improve",
         },
         {
           workspaceDir: tmpDir,
@@ -238,15 +250,125 @@ describe("notifications", () => {
         },
       );
 
-      assert.strictEqual(sent, null);
+      assert.strictEqual(sent.delivered, false);
 
       const events = await readAuditEvents(tmpDir);
-      const errors = events.filter((event) => event.event === "notify_failed");
-      assert.deepStrictEqual(events.map((event) => event.event), ["notify_attempt", "notify_failed"]);
+      const errors = events.filter((event) => event.event === "notify_unknown");
+      assert.deepStrictEqual(events.map((event) => event.event), ["notify_attempt", "notify_unknown"]);
       assert.strictEqual(errors.length, 1);
       assert.match(String(errors[0]!.error), /runtime send failed/);
     } finally {
       await fs.rm(tmpDir, { recursive: true });
     }
   });
+
+  it("uses command fallback when loading the runtime adapter fails", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-notify-"));
+    const calls: string[][] = [];
+    const runCommand: RunCommand = async (argv: string[]) => {
+      calls.push(argv);
+      return { stdout: "{}", stderr: "", code: 0, signal: null, killed: false, termination: "exit" };
+    };
+    const runtime: NotificationRuntime = {
+      ...runtimeWithSendText(async () => undefined),
+      channel: { outbound: { loadAdapter: async () => { throw new Error("adapter unavailable"); } } },
+    };
+
+    try {
+      const result = await notify({
+        type: "changesRequested", project: "test-project", issueId: 10,
+        issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes", nextState: "To Improve",
+      }, {
+        workspaceDir: tmpDir, channelId: "telegram:123", channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        accountId: "dev", agentId: "dev-agent", runtime, runCommand,
+      });
+
+      assert.equal(result?.path, "fallback");
+      assert.equal(calls.length, 1);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("records a failed delivery when the command exits nonzero", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-notify-"));
+    const runCommand: RunCommand = async () => ({
+      stdout: "", stderr: "delivery rejected", code: 1, signal: null, killed: false, termination: "exit",
+    });
+
+    try {
+      const result = await notify({
+        type: "changesRequested", project: "test-project", issueId: 10,
+        issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes", nextState: "To Improve",
+      }, {
+        workspaceDir: tmpDir, channelId: "telegram:123", channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        accountId: "dev", agentId: "dev-agent", runtime: runtimeWithoutSender(), runCommand,
+      });
+
+      assert.equal(result.delivered, false);
+      const events = await readAuditEvents(tmpDir);
+      assert.deepEqual(events.map((event) => event.event), ["notify_attempt", "notify_unknown"]);
+      assert.match(String(events[1]?.error), /code 1/);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+
+  it("returns a successful receipt when the sent audit record cannot be written", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-notify-"));
+    let sent = 0;
+    let fallback = 0;
+    const runCommand: RunCommand = async () => {
+      fallback++;
+      return { stdout: "{}", stderr: "", code: 0, signal: null, killed: false, termination: "exit" };
+    };
+    const runtime = runtimeWithSendText(async () => {
+      sent++;
+      const auditPath = path.join(tmpDir, "devclaw", "log", "audit.log");
+
+      await fs.rm(auditPath);
+      await fs.mkdir(auditPath);
+      return { messageId: "delivered-10" };
+    });
+
+    try {
+      const receipt = await notify({
+        type: "changesRequested", project: "test-project", issueId: 10,
+        issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes", nextState: "To Improve",
+      }, {
+        workspaceDir: tmpDir, channelId: "telegram:123", channel: NOTIFICATION_CHANNEL.TELEGRAM,
+        accountId: "dev", agentId: "dev-agent", runtime, runCommand,
+      });
+
+      assert.equal(receipt?.messageId, "delivered-10");
+      assert.equal(sent, 1);
+      assert.equal(fallback, 0);
+    } finally {
+      await fs.rm(tmpDir, { recursive: true });
+    }
+  });
+});
+
+
+it("audits unreadable route configuration without submitting a message", async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-notify-"));
+  let sends = 0;
+  const runtime = runtimeWithSendText(async () => { sends++; return {}; });
+  runtime.config.current = () => { throw new Error("Configuration unavailable"); };
+  try {
+    const result = await notify({
+      type: "changesRequested", project: "test-project", issueId: 10,
+      issueUrl: "https://example.com/issues/10", issueTitle: "Needs changes", nextState: "To Improve",
+    }, {
+      workspaceDir: tmpDir, channelId: "telegram:123", channel: NOTIFICATION_CHANNEL.TELEGRAM,
+      accountId: "dev", agentId: "dev-agent", runtime,
+    });
+    assert.equal(result.status, "blocked");
+    assert.equal(sends, 0);
+    const events = await readAuditEvents(tmpDir);
+    assert.equal(events[0]?.event, "notify_configuration_error");
+    assert.equal(events[0]?.reason, "Configuration unavailable");
+  } finally {
+    await fs.rm(tmpDir, { recursive: true });
+  }
 });

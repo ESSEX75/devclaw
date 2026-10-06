@@ -1,5 +1,6 @@
 /** Exposes application-owned managed-issue runtime interpretation. */
-export type { IssueProjectionSnapshot, IssueRuntimeResolution } from "./resolve.js";
+
+export { buildInitialIssueRuntimeState } from "./creation.js";
 export { resolveIssueRuntimeState } from "./resolve.js";
-export type { IssueStateWriteInput } from "./write.js";
+export type { InitialIssueRuntimeInput, IssueProjectionSnapshot, IssueRuntimeResolution, IssueRuntimeResolveInput, IssueStateWriteInput } from "./types.js";
 export { writeIssueRuntimeState } from "./write.js";

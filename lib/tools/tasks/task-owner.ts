@@ -5,9 +5,10 @@
  * owns them for queue scanning and dispatch. Supports claiming a
  * single issue or all unclaimed queued issues for a project.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { claimManagedTask } from "../../application/tasks/index.js";
+import { claimManagedTask, resolveProject, resolveProvider } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import {
   getAllQueueLabels,
@@ -17,7 +18,7 @@ import {
 import { loadInstanceName } from "../../instance.js";
 import { loadConfig } from "../../state/index.js";
 import { readIssueStateStore } from "../../state/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 export function createTaskOwnerTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({

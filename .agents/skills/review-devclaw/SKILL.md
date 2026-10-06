@@ -1,11 +1,11 @@
 ---
 name: review-devclaw
-description: Perform an adversarial, evidence-based review of DevClaw changes for correctness, recovery, concurrency, type safety, package boundaries, filesystem assumptions, and meaningful test coverage. Use when the user asks to review, audit, harden, find bugs, assess readiness, or inspect changes before a commit. Do not use for ordinary implementation unless a separate review is requested.
+description: Perform an adversarial, evidence-based review of DevClaw changes for correctness, recovery, concurrency, type safety, package boundaries, filesystem assumptions, and meaningful test coverage. Use when the user asks to review, audit, harden, find bugs, assess readiness, or inspect changes before a commit. Also use when invoked by verify-devclaw as its required review gate. Ordinary implementation alone does not trigger this skill.
 ---
 
 # Review DevClaw
 
-Review changes as a skeptical maintainer. Look for defects that compilation and happy-path tests can miss. Remain read-only by default: report findings first and modify code only when the user separately asks for fixes.
+Review changes as a skeptical maintainer. Look for defects that compilation and happy-path tests can miss. Remain read-only by default. When invoked by verify-devclaw during an authorized implementation task, that existing authorization permits fixing in-scope findings; otherwise report findings without modifying code.
 
 ## Establish the review scope
 
@@ -16,6 +16,14 @@ Review changes as a skeptical maintainer. Look for defects that compilation and 
 5. Inspect both the changed implementation and its callers, public entrypoints, schemas, tests, and persisted or provider-facing contracts.
 
 Do not silently widen the review to unrelated pre-existing changes. Mention relevant out-of-scope risks separately when they materially affect the reviewed code.
+
+## Review depth and reuse
+
+- Review the requested diff and necessary dependencies, not the entire repository by default. Include intended new files even before they are tracked.
+- Match depth to the actual risk: local type extraction and documentation changes need a brief consistency check; persistence, concurrency, retry, delivery, and boundary changes need the corresponding behavioral analysis.
+- Reuse instructions, package contracts, and review findings already read or established in the session when they still match the current content. Review later edits and any invalidated assumptions; do not repeat unchanged analysis merely because a commit is approaching.
+- Keep evidence sufficient for the findings standard below, but summarize uneventful reviews briefly. Do not generate a separate report or narrate every checklist item unless requested.
+- When called by verify-devclaw, return findings to that workflow and let it run automated checks. Do not invoke verify-devclaw recursively or duplicate its full test run.
 
 ## Review behavior, not formatting
 
@@ -41,7 +49,7 @@ Do not mechanically report every checklist item. Investigate the risks introduce
 - Use read-only searches and focused tests to prove or disprove suspected defects.
 - Do not treat green typecheck, lint, build, or tests as evidence that no logical defect exists.
 - When the review target changes imports, exports, ownership, persistence, or packaging, inspect the corresponding architecture and artifact contracts explicitly.
-- Use `verify-devclaw` only when the user asks for full verification or readiness confirmation. A review does not replace that workflow, and verification does not replace review.
+- For a standalone review, use `verify-devclaw` when full verification or readiness confirmation is requested. When this review is already part of verification, return to the enclosing workflow. Review and automated checks provide complementary evidence.
 - Do not change tests merely to make nondeterministic behavior pass. First decide whether ordering is a contract; if it is not, test invariant results instead.
 
 ## Findings standard

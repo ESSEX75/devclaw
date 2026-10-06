@@ -1,4 +1,5 @@
 /** Loads packaged setup templates explicitly so filesystem failures stay in the calling use case. */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

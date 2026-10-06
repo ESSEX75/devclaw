@@ -4,6 +4,7 @@
  * Single source of truth for all worker roles in DevClaw.
  * To add a new role, add an entry to registry.ts — everything else derives from it.
  */
+
 export { ROLE_REGISTRY } from "./registry.js";
 export {
   // Role/level aliases (used by migration + tests)

@@ -1,3 +1,5 @@
+/** Tests local queue truth independently of provider routing labels. */
+
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import fs from "node:fs/promises";
@@ -10,7 +12,7 @@ import {
 import { TestProvider } from "../../testing/test-provider.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
-import { detectLevelFromLabels, detectRoleLevelFromLabels, findNextIssueForRole } from "./scan.js";
+import { findNextIssueForRole } from "./scan.js";
 
 function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
   return {
@@ -28,7 +30,6 @@ function state(overrides: Partial<IssueRuntimeState> = {}): IssueRuntimeState {
     activeWorker: null,
     integrityStatus: ISSUE_INTEGRITY_STATUS.OK,
     integrityErrors: [],
-    projectionVersion: 1,
     createdAt: "2026-06-22T00:00:00.000Z",
     updatedAt: "2026-06-22T00:00:00.000Z",
     closedAt: null,
@@ -73,6 +74,20 @@ describe("findNextIssueForRole local state", () => {
     });
   });
 
+  it("retains a locally queued issue after it is closed at the provider", async () => {
+    await withStore([state()], async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 123, labels: ["To Do"], state: "closed" });
+
+      const next = await findNextIssueForRole(
+        provider, "developer", DEFAULT_WORKFLOW, undefined,
+        { workspaceDir: tmpDir, projectSlug: "devclaw" },
+      );
+
+      assert.equal(next?.issue.iid, 123);
+      assert.equal(next?.localState.workflowState, "todo");
+    });
+  });
+
   it("skips initialized managed issues with integrity_error", async () => {
     await withStore([state({
       integrityStatus: ISSUE_INTEGRITY_STATUS.INTEGRITY_ERROR,
@@ -89,6 +104,25 @@ describe("findNextIssueForRole local state", () => {
       );
 
       assert.strictEqual(next, null);
+    });
+  });
+
+  it("skips issues with an active worker or unpublished creation operation", async () => {
+    const active = state({ issueId: 124, activeWorker: {
+      role: "developer", level: "senior", slotIndex: 0, sessionKey: "s", startedAt: new Date().toISOString(),
+    } });
+    const unpublished = state({ issueId: 125, creationOperationId: "00000000-0000-4000-8000-000000000125" });
+
+    await withStore([active, unpublished], async (tmpDir, provider) => {
+      provider.seedIssue({ iid: 124, labels: ["To Do"] });
+      provider.seedIssue({ iid: 125, labels: ["To Do"] });
+      const next = await findNextIssueForRole(
+        provider, "developer", DEFAULT_WORKFLOW, undefined,
+        { workspaceDir: tmpDir, projectSlug: "devclaw" },
+      );
+
+      assert.equal(next, null);
+      assert.equal(provider.callsTo("getIssue").length, 0);
     });
   });
 
@@ -141,17 +175,5 @@ describe("findNextIssueForRole local state", () => {
       assert.strictEqual(next, null);
       assert.strictEqual(provider.callsTo("getIssue").length, 0);
     });
-  });
-});
-
-describe("role projection label detection", () => {
-  it("accepts normalized role:level labels and ignores worker-specific labels", () => {
-    assert.strictEqual(detectLevelFromLabels(["developer:senior"]), "senior");
-    assert.strictEqual(detectLevelFromLabels(["developer:senior:Sher"]), null);
-    assert.deepStrictEqual(detectRoleLevelFromLabels(["developer:senior"]), {
-      role: "developer",
-      level: "senior",
-    });
-    assert.strictEqual(detectRoleLevelFromLabels(["developer:senior:Sher"]), null);
   });
 });

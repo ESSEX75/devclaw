@@ -1,4 +1,5 @@
 /** Builds the product's built-in configuration layer through role selectors. */
+
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { getAllRoleIds, requireRole } from "../../roles/index.js";
 import type { DevClawConfig, LevelOverride, RoleOverride } from "./types.js";

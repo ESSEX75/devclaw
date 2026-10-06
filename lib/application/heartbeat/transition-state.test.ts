@@ -1,3 +1,4 @@
+/** Exercises persisted transitions, policy routing, and effects guarded by the issue lock. */
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import fs from "node:fs/promises";
@@ -8,11 +9,12 @@ import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { ISSUE_PROVIDER, NOTIFICATION_CHANNEL, type Project } from "../../domain/index.js";
+import { ACTION, ISSUE_PROVIDER, NOTIFICATION_CHANNEL, WORKFLOW_EVENT, type Project } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
 import { projectionIntegrityPass } from "./projection.js";
-import { reviewPass } from "./review.js";
-import { testSkipPass } from "./test-skip.js";
+import { reviewPass, reviewSkipPass } from "./review/index.js";
+import { testSkipPass } from "./test/index.js";
+import { transitionHeartbeatIssue } from "./transition-state.js";
 
 async function withProject<T>(fn: (ctx: {
   workspaceDir: string;
@@ -55,6 +57,47 @@ async function withProject<T>(fn: (ctx: {
 }
 
 describe("heartbeat transition state sync", () => {
+  it("does not execute provider actions for a stale local source state", async () => {
+    await withProject(async ({ workspaceDir, project, provider }) => {
+      const issue = provider.seedIssue({ iid: 88, labels: ["To Test"] });
+      await writeIssueRuntimeState({
+        workspaceDir, project, issue, providerType: project.provider,
+        workflow: DEFAULT_WORKFLOW, workflowState: "toTest", workflowLabel: "To Test",
+      });
+      let actionCalled = false;
+      const transitioned = await transitionHeartbeatIssue({
+        workspaceDir, project, issueId: 88, provider, workflow: DEFAULT_WORKFLOW,
+        fromLabel: "To Review", workflowState: "toImprove", workflowLabel: "To Improve",
+        owner: "test",
+        beforeCommit: async () => { actionCalled = true; await provider.mergePr(88); },
+      });
+      assert.equal(transitioned, false);
+      assert.equal(actionCalled, false);
+      assert.equal(provider.callsTo("transitionLabel").length, 0);
+      assert.equal(provider.callsTo("mergePr").length, 0);
+    });
+  });
+
+  it("does not merge when review policy changed after candidate selection", async () => {
+    await withProject(async ({ workspaceDir, project, provider }) => {
+      const issue = provider.seedIssue({ iid: 87, labels: ["To Review"] });
+      await writeIssueRuntimeState({
+        workspaceDir, project, issue, providerType: project.provider,
+        workflow: DEFAULT_WORKFLOW, workflowState: "toReview", workflowLabel: "To Review",
+        reviewPolicy: "agent",
+      });
+      const transitioned = await transitionHeartbeatIssue({
+        workspaceDir, project, issueId: 87, provider, workflow: DEFAULT_WORKFLOW,
+        fromLabel: "To Review", workflowState: "toTest", workflowLabel: "To Test",
+        owner: "test", routing: { field: "reviewPolicy", value: "human" },
+        beforeCommit: () => provider.mergePr(87),
+      });
+      assert.equal(transitioned, false);
+      assert.equal(provider.callsTo("transitionLabel").length, 0);
+      assert.equal(provider.callsTo("mergePr").length, 0);
+    });
+  });
+
   it("preserves local ownership when a provider owner label disagrees", async () => {
     await withProject(async ({ workspaceDir, project, provider }) => {
       const initialIssue = provider.seedIssue({
@@ -95,7 +138,7 @@ describe("heartbeat transition state sync", () => {
         iid: 90,
         title: "Reviewed task",
         labels: ["To Review", "review:human", "test:skip"],
-        description: renderIssueMetadata({ projectSlug: project.slug, issueId: 90, projectionVersion: 1 }),
+        description: renderIssueMetadata({ projectSlug: project.slug, issueId: 90 }),
       });
       await writeIssueRuntimeState({
         workspaceDir,
@@ -142,7 +185,7 @@ describe("heartbeat transition state sync", () => {
         iid: 91,
         title: "Test skipped task",
         labels: ["To Test", "review:human", "test:skip"],
-        description: renderIssueMetadata({ projectSlug: project.slug, issueId: 91, projectionVersion: 1 }),
+        description: renderIssueMetadata({ projectSlug: project.slug, issueId: 91 }),
       });
       await writeIssueRuntimeState({
         workspaceDir,
@@ -168,11 +211,101 @@ describe("heartbeat transition state sync", () => {
       const archived = Object.values(archive.issues).find((record) => record.issueId === 91);
 
       assert.strictEqual(transitions, 1);
-      assert.strictEqual(store.issues["91"], undefined);
-      assert.strictEqual(archived?.finalWorkflowState, "done");
-      assert.strictEqual(archived?.finalWorkflowLabel, "Done");
-      assert.ok(archived?.closedAt);
+      assert.strictEqual(archived, undefined);
+      assert.strictEqual(store.issues["91"].workflowState, "done");
+      assert.strictEqual(store.issues["91"].pipelineNotification?.status, "pending");
+      assert.ok(store.issues["91"].closedAt);
       assert.strictEqual(provider.callsTo("listIssuesByLabel").length, 0);
+    });
+  });
+
+  it("review skip merges once and does nothing on a repeated pass", async () => {
+    await withProject(async ({ workspaceDir, project, provider, runCommand }) => {
+      const issue = provider.seedIssue({ iid: 92, labels: ["To Review", "review:skip"] });
+      await writeIssueRuntimeState({
+        workspaceDir, project, issue, providerType: project.provider,
+        workflow: DEFAULT_WORKFLOW, workflowState: "toReview", workflowLabel: "To Review",
+        reviewPolicy: "skip",
+      });
+      provider.setPrStatus(92, { state: "approved", url: "https://example.com/pr/92" });
+      const input = {
+        workspaceDir, projectName: project.name, project, workflow: DEFAULT_WORKFLOW,
+        provider, repoPath: project.repo, runCommand,
+      };
+
+      assert.equal(await reviewSkipPass(input), 1);
+      assert.equal(await reviewSkipPass(input), 0);
+      assert.equal(provider.callsTo("mergePr").length, 1);
+      assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["92"]?.workflowLabel, "To Test");
+    });
+  });
+
+  it("review skip preserves the configured direct-commit path when no PR exists", async () => {
+    await withProject(async ({ workspaceDir, project, provider, runCommand }) => {
+      const issue = provider.seedIssue({ iid: 93, labels: ["To Review", "review:skip"] });
+      await writeIssueRuntimeState({
+        workspaceDir, project, issue, providerType: project.provider,
+        workflow: DEFAULT_WORKFLOW, workflowState: "toReview", workflowLabel: "To Review",
+        reviewPolicy: "skip",
+      });
+
+      const count = await reviewSkipPass({
+        workspaceDir, projectName: project.name, project, workflow: DEFAULT_WORKFLOW,
+        provider, repoPath: project.repo, runCommand,
+      });
+      assert.equal(count, 1);
+      assert.equal(provider.callsTo("mergePr").length, 0);
+      assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["93"]?.workflowLabel, "To Test");
+    });
+  });
+
+  it("review skip routes failed merge to recovery without committing success", async () => {
+    await withProject(async ({ workspaceDir, project, provider, runCommand }) => {
+      const issue = provider.seedIssue({ iid: 94, labels: ["To Review", "review:skip"] });
+      await writeIssueRuntimeState({
+        workspaceDir, project, issue, providerType: project.provider,
+        workflow: DEFAULT_WORKFLOW, workflowState: "toReview", workflowLabel: "To Review",
+        reviewPolicy: "skip",
+      });
+      provider.setPrStatus(94, { state: "approved", url: "https://example.com/pr/94" });
+      provider.mergePrFailures.add(94);
+
+      const count = await reviewSkipPass({
+        workspaceDir, projectName: project.name, project, workflow: DEFAULT_WORKFLOW,
+        provider, repoPath: project.repo, runCommand,
+      });
+      assert.equal(count, 1);
+      assert.equal(provider.callsTo("mergePr").length, 1);
+      assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["94"]?.workflowLabel, "To Improve");
+    });
+  });
+
+  it("preserves review state when a configured provider action fails", async () => {
+    await withProject(async ({ workspaceDir, project, provider, runCommand }) => {
+      const workflow = structuredClone(DEFAULT_WORKFLOW);
+      workflow.states.toReview.on = { ...workflow.states.toReview.on,
+        [WORKFLOW_EVENT.SKIP]: { target: "toTest", actions: [ACTION.CLOSE_ISSUE] } };
+      const issue = provider.seedIssue({ iid: 95, labels: ["To Review", "review:skip"] });
+      await writeIssueRuntimeState({ workspaceDir, project, issue, providerType: project.provider,
+        workflow, workflowState: "toReview", workflowLabel: "To Review", reviewPolicy: "skip" });
+      provider.closeIssue = async () => { throw new Error("provider close failed"); };
+
+      await assert.rejects(reviewSkipPass({ workspaceDir, projectName: project.name, project,
+        workflow, provider, repoPath: project.repo, runCommand }), /provider close failed/);
+      assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["95"]?.workflowLabel, "To Review");
+    });
+  });
+
+  it("surfaces provider lookup errors during local candidate selection", async () => {
+    await withProject(async ({ workspaceDir, project, provider, runCommand }) => {
+      const issue = provider.seedIssue({ iid: 96, labels: ["To Review", "review:skip"] });
+      await writeIssueRuntimeState({ workspaceDir, project, issue, providerType: project.provider,
+        workflow: DEFAULT_WORKFLOW, workflowState: "toReview", workflowLabel: "To Review", reviewPolicy: "skip" });
+      provider.getIssue = async () => { throw new Error("provider lookup failed"); };
+
+      await assert.rejects(reviewSkipPass({ workspaceDir, projectName: project.name, project,
+        workflow: DEFAULT_WORKFLOW, provider, repoPath: project.repo, runCommand }), /provider lookup failed/);
+      assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["96"]?.workflowLabel, "To Review");
     });
   });
 });

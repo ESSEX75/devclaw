@@ -1,6 +1,7 @@
 /**
  * Builds provider-visible workflow labels from validated domain configuration.
  */
+
 import {
   DEFAULT_ROLE_LABEL_COLOR,
   DEFAULT_ROLES,
@@ -60,6 +61,7 @@ export function getStepRoutingLabels(): LabelDefinition[] {
   return STEP_ROUTING_LABELS.map((name) => ({ name, color: STEP_ROUTING_COLOR }));
 }
 
+//TODO: The behavior of the tester, reviewer, etc. is hard-coded.
 /**
  * Get the label color for a role. Falls back to gray for unknown roles.
  *

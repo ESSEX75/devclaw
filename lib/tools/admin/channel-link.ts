@@ -5,12 +5,13 @@
  * its owning agent and OpenClaw binding. Existing project ownership is never
  * changed implicitly.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
 import {
   validateDestinationAvailability,
   validateProjectRoute,
-} from "../../application/setup/index.js";
+} from "../../application/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import {

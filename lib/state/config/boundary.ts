@@ -1,4 +1,5 @@
 /** Reads YAML configuration while preserving unknown input until schema validation. */
+
 import fs from "node:fs/promises";
 
 import YAML from "yaml";

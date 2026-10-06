@@ -12,10 +12,10 @@
  *   → architect calls work_finish(result="done") → "Researching" → "Done" (issue closed)
  *   → heartbeat dispatches queued implementation tasks
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { createManagedTaskIssue } from "../../application/tasks/index.js";
-import { dispatchTask } from "../../application/workers/dispatch-task.js";
+import { createManagedTaskIssue, dispatchTask, resolveProject, resolveProvider } from "../../application/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import { countActiveSlots, findStateKeyByLabel, getActiveLabel } from "../../domain/index.js";
@@ -24,7 +24,7 @@ import { resolveModel } from "../../roles/index.js";
 import { selectLevel } from "../../roles/model-selector.js";
 import { loadConfig } from "../../state/index.js";
 import { getRoleWorker } from "../../state/index.js";
-import { requireWorkspaceDir, resolveChannelId, resolveProject, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 
 /** Queue label for research tasks. */
 const TO_RESEARCH_LABEL = "To Research";
@@ -103,7 +103,7 @@ Example:
       if (!title) throw new Error("title is required");
       if (!description) throw new Error("description is required — provide detailed background context for the architect");
 
-      const { project } = await resolveProject(workspaceDir, channelId);
+      const { project, endpoint } = await resolveProject(workspaceDir, channelId);
       const { provider, type: providerType } = await resolveProvider(workspaceDir, project, ctx.runCommand);
       const pluginConfig = ctx.pluginConfig;
       const role = "architect";
@@ -149,8 +149,6 @@ Example:
       const workflowState = findStateKeyByLabel(resolvedConfig.workflow, TO_RESEARCH_LABEL);
 
       if (!workflowState) throw new Error(`No workflow state found for label "${TO_RESEARCH_LABEL}".`);
-      const notificationChannel = project.channels.find((entry) => entry.channelId === channelId)
-        ?? project.channels[0];
       const instanceName = await loadInstanceName(workspaceDir, resolvedConfig.instanceName);
       const creation = await createManagedTaskIssue({
         workspaceDir,
@@ -166,9 +164,7 @@ Example:
         assignedRole: role,
         assignedLevel: level,
         owner: instanceName,
-        notifyTarget: notificationChannel
-          ? { channel: notificationChannel.channel, name: notificationChannel.name }
-          : null,
+        notifyTarget: { channel: endpoint.channel, name: endpoint.name },
         idempotencyKey: `research-task:${_id}`,
         requestedBy: "research_task",
       });

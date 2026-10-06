@@ -1,4 +1,5 @@
 /** Defines persistence policies owned by the projects registry. */
+
 import type { FileLockOptions } from "../persistence/index.js";
 
 /** Lock policy applied to immutable projects-registry transactions. */

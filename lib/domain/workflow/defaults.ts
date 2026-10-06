@@ -1,6 +1,7 @@
 /**
  * Defines the built-in workflow state machine used as the base configuration layer.
  */
+
 import {
   ACTION,
   DEFAULT_ROLES,
@@ -72,6 +73,7 @@ export const DEFAULT_WORKFLOW: BuiltInWorkflowConfig = {
       color: WORKFLOW_STATE_COLORS.REVIEWING,
       on: {
         [WORKFLOW_EVENT.APPROVE]: { target: WORKFLOW_STATE_KEYS.TO_TEST, actions: [ACTION.MERGE_PR, ACTION.GIT_PULL] },
+        [WORKFLOW_EVENT.MERGE_FAILED]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
         [WORKFLOW_EVENT.REJECT]: { target: WORKFLOW_STATE_KEYS.TO_IMPROVE },
         [WORKFLOW_EVENT.BLOCKED]: { target: WORKFLOW_STATE_KEYS.REFINING },
       },

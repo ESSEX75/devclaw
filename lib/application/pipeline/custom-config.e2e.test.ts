@@ -186,7 +186,13 @@ workflow:
       executeCompletion({ ...completionInput, result: "unmapped" }),
       /No completion event configured/,
     );
+    assert.equal(harness.provider.callsTo("mergePr").length, 0);
+    assert.equal(harness.provider.callsTo("transitionLabel").length, 1);
     await executeCompletion({ ...completionInput, result: "audited" });
+
+    const transitionsAfterCompletion = harness.provider.callsTo("transitionLabel").length;
+    await executeCompletion({ ...completionInput, result: "audited" });
+    assert.equal(harness.provider.callsTo("transitionLabel").length, transitionsAfterCompletion);
 
     const completedProjects = await readProjects(harness.workspaceDir);
     const completedProject = getProject(completedProjects, harness.project.slug);
@@ -199,7 +205,8 @@ workflow:
     const reloadedStore = await readIssueStateStore(harness.workspaceDir, harness.project.slug);
     const archive = await readIssueArchiveStore(harness.workspaceDir, harness.project.slug);
     const archived = Object.values(archive.issues).find((record) => record.issueId === issue.iid);
-    assert.equal(reloadedStore.issues[String(issue.iid)], undefined);
-    assert.equal(archived?.finalWorkflowState, "done");
+    assert.equal(reloadedStore.issues[String(issue.iid)].workflowState, "done");
+    assert.equal(reloadedStore.issues[String(issue.iid)].pipelineNotification?.status, "blocked");
+    assert.equal(archived, undefined);
   });
 });

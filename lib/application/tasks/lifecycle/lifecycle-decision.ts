@@ -1,0 +1,123 @@
+/** Owns a managed task lifecycle operation or its pure transition decision. */
+
+import {
+  STATE_TYPE,
+  WORKFLOW_EVENT,
+  type WorkflowConfig,
+  type WorkflowStateConfig
+} from "../../../domain/index.js";
+import { selectLevel } from "../../../roles/model-selector.js";
+import type { ResolvedRoleConfig } from "../../../state/index.js";
+import type { QueueTarget, ResolveRoleLevelInput, ResolveStartTaskDecisionInput, StartTaskDecision } from "./types.js";
+
+/** Resolve and validate the configured approval transition from HOLD to QUEUE.
+ * @param workflow - Effective project workflow including custom states.
+ * @param currentState - Resolved configuration of the current authoritative state.
+ */
+export function resolveHoldQueueTarget(
+  workflow: WorkflowConfig,
+  currentState: WorkflowStateConfig,
+): QueueTarget {
+  if (currentState.type !== STATE_TYPE.HOLD) {
+    throw new Error(`task_start only works on HOLD states. Current state is "${currentState.label}".`);
+  }
+
+  const approveTransition = currentState.on?.[WORKFLOW_EVENT.APPROVE];
+
+  if (!approveTransition) {
+    throw new Error(`HOLD state "${currentState.label}" has no APPROVE transition.`);
+  }
+
+  const targetState = workflow.states[approveTransition.target];
+
+  if (!targetState) {
+    throw new Error(`Transition target "${approveTransition.target}" not found in workflow.`);
+  }
+
+  if (targetState.type !== STATE_TYPE.QUEUE) {
+    throw new Error(`Transition target "${approveTransition.target}" must be a queue state.`);
+  }
+
+  return { stateKey: approveTransition.target, state: targetState };
+}
+
+/**
+ * Resolve the worker level for a task while preserving explicit or prepared assignments.
+ * Automatic selection uses the target role's resolved ranks for both built-in and custom roles.
+ *
+ * @param input - Runtime assignment, target role configuration, and issue text used for selection.
+ */
+export function resolveRoleLevel(input: ResolveRoleLevelInput): string {
+  const { requestedLevel, runtimeState, targetRole, roleConfig } = input;
+
+  if (!roleConfig.enabled) {
+    throw new Error(`Role "${targetRole}" is disabled.`);
+  }
+
+  if (requestedLevel !== undefined) {
+    validateRoleLevel(targetRole, requestedLevel, roleConfig);
+
+    return requestedLevel;
+  }
+
+  if (
+    runtimeState.assignedRole === targetRole
+    && runtimeState.assignedLevel
+    && roleConfig.levels[runtimeState.assignedLevel]
+  ) {
+    return runtimeState.assignedLevel;
+  }
+
+  const selectedLevel = selectLevel(
+    input.issueTitle,
+    input.issueDescription,
+    targetRole,
+    roleConfig,
+  ).level;
+
+  validateRoleLevel(targetRole, selectedLevel, roleConfig);
+
+  return selectedLevel;
+}
+
+/** Reject levels absent from the effective role configuration, including custom roles.
+ * @param role - Configured role responsible for the workflow state or worker task.
+ * @param level - Requested or resolved level from the effective role configuration.
+ * @param roleConfig - Effective role settings including enabled levels.
+ */
+export function validateRoleLevel(
+  role: string,
+  level: string,
+  roleConfig: ResolvedRoleConfig,
+): void {
+  if (!roleConfig.levels[level]) {
+    throw new Error(`Invalid level "${level}" for role "${role}". Valid: ${Object.keys(roleConfig.levels).join(", ")}`);
+  }
+}
+
+/** Plan the configured approval transition and select a valid worker level.
+ * @param input - Validated command dependencies and requested changes.
+ */
+export function resolveStartTaskDecision(input: ResolveStartTaskDecisionInput): StartTaskDecision {
+  const target = resolveHoldQueueTarget(input.workflow, input.currentState);
+  const targetRole = target.state.role;
+  const roleConfig = input.roles[targetRole];
+
+  if (!roleConfig) throw new Error(`Target role "${targetRole}" is not configured.`);
+
+  return {
+    fromStateKey: input.runtimeState.workflowState,
+    fromLabel: input.runtimeState.workflowLabel,
+    targetStateKey: target.stateKey,
+    targetLabel: target.state.label,
+    targetRole,
+    assignedLevel: resolveRoleLevel({
+      requestedLevel: input.requestedLevel,
+      runtimeState: input.runtimeState,
+      targetRole,
+      roleConfig,
+      issueTitle: input.issueTitle,
+      issueDescription: input.issueDescription,
+    }),
+  };
+}

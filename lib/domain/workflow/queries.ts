@@ -1,6 +1,7 @@
 /**
  * workflow/queries.ts — Pure query functions over workflow configuration.
  */
+
 import { DEFAULT_ROLES, STATE_TYPE, WORKFLOW_EVENT } from "./const.js";
 import { isWorkflowEvent } from "./guards.js";
 import { type StateDefinition, type WorkflowDefinition, type WorkflowEvent } from "./types.js";
@@ -364,6 +365,7 @@ export function producesReviewableWork<
 }
 
 //TODO: The behavior of the tester, reviewer, etc. is hard-coded.
+
 /**
  * Check if the workflow has a test phase (any queue state with role=tester).
  *

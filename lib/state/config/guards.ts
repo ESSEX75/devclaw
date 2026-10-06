@@ -1,6 +1,7 @@
 /**
  * Validates values against identifiers owned by fully resolved runtime configuration.
  */
+
 import type { ResolvedConfig } from "./types.js";
 
 /**

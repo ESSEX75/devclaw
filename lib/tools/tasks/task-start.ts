@@ -4,9 +4,10 @@
  * The heartbeat is the sole dispatcher — this tool only places issues in
  * queues, never dispatches workers directly.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { startTask } from "../../application/tasks/start-task.js";
+import { startTask } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { requireWorkspaceDir, resolveChannelId } from "../helpers.js";
 

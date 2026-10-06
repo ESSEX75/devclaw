@@ -15,5 +15,12 @@ agent-facing plugin API and deterministic DevClaw behavior.
 - Register public tool factories in `lib/tools/registry.ts`.
 - Creation adapters must call the shared durable use case and report pending or
   manual-repair states honestly; only a `ready` operation is successful.
+- Channel-only task adapters reject ambiguous destinations. Adapters with a full
+  account/channel/conversation/thread identity use application project context
+  resolution and never choose the first project or endpoint.
 
 Use `npm run arch:check:strict` after adding or changing tool factories.
+
+Setup, configuration, and onboarding tools call application/setup. They must not
+read or write filesystem state directly. Setup dry-run applies to every operation,
+including reset and instruction refresh.

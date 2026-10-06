@@ -2,14 +2,13 @@
  * Exposes explicitly confirmed single-issue deletion to an agent conversation.
  * The adapter resolves the bound project and delegates every destructive decision to application code.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { deleteManagedIssue } from "../../application/issues/index.js";
-import { validateProjectRoute } from "../../application/setup/index.js";
+import { deleteManagedIssue, resolveProjectByRoute, resolveProvider, validateProjectRoute } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 import { isNotificationChannel } from "../../domain/index.js";
-import { readProjects } from "../../state/index.js";
-import { requireWorkspaceDir, resolveProvider } from "../helpers.js";
+import { requireWorkspaceDir } from "../helpers.js";
 
 /** Create the capability-aware issue_delete tool. */
 export function createIssueDeleteTool(ctx: PluginContext): OpenClawPluginToolFactory {
@@ -42,24 +41,9 @@ export function createIssueDeleteTool(ctx: PluginContext): OpenClawPluginToolFac
         ? undefined
         : requirePositiveInteger(params.confirmIssueId, "confirmIssueId");
       const workspaceDir = requireWorkspaceDir(toolCtx);
-      const projects = await readProjects(workspaceDir);
-      const matches = Object.values(projects.projects).filter((candidate) => candidate.channels.some((endpoint) => (
-        endpoint.channel === channel
-        && endpoint.accountId === accountId
-        && endpoint.channelId === channelId
-        && endpoint.threadId === threadId
-      )));
+      const { project, endpoint } = await resolveProjectByRoute(workspaceDir,
+        { channel, accountId, channelId, threadId });
 
-      if (matches.length !== 1) throw new Error(`Exact route ${channel}/${accountId}/${channelId}${threadId ? `/${threadId}` : ""} does not resolve to one project.`);
-      const project = matches[0];
-      const endpoint = project.channels.find((candidate) => (
-        candidate.channel === channel
-        && candidate.accountId === accountId
-        && candidate.channelId === channelId
-        && candidate.threadId === threadId
-      ));
-
-      if (!endpoint) throw new Error("Resolved project does not contain the exact route endpoint.");
       validateProjectRoute(ctx.runtime.config.current(), project.agentId, endpoint);
 
       if (toolCtx.agentId && toolCtx.agentId !== project.agentId) {

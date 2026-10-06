@@ -1,61 +1,31 @@
 /**
  * Tick runner — main heartbeat loop that processes each project.
  */
-import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import { log as auditLog } from "../../audit.js";
-import type { RunCommand } from "../../context.js";
 import { EXECUTION_MODE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
 import { createProvider } from "../../integrations/providers/index.js";
 import { loadConfig } from "../../state/index.js";
-import { getProject, readProjects } from "../../state/index.js";
+import { readProjects } from "../../state/index.js";
 import { projectTick } from "../queue/tick.js";
-import type { HeartbeatConfig } from "./config.js";
-import {
-  type SessionLookup,
-} from "./health.js";
-import {
-  performHealthPass,
-  performIssueArchivePass,
-  performIssueCreationPass,
-  performProjectionIntegrityPass,
-  performReviewPass,
-  performReviewSkipPass,
-  performTestSkipPass,
-} from "./passes.js";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type HeartbeatTickResult = {
-  totalPickups: number;
-  totalHealthFixes: number;
-  totalSkipped: number;
-  totalReviewTransitions: number;
-  totalReviewSkipTransitions: number;
-  totalTestSkipTransitions: number;
-  totalArchived: number;
-  totalCreationsReady: number;
-  totalCreationsPending: number;
-  totalCreationsManual: number;
-};
+import { HEARTBEAT_AUDIT_EVENT, HEARTBEAT_PASS, HEARTBEAT_PASS_FAILURE_POLICY } from "./const.js";
+import { performHealthPass } from "./health/index.js";
+import { performIssueArchivePass, performIssueCreationPass, performProjectionIntegrityPass } from "./maintenance-passes.js";
+import { runHeartbeatPasses } from "./pass-runner.js";
+import { performReviewPass, performReviewSkipPass } from "./review/index.js";
+import { mayScheduleProject } from "./scheduler.js";
+import { testSkipPass } from "./test/index.js";
+import type { HeartbeatRunInput, HeartbeatTickResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Tick (Main Heartbeat Loop)
 // ---------------------------------------------------------------------------
 
-export async function tick(opts: {
-  workspaceDir: string;
-  agentId?: string;
-  config: HeartbeatConfig;
-  pluginConfig?: Record<string, unknown>;
-  sessions: SessionLookup | null;
-  logger: { info(msg: string): void; warn(msg: string): void };
-  runtime?: PluginRuntime;
-  runCommand: RunCommand;
-}): Promise<HeartbeatTickResult> {
+/** Coordinate ordered project maintenance and queue scheduling with project failure isolation.
+ * @param opts - Workspace, gateway observations, scheduling limits, and runtime capabilities.
+ */
+export async function tick(opts: HeartbeatRunInput): Promise<HeartbeatTickResult> {
   const { workspaceDir, agentId, config, pluginConfig, sessions, runtime, runCommand } = opts;
 
   // Load instance name for ownership filtering and auto-claiming
@@ -77,6 +47,7 @@ export async function tick(opts: {
       totalCreationsReady: 0,
       totalCreationsPending: 0,
       totalCreationsManual: 0,
+      passes: [],
     };
   }
 
@@ -91,97 +62,94 @@ export async function tick(opts: {
     totalCreationsReady: 0,
     totalCreationsPending: 0,
     totalCreationsManual: 0,
+    passes: [],
   };
 
   const projectExecution =
-    (pluginConfig?.projectExecution as string) ?? EXECUTION_MODE.PARALLEL;
-  let activeProjects = 0;
+    pluginConfig?.projectExecution === EXECUTION_MODE.SEQUENTIAL ? EXECUTION_MODE.SEQUENTIAL : EXECUTION_MODE.PARALLEL;
 
   for (const slug of slugs) {
     try {
       const project = data.projects[slug];
 
-      if (!project) continue;
+      if (!project || (agentId && project.agentId !== agentId)) continue;
 
       const resolvedConfig = await loadConfig(workspaceDir, project.slug);
-      const { provider } = await createProvider({
+      const provider = opts.providerFactory ? await opts.providerFactory(project) : (await createProvider({
         repo: project.repo,
         provider: project.provider,
         runCommand,
         workflow: resolvedConfig.workflow,
-      });
+      })).provider;
 
-      const creations = await performIssueCreationPass(
-        workspaceDir,
-        project,
-        provider,
-        resolvedConfig,
-      );
+      const recovered = await runHeartbeatPasses(slug, [
+        { name: HEARTBEAT_PASS.CREATION, run: async () => {
+          const creations = await performIssueCreationPass(workspaceDir, project, provider, resolvedConfig);
 
-      result.totalCreationsReady += creations.ready;
-      result.totalCreationsPending += creations.pending;
-      result.totalCreationsManual += creations.manual;
+          result.totalCreationsReady += creations.ready;
+          result.totalCreationsPending += creations.pending;
+          result.totalCreationsManual += creations.manual;
+        } },
+        { name: HEARTBEAT_PASS.PROJECTION, run: async () => {
+          await performProjectionIntegrityPass(workspaceDir, project, provider, resolvedConfig);
+        } },
+        { name: HEARTBEAT_PASS.ARCHIVE, run: async () => {
+          result.totalArchived += await performIssueArchivePass(workspaceDir, project, provider, resolvedConfig, pluginConfig, runtime, runCommand);
+        } },
+        { name: HEARTBEAT_PASS.HEALTH, run: async () => {
+          const fixes = await performHealthPass({
+            workspaceDir, projectSlug: slug, project, sessions, provider, resolvedConfig,
+            staleWorkerHours: resolvedConfig.timeouts.staleWorkerHours, runCommand,
+            stallTimeoutMinutes: resolvedConfig.timeouts.stallTimeoutMinutes, agentId, autoFix: true,
+          });
 
-      await performProjectionIntegrityPass(
-        workspaceDir,
-        project,
-        provider,
-        resolvedConfig,
-      );
+          result.totalHealthFixes += fixes.filter((fix) => fix.fixed).length;
 
-      result.totalArchived += await performIssueArchivePass(
-        workspaceDir,
-        project,
-        provider,
-        resolvedConfig,
-        pluginConfig,
-        runtime,
-        runCommand,
-      );
+          return fixes;
+        } },
+      ], result.passes);
 
-      // Health pass: auto-fix zombies and stale workers
-      result.totalHealthFixes += await performHealthPass(
-        workspaceDir,
-        slug,
-        project,
-        sessions,
-        provider,
-        resolvedConfig,
-        resolvedConfig.timeouts.staleWorkerHours,
-        instanceName,
-        runCommand,
-        resolvedConfig.timeouts.stallTimeoutMinutes,
-        agentId,
-      );
+      if (!recovered) {
+        opts.logger.warn(`Heartbeat pass failed for project ${slug}: ${result.passes.at(-1)?.errors.join("; ")}`);
+        result.totalSkipped++;
+        continue;
+      }
 
-      // Review pass: transition issues whose PR check condition is met
-      result.totalReviewTransitions += await performReviewPass(
-        workspaceDir, slug, project, provider, resolvedConfig, pluginConfig, runtime, runCommand,
-      );
+      const workflowReportStart = result.passes.length;
+      const advanced = await runHeartbeatPasses(slug, [
+        { name: HEARTBEAT_PASS.REVIEW, run: async () => {
+          result.totalReviewTransitions += await performReviewPass(workspaceDir, slug, project, provider, resolvedConfig, pluginConfig, runtime, runCommand);
+        } },
+        { name: HEARTBEAT_PASS.REVIEW_SKIP, run: async () => {
+          result.totalReviewSkipTransitions += await performReviewSkipPass(workspaceDir, slug, project, provider, resolvedConfig, pluginConfig, runtime, runCommand);
+        } },
+        { name: HEARTBEAT_PASS.TEST_SKIP, run: async () => {
+          result.totalTestSkipTransitions += await testSkipPass({
+            workspaceDir, projectName: slug, project, provider, workflow: resolvedConfig.workflow,
+          });
+        } },
+      ], result.passes, HEARTBEAT_PASS_FAILURE_POLICY.CONTINUE);
 
-      // Review skip pass: auto-merge and transition review:skip issues through the review queue
-      result.totalReviewSkipTransitions += await performReviewSkipPass(
-        workspaceDir, slug, project, provider, resolvedConfig, pluginConfig, runtime, runCommand,
-      );
+      if (!advanced) {
+        const failures = result.passes.slice(workflowReportStart)
+          .filter((pass) => pass.errors.length > 0)
+          .map((pass) => `${pass.name}: ${pass.errors.join("; ")}`);
 
-      // Test skip pass: auto-transition test:skip issues through the test queue
-      result.totalTestSkipTransitions += await performTestSkipPass(
-        workspaceDir, slug, project, provider, resolvedConfig,
-      );
+        opts.logger.warn(`Heartbeat workflow failed for project ${slug}: ${failures.join("; ")}`);
+        result.totalSkipped++;
+        continue;
+      }
 
-      // Budget check: stop if we've hit the limit
+      // Budget limits dispatch only; later projects still receive maintenance.
       const remaining = config.maxPickupsPerTick - result.totalPickups;
 
-      if (remaining <= 0) break;
+      if (remaining <= 0) continue;
 
-      // Sequential project guard: don't start new projects if one is active
-      const isProjectActive = await checkProjectActive(workspaceDir, slug);
+      // Include all currently active projects, including projects later in registry order.
+      // Re-read after maintenance so completed workers no longer block scheduling.
+      const freshProjects = await readProjects(workspaceDir);
 
-      if (
-        projectExecution === EXECUTION_MODE.SEQUENTIAL &&
-        !isProjectActive &&
-        activeProjects >= 1
-      ) {
+      if (!mayScheduleProject(slug, freshProjects.projects, projectExecution)) {
         result.totalSkipped++;
         continue;
       }
@@ -201,18 +169,16 @@ export async function tick(opts: {
       result.totalPickups += tickResult.pickups.length;
       result.totalSkipped += tickResult.skipped.length;
 
-      // Notifications now handled by dispatchTask
-      if (isProjectActive || tickResult.pickups.length > 0) activeProjects++;
     } catch (err) {
       // Per-project isolation: one failing project doesn't crash the entire tick
       opts.logger.warn(
-        `Heartbeat tick failed for project ${slug}: ${(err as Error).message}`,
+        `Heartbeat tick failed for project ${slug}: ${err instanceof Error ? err.message : String(err)}`,
       );
       result.totalSkipped++;
     }
   }
 
-  await auditLog(workspaceDir, "heartbeat_tick", {
+  await auditLog(workspaceDir, HEARTBEAT_AUDIT_EVENT.TICK, {
     projectsScanned: slugs.length,
     healthFixes: result.totalHealthFixes,
     reviewTransitions: result.totalReviewTransitions,
@@ -224,21 +190,4 @@ export async function tick(opts: {
   });
 
   return result;
-}
-
-/**
- * Check if a project has any active worker.
- */
-export async function checkProjectActive(
-  workspaceDir: string,
-  slug: string,
-): Promise<boolean> {
-  const data = await readProjects(workspaceDir);
-  const project = getProject(data, slug);
-
-  if (!project) return false;
-
-  return Object.values(project.workers).some((w) =>
-    Object.values(w.levels).some(slots => slots?.some(s => s.active) ?? false),
-  );
 }

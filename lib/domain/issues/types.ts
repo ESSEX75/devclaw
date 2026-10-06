@@ -1,8 +1,10 @@
 /**
  * issues/types.ts — Runtime state for DevClaw-managed provider issues.
  */
+
 import type { ValueOf } from "../../types.js";
 import type { NotifyBindingRef } from "../notifications/index.js";
+import type { WorkerDeliveryState } from "../workers/index.js";
 import type { ReviewPolicy, TestPolicy } from "../workflow/index.js";
 import {
   ATTACHMENT_DISPOSITION,
@@ -48,10 +50,12 @@ export type PipelineNotificationState = {
   eventKey: string;
   /** Current persistence state of the delivery. */
   status: ValueOf<typeof PIPELINE_NOTIFICATION_STATUS>;
-  /** ISO timestamp written before external delivery begins. */
+  /** ISO intent creation time while pending; exact attempt token after reservation. */
   attemptedAt: string;
   /** ISO timestamp written after the adapter confirms delivery. */
   deliveredAt?: string;
+  /** Last failure or manual reconciliation requirement. */
+  reason?: string;
 };
 
 /** Local state details for issue synchronization and validation. */
@@ -60,8 +64,6 @@ export type IssueProjectionState = {
   integrityStatus: IssueIntegrityStatus;
   /** List of drift or integrity errors detected. */
   integrityErrors: string[];
-  /** Version of the provider-side projection format. */
-  projectionVersion: number;
 };
 
 /** Details about the worker currently active on the issue. */
@@ -76,6 +78,10 @@ export type ActiveIssueWorker = {
   sessionKey: string | null;
   /** ISO timestamp when work started. */
   startedAt: string;
+  /** Last durable health nudge attempt for this worker run. */
+  lastNudgeAt?: string;
+  /** Unresolved gateway submission requiring reconciliation before any retry. */
+  delivery?: WorkerDeliveryState;
 };
 
 /** Main local runtime state for a managed provider issue. */
@@ -106,6 +112,8 @@ export type IssueRuntimeState = IssueProjectionState & {
   notifyTarget: NotifyBindingRef | null;
   /** Active session worker details. */
   activeWorker: ActiveIssueWorker | null;
+  /** Completed worker whose project slot still needs an idempotent release. */
+  pendingWorkerRelease?: ActiveIssueWorker | null;
   /** ISO timestamp when managed state was created. */
   createdAt: string;
   /** ISO timestamp of the last state update. */

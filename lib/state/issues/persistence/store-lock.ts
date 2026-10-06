@@ -1,6 +1,7 @@
 /**
  * Owns the project-scoped lock shared by active and archived issue-store transactions.
  */
+
 import path from "node:path";
 
 import { DATA_DIR, PROJECTS_DIRECTORY_NAME } from "../../paths.js";

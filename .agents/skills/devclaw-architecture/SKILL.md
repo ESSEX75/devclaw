@@ -5,7 +5,7 @@ description: Preserve DevClaw package ownership, layer boundaries, public APIs, 
 
 # DevClaw Architecture
 
-Preserve package ownership and dependency direction across the complete repository. Keep this skill focused on shared architectural procedure; package-specific rules belong in the package's `README.md` next to its code.
+Preserve package ownership and dependency direction across the complete repository. Keep this skill focused on shared architectural procedure; package-specific rules belong in the owning layer's root `lib/<layer>/README.md`.
 
 ## Start with package contracts
 
@@ -16,7 +16,9 @@ Before changing code:
 3. Inspect nearby `index.ts` files, existing responsibilities, and current consumers.
 4. Apply both this shared skill and the local package contracts.
 
-If an architectural change alters a package's ownership or boundary, update that package's `README.md` in the same change. Do not copy package-specific rules into this skill.
+If an architectural change alters a package's ownership or boundary, update the owning layer's root `README.md` in the same change. Do not copy package-specific rules into this skill.
+
+Keep README files only at layer roots (`lib/<layer>/README.md`); do not create them in nested capabilities or subpackages, including directories with an `index.ts`. Maintain ownership, API boundaries, locking, recovery, and delivery contracts in the layer README. Keep file/function responsibilities and implementation details in source JSDoc.
 
 ## Ownership and placement
 
@@ -28,6 +30,7 @@ If an architectural change alters a package's ownership or boundary, update that
 
 ## Subpackage structure
 
+- When a package root contains more than 10 production `.ts` files, excluding `index.ts`, `const.ts`, `types.ts`, `guards.ts`, and test files, review whether cohesive capabilities should become subpackages. Treat this count as a review trigger, not a mandatory file limit; split only along real responsibilities and keep tests beside their implementation.
 - Organize every large package by cohesive responsibility instead of placing unrelated files together at its root.
 - Apply this rule to every current and future package without maintaining an allowlist in this skill.
 - Create a subpackage when several files implement one stable capability, share a public contract, or change for the same architectural reason.
@@ -74,8 +77,16 @@ Prefer focused names that communicate the file's owned responsibility.
 - A package `index.ts` may re-export supported types from `types.ts`, but must not own their declarations or re-export their declarations from implementation files.
 - Keep each `types.ts` cohesive to its owning package or subpackage; do not use this rule to create a cross-package type dumping ground.
 
+### Nested types and readability
+
+- Declare object-shaped union variants as named file-local types, then define the union alias from those names instead of inline object blocks.
+- Prefer a named file-local type for a nested object shape or array element when its fields and JSDoc make the containing contract harder to scan. For example, use `agents: DoctorAgentToolAccess[]` instead of an inline `Array<{ ... }>` block.
+- Keep the extracted type in the same file without `export` when it is used only there, including when it supports an exported contract in `types.ts`. Export it only when another file needs the named contract, following the exported type placement rules above.
+- Preserve meaningful JSDoc on the extracted type and its fields. Reuse an existing owner type when it already represents the same concept; do not duplicate it merely to shorten the declaration.
+
 ### Constant placement and string literals
 
+- Format object constant registries across multiple lines, with one property per line and a trailing comma; keep the closing brace and `as const` together.
 - Move filesystem and resource identifiers into documented constants even when a value currently appears only once. This includes filenames, directory names, extensions, backup suffixes, relative paths, template paths, and path-segment collections.
 - Move repeated or architecturally meaningful protocol identifiers, prefixes, event names, labels, and policy values into documented constants instead of embedding string literals in implementation code.
 - Put constants shared within a package or subpackage in its `const.ts`. Keep a constant in an implementation file only when it is private to that file and does not represent a filesystem path, resource name, or shared architectural identifier.
@@ -86,6 +97,7 @@ Prefer focused names that communicate the file's owned responsibility.
 ## File and API documentation
 
 - Start every source file, including existing production and test files, with a concise file-level JSDoc comment.
+- Separate the file header and each documented top-level declaration with a blank line; keep declaration JSDoc attached to its declaration. Do not require blank lines between ordinary local variables or documented type members. ESLint enforces spacing between exports; preserve file-header and private-declaration spacing during editing and review.
 - Explain why the file exists, what responsibility it owns, and where it sits in the architecture.
 - Add meaningful JSDoc to every type, interface, class, module-level constant, named function declaration, and class/object method, including non-exported and private declarations. Inline callbacks and ordinary local variable bindings do not require separate JSDoc.
 - Document every declaration even when its purpose appears obvious from its name or signature; triviality is not a reason to omit documentation.

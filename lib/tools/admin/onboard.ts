@@ -3,11 +3,15 @@
  *
  * Returns step-by-step guidance. Call this before setup.
  */
+
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
-import { buildOnboardToolContext, buildReconfigContext,hasWorkspaceFiles, isPluginConfigured } from "../../application/setup/onboarding.js";
+import { getOnboardingContext } from "../../application/index.js";
 import type { PluginContext } from "../../context.js";
 
+/** Create the conversational onboarding adapter.
+ * @param ctx - Current plugin configuration used for onboarding detection.
+ */
 export function createOnboardTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "onboard",
@@ -21,12 +25,10 @@ export function createOnboardTool(ctx: PluginContext): OpenClawPluginToolFactory
     },
 
     async execute(_id: string, params: Record<string, unknown>) {
-      const configured = isPluginConfigured(ctx.pluginConfig);
-      const hasWorkspace = await hasWorkspaceFiles(toolCtx.workspaceDir);
-      const mode = params.mode ? (params.mode as "first-run" | "reconfigure")
-        : configured && hasWorkspace ? "reconfigure" : "first-run";
+      const requestedMode = params.mode;
 
-      const instructions = mode === "first-run" ? buildOnboardToolContext() : buildReconfigContext();
+      if (requestedMode !== undefined && requestedMode !== "first-run" && requestedMode !== "reconfigure") throw new Error("Invalid onboarding mode.");
+      const { mode, configured, instructions } = await getOnboardingContext(toolCtx.workspaceDir, ctx.pluginConfig, requestedMode);
 
       return jsonResult({
         success: true, mode, configured, instructions,

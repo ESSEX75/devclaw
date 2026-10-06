@@ -1,6 +1,7 @@
 /**
  * Defines filesystem names and packaged-template paths shared by the state setup capability.
  */
+
 import type { RoleId } from "../../domain/index.js";
 
 /** Name of the managed role-prompt directory. */
@@ -52,3 +53,13 @@ export const ROLE_TEMPLATE_PATHS = {
   architect: "devclaw/prompts/architect.md",
   reviewer: "devclaw/prompts/reviewer.md",
 } satisfies Readonly<Record<RoleId, string>>;
+
+/** Explicit subsets of packaged defaults available for replacement. */
+export const DEFAULTS_SCOPE = {
+  ALL: "all",
+  WORKFLOW: "workflow",
+  PROMPTS: "prompts",
+} as const;
+
+/** Diagnostic source marker for instructions supplied by packaged defaults. */
+export const ROLE_INSTRUCTIONS_PACKAGE_SOURCE = "package-default";

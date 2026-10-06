@@ -1,6 +1,7 @@
 /**
  * Validates unknown boundary values against notification-domain value sets.
  */
+
 import { NOTIFICATION_CHANNEL } from "./const.js";
 import type { NotificationChannel } from "./types.js";
 

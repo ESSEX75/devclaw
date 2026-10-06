@@ -11,7 +11,9 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 ## Package API
 
 - `lib/state/index.ts` is the only supported entrypoint for code outside this layer.
-- The root entrypoint explicitly exports supported operations and contracts; wildcard exports are forbidden.
+- The root entrypoint re-exports supported subpackage APIs with `export *`.
+  Subpackage entrypoints select their public contracts explicitly; the root keeps
+  only the shared filesystem names from `paths.ts` as named exports.
 - Internal state modules import implementation owners directly and never import the root entrypoint.
 - State schemas, parsers, filesystem locks, and persistence helpers stay private unless an exported operation is itself the required boundary API.
 - `lib/state/paths.ts` owns filesystem names shared by multiple state capabilities.
@@ -20,6 +22,8 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 ## Managed Issue Stores
 
 - `issues.json` contains active managed issue state only.
+- Active issue workers may contain an optional unresolved delivery marker; the
+  same marker on a project worker slot protects ownership if issue state commit fails.
 - `issues.archive.json` contains archived records and deletion tombstones only.
 - `issue-creations.json` contains resumable creation operations and idempotency
   keys; these records are not active runtime state.
@@ -28,16 +32,54 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - Issue-store reads have no write side effects; only locked updates and explicit state-owned transactions initialize or replace durable stores.
 - Active and archive files share one per-project lock. Archival writes the archive record before
   removing active state so an interrupted operation can be recovered idempotently.
-- Terminal notification reservations use a bounded attempt lease: delivered events remain deduplicated, while an unconfirmed attempt becomes reservable again after the lease expires.
+- Archive-first recovery refuses to discard active state when an existing archive
+  record refers to a different source snapshot.
+- Retention compares the entire selected archive record under this same lock,
+  refuses active duplicates, and retains the record when attachment cleanup fails.
+  It writes `archive-retention.audit.jsonl` before the first attachment unlink;
+  journal errors abort cleanup. This append-only intent evidence is retained after
+  record expiry and is not automatically truncated with the general audit log.
+- Workflow commits can retain `pendingWorkerRelease` and a never-attempted
+  notification intent in the same active record. Pending notification intents are
+  immediately reservable; their initial timestamp records intent creation.
+- Terminal notification reservation returns an exact timestamp token. Settlement
+  compares both event identity and token, so stale attempts cannot settle a new send.
+  The lease duration is public so application retries can omit candidates still in
+  backoff; reservation remains the final eligibility check under the store lock.
+  Expired in-flight attempts become `unknown`, never automatically reservable.
+  Proven unsubmitted (`retryable`) and policy-blocked attempts can be reserved after
+  backoff. Delivered events remain deduplicated; unresolved events cannot be replaced.
+  A verified late outcome may settle its own unknown attempt. An operator-reviewed
+  unknown can be settled as delivered or retryable through this same API; the caller
+  owns evidence validation, and storage never infers delivery from time alone.
 - Stores accept only their current strict schema. Destructive reset is an explicit
   operator action and must never run automatically during startup or reads.
-- Stores accept only the current strict schema at the filesystem boundary; no legacy normalization or migration runs during reads.
+
+## Attachments
+
+`attachments` owns validated metadata, local bytes, atomic indexes, and the common
+save/URL-update/purge lock. Its public operations are exposed through the state
+entrypoint. Reads distinguish missing state from corruption or access failures.
+Purge refuses linked ancestors and nested entries, and never traverses recursively.
+Attachment saves acquire the issue-store lock before the attachment lock and
+reject archived issue identities. Retention follows the same lock order. URL
+updates still reject files removed by cleanup and cannot recreate their index row.
+Saves use unique filenames and publish the index atomically; index-write failure
+removes only the new file. Purge includes unindexed bytes left by interrupted saves,
+validates every entry before deletion, unlinks individually, and removes the index
+last, allowing partial cleanup to resume. Paths require canonical project slugs,
+positive safe issue IDs, and flat safe basenames. Reads never create storage.
+These checks assume trusted workspace ancestors and cooperative local writers;
+they cannot prevent a hostile process swapping paths between inspection and I/O.
 
 ## Projects Registry
 
 - `projects/paths` owns registry and repository path policy, including home-directory expansion.
 - `projects/repository` owns strict reads and immutable, locked atomic updates; raw production writes are not public.
 - `projects/queries` contains pure snapshot lookups, while `projects/mutations` owns worker-slot persistence operations.
+- Worker activation checks optional configured capacity and cross-role sequential
+  exclusivity inside the same registry transaction that reserves the slot. Lingering
+  active roles also block exclusivity, even if disabled in the current configuration.
 - Project queries and mutations accept only the canonical project slug; notification routing is resolved before entering state.
 - Canonical slugs use strict lowercase kebab-case and must match their registry key; display names never address files or registry entries.
 - The registry accepts only its current schema and performs no legacy field or identifier normalization.
@@ -67,3 +109,20 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 
 Use `npm run test` after changing issue state behavior, and
 `npm run arch:check:strict` after structural changes.
+
+Workflow model patch persistence preserves other YAML settings and comments and
+creates a backup. Scoped configuration resets and workflow document reads belong
+to state; application selects the operation and validates configured identifiers.
+
+`readOptionalProjects` supports ownership discovery in uninitialized workspaces.
+Only a missing registry yields `undefined`; malformed or inaccessible registries
+remain errors, and the operation never creates files.
+`inspectManagedWorkspace` canonicalizes an existing SDK-resolved workspace before
+this strict optional read, so symlinked or alternate path spellings share identity.
+
+
+`workers` stores the latest operator delivery decision per issue in
+`worker-delivery-resolutions.json`, under the issue-store lock. Intent is immutable
+and survives slot release and runtime replacement. Only the same decision may be
+marked complete; a different submission may replace only a completed record.
+Corrupt or unreadable recovery evidence is an error, never an empty store.

@@ -1,14 +1,15 @@
 /**
  * Resolves project, workspace, and packaged role instructions from state-owned resources.
  */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 
 import { isBuiltInRoleId } from "../../domain/index.js";
 import { DATA_DIR, PROJECTS_DIRECTORY_NAME } from "../paths.js";
-import { isErrnoException } from "../persistence/index.js";
+import { FILESYSTEM_ERROR_CODE, isErrnoException, STATE_TEXT_ENCODING } from "../persistence/index.js";
 import { parseProjectSlug } from "../projects/schema.js";
-import { PROMPTS_DIRECTORY_NAME, ROLE_PROMPT_FILE_EXTENSION } from "./const.js";
+import { PROMPTS_DIRECTORY_NAME, ROLE_INSTRUCTIONS_PACKAGE_SOURCE, ROLE_PROMPT_FILE_EXTENSION } from "./const.js";
 import { loadSetupTemplates } from "./templates.js";
 import type { RoleInstructionsResult } from "./types.js";
 
@@ -87,7 +88,7 @@ export async function loadRoleInstructions(
 
   if (packageDefault) {
     return options?.withSource
-      ? { content: packageDefault, source: "package-default" }
+      ? { content: packageDefault, source: ROLE_INSTRUCTIONS_PACKAGE_SOURCE }
       : packageDefault;
   }
 
@@ -101,9 +102,9 @@ export async function loadRoleInstructions(
  */
 async function readOptionalInstructionFile(filePath: string): Promise<string | null> {
   try {
-    return await fs.readFile(filePath, "utf-8");
+    return await fs.readFile(filePath, STATE_TEXT_ENCODING);
   } catch (error) {
-    if (isErrnoException(error) && error.code === "ENOENT") return null;
+    if (isErrnoException(error) && error.code === FILESYSTEM_ERROR_CODE.NOT_FOUND) return null;
     const message = error instanceof Error ? error.message : String(error);
 
     throw new Error(`Cannot read role instructions ${filePath}: ${message}`, { cause: error });

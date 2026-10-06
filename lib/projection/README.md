@@ -6,10 +6,15 @@ and provider-visible issue data.
 Projection modules render and diff managed labels, routing labels, owner/notify
 labels, and compact issue body metadata. Local `issues.json` state remains the
 source of truth for managed issues; provider labels and metadata are the visible
-projection of that state.
+projection of that state. Managed metadata identifies the project and issue;
+it contains no schema version or migration protocol.
 
 Hidden creation markers bind provider issues to durable creation operations and
 are verified before the application publishes an issue for lifecycle processing.
+
+`composeManagedIssueBody` removes submitted managed blocks and appends metadata
+and creation identity supplied by the application from trusted state. It is pure
+and cannot select or validate a task's lifecycle eligibility.
 
 ## Boundary Rules
 

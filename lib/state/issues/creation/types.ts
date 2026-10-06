@@ -1,6 +1,7 @@
 /**
  * Defines persisted contracts for resumable managed-issue creation operations.
  */
+
 import type {
   IssueCreationErrorCode,
   IssueCreationStatus,

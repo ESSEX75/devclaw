@@ -1,6 +1,7 @@
 /**
  * Defines the persisted active managed-issue store contract.
  */
+
 import type { IssueRuntimeState } from "../../../domain/index.js";
 
 /** Current project-local active issue store persisted in `issues.json`. */

@@ -1,6 +1,7 @@
 /**
  * Validates membership in DevClaw's closed built-in workflow value sets.
  */
+
 import {
   COMPLETION_RESULT,
   DEFAULT_LEVELS,

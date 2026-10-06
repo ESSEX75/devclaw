@@ -1,4 +1,5 @@
 /** Defines storage names and lock policies shared by managed-issue repositories. */
+
 import type { FileLockOptions } from "../persistence/index.js";
 
 /** Filename of the active managed-issue store. */
@@ -40,3 +41,6 @@ export const ISSUE_ORCHESTRATION_LOCK_OPTIONS: FileLockOptions = {
 
 /** Duration after which an unconfirmed terminal-notification attempt may be retried. */
 export const PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS = 5 * 60_000;
+
+/** Append-only evidence written before retention removes attachment bytes. */
+export const ARCHIVE_RETENTION_AUDIT_FILE_NAME = "archive-retention.audit.jsonl";

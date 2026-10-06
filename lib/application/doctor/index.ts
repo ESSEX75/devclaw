@@ -1,2 +1,3 @@
-/** Public application API for DevClaw diagnostics. */
-export * from "./routing.js";
+/** Exposes the supported application diagnostic use case to adapters. */
+
+export { runRoutingDoctor } from "./routing.js";

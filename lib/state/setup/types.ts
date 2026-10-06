@@ -1,7 +1,10 @@
 /**
  * Defines the public contracts owned by the state setup capability.
  */
+
 import type { RoleId } from "../../domain/index.js";
+import type { ValueOf } from "../../types.js";
+import type { DEFAULTS_SCOPE } from "./const.js";
 
 /** Complete packaged template set consumed by setup and runtime fallbacks. */
 export type SetupTemplates = {
@@ -33,4 +36,15 @@ export type RoleInstructionsResult = {
   content: string;
   /** Filesystem path or package-default marker that supplied the content. */
   source: string | null;
+};
+
+/** Explicit subset of packaged defaults selected for replacement. */
+export type DefaultsScope = ValueOf<typeof DEFAULTS_SCOPE>;
+
+/** Raw workflow documents available for a read-only application comparison. */
+export type WorkflowDocuments = {
+  /** Existing workspace document, absent when defaults are implicit. */
+  current: string | null;
+  /** Packaged reference document. */
+  template: string;
 };

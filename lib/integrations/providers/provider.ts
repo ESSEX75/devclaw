@@ -3,6 +3,7 @@
  *
  * Implementations: GitHub (gh CLI), GitLab (glab CLI).
  */
+
 import type {
   AttachmentUploader,
   IssueDeleter,
