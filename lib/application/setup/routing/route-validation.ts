@@ -8,11 +8,11 @@ import type { NotificationEndpoint } from "../../../domain/index.js";
 import { findConfiguredAgent } from "../../../integrations/openclaw/agent-registry.js";
 import type { ProjectsData } from "../../../state/index.js";
 import { ROUTE_DIAGNOSTIC_CODE, TOPIC_PEER_SEPARATOR } from "./const.js";
-import { matchesGroupDestination } from "./route-matching.js";
+import { matchesExactDestination } from "./route-matching.js";
 import type { ProjectRouteInspection, RouteConfig, RouteDiagnostic } from "./types.js";
 
 /** Build the OpenClaw peer identifier represented by a project endpoint.
- * @param endpoint - Persisted group or topic destination.
+ * @param endpoint - Persisted direct, group, or topic destination.
  */
 export function getEndpointPeerId(endpoint: NotificationEndpoint): string {
   return endpoint.threadId
@@ -44,7 +44,7 @@ export function inspectProjectRoute(
  * @param agentId - Expected route owner.
  * @param channel - Destination transport.
  * @param accountId - Configured channel account.
- * @param peerId - Exact group or topic identifier.
+ * @param peerId - Exact direct, group, or topic identifier.
  */
 export function inspectExactRoute(
   config: RouteConfig,
@@ -94,7 +94,7 @@ export function inspectExactRoute(
     diagnostics.push({ code: ROUTE_DIAGNOSTIC_CODE.ACCOUNT_DISABLED, message: `Account "${accountId}" is disabled for channel "${channel}".` });
   }
 
-  const matches = (config.bindings ?? []).filter(binding => matchesGroupDestination(binding, channel, accountId, peerId));
+  const matches = (config.bindings ?? []).filter(binding => matchesExactDestination(binding, channel, accountId, peerId));
   const matchingDestination = matches[0];
 
   if (new Set(matches.map(binding => binding.agentId)).size > 1) {
@@ -121,7 +121,7 @@ export function inspectExactRoute(
  * @param agentId - Expected route owner.
  * @param channel - Destination transport.
  * @param accountId - Configured channel account.
- * @param peerId - Exact group or topic identifier.
+ * @param peerId - Exact direct, group, or topic identifier.
  */
 export function validateExactRoute(
   config: RouteConfig,

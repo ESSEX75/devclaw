@@ -128,3 +128,16 @@ it("keeps a direct binding distinct from a group binding with the same peer id",
   assert.equal(runtime.config.current().bindings?.length, 2);
   assert.equal(runtime.config.current().bindings?.[0]?.agentId, "direct-owner");
 });
+
+it("creates an exact Telegram direct binding without accepting a group peer with the same ID", async () => {
+  const { runtime, writes } = createRuntime({
+    agents: { list: [{ id: "owner" }] },
+    channels: { telegram: { accounts: { dev: {} } } },
+    bindings: [{ agentId: "owner", match: { channel: "telegram", accountId: "dev", peer: { kind: "group", id: "931077226" } } }],
+  });
+
+  await ensureChannelBinding(runtime, "telegram", "owner", "dev", "931077226");
+  await ensureChannelBinding(runtime, "telegram", "owner", "dev", "931077226");
+  assert.equal(writes.length, 1);
+  assert.deepEqual(runtime.config.current().bindings?.map(binding => binding.match.peer?.kind), ["group", "direct"]);
+});

@@ -101,3 +101,27 @@ it("validates only entries when both registries are present", () => {
   assert.deepEqual(inspectProjectRoute(config, "dev-agent", endpoint), []);
   assert.ok(inspectProjectRoute(config, "legacy", endpoint).some(diagnostic => diagnostic.code === ROUTE_DIAGNOSTIC_CODE.AGENT_NOT_FOUND));
 });
+
+it("accepts only the exact Telegram direct destination", () => {
+  const directEndpoint: NotificationEndpoint = { ...endpoint, channelId: "931077226", threadId: undefined };
+  const config = {
+    agents: { list: [{ id: "dev-agent" }] },
+    channels: { telegram: { accounts: { dev: {}, other: {} } }, whatsapp: { accounts: { dev: {} } } },
+    bindings: [{ agentId: "dev-agent", match: { channel: "telegram", accountId: "dev", peer: { kind: "direct", id: "931077226" } } }],
+  };
+
+  assert.deepEqual(inspectProjectRoute(config, "dev-agent", directEndpoint), []);
+  for (const other of [
+    { ...directEndpoint, channelId: "931077227" },
+    { ...directEndpoint, accountId: "other" },
+    { ...directEndpoint, channel: NOTIFICATION_CHANNEL.WHATSAPP },
+  ]) {
+    assert.ok(inspectProjectRoute(config, "dev-agent", other).some(diagnostic => diagnostic.code === ROUTE_DIAGNOSTIC_CODE.BINDING_NOT_FOUND));
+  }
+  const wrongOwner = { ...config, bindings: [{ ...config.bindings[0], agentId: "other-agent" }] };
+
+  assert.ok(inspectProjectRoute(wrongOwner, "dev-agent", directEndpoint).some(diagnostic => diagnostic.code === ROUTE_DIAGNOSTIC_CODE.BINDING_AGENT_MISMATCH));
+  const groupConfig = { ...config, bindings: [{ ...config.bindings[0], match: { ...config.bindings[0].match, peer: { kind: "group", id: "931077226" } } }] };
+
+  assert.ok(inspectProjectRoute(groupConfig, "dev-agent", directEndpoint).some(diagnostic => diagnostic.code === ROUTE_DIAGNOSTIC_CODE.BINDING_NOT_FOUND));
+});

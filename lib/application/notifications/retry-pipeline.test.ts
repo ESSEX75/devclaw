@@ -5,17 +5,19 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  DEFAULT_WORKFLOW,
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   PIPELINE_NOTIFICATION_STATUS,
   type IssueRuntimeState,
 } from "../../domain/index.js";
-import { readIssueStateStore, reservePipelineNotification, settlePipelineNotification } from "../../state/index.js";
+import { readIssueArchiveStore, readIssueStateStore, reservePipelineNotification, settlePipelineNotification } from "../../state/index.js";
 import {
   createEmptyIssueStateStoreForTesting,
   createTestHarness,
   replaceIssueStateStoreForTesting,
 } from "../../testing/index.js";
+import { recoverTerminalIssueArchives } from "../issues/archive/index.js";
 import type { NotificationRuntime } from "./index.js";
 import { retryPendingPipelineNotifications } from "./retry-pipeline.js";
 
@@ -223,6 +225,46 @@ it("rejects stale attempt results after a safely retryable event is reserved aga
     assert.notEqual(first, second);
     assert.equal(await settlePipelineNotification(h.workspaceDir, h.project.slug, 42, "pipelineComplete:done", first, PIPELINE_NOTIFICATION_STATUS.DELIVERED), false);
     assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["42"].pipelineNotification?.status, PIPELINE_NOTIFICATION_STATUS.ATTEMPTING);
+  } finally {
+    await h.cleanup();
+  }
+});
+
+it("retries a blocked Telegram DM only through its direct binding and archives after delivery", async () => {
+  const h = await createTestHarness({ projectName: "test-project", channelId: "931077226" });
+  const store = createEmptyIssueStateStoreForTesting(h.project.slug);
+  const sent: unknown[] = [];
+  const runtime = notificationRuntime(sent);
+  let peerKind = "group";
+
+  runtime.config.current = () => ({
+    agents: { list: [{ id: "test-agent" }] },
+    channels: { telegram: { enabled: true, accounts: { default: {} } } },
+    bindings: [{ agentId: "test-agent", match: { channel: "telegram", accountId: "default", peer: { kind: peerKind, id: "931077226" } } }],
+  });
+  try {
+    store.issues["42"] = pendingTerminalIssue(h.project.slug);
+    await replaceIssueStateStoreForTesting(h.workspaceDir, h.project.slug, store);
+    h.provider.seedIssue({ iid: 42, title: "Completed issue" });
+    assert.equal(await retryPendingPipelineNotifications(h.workspaceDir, h.project, h.provider, undefined, runtime, h.runCommand, 1), 0);
+    assert.equal(sent.length, 0);
+    assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["42"].pipelineNotification?.status, PIPELINE_NOTIFICATION_STATUS.BLOCKED);
+    assert.deepEqual((await recoverTerminalIssueArchives({ workspaceDir: h.workspaceDir, projectSlug: h.project.slug, workflow: DEFAULT_WORKFLOW, maxItems: 1 })).archived, []);
+    assert.equal(Object.keys((await readIssueArchiveStore(h.workspaceDir, h.project.slug)).issues).length, 0);
+
+    peerKind = "direct";
+    const blocked = await readIssueStateStore(h.workspaceDir, h.project.slug);
+    const marker = blocked.issues["42"].pipelineNotification;
+
+    assert.ok(marker);
+    marker.attemptedAt = "2026-01-01T00:00:00.000Z";
+    await replaceIssueStateStoreForTesting(h.workspaceDir, h.project.slug, blocked);
+    assert.equal(await retryPendingPipelineNotifications(h.workspaceDir, h.project, h.provider, undefined, runtime, h.runCommand, 1), 1);
+    assert.equal(sent.length, 1);
+    assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["42"].pipelineNotification?.status, PIPELINE_NOTIFICATION_STATUS.DELIVERED);
+    assert.deepEqual((await recoverTerminalIssueArchives({ workspaceDir: h.workspaceDir, projectSlug: h.project.slug, workflow: DEFAULT_WORKFLOW, maxItems: 1 })).archived, [42]);
+    assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["42"], undefined);
+    assert.ok(Object.values((await readIssueArchiveStore(h.workspaceDir, h.project.slug)).issues).some(record => record.issueId === 42));
   } finally {
     await h.cleanup();
   }

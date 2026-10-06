@@ -24,11 +24,11 @@ type RouteChannel = {
   readonly accounts?: Readonly<Record<string, unknown>>;
 };
 
-/** Exact peer identity; absent or direct kinds do not establish a group route. */
+/** Exact peer identity; absent or mismatched kinds do not establish a route. */
 type RoutePeer = {
   /** SDK peer kind. */
   readonly kind?: string;
-  /** Group identifier, optionally qualified with a topic. */
+  /** Peer identifier, optionally qualified with a topic. */
   readonly id?: string;
 };
 
