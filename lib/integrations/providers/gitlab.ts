@@ -10,6 +10,7 @@ import type { CreateIssueInput } from "./capabilities.js";
 import { runProviderCommand } from "./command.js";
 import { hasIssueCommitOnBaseBranch } from "./commit-references.js";
 import { GITLAB_INLINE_NOTE_TYPE, PR_COMMENT_KIND, PROVIDER_COMMAND_MODE, PROVIDER_PAGE_SIZE } from "./const.js";
+import { uploadGitLabAttachment } from "./gitlab-attachments.js";
 import {
   classifyProviderLookupFailure,
   classifyProviderProjectAccessFailure,
@@ -714,52 +715,17 @@ export class GitLabProvider implements IssueProvider {
     } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
+  /** Publish already saved bytes once; unavailable or unconfirmed uploads leave the local attachment usable.
+   * @param issueId - Provider issue identity; GitLab uploads are scoped to its project.
+   * @param file - Persisted bytes and untrusted display metadata.
+   */
   async uploadAttachment(
     issueId: number,
     file: { filename: string; buffer: Buffer; mimeType: string },
   ): Promise<string | null> {
     try {
-      // Get project info and auth token
-      const projectRaw = await this.glab(["api", "projects/:id", "--method", "GET"]);
-      const project = JSON.parse(projectRaw);
-      const projectId: number = project.id;
-      const webUrl: string = project.web_url;
-
-      const token = await this.glab(["config", "get", "token"]);
-
-      if (!token) return null;
-
-      // Write to temp file for curl multipart upload
-      const os = await import("node:os");
-      const fs = await import("node:fs/promises");
-      const path = await import("node:path");
-      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-upload-"));
-      const tmpFile = path.join(tmpDir, file.filename);
-
-      await fs.writeFile(tmpFile, file.buffer);
-
-      try {
-        const apiBase = webUrl.replace(/\/[^/]+\/[^/]+\/?$/, "");
-        const output = await runProviderCommand(this.runCommand,
-          ["curl", "--silent", "--fail", "--show-error",
-            "--header", `PRIVATE-TOKEN: ${token}`,
-            "--form", `file=@${tmpFile}`,
-            `${apiBase}/api/v4/projects/${projectId}/uploads`],
-          this.repoPath,
-        );
-        const parsed = JSON.parse(output);
-
-        if (parsed.full_path) return `${webUrl}${parsed.full_path}`;
-        if (parsed.url) return `${webUrl}${parsed.url}`;
-
-        return null;
-      } finally {
-        await fs.unlink(tmpFile).catch(() => { });
-        await fs.rmdir(tmpDir).catch(() => { });
-      }
-    } catch {
-      return null;
-    }
+      return await uploadGitLabAttachment(this.runCommand, this.repoPath, args => this.glab(args), file.filename, file.buffer);
+    } catch { return null; }
   }
 
   async healthCheck(): Promise<boolean> {

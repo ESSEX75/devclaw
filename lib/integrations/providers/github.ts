@@ -2,6 +2,8 @@
  * GitHubProvider — IssueProvider implementation using gh CLI.
  */
 
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import type { RunCommand } from "../../context.js";
@@ -9,7 +11,10 @@ import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig }
 import type { CreateIssueInput } from "./capabilities.js";
 import { runProviderCommand } from "./command.js";
 import { hasIssueCommitOnBaseBranch } from "./commit-references.js";
-import { GITHUB_PR_FIELDS, GITHUB_REVIEW_BOT_SUFFIX, PR_COMMENT_KIND, PROVIDER_COMMAND_MODE, PROVIDER_PAGE_SIZE, PROVIDER_REVIEW_STATE } from "./const.js";
+import {
+  GITHUB_PR_FIELDS, GITHUB_REVIEW_BOT_SUFFIX, PR_COMMENT_KIND, PROVIDER_ATTACHMENT_STORAGE,
+  PROVIDER_COMMAND_MODE, PROVIDER_PAGE_SIZE, PROVIDER_REVIEW_STATE,
+} from "./const.js";
 import { normalizeProviderFailure, ProviderTransportError } from "./failures.js";
 import {
   classifyProviderLookupFailure,
@@ -725,14 +730,20 @@ export class GitHubProvider implements IssueProvider {
     } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
+  /** Publish bytes once and return only a location confirmed by the Contents API response.
+   * Unavailable or unidentified uploads preserve application-owned local attachment bytes.
+   * @param issueId - Provider issue identity used to isolate the repository resource.
+   * @param file - Persisted bytes and untrusted display metadata.
+   */
   async uploadAttachment(
     issueId: number,
     file: { filename: string; buffer: Buffer; mimeType: string },
   ): Promise<string | null> {
     try {
-      const branch = "devclaw-attachments";
-      const safeFilename = file.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filePath = `attachments/${issueId}/${Date.now()}-${safeFilename}`;
+      const branch = PROVIDER_ATTACHMENT_STORAGE.GITHUB_BRANCH;
+      const safeFilename = file.filename.replace(/[^a-zA-Z0-9._-]/g, "_")
+        .slice(0, PROVIDER_ATTACHMENT_STORAGE.MAX_NAME_LENGTH) || PROVIDER_ATTACHMENT_STORAGE.FALLBACK_NAME;
+      const filePath = `${PROVIDER_ATTACHMENT_STORAGE.GITHUB_DIRECTORY}/${issueId}/${randomUUID()}-${safeFilename}`;
       const base64Content = file.buffer.toString("base64");
 
       // Get repo owner/name
@@ -769,8 +780,8 @@ export class GitHubProvider implements IssueProvider {
         ]);
       }
 
-      // Upload via Contents API
-      await this.ghOnce([
+      // Upload via Contents API; a clean exit alone does not confirm the uploaded identity.
+      const output = await this.ghOnce([
         "api", `repos/${repo.owner}/${repo.name}/contents/${filePath}`,
         "--method", "PUT",
         "--field", `message=attachment: ${file.filename} for issue #${issueId}`,
@@ -778,7 +789,14 @@ export class GitHubProvider implements IssueProvider {
         "--field", `branch=${branch}`,
       ]);
 
-      return `https://raw.githubusercontent.com/${repo.owner}/${repo.name}/${branch}/${filePath}`;
+      const uploaded = z.object({ content: z.object({
+        path: z.literal(filePath), sha: z.string().regex(/^[a-fA-F0-9]{40}$/), download_url: z.string().url(),
+      }) }).parse(JSON.parse(output));
+      const url = new URL(uploaded.content.download_url);
+
+      if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) return null;
+
+      return url.href;
     } catch {
       return null;
     }

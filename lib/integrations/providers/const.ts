@@ -67,3 +67,21 @@ export const GITHUB_REVIEW_BOT_SUFFIX = "[bot]";
 
 /** GitLab's explicit inline-note discriminator, independent of optional position fields. */
 export const GITLAB_INLINE_NOTE_TYPE = "DiffNote";
+
+/** Isolated upload staging resources; display names never become directory paths. */
+export const PROVIDER_ATTACHMENT_STORAGE = {
+  TEMP_PREFIX: "devclaw-upload-",
+  FILE_PREFIX: "attachment-",
+  FALLBACK_NAME: "file",
+  MAX_NAME_LENGTH: 180,
+  GITHUB_BRANCH: "devclaw-attachments",
+  GITHUB_DIRECTORY: "attachments",
+} as const;
+
+/** GitLab resource paths resolved against confirmed installation/project context. */
+export const GITLAB_UPLOAD_PATH = {
+  API: "/api/v4/projects/",
+  ENDPOINT: "/uploads",
+  FILES: "/uploads/",
+  PROJECT: "/-/project/",
+} as const;

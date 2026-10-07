@@ -83,6 +83,19 @@ and [GitLab REST pagination documentation](https://docs.gitlab.com/api/rest/).
 Direct-commit observation searches complete reachable history for an exact unqualified
 issue reference. Numeric prefixes and independent GitLab MR references do not qualify.
 
+Attachment uploads submit once and return only validated provider-confirmed locations.
+GitLab resolves the installation prefix from matching project `web_url` and complete
+`path_with_namespace`, preserving nested groups and self-hosted hosts. Credentials use
+that confirmed host. Project-relative `url` and installation-relative `full_path` follow
+the [GitLab Markdown uploads contract](https://docs.gitlab.com/api/project_markdown_uploads/).
+Temporary upload names are flattened, length-limited and prefixed; bytes stay inside a
+unique directory, cleaned after write, transport and response-validation failures.
+GitHub confirms the Contents response's exact resource path, object SHA and download URL,
+rejecting credential-bearing or signed URLs that cannot be persisted as public links
+([Contents API contract](https://docs.github.com/en/rest/repos/contents));
+unique upload resources avoid concurrent filename collisions. Application saves local
+bytes before upload; an unavailable or unconfirmed remote result never publishes a URL.
+
 Gateway turn idempotency uses an application-owned immutable submission identity.
 New feedback cycles have distinct tokens even when their issue, role and session are
 reused. Health nudges use their persisted attempt timestamp and session identity.
