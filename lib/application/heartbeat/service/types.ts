@@ -3,7 +3,7 @@
 import type { PluginRuntime } from "openclaw/plugin-sdk/core";
 
 import type { RunCommand } from "../../../context.js";
-import type { AgentWorkspaceConfig } from "../../../integrations/openclaw/types.js";
+import type { AgentWorkspaceConfig } from "../../../integrations/openclaw/agents/index.js";
 
 /** One SDK-resolved agent/workspace pair whose projects belong to that agent. */
 export type Agent = {

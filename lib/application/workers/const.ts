@@ -9,6 +9,7 @@ export const WORKER_SESSION_ACTION = {
 /** Stable events written by worker commands and delivery recovery. */
 export const WORKER_AUDIT_EVENT = {
   DISPATCH: "dispatch",
+  SESSION_BUDGET_RESET: "session_budget_reset",
   WARNING: "dispatch_warning",
   MODEL_SELECTION: "model_selection",
   FINISHED: "work_finish",

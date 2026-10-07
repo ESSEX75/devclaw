@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 
-import type { RunCommand } from "../../context.js";
-import { SESSION_PATCH_METHOD } from "./const.js";
+import type { RunCommand } from "../../../context.js";
+import { GATEWAY_COMMAND, SESSION_PATCH_METHOD } from "./const.js";
 
 /** Gateway acknowledgement includes the canonical session key and resolved model identity. */
 const SessionModelConfirmationSchema = z.object({
@@ -37,7 +37,7 @@ export async function ensureSessionModel(
 
   try {
     const result = await runCommand(
-      ["openclaw", "gateway", "call", SESSION_PATCH_METHOD, "--params", JSON.stringify(params), "--json"],
+      [...GATEWAY_COMMAND, SESSION_PATCH_METHOD, "--params", JSON.stringify(params), "--json"],
       { timeoutMs },
     );
 

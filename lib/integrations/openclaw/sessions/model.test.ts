@@ -3,8 +3,8 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
-import type { RunCommand } from "../../context.js";
-import { ensureSessionModel } from "./session-model.js";
+import type { RunCommand } from "../../../context.js";
+import { ensureSessionModel } from "./model.js";
 
 /** Deterministic worker session used to verify acknowledgement identity. */
 const SESSION_KEY = "agent:dev:subagent:project-developer-senior-bot";

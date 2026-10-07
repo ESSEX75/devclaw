@@ -3,7 +3,7 @@
 import { log as auditLog } from "../../../audit.js";
 import type { WorkerDeliveryState } from "../../../domain/index.js";
 import { WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
-import { fetchGatewaySessions, isSessionAlive } from "../../../integrations/openclaw/gateway-sessions.js";
+import { fetchGatewaySessions, isSessionAlive } from "../../../integrations/openclaw/sessions/index.js";
 import { getProject, getRoleWorker, readIssueStateStore, readProjects, readWorkerDeliveryResolution, updateSlot } from "../../../state/index.js";
 import { WORKER_AUDIT_EVENT } from "../const.js";
 import { recordIssueDelivery } from "../delivery-state.js";

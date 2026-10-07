@@ -2,7 +2,7 @@
 
 import type { RunCommand } from "../../../context.js";
 import type { Project } from "../../../domain/index.js";
-import type { MediaAttachmentInfo } from "../../../integrations/openclaw/types.js";
+import type { MediaAttachmentInfo } from "../../../integrations/openclaw/media/index.js";
 import type { IssueProvider } from "../../../integrations/providers/index.js";
 import type { AttachmentMeta } from "../../../state/index.js";
 import type { ValueOf } from "../../../types.js";

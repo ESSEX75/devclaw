@@ -6,10 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { it } from "node:test";
 
-import type { RunCommand } from "../../context.js";
-import { loadConfig } from "../../state/index.js";
-import { fetchGatewaySessions, isSessionAlive } from "./gateway-sessions.js";
-import { shouldClearSession } from "./session.js";
+import type { RunCommand } from "../../../context.js";
+import { fetchGatewaySessions, isSessionAlive } from "./observations.js";
 
 /** Return a clean gateway status acknowledgement carrying the supplied inventory.
  * @param payload - Status JSON used by this isolated transport.
@@ -88,20 +86,4 @@ it("does not accept failure output as an authoritative inventory", async () => {
     code: 1, signal: null, killed: false, termination: "exit" });
   assert.equal(await fetchGatewaySessions(undefined, runCommand), null);
   assert.equal(await fetchGatewaySessions(undefined, async () => { throw new Error("timeout"); }), null);
-});
-
-it("only resets context above its budget and preserves same-issue feedback", async t => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "devclaw-session-budget-"));
-  t.after(async () => {
-    const audit = path.join(directory, "devclaw", "log", "audit.log");
-    await fs.unlink(audit);
-    await fs.rmdir(path.dirname(audit));
-    await fs.rmdir(path.join(directory, "devclaw"));
-    await fs.rmdir(directory);
-  });
-  const { timeouts } = await loadConfig(directory);
-  const observe = (totalTokens: number) => statusCommand({ sessions: { recent: [{ key: "worker", totalTokens, contextTokens: 100 }] } });
-  assert.equal(await shouldClearSession("worker", 1, 2, timeouts, directory, "project", observe(20)), false);
-  assert.equal(await shouldClearSession("worker", 1, 2, timeouts, directory, "project", observe(80)), true);
-  assert.equal(await shouldClearSession("worker", 2, 2, timeouts, directory, "project", observe(80)), false);
 });

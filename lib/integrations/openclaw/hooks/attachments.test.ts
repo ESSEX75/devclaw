@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { it } from "node:test";
-import { readProjects } from "../../state/index.js";
-import { createTestHarness } from "../../testing/index.js";
-import { GitHubProvider } from "../providers/github/index.js";
-import { registerAttachmentHook } from "./attachment-hook.js";
+import { readProjects } from "../../../state/index.js";
+import { createTestHarness } from "../../../testing/index.js";
+import { GitHubProvider } from "../../providers/github/index.js";
+import { registerAttachmentHook } from "./attachments.js";
 import type { AttachmentHookRegistrar } from "./types.js";
 
 it("performs no provider upload for incomplete or ambiguous routing", async t => {

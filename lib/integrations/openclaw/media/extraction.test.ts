@@ -1,7 +1,7 @@
 /** Proves malformed or duplicate SDK media fields cannot shift MIME ownership to another file. */
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { extractMediaAttachments } from "./attachment-media.js";
+import { extractMediaAttachments } from "./index.js";
 
 it("preserves positional MIME pairing when paths or types are invalid", () => {
   assert.deepEqual(extractMediaAttachments({ MediaPaths: [null, "/tmp/b.pdf", "/tmp/c.png"],

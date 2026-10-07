@@ -2,6 +2,30 @@
 
 This layer owns concrete external adapters.
 
+## OpenClaw package ownership
+
+The OpenClaw adapter exposes separate APIs through `agents/index.ts`, `sessions/index.ts`,
+`hooks/index.ts`, `media/index.ts`, and the existing `notifications/index.ts` and
+`scopes/index.ts`. Its organizational root has no barrel or compatibility files.
+Cross-capability consumers use these APIs; implementations import their own local files.
+Types and protocol constants belong to the capability that owns them.
+
+- Agents read the active SDK registry and delegate workspace resolution to the SDK.
+- Sessions own validated gateway observations, model acknowledgement, exact deletion,
+  worker-turn submission and canonical session protocol identity. No session adapter
+  selects a cleanup policy, changes local workflow state or writes worker audit events.
+- Hooks register SDK handlers and normalize exact attachment routes. Application owns
+  managed worker bootstrap identification, role prompt selection and project attachment
+  routing. Mutable bootstrap resources retain their original SDK references.
+- Media normalize local path/MIME metadata and delegate MIME detection to the SDK;
+  state owns file reading and persistence.
+- Notifications and scopes retain their existing independent transport contracts.
+
+Session mutation confirmation requires clean process completion; a timeout, signal,
+killed process or missing exit code cannot prove deletion or accepted submission.
+Each worker turn is submitted once. Application owns budget-based cleanup decisions,
+their audit and whether optional cleanup failure blocks dispatch.
+
 ## Provider package ownership
 
 `providers/index.ts` exposes provider-neutral capability contracts and DTOs from
@@ -140,16 +164,16 @@ Use `npm run arch:check:strict` after changing this layer.
 `openclaw/scopes/index.ts` exposes optional scope CLI transport and validated
 responses. It classifies absent commands narrowly; other process failures propagate.
 Application setup owns required permissions and approval policy.
-`openclaw/agent-workspace.ts` delegates workspace resolution to the SDK, including
+`openclaw/agents/index.ts` delegates workspace resolution to the SDK, including
 implicit defaults, so ownership discovery does not duplicate SDK path rules.
 Heartbeat applies strict state-owned registry inspection to those resolved paths
 and scopes each project to its persisted agent identity.
 
-`openclaw/attachment-hook.ts` owns SDK message hook registration and media event
+`openclaw/hooks/index.ts` owns SDK message hook registration and media event
 normalization. It passes complete routing identities to application/tasks and
 requires an explicit agent-scoped session plus account and conversation identity.
 Unscoped or unstaged events are skipped; missing identity is never defaulted to an
-agent or account. `attachment-media.ts` preserves path/MIME positional pairing.
+agent or account. `openclaw/media/index.ts` preserves path/MIME positional pairing.
 
 `openclaw/notifications/index.ts` owns one outbound text submission. Runtime adapter
 loading can fall back to CLI before `sendText` begins. Runtime rejection after

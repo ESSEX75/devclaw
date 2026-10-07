@@ -2,7 +2,7 @@
 
 import type { RunCommand } from "../../context.js";
 import type { IssueRuntimeState, Project, WorkflowConfig, WorkflowPolicyRouting } from "../../domain/index.js";
-import type { SessionLookup } from "../../integrations/openclaw/types.js";
+import type { SessionLookup } from "../../integrations/openclaw/sessions/index.js";
 import type { IssueReader } from "../../integrations/providers/index.js";
 import type { IssueProvider } from "../../integrations/providers/index.js";
 import type { Issue } from "../../integrations/providers/index.js";

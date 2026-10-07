@@ -6,7 +6,7 @@ import {
   type SetupRuntime,
 } from "../../application/index.js";
 import { EXECUTION_MODE, type ExecutionMode } from "../../domain/index.js";
-import { listConfiguredAgents } from "../../integrations/openclaw/agent-registry.js";
+import { listConfiguredAgents } from "../../integrations/openclaw/agents/index.js";
 import type { ConfiguredAgent, SetupCliOptions } from "./types.js";
 
 /** Read the configured default workspace for terminal target selection.

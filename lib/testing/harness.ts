@@ -23,7 +23,7 @@ import {
   type WorkflowConfig,
   type WorkflowLabel,
 } from "../domain/index.js";
-import { registerBootstrapHook } from "../integrations/openclaw/bootstrap-hook.js";
+import { registerBootstrapHook } from "../integrations/openclaw/hooks/index.js";
 import { DATA_DIR, type ProjectsData, readProjects } from "../state/index.js";
 import { TestProvider } from "./test-provider.js";
 

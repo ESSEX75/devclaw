@@ -6,8 +6,8 @@ import { registerHeartbeatService } from "./lib/application/index.js";
 // Infrastructure
 import { registerCli } from "./lib/cli/register.js";
 import { createPluginContext } from "./lib/context.js";
-import { registerAttachmentHook } from "./lib/integrations/openclaw/attachment-hook.js";
-import { registerBootstrapHook } from "./lib/integrations/openclaw/bootstrap-hook.js";
+import { registerAttachmentHook } from "./lib/integrations/openclaw/hooks/index.js";
+import { registerBootstrapHook } from "./lib/integrations/openclaw/hooks/index.js";
 import { toolRegistry } from "./lib/tools/registry.js";
 
 const plugin = {

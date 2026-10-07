@@ -4,8 +4,8 @@ import fs from "node:fs/promises";
 
 import { z } from "zod";
 
-import type { RunCommand } from "../../context.js";
-import { GATEWAY_STATUS_METHOD, GATEWAY_STATUS_TIMEOUT_MS, SESSION_STORE_ENCODING } from "./const.js";
+import type { RunCommand } from "../../../context.js";
+import { GATEWAY_COMMAND, GATEWAY_STATUS_METHOD, GATEWAY_STATUS_TIMEOUT_MS, SESSION_STORE_ENCODING } from "./const.js";
 import type { GatewaySession, SessionLookup } from "./types.js";
 
 /** Invalid optional metrics are unknown, never evidence of zero usage. */
@@ -65,7 +65,7 @@ function mergeSession(lookup: SessionLookup, session: GatewaySession): void {
  */
 export async function fetchGatewaySessions(gatewayTimeoutMs = GATEWAY_STATUS_TIMEOUT_MS, runCommand: RunCommand): Promise<SessionLookup | null> {
   try {
-    const result = await runCommand(["openclaw", "gateway", "call", GATEWAY_STATUS_METHOD, "--json"], { timeoutMs: gatewayTimeoutMs });
+    const result = await runCommand([...GATEWAY_COMMAND, GATEWAY_STATUS_METHOD, "--json"], { timeoutMs: gatewayTimeoutMs });
 
     if (result.code !== 0 || result.termination !== "exit" || result.killed || result.signal !== null) return null;
     const jsonStart = result.stdout.indexOf("{");

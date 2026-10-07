@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
-import { findConfiguredAgent, listConfiguredAgents } from "./agent-registry.js";
+import { findConfiguredAgent, listConfiguredAgents } from "./registry.js";
 
 it("reads entries-only agents by key", () => {
   const config = { agents: { entries: { "dev-agent": { name: "Developer" } } } };

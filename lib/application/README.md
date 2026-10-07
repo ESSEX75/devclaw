@@ -70,6 +70,12 @@ separate READMEs. Their file responsibilities and API details belong in source J
   for developers, a live conflict-free open PR; pipeline rechecks under lock.
 - Dispatch requires a resolved role and resolves the selected level's explicit model before reservation. Removed or unknown levels fail without restoring registry defaults or interpreting levels as raw model IDs.
 - After reservation, dispatch awaits confirmed session model setup before provider transition or worker submission. Setup failure releases the exact reservation while retaining the queued issue; uncertainty in a model patch alone does not imply a submitted worker turn.
+- Workers own context-budget reset selection and its audit. Same-issue feedback preserves
+  the existing context without querying the gateway; unknown usage retains the
+  session. Reset requires observed usage strictly above the configured budget. Observation
+  or exceptions from audit retain context; audit persistence remains best-effort. Dispatch
+  separately decides how to handle optional
+  deletion failure. Gateway adapters neither choose this policy nor write its audit.
 - Notifications use the persisted exact endpoint without redirecting. Transport fallback
   is allowed only before submission. Terminal release precedes delivery and archival;
   unknown attempts require exact operator settlement and never automatically resend.
@@ -97,7 +103,7 @@ separate READMEs. Their file responsibilities and API details belong in source J
   overrides positive fields; an unavailable scope command is nonblocking.
 - Onboarding collects explicit role-level model overrides or accepts defaults. Reconfiguration guidance reads effective enabled workspace roles, including custom levels; it does not discover models or invoke LLM selection.
 
-Within workers, shared root evidence operations/constants may be imported directly
+Within workers, shared root evidence and session policy operations/constants may be imported directly
 to avoid command-barrel cycles; recovery must not depend on dispatch. In setup,
 shared runtime types come from root `types.ts`, and root contracts may import child
 `types.ts` directly to avoid barrel cycles.

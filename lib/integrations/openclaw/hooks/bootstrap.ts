@@ -2,8 +2,8 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
-import { loadWorkerBootstrapInstructions, resolveWorkerBootstrapIdentity } from "../../application/index.js";
-import type { PluginContext } from "../../context.js";
+import { loadWorkerBootstrapInstructions, resolveWorkerBootstrapIdentity } from "../../../application/index.js";
+import type { PluginContext } from "../../../context.js";
 import { WORKER_BOOTSTRAP_FILE, WORKER_BOOTSTRAP_HOOK, WORKER_BOOTSTRAP_REGISTRATION } from "./const.js";
 import { isWorkerBootstrapContext } from "./guards.js";
 

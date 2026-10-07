@@ -1,10 +1,11 @@
 /** Registers SDK media capture and passes complete normalized routing to application orchestration. */
 
-import { extractIssueReferences, processAttachmentMessage, resolveAttachmentProject, resolveProvider } from "../../application/index.js";
-import { listConfiguredAgents } from "./agent-registry.js";
-import { resolveConfiguredAgentWorkspace } from "./agent-workspace.js";
-import { ATTACHMENT_AGENT_SESSION, ATTACHMENT_MESSAGE_HOOK, ATTACHMENT_TOPIC_SEPARATOR } from "./attachment-const.js";
-import { extractMediaAttachments } from "./attachment-media.js";
+import { extractIssueReferences, processAttachmentMessage, resolveAttachmentProject, resolveProvider } from "../../../application/index.js";
+import { listConfiguredAgents } from "../agents/index.js";
+import { resolveConfiguredAgentWorkspace } from "../agents/index.js";
+import { extractMediaAttachments } from "../media/index.js";
+import { normalizeAttachmentRoute } from "./attachment-route.js";
+import { ATTACHMENT_MESSAGE_HOOK } from "./const.js";
 import type { AttachmentHookContext, AttachmentHookRegistrar } from "./types.js";
 
 /** Capture media only when the SDK supplies a complete, unambiguous route and owner.
@@ -19,28 +20,21 @@ export function registerAttachmentHook(api: AttachmentHookRegistrar, ctx: Attach
       ? extractMediaAttachments({ MediaPaths: event.media.map(media => media.path), MediaTypes: event.media.map(media => media.contentType) })
       : extractMediaAttachments(event.metadata ?? {});
     const issueIds = extractIssueReferences(event.content);
-    const sessionKey = eventCtx.sessionKey ?? event.sessionKey;
-    const agentId = sessionKey ? ATTACHMENT_AGENT_SESSION.exec(sessionKey)?.[1] : undefined;
 
-    if (!attachments.length || !issueIds.length || !eventCtx.accountId || !eventCtx.conversationId || !agentId) return;
+    if (!attachments.length || !issueIds.length) return;
     try {
+      const route = normalizeAttachmentRoute(event, eventCtx);
+
+      if (!route) return;
       const config = ctx.runtime.config.current();
       const configuredAgents = listConfiguredAgents(config);
       // With no explicit list, resolve the owner supplied by the SDK session using SDK defaults.
       const owners = config.agents?.entries !== undefined || config.agents?.list !== undefined
-        ? configuredAgents.filter(agent => agent.id === agentId) : [{ id: agentId }];
+        ? configuredAgents.filter(agent => agent.id === route.agentId) : [{ id: route.agentId }];
       const workspaces = await Promise.all(owners.map(async agent => ({
         agentId: agent.id, workspaceDir: await resolveConfiguredAgentWorkspace(config, agent.id),
       })));
-      const [conversationId, topic, ...extra] = eventCtx.conversationId.split(ATTACHMENT_TOPIC_SEPARATOR);
-
-      if (extra.length || (topic !== undefined && !topic)) return;
-      const threadId = event.threadId === undefined ? topic : String(event.threadId);
-
-      if (topic !== undefined && threadId !== topic) return;
-      const context = await resolveAttachmentProject(workspaces, {
-        channel: eventCtx.channelId, accountId: eventCtx.accountId, conversationId, threadId, agentId,
-      });
+      const context = await resolveAttachmentProject(workspaces, route);
 
       if (!context) return;
       const { provider } = await resolveProvider(context.workspaceDir, context.project, ctx.runCommand);

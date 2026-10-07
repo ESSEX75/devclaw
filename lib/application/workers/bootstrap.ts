@@ -1,6 +1,6 @@
 /** Resolves bootstrap instruction ownership from saved slots rather than built-in role names. */
 
-import { formatWorkerSessionKey } from "../../integrations/openclaw/session-identity.js";
+import { formatWorkerSessionKey } from "../../integrations/openclaw/sessions/index.js";
 import { isConfiguredRoleId, loadConfig, loadRoleInstructions, readOptionalProjects, type RoleInstructionsResult } from "../../state/index.js";
 import type { WorkerBootstrapIdentity } from "./types.js";
 

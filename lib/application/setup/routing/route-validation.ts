@@ -5,7 +5,7 @@
  */
 
 import type { NotificationEndpoint } from "../../../domain/index.js";
-import { findConfiguredAgent } from "../../../integrations/openclaw/agent-registry.js";
+import { findConfiguredAgent } from "../../../integrations/openclaw/agents/index.js";
 import type { ProjectsData } from "../../../state/index.js";
 import { ROUTE_DIAGNOSTIC_CODE, TOPIC_PEER_SEPARATOR } from "./const.js";
 import { matchesExactDestination } from "./route-matching.js";

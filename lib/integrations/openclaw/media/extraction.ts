@@ -1,4 +1,4 @@
-/** Normalizes SDK media metadata and detects MIME types at the OpenClaw boundary. */
+/** Normalizes SDK media metadata while preserving positional path/type pairing. */
 
 import path from "node:path";
 
@@ -22,14 +22,4 @@ export function extractMediaAttachments(metadata: Record<string, unknown>): Medi
   }
 
   return result;
-}
-
-/** Detect the MIME type using the installed SDK without reading files in application code.
- * @param filePath - Resolved source filename.
- * @param buffer - File contents already read by state.
- */
-export async function detectAttachmentMime(filePath: string, buffer: Buffer): Promise<string | undefined> {
-  const { detectMime } = await import("openclaw/plugin-sdk/media-mime");
-
-  return await detectMime({ filePath, buffer }) ?? undefined;
 }

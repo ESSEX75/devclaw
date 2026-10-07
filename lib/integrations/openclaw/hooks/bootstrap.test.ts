@@ -1,16 +1,16 @@
 /**
  * Tests exact saved bootstrap ownership, custom roles and instruction loading failures.
- * Run with: npx tsx --test lib/integrations/openclaw/bootstrap-hook.test.ts
+ * Run with: npx tsx --test lib/integrations/openclaw/hooks/bootstrap.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { loadRoleInstructions } from "../../state/index.js";
-import { createTestHarness } from "../../testing/index.js";
+import { loadRoleInstructions } from "../../../state/index.js";
+import { createTestHarness } from "../../../testing/index.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
-import { registerBootstrapHook } from "./bootstrap-hook.js";
+import { registerBootstrapHook } from "./bootstrap.js";
 
 describe("registered worker bootstrap", () => {
   for (const role of ["developer", "tester", "architect", "security_auditor", "security-auditor"]) {

@@ -1,7 +1,7 @@
 /** Fences late gateway callbacks against operator decisions and reused worker sessions. */
 
-import { AGENT_TURN_STATUS } from "../../../integrations/openclaw/const.js";
-import type { AgentTurnOutcome } from "../../../integrations/openclaw/types.js";
+import type { AgentTurnOutcome } from "../../../integrations/openclaw/sessions/index.js";
+import { AGENT_TURN_STATUS } from "../../../integrations/openclaw/sessions/index.js";
 import { readIssueStateStore, readProjects, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../../state/index.js";
 import { acknowledgeComments, confirmReviewSummaryDelivery, EYES_EMOJI } from "../../review/index.js";
 import { reconcileUncertainDispatch } from "../delivery-recovery/index.js";

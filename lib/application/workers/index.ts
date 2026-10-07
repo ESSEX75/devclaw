@@ -7,4 +7,5 @@ export type { ResolveWorkerDeliveryInput, ResolveWorkerDeliveryResult } from "./
 export { reconcileUncertainDispatch, resolveWorkerDelivery } from "./delivery-recovery/index.js";
 export type { DispatchOpts, DispatchResult } from "./dispatch/index.js";
 export { dispatchTask, dispatchTaskLocked } from "./dispatch/index.js";
+export { shouldClearSession } from "./session-budget.js";
 export type { WorkerBootstrapIdentity } from "./types.js";

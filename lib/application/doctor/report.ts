@@ -1,6 +1,6 @@
 /** Builds deterministic doctor findings from loaded routing and archive observations. */
 
-import { listConfiguredAgents } from "../../integrations/openclaw/agent-registry.js";
+import { listConfiguredAgents } from "../../integrations/openclaw/agents/index.js";
 import type { ProjectsData, ResolvedConfig } from "../../state/index.js";
 import { parseDuration } from "../issues/index.js";
 import { DEVCLAW_AGENT_TOOLS, inspectConfiguredProjectRoutes } from "../setup/index.js";
