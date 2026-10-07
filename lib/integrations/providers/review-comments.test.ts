@@ -13,7 +13,9 @@ it("GitHub keeps review, inline and conversation IDs separate and uses the inlin
     calls.push([...argv]);
     const comment = { id: 42, user: { login: "reviewer" }, body: "fix", state: "COMMENTED", created_at: "2026-01-01", submitted_at: "2026-01-01" };
     let data: unknown = [];
-    if (argv[1] === "pr") data = [{ number: 7, title: "Fix #1", body: "", headRefName: "feature/1-fix" }];
+    if (argv[1] === "repo") data = { owner: { login: "owner" }, name: "repo" };
+    else if (argv[2] === "graphql") data = { data: { repository: { issue: { timelineItems: { nodes: [] } } } } };
+    else if (argv[1] === "pr") data = [{ number: 7, title: "Fix #1", body: "", headRefName: "feature/1-fix" }];
     else if (argv[2]?.endsWith("/reactions")) data = [{ content: "eyes" }];
     else if (argv[1] === "api") data = [comment];
     return { stdout: JSON.stringify(data), stderr: "", code: 0, signal: null, killed: false, termination: "exit" };
@@ -39,7 +41,7 @@ it("GitLab preserves inline identity, deduplicates discussion notes and reacts t
     calls.push([...argv]);
     const note = { id: 42, author: { username: "reviewer" }, body: "fix", created_at: "2026-01-01", system: false };
     let data: unknown = [];
-    if (argv[2]?.endsWith("related_merge_requests")) data = [{ iid: 7, state: "opened" }];
+    if (argv[2]?.endsWith("related_merge_requests")) data = [{ iid: 7, state: "opened", title: "Fix", web_url: "https://gitlab.test/mr/7" }];
     else if (argv[2]?.endsWith("discussions")) data = [{ notes: [{ ...note, position: { new_path: "file.ts" } }] }];
     else if (argv[2]?.endsWith("notes")) data = [note, { ...note, id: 43 }];
     else if (argv[2]?.endsWith("award_emoji")) data = [{ name: "eyes" }];

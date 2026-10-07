@@ -11,6 +11,7 @@ import { describe, it } from "node:test";
 import { DEFAULT_WORKFLOW, ISSUE_CREATION_STATUS, ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../../domain/index.js";
 import {
   PROVIDER_OPERATION_ERROR,
+  createProvider,
   ProviderOperationError,
   type CreateIssueInput,
   type Issue,
@@ -51,6 +52,30 @@ function input(workspaceDir: string, provider: TestProvider, idempotencyKey: str
     idempotencyKey,
     requestedBy: "test",
   };
+}
+
+for (const providerType of [ISSUE_PROVIDER.GITHUB, ISSUE_PROVIDER.GITLAB]) {
+  it(`${providerType} unidentified successful creation enters manual repair without a replay`, async () => {
+    await withWorkspace(async workspaceDir => {
+      let submissions = 0;
+      const actual = await createProvider({ provider: providerType, repoPath: ".", runCommand: async () => {
+        submissions++;
+        return { stdout: "unexpected successful creation response", stderr: "", code: 0, signal: null, killed: false, termination: "exit" };
+      } });
+      const provider = new TestProvider();
+      provider.createIssue = actual.provider.createIssue.bind(actual.provider);
+      const request = { ...input(workspaceDir, provider, `unidentified-${providerType}`), providerType };
+      const first = await createManagedTaskIssue(request);
+      const second = await createManagedTaskIssue(request);
+      assert.equal(first.status, ISSUE_CREATION_STATUS.MANUAL_REPAIR_REQUIRED);
+      assert.equal(second.status, ISSUE_CREATION_STATUS.MANUAL_REPAIR_REQUIRED);
+      assert.equal(submissions, 1);
+      assert.equal(first.success, false);
+      assert.equal(Object.keys((await readIssueStateStore(workspaceDir, project.slug)).issues).length, 0);
+      const store = await readIssueCreationStore(workspaceDir, project.slug);
+      assert.equal(store.operations[request.idempotencyKey]?.lastError?.retryable, false);
+    });
+  });
 }
 
 /** Isolate persistence for one saga scenario and always clean up its workspace.

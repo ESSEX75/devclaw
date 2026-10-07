@@ -12,6 +12,8 @@ export * from "./provider.js";
 export * from "./types.js";
 import type { RunCommand } from "../../context.js";
 import { resolveRepoPath } from "../../state/index.js";
+import { runProviderCommand } from "./command.js";
+import { GITHUB_ORIGIN_HOSTS, GITLAB_ORIGIN_HOSTS, PROVIDER_TRANSPORT_POLICY } from "./const.js";
 import { GitHubProvider } from "./github.js";
 import { GitLabProvider } from "./gitlab.js";
 
@@ -28,18 +30,32 @@ export type ProviderWithType = {
   type: IssueProviderId;
 };
 
+/** Detect only known hosts; unknown/self-hosted repositories require an explicit provider.
+ * @param repoPath - Repository containing the origin remote.
+ * @param runCommand - Runtime-owned git transport.
+ */
 async function detectProvider(repoPath: string, runCommand: RunCommand): Promise<IssueProviderId> {
-  try {
-    const result = await runCommand(["git", "remote", "get-url", "origin"], { timeoutMs: 5_000, cwd: repoPath });
+  const remote = await runProviderCommand(runCommand, ["git", "remote", "get-url", "origin"], repoPath, PROVIDER_TRANSPORT_POLICY.REMOTE_TIMEOUT_MS);
+  let host: string;
 
-    return result.stdout.trim().includes("github.com")
-      ? ISSUE_PROVIDER.GITHUB
-      : ISSUE_PROVIDER.GITLAB;
+  try {
+    host = new URL(remote).hostname.toLowerCase();
   } catch {
-    return ISSUE_PROVIDER.GITLAB;
+    const scp = remote.match(/^[^@\s]+@([^:\s]+):.+$/);
+
+    if (!scp) throw new Error("Cannot identify the origin host; specify the issue provider explicitly.");
+    host = scp[1].toLowerCase();
   }
+
+  if (GITHUB_ORIGIN_HOSTS.has(host)) return ISSUE_PROVIDER.GITHUB;
+  if (GITLAB_ORIGIN_HOSTS.has(host)) return ISSUE_PROVIDER.GITLAB;
+
+  throw new Error(`Unknown origin host "${host}"; specify the issue provider explicitly.`);
 }
 
+/** Create a provider using explicit selection or confirmed known-host detection.
+ * @param opts - Repository, runtime command capability and optional provider/workflow selection.
+ */
 export async function createProvider(opts: ProviderOptions): Promise<ProviderWithType> {
   const repoPath = opts.repoPath ?? (opts.repo ? resolveRepoPath(opts.repo) : null);
 

@@ -7,7 +7,8 @@ import { z } from "zod";
 import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
 import type { CreateIssueInput } from "./capabilities.js";
-import { PR_COMMENT_KIND } from "./const.js";
+import { runProviderCommand } from "./command.js";
+import { PR_COMMENT_KIND, PROVIDER_COMMAND_MODE } from "./const.js";
 import {
   classifyProviderLookupFailure,
   classifyProviderProjectAccessFailure,
@@ -17,7 +18,7 @@ import {
 } from "./lookup-errors.js";
 import { classifyProviderOperationError, PROVIDER_OPERATION_ERROR, ProviderOperationError } from "./operation-errors.js";
 import type { IssueProvider } from "./provider.js";
-import { withResilience } from "./resilience.js";
+import { createProviderPolicy, withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
 
 type GitLabMR = {
@@ -37,6 +38,20 @@ const GitLabIssueSchema = z.object({
   state: z.string(), web_url: z.string(),
 });
 
+/** Related merge-request responses must confirm identity before they can drive observations. */
+const GitLabMRSchema = z.object({
+  iid: z.number().int().positive().safe(),
+  title: z.string(),
+  description: z.string().nullable().optional().transform(value => value ?? ""),
+  web_url: z.string().min(1),
+  state: z.enum(["opened", "merged", "closed"]),
+  source_branch: z.string().optional(),
+  merged_at: z.string().nullable().optional().transform(value => value ?? null),
+});
+
+/** Approval evidence must include the explicit reviewers and remaining required approvals. */
+const GitLabApprovalSchema = z.object({ approved_by: z.array(z.unknown()), approvals_left: z.number().int().nonnegative() });
+
 export class GitLabProvider implements IssueProvider {
   private repoPath: string;
   private workflow: WorkflowConfig;
@@ -48,43 +63,64 @@ export class GitLabProvider implements IssueProvider {
     this.workflow = opts.workflow ?? DEFAULT_WORKFLOW;
   }
 
+  /** Resilience state belongs to this concrete adapter, not other projects or providers. */
+  private readonly policy = createProviderPolicy();
+
+  /** Read provider data with retries limited to classified temporary failures.
+   * @param args - Read-only CLI arguments.
+   */
   private async glab(args: string[]): Promise<string> {
-    return withResilience(() => this.glabOnce(args));
+    return withResilience(PROVIDER_COMMAND_MODE.READ, this.policy, () =>
+      runProviderCommand(this.runCommand, ["glab", ...args], this.repoPath));
   }
 
-  /** Execute a non-idempotent GitLab mutation exactly once. */
+  /** Repeat only a mutation whose desired final state is explicitly idempotent.
+   * @param args - CLI arguments setting an idempotent provider state.
+   */
+  private async glabWrite(args: string[]): Promise<string> {
+    return withResilience(PROVIDER_COMMAND_MODE.IDEMPOTENT, this.policy, () => this.glabOnce(args));
+  }
+
+  /** Submit a mutation once, retaining its typed failure and request-outcome evidence.
+   * @param args - CLI arguments for one mutation attempt.
+   */
   private async glabOnce(args: string[]): Promise<string> {
-    const result = await this.runCommand(["glab", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
-
-    if (result.code !== 0 || result.termination !== "exit" || result.killed || result.signal !== null) {
-      throw new Error(result.stderr?.trim() || `glab command failed with exit code ${result.code}`);
+    try {
+      return await withResilience(PROVIDER_COMMAND_MODE.ONCE, this.policy, () =>
+        runProviderCommand(this.runCommand, ["glab", ...args], this.repoPath));
+    } catch (error) {
+      throw classifyProviderOperationError(error);
     }
-
-    return result.stdout.trim();
   }
 
-  /** Get MRs linked to an issue via GitLab's native related_merge_requests API. */
+  /** Read and validate related MRs; transport and malformed-response failures never imply absence.
+   * @param issueId - Managed issue whose related merge requests are requested.
+   */
   private async getRelatedMRs(issueId: number): Promise<GitLabMR[]> {
     try {
       const raw = await this.glab(["api", `projects/:id/issues/${issueId}/related_merge_requests`, "--paginate"]);
 
-      if (!raw) return [];
 
-      return JSON.parse(raw) as GitLabMR[];
-    } catch { return []; }
+      const response: unknown = JSON.parse(raw);
+
+      return z.array(GitLabMRSchema).parse(response);
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   async ensureLabel(name: string, color: string): Promise<void> {
     try {
       // Update-first: always set the color on existing labels
-      await this.glab([
+      await this.glabWrite([
         "api", `projects/:id/labels/${encodeURIComponent(name)}`,
         "--method", "PUT",
         "--field", `color=${color}`,
       ]);
-    } catch {
-      // Label doesn't exist yet — create it
-      await this.glab([
+    } catch (error) {
+      const failure = classifyProviderOperationError(error);
+
+      if (failure.code !== PROVIDER_OPERATION_ERROR.NOT_FOUND || failure.outcomeUnknown) throw error;
+      // A confirmed missing label permits one create request.
+      await this.glabOnce([
         "api", "projects/:id/labels",
         "--method", "POST",
         "--field", `name=${name}`,
@@ -117,7 +153,10 @@ export class GitLabProvider implements IssueProvider {
       // glab issue create returns the issue URL
       const match = stdout.match(/https?:\/\/\S+\/issues\/(\d+)/);
 
-      if (!match) throw new Error(`Provider returned an invalid issue URL: ${stdout}`);
+      if (!match || !Number.isSafeInteger(Number(match[1])) || Number(match[1]) <= 0) {
+        throw new ProviderOperationError({ code: PROVIDER_OPERATION_ERROR.UNKNOWN, message: "Issue creation returned no confirmed identity.",
+          retryable: false, outcomeUnknown: true });
+      }
 
       return {
         iid: parseInt(match[1], 10),
@@ -137,7 +176,7 @@ export class GitLabProvider implements IssueProvider {
       const raw = await this.glab(["issue", "list", "--label", label, "--output", "json"]);
 
       return JSON.parse(raw) as Issue[];
-    } catch { return []; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   async listIssues(opts?: { label?: string; state?: "open" | "closed" | "all" }): Promise<Issue[]> {
@@ -151,7 +190,7 @@ export class GitLabProvider implements IssueProvider {
       const raw = await this.glab(args);
 
       return JSON.parse(raw) as Issue[];
-    } catch { return []; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   async getIssue(issueId: number): Promise<Issue> {
@@ -196,14 +235,14 @@ export class GitLabProvider implements IssueProvider {
           body: note.body,
           created_at: note.created_at,
         }));
-    } catch { return []; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   async transitionLabel(issueId: number, from: StateLabel, to: StateLabel): Promise<void> {
     // Two-phase transition to prevent label loss on failure:
     // Phase 1: Add new label first — issue is correctly labelled even if phase 2 fails
     // Phase 2: Remove old state labels (best-effort)
-    await this.glab(["issue", "update", String(issueId), "--label", to]);
+    await this.glabWrite(["issue", "update", String(issueId), "--label", to]);
 
     const issue = await this.getIssue(issueId);
     const stateLabels = new Set<string>(getStateLabels(this.workflow));
@@ -213,7 +252,7 @@ export class GitLabProvider implements IssueProvider {
       const args = ["issue", "update", String(issueId)];
 
       for (const l of currentStateLabels) args.push("--unlabel", l);
-      await this.glab(args);
+      await this.glabWrite(args);
     }
 
     // Post-transition validation: verify exactly one state label remains (#473)
@@ -234,7 +273,7 @@ export class GitLabProvider implements IssueProvider {
   }
 
   async addLabel(issueId: number, label: string): Promise<void> {
-    await this.glab(["issue", "update", String(issueId), "--label", label]);
+    await this.glabWrite(["issue", "update", String(issueId), "--label", label]);
   }
 
   async removeLabels(issueId: number, labels: string[]): Promise<void> {
@@ -242,21 +281,17 @@ export class GitLabProvider implements IssueProvider {
     const args = ["issue", "update", String(issueId)];
 
     for (const l of labels) args.push("--unlabel", l);
-    await this.glab(args);
+    await this.glabWrite(args);
   }
 
-  async closeIssue(issueId: number): Promise<void> { await this.glab(["issue", "close", String(issueId)]); }
-  async reopenIssue(issueId: number): Promise<void> { await this.glab(["issue", "reopen", String(issueId)]); }
+  async closeIssue(issueId: number): Promise<void> { await this.glabWrite(["issue", "close", String(issueId)]); }
+  async reopenIssue(issueId: number): Promise<void> { await this.glabWrite(["issue", "reopen", String(issueId)]); }
   supportsIssueDeletion(): boolean { return true; }
+  /** Delete once; abnormal completion never proves successful deletion.
+   * @param issueId - Provider identity explicitly selected for deletion.
+   */
   async deleteIssue(issueId: number): Promise<void> {
-    const result = await this.runCommand(
-      ["glab", "api", `projects/:id/issues/${issueId}`, "--method", "DELETE"],
-      { timeoutMs: 30_000, cwd: this.repoPath },
-    );
-
-    if (result.code != null && result.code !== 0) {
-      throw new Error(result.stderr?.trim() || `glab issue delete failed with exit code ${result.code}`);
-    }
+    await this.glabOnce(["api", `projects/:id/issues/${issueId}`, "--method", "DELETE"]);
   }
 
   async getMergedMRUrl(issueId: number): Promise<string | null> {
@@ -268,6 +303,9 @@ export class GitLabProvider implements IssueProvider {
     return merged[0]?.web_url ?? null;
   }
 
+  /** Observe MR state; required review read failures propagate rather than reporting no feedback.
+   * @param issueId - Managed issue whose associated MR state is observed.
+   */
   async getPrStatus(issueId: number): Promise<PrStatus> {
     const mrs = await this.getRelatedMRs(issueId);
     // Check open MRs first
@@ -322,7 +360,7 @@ export class GitLabProvider implements IssueProvider {
       return discussions.some((d) =>
         d.notes.some((n) => n.resolvable && !n.resolved && !n.system),
       );
-    } catch { return false; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   /**
@@ -341,7 +379,7 @@ export class GitLabProvider implements IssueProvider {
       }
 
       return false;
-    } catch { return false; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   /** Check if a note already has an 👀 award emoji (marks it as processed). */
@@ -351,7 +389,7 @@ export class GitLabProvider implements IssueProvider {
       const emojis = JSON.parse(raw) as Array<{ name: string }>;
 
       return emojis.some((e) => e.name === "eyes");
-    } catch { return false; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   /**
@@ -368,7 +406,7 @@ export class GitLabProvider implements IssueProvider {
       return all.filter(
         (n) => !n.system && n.body.trim().length > 0,
       );
-    } catch { return []; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   /** Check MR merge status for conflicts. */
@@ -382,18 +420,15 @@ export class GitLabProvider implements IssueProvider {
       if (mr.detailed_merge_status === "mergeable" || mr.detailed_merge_status === "ci_must_pass") return true;
 
       return undefined; // Unknown
-    } catch { return undefined; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   /** Check if an MR is approved via the dedicated approvals endpoint. */
   private async isMrApproved(mrIid: number): Promise<boolean> {
     try {
       const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/approvals`]);
-      const data = JSON.parse(raw) as {
-        approved?: boolean;
-        approvals_left?: number;
-        approved_by?: Array<unknown>;
-      };
+      const response: unknown = JSON.parse(raw);
+      const data = GitLabApprovalSchema.parse(response);
       // Only trust explicit approvals — ignore bare 'approved' flag.
       // When a project has zero approval rules, GitLab returns approved:true
       // even though nobody has actually reviewed, causing false positives.
@@ -403,7 +438,7 @@ export class GitLabProvider implements IssueProvider {
 
       // All required approvals satisfied
       return (data.approvals_left ?? 1) <= 0;
-    } catch { return false; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   async mergePr(issueId: number): Promise<void> {
@@ -411,7 +446,7 @@ export class GitLabProvider implements IssueProvider {
     const open = mrs.find((mr) => mr.state === "opened");
 
     if (!open) throw new Error(`No open MR found for issue #${issueId}`);
-    await this.glab(["mr", "merge", String(open.iid)]);
+    await this.glabOnce(["mr", "merge", String(open.iid)]);
   }
 
   async getPrDiff(issueId: number): Promise<string | null> {
@@ -421,7 +456,7 @@ export class GitLabProvider implements IssueProvider {
     if (!open) return null;
     try {
       return await this.glab(["mr", "diff", String(open.iid)]);
-    } catch { return null; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   async getPrReviewComments(issueId: number): Promise<PrReviewComment[]> {
@@ -456,7 +491,7 @@ export class GitLabProvider implements IssueProvider {
           });
         }
       }
-    } catch { /* best-effort */ }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
 
     // Also include top-level conversation notes (regular MR comments, not threaded)
     const conversationNotes = await this.fetchConversationComments(open.iid);
@@ -517,7 +552,7 @@ export class GitLabProvider implements IssueProvider {
    */
   async reactToIssue(issueId: number, emoji: string): Promise<void> {
     try {
-      await this.glab([
+      await this.glabOnce([
         "api", `projects/:id/issues/${issueId}/award_emoji`,
         "--method", "POST",
         "--field", `name=${emoji}`,
@@ -540,7 +575,7 @@ export class GitLabProvider implements IssueProvider {
       const open = mrs.find((mr) => mr.state === "opened");
 
       if (!open) return;
-      await this.glab([
+      await this.glabOnce([
         "api", `projects/:id/merge_requests/${open.iid}/award_emoji`,
         "--method", "POST",
         "--field", `name=${emoji}`,
@@ -563,7 +598,7 @@ export class GitLabProvider implements IssueProvider {
 
   async reactToIssueComment(issueId: number, commentId: number, emoji: string): Promise<void> {
     try {
-      await this.glab([
+      await this.glabOnce([
         "api", `projects/:id/issues/${issueId}/notes/${commentId}/award_emoji`,
         "--method", "POST",
         "--field", `name=${emoji}`,
@@ -577,7 +612,7 @@ export class GitLabProvider implements IssueProvider {
       const open = mrs.find((mr) => mr.state === "opened");
 
       if (!open) return;
-      await this.glab([
+      await this.glabOnce([
         "api", `projects/:id/merge_requests/${open.iid}/notes/${commentId}/award_emoji`,
         "--method", "POST",
         "--field", `name=${emoji}`,
@@ -632,7 +667,7 @@ export class GitLabProvider implements IssueProvider {
 
     if (updates.title !== undefined) args.push("--title", updates.title);
     if (updates.body !== undefined) args.push("--description", updates.body);
-    await this.glab(args);
+    await this.glabWrite(args);
 
     return this.getIssue(issueId);
   }
@@ -648,16 +683,14 @@ export class GitLabProvider implements IssueProvider {
       const patterns = [`#${issueId}`, `!${issueId}`];
 
       for (const pattern of patterns) {
-        const result = await this.runCommand(
-          ["git", "log", `origin/${baseBranch}`, "--oneline", "-200", "--grep", pattern],
-          { timeoutMs: 15_000, cwd: this.repoPath },
-        );
+        const output = await runProviderCommand(this.runCommand,
+          ["git", "log", `origin/${baseBranch}`, "--oneline", "-200", "--grep", pattern], this.repoPath);
 
-        if (result.stdout.trim().length > 0) return true;
+        if (output.length > 0) return true;
       }
 
       return false;
-    } catch { return false; }
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   async uploadAttachment(
@@ -671,11 +704,7 @@ export class GitLabProvider implements IssueProvider {
       const projectId: number = project.id;
       const webUrl: string = project.web_url;
 
-      const tokenRaw = await this.runCommand(
-        ["glab", "config", "get", "token"],
-        { timeoutMs: 10_000, cwd: this.repoPath },
-      );
-      const token = tokenRaw.stdout.trim();
+      const token = await this.glab(["config", "get", "token"]);
 
       if (!token) return null;
 
@@ -690,14 +719,14 @@ export class GitLabProvider implements IssueProvider {
 
       try {
         const apiBase = webUrl.replace(/\/[^/]+\/[^/]+\/?$/, "");
-        const result = await this.runCommand(
+        const output = await runProviderCommand(this.runCommand,
           ["curl", "--silent", "--fail", "--show-error",
             "--header", `PRIVATE-TOKEN: ${token}`,
             "--form", `file=@${tmpFile}`,
             `${apiBase}/api/v4/projects/${projectId}/uploads`],
-          { timeoutMs: 30_000, cwd: this.repoPath },
+          this.repoPath,
         );
-        const parsed = JSON.parse(result.stdout);
+        const parsed = JSON.parse(output);
 
         if (parsed.full_path) return `${webUrl}${parsed.full_path}`;
         if (parsed.url) return `${webUrl}${parsed.url}`;

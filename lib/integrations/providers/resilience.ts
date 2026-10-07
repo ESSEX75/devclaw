@@ -1,50 +1,30 @@
-/**
- * providers/resilience.ts — Retry and circuit breaker policies for provider calls.
- *
- * Uses cockatiel for lightweight resilience without heavyweight orchestration.
- * Applied to GitHub/GitLab CLI calls that can fail due to network, rate limits, or timeouts.
- */
+/** Creates isolated resilience policies; only reads and declared idempotent mutations may replay. */
 
-import {
-  circuitBreaker,
-  ConsecutiveBreaker,
-  ExponentialBackoff,
-  handleAll,
-  type IPolicy,
-  retry,
-  wrap,
-} from "cockatiel";
+import { circuitBreaker, ConsecutiveBreaker, ExponentialBackoff, handleWhen, type IPolicy, retry, wrap } from "cockatiel";
 
-/**
- * Default retry policy: 3 attempts with exponential backoff.
- * Handles all errors (network, timeout, CLI failure).
- */
-const retryPolicy = retry(handleAll, {
-  maxAttempts: 3,
-  backoff: new ExponentialBackoff({
-    initialDelay: 500,
-    maxDelay: 5_000,
-  }),
-});
+import { PROVIDER_COMMAND_MODE, PROVIDER_OPERATION_ERROR, PROVIDER_TRANSPORT_POLICY } from "./const.js";
+import { classifyProviderOperationError } from "./operation-errors.js";
+import type { ProviderCommandMode } from "./types.js";
 
-/**
- * Circuit breaker: opens after 5 consecutive failures, half-opens after 30s.
- * Prevents hammering a provider that's down.
- */
-const breakerPolicy = circuitBreaker(handleAll, {
-  halfOpenAfter: 30_000,
-  breaker: new ConsecutiveBreaker(5),
-});
+/** Create a policy owned by one adapter instance; permanent failures never open its breaker. */
+export function createProviderPolicy(): IPolicy {
+  const retryPolicy = retry(handleWhen(error => classifyProviderOperationError(error).retryable), {
+    maxAttempts: PROVIDER_TRANSPORT_POLICY.RETRIES,
+    backoff: new ExponentialBackoff({ initialDelay: PROVIDER_TRANSPORT_POLICY.INITIAL_DELAY_MS, maxDelay: PROVIDER_TRANSPORT_POLICY.MAX_DELAY_MS }),
+  });
+  const breakerPolicy = circuitBreaker(handleWhen(error => classifyProviderOperationError(error).code === PROVIDER_OPERATION_ERROR.TRANSIENT), {
+    halfOpenAfter: PROVIDER_TRANSPORT_POLICY.BREAKER_RESET_MS,
+    breaker: new ConsecutiveBreaker(PROVIDER_TRANSPORT_POLICY.BREAKER_FAILURES),
+  });
 
-/**
- * Combined policy: circuit breaker wrapping retry.
- * If circuit is open, calls fail fast without retrying.
- */
-export const providerPolicy: IPolicy = wrap(breakerPolicy, retryPolicy);
+  return wrap(breakerPolicy, retryPolicy);
+}
 
-/**
- * Execute a provider call with retry + circuit breaker.
+/** Apply replay policy only to operations with explicit replay safety.
+ * @param mode - Read, idempotent mutation, or one non-replayable mutation.
+ * @param policy - Policy owned by this adapter, never a global breaker.
+ * @param fn - Single transport attempt.
  */
-export function withResilience<T>(fn: () => Promise<T>): Promise<T> {
-  return providerPolicy.execute(() => fn());
+export function withResilience<T>(mode: ProviderCommandMode, policy: IPolicy, fn: () => Promise<T>): Promise<T> {
+  return mode === PROVIDER_COMMAND_MODE.ONCE ? fn() : policy.execute(() => fn());
 }

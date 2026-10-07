@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { RunCommand } from "../../context.js";
+import { createProvider, isProviderIssueLookupError } from "../../integrations/providers/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
@@ -57,6 +58,28 @@ async function withProject<T>(fn: (ctx: {
 }
 
 describe("heartbeat transition state sync", () => {
+  for (const providerType of [ISSUE_PROVIDER.GITHUB, ISSUE_PROVIDER.GITLAB]) {
+    it(`does not use direct-commit fallback or transition after a real ${providerType} PR lookup failure`, async () => {
+      await withProject(async ({ workspaceDir, project, provider, runCommand }) => {
+        const selectedProject = { ...project, provider: providerType };
+        const issue = provider.seedIssue({ iid: 90, labels: ["To Review"] });
+        await writeIssueRuntimeState({ workspaceDir, project: selectedProject, issue, providerType,
+          workflow: DEFAULT_WORKFLOW, workflowState: "toReview", workflowLabel: "To Review", reviewPolicy: "human" });
+        const actual = await createProvider({ provider: providerType, repoPath: ".", runCommand: async () => ({
+          stdout: "[]", stderr: "HTTP 401 Unauthorized", code: 1, signal: null, killed: false, termination: "exit",
+        }) });
+        provider.getPrStatus = actual.provider.getPrStatus.bind(actual.provider);
+        let fallbackCalls = 0;
+        provider.isCommitOnBaseBranch = async () => { fallbackCalls++; return true; };
+        await assert.rejects(reviewPass({ workspaceDir, projectName: selectedProject.name, project: selectedProject,
+          provider, workflow: DEFAULT_WORKFLOW, repoPath: ".", baseBranch: "main", runCommand }), isProviderIssueLookupError);
+        assert.equal(fallbackCalls, 0);
+        assert.equal(provider.callsTo("transitionLabel").length, 0);
+        assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["90"].workflowLabel, "To Review");
+      });
+    });
+  }
+
   it("does not execute provider actions for a stale local source state", async () => {
     await withProject(async ({ workspaceDir, project, provider }) => {
       const issue = provider.seedIssue({ iid: 88, labels: ["To Test"] });

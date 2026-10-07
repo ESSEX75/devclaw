@@ -2,6 +2,9 @@
  * Defines typed provider issue lookup failures at the integration boundary.
  * Application code consumes codes and never infers destructive meaning from error text.
  */
+import { PROVIDER_OPERATION_ERROR } from "./const.js";
+import { normalizeProviderFailure } from "./failures.js";
+
 export const PROVIDER_ISSUE_LOOKUP_ERROR = {
   ISSUE_NOT_FOUND: "ISSUE_NOT_FOUND",
   PROJECT_NOT_FOUND_OR_FORBIDDEN: "PROJECT_NOT_FOUND_OR_FORBIDDEN",
@@ -46,26 +49,14 @@ export function isProviderIssueLookupError(error: unknown): error is ProviderIss
 
 /** Classify non-missing transport and authorization failures inside an adapter. */
 export function classifyProviderLookupFailure(provider: string, error: unknown): ProviderIssueLookupError {
+  if (error instanceof ProviderIssueLookupError) return error;
   const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.toLowerCase();
+  const failure = normalizeProviderFailure(error);
+  const code = failure.code === PROVIDER_OPERATION_ERROR.NOT_FOUND
+    || failure.code === PROVIDER_OPERATION_ERROR.CONFLICT || failure.code === PROVIDER_OPERATION_ERROR.VALIDATION_FAILED
+    ? PROVIDER_ISSUE_LOOKUP_ERROR.UNKNOWN : failure.code;
 
-  if (normalized.includes("401") || normalized.includes("unauthorized") || normalized.includes("authentication")) {
-    return new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.UNAUTHORIZED, provider, retryable: false, message, status: 401, cause: error });
-  }
-
-  if (normalized.includes("403") || normalized.includes("forbidden")) {
-    return new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.FORBIDDEN, provider, retryable: false, message, status: 403, cause: error });
-  }
-
-  if (normalized.includes("rate limit") || normalized.includes("429")) {
-    return new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.RATE_LIMITED, provider, retryable: true, message, status: 429, cause: error });
-  }
-
-  if (normalized.includes("timeout") || normalized.includes("timed out") || normalized.includes("network") || normalized.includes("dns")) {
-    return new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.TRANSIENT, provider, retryable: true, message, cause: error });
-  }
-
-  return new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.UNKNOWN, provider, retryable: false, message, cause: error });
+  return new ProviderIssueLookupError({ code, provider, retryable: failure.retryable, message, status: failure.status, cause: error });
 }
 
 /** Classify a failed repository/project probe while preserving auth, rate, and transport codes. */
@@ -85,7 +76,7 @@ export function classifyProviderProjectAccessFailure(provider: string, error: un
 
 /** Identify a provider CLI response that warrants a separate repository-access check. */
 export function mayBeMissingProviderIssue(error: unknown): boolean {
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const failure = normalizeProviderFailure(error);
 
-  return message.includes("404") || message.includes("not found") || message.includes("could not resolve to an issue") || message.includes("does not exist");
+  return failure.code === PROVIDER_OPERATION_ERROR.NOT_FOUND && !failure.outcomeUnknown;
 }

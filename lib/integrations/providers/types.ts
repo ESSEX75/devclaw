@@ -3,7 +3,25 @@
  */
 
 import type { ValueOf } from "../../types.js";
-import type { PR_COMMENT_KIND } from "./const.js";
+import type { PR_COMMENT_KIND, PROVIDER_COMMAND_MODE, PROVIDER_OPERATION_ERROR } from "./const.js";
+
+/** Stable transport category reused by mutation errors. */
+export type ProviderOperationErrorCode = ValueOf<typeof PROVIDER_OPERATION_ERROR>;
+
+/** Replay safety explicitly selected for a provider CLI operation. */
+export type ProviderCommandMode = ValueOf<typeof PROVIDER_COMMAND_MODE>;
+
+/** Normalized transport evidence, independent of issue lookup or mutation recovery policy. */
+export type ProviderTransportFailure = {
+  /** Stable failure category. */
+  code: ProviderOperationErrorCode;
+  /** Whether a read or explicitly idempotent operation can be repeated. */
+  retryable: boolean;
+  /** Whether a submitted mutation may already have taken effect. */
+  outcomeUnknown: boolean;
+  /** Confirmed HTTP status when available. */
+  status?: number;
+};
 
 export type StateLabel = string;
 

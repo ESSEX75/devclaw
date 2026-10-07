@@ -7,7 +7,9 @@ import { z } from "zod";
 import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
 import type { CreateIssueInput } from "./capabilities.js";
-import { PR_COMMENT_KIND } from "./const.js";
+import { runProviderCommand } from "./command.js";
+import { PR_COMMENT_KIND, PROVIDER_COMMAND_MODE } from "./const.js";
+import { normalizeProviderFailure, ProviderTransportError } from "./failures.js";
 import {
   classifyProviderLookupFailure,
   classifyProviderProjectAccessFailure,
@@ -17,7 +19,7 @@ import {
 } from "./lookup-errors.js";
 import { classifyProviderOperationError, PROVIDER_OPERATION_ERROR, ProviderOperationError } from "./operation-errors.js";
 import type { IssueProvider } from "./provider.js";
-import { withResilience } from "./resilience.js";
+import { createProviderPolicy, withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
 
 type GhIssue = {
@@ -41,6 +43,30 @@ const GhRateLimitSchema = z.object({
   resources: z.object({ core: z.object({ remaining: z.number().int().nonnegative(), reset: z.number() }) }),
 });
 
+/** Validates repository identity before a successful observation enters the instance cache. */
+const GhRepositorySchema = z.object({ owner: z.object({ login: z.string().min(1) }), name: z.string().min(1) });
+
+/** Timeline references may point at other entities; only confirmed PR fields are consumed. */
+const GhTimelineReferenceSchema = z.object({
+  number: z.number().int().positive().safe().optional(),
+  title: z.string().nullable().optional(),
+  body: z.string().nullable().optional(),
+  headRefName: z.string().nullable().optional(),
+  url: z.string().optional(),
+  mergedAt: z.string().nullable().optional(),
+  reviewDecision: z.string().nullable().optional(),
+  state: z.string().optional(),
+  mergeable: z.string().nullable().optional(),
+});
+
+/** A malformed or partial GraphQL response cannot establish that no linked PR exists. */
+const GhTimelineSchema = z.object({
+  errors: z.array(z.unknown()).optional(),
+  data: z.object({ repository: z.object({ issue: z.object({ timelineItems: z.object({
+    nodes: z.array(z.object({ subject: GhTimelineReferenceSchema.nullable().optional(), source: GhTimelineReferenceSchema.nullable().optional() })),
+  }) }) }) }),
+}).refine(response => !response.errors?.length, "Partial GraphQL response cannot establish PR absence.");
+
 function toIssue(gh: GhIssue): Issue {
   return {
     iid: gh.number, title: gh.title, description: gh.body ?? "",
@@ -59,46 +85,60 @@ export class GitHubProvider implements IssueProvider {
     this.workflow = opts.workflow ?? DEFAULT_WORKFLOW;
   }
 
+  /** Resilience state belongs to this concrete adapter, not other projects or providers. */
+  private readonly policy = createProviderPolicy();
+
+  /** Read provider data with retries limited to classified temporary failures.
+   * @param args - Read-only CLI arguments.
+   */
   private async gh(args: string[]): Promise<string> {
-    return withResilience(() => this.ghOnce(args));
+    return withResilience(PROVIDER_COMMAND_MODE.READ, this.policy, () =>
+      runProviderCommand(this.runCommand, ["gh", ...args], this.repoPath));
   }
 
-  /** Execute a non-idempotent GitHub mutation exactly once. */
+  /** Repeat only a mutation whose desired final state is explicitly idempotent.
+   * @param args - CLI arguments setting an idempotent provider state.
+   */
+  private async ghWrite(args: string[]): Promise<string> {
+    return withResilience(PROVIDER_COMMAND_MODE.IDEMPOTENT, this.policy, () => this.ghOnce(args));
+  }
+
+  /** Submit a mutation once, retaining its typed failure and request-outcome evidence.
+   * @param args - CLI arguments for one mutation attempt.
+   */
   private async ghOnce(args: string[]): Promise<string> {
-    const result = await this.runCommand(["gh", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
-
-    if (result.code !== 0 || result.termination !== "exit" || result.killed || result.signal !== null) {
-      throw new Error(result.stderr?.trim() || `gh command failed with exit code ${result.code}`);
+    try {
+      return await withResilience(PROVIDER_COMMAND_MODE.ONCE, this.policy, () =>
+        runProviderCommand(this.runCommand, ["gh", ...args], this.repoPath));
+    } catch (error) {
+      throw classifyProviderOperationError(error);
     }
-
-    return result.stdout.trim();
   }
 
   /** Cached repo owner/name for GraphQL queries. */
-  private repoInfo: { owner: string; name: string } | null | undefined = undefined;
+  private repoInfo: { owner: string; name: string } | undefined = undefined;
 
-  /**
-   * Get repo owner and name via gh CLI. Cached per instance.
-   * Returns null if unavailable (no git remote, etc.).
-   */
-  private async getRepoInfo(): Promise<{ owner: string; name: string } | null> {
+  /** Cache only confirmed repository identity; failures leave future observations recoverable. */
+  private async getRepoInfo(): Promise<{ owner: string; name: string }> {
     if (this.repoInfo !== undefined) return this.repoInfo;
     try {
-      const raw = await this.gh(["repo", "view", "--json", "owner,name"]);
-      const data = JSON.parse(raw);
+      const raw: unknown = JSON.parse(await this.gh(["repo", "view", "--json", "owner,name"]));
+      const data = GhRepositorySchema.parse(raw);
 
       this.repoInfo = { owner: data.owner.login, name: data.name };
-    } catch {
-      this.repoInfo = null;
-    }
 
-    return this.repoInfo;
+      return this.repoInfo;
+    } catch (error) {
+      throw classifyProviderLookupFailure("github", error);
+    }
   }
 
   /**
    * Find PRs linked to an issue via GitHub's timeline API (GraphQL).
    * This catches PRs regardless of branch naming convention.
-   * Returns null if GraphQL query fails (caller should fall back).
+   * Returns null only for a known rejected unsupported query; operational and malformed-response failures propagate.
+   * @param issueId - Managed issue whose linked PR observations are requested.
+   * @param state - Provider lifecycle states to retain in the result.
    */
   private async findPrsViaTimeline(
     issueId: number,
@@ -116,7 +156,6 @@ export class GitHubProvider implements IssueProvider {
   }> | null> {
     const repo = await this.getRepoInfo();
 
-    if (!repo) return null;
 
     try {
       const query = `{
@@ -138,8 +177,8 @@ export class GitHubProvider implements IssueProvider {
       }`;
 
       const raw = await this.gh(["api", "graphql", "-f", `query=${query}`]);
-      const data = JSON.parse(raw);
-      const nodes = data?.data?.repository?.issue?.timelineItems?.nodes ?? [];
+      const response: unknown = JSON.parse(raw);
+      const nodes = GhTimelineSchema.parse(response).data.repository.issue.timelineItems.nodes;
 
       // Extract PR data from both event types
       const seen = new Set<number>();
@@ -179,8 +218,10 @@ export class GitHubProvider implements IssueProvider {
       if (state === "merged") return prs.filter((pr) => pr.state === "MERGED");
 
       return prs;
-    } catch {
-      return null; // GraphQL failed — caller should fall back
+    } catch (error) {
+      if (error instanceof ProviderTransportError && !error.failure.outcomeUnknown
+        && error.failure.code === PROVIDER_OPERATION_ERROR.VALIDATION_FAILED) return null;
+      throw classifyProviderLookupFailure("github", error);
     }
   }
 
@@ -189,13 +230,10 @@ export class GitHubProvider implements IssueProvider {
    * Primary: GitHub timeline API (convention-free, catches all linked PRs).
    * Fallback: regex matching on branch name / title / body.
    *
-   * TYPE CASTING NOTE: The timeline query returns a fixed set of fields
-   * (number, title, body, headRefName, state, url, mergedAt, reviewDecision, mergeable).
-   * When callers request additional fields via the `fields` parameter (e.g., "mergeable"),
-   * we cast the timeline results to T assuming they match. This works because:
-   * 1. For common fields (mergeable, reviewDecision), the timeline API provides them.
-   * 2. The fallback path (gh pr list) provides ALL requested fields via the fields parameter.
-   * If a caller requests a field the timeline API doesn't provide, the fallback ensures it.
+   * Operational and malformed-response failures never become an empty observation.
+   * @param issueId - Managed issue whose candidate PRs are requested.
+   * @param state - Provider lifecycle states to search.
+   * @param fields - CLI fields requested by this internal caller's result contract.
    */
   private async findPrsForIssue<T extends { title: string; body: string; headRefName?: string }>(
     issueId: number,
@@ -218,7 +256,6 @@ export class GitHubProvider implements IssueProvider {
       if (state !== "all") args.push("--state", state);
       const raw = await this.gh(args);
 
-      if (!raw) return [];
       const prs = JSON.parse(raw) as T[];
       const branchPat = new RegExp(`^(?:fix|feat|feature|chore|bugfix|hotfix|refactor|docs|test)/${issueId}-`);
       const titlePat = new RegExp(`#${issueId}\\b`);
@@ -230,11 +267,11 @@ export class GitHubProvider implements IssueProvider {
 
       // Fallback: word-boundary match in title/body
       return prs.filter((pr) => titlePat.test(pr.title) || titlePat.test(pr.body ?? ""));
-    } catch { return []; }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   async ensureLabel(name: string, color: string): Promise<void> {
-    await this.gh(["label", "create", name, "--color", color.replace(/^#/, ""), "--force"]);
+    await this.ghWrite(["label", "create", name, "--color", color.replace(/^#/, ""), "--force"]);
   }
 
   async ensureAllStateLabels(): Promise<void> {
@@ -258,7 +295,10 @@ export class GitHubProvider implements IssueProvider {
       const url = await this.ghOnce(args);
       const match = url.match(/\/issues\/(\d+)$/);
 
-      if (!match) throw new Error(`Provider returned an invalid issue URL: ${url}`);
+      if (!match || !Number.isSafeInteger(Number(match[1])) || Number(match[1]) <= 0) {
+        throw new ProviderOperationError({ code: PROVIDER_OPERATION_ERROR.UNKNOWN, message: "Issue creation returned no confirmed identity.",
+          retryable: false, outcomeUnknown: true });
+      }
 
       return {
         iid: parseInt(match[1], 10),
@@ -278,7 +318,7 @@ export class GitHubProvider implements IssueProvider {
       const raw = await this.gh(["issue", "list", "--label", label, "--state", "open", "--json", "number,title,body,labels,state,url"]);
 
       return (JSON.parse(raw) as GhIssue[]).map(toIssue);
-    } catch { return []; }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   async listIssues(opts?: { label?: string; state?: "open" | "closed" | "all" }): Promise<Issue[]> {
@@ -289,7 +329,7 @@ export class GitHubProvider implements IssueProvider {
       const raw = await this.gh(args);
 
       return (JSON.parse(raw) as GhIssue[]).map(toIssue);
-    } catch { return []; }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   async getIssue(issueId: number): Promise<Issue> {
@@ -334,10 +374,9 @@ export class GitHubProvider implements IssueProvider {
     try {
       const raw = await this.gh(["api", `repos/:owner/:repo/issues/${issueId}/comments`, "--jq", ".[] | {id: .id, author: .user.login, body: .body, created_at: .created_at}"]);
 
-      if (!raw) return [];
 
       return raw.split("\n").filter(Boolean).map((line) => JSON.parse(line));
-    } catch { return []; }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   async transitionLabel(issueId: number, from: StateLabel, to: StateLabel): Promise<void> {
@@ -347,7 +386,7 @@ export class GitHubProvider implements IssueProvider {
     // This way, if phase 2 fails, the issue still has the new label (issue is correctly transitioned)
     // instead of having no state label at all.
 
-    await this.gh(["issue", "edit", String(issueId), "--add-label", to]);
+    await this.ghWrite(["issue", "edit", String(issueId), "--add-label", to]);
 
     // Remove old state labels (best-effort if there are multiple old labels)
     const issue = await this.getIssue(issueId);
@@ -358,7 +397,7 @@ export class GitHubProvider implements IssueProvider {
       const args = ["issue", "edit", String(issueId)];
 
       for (const l of currentStateLabels) args.push("--remove-label", l);
-      await this.gh(args);
+      await this.ghWrite(args);
     }
 
     // Post-transition validation: verify exactly one state label remains (#473)
@@ -380,7 +419,7 @@ export class GitHubProvider implements IssueProvider {
   }
 
   async addLabel(issueId: number, label: string): Promise<void> {
-    await this.gh(["issue", "edit", String(issueId), "--add-label", label]);
+    await this.ghWrite(["issue", "edit", String(issueId), "--add-label", label]);
   }
 
   async removeLabels(issueId: number, labels: string[]): Promise<void> {
@@ -388,21 +427,17 @@ export class GitHubProvider implements IssueProvider {
     const args = ["issue", "edit", String(issueId)];
 
     for (const l of labels) args.push("--remove-label", l);
-    await this.gh(args);
+    await this.ghWrite(args);
   }
 
-  async closeIssue(issueId: number): Promise<void> { await this.gh(["issue", "close", String(issueId)]); }
-  async reopenIssue(issueId: number): Promise<void> { await this.gh(["issue", "reopen", String(issueId)]); }
+  async closeIssue(issueId: number): Promise<void> { await this.ghWrite(["issue", "close", String(issueId)]); }
+  async reopenIssue(issueId: number): Promise<void> { await this.ghWrite(["issue", "reopen", String(issueId)]); }
   supportsIssueDeletion(): boolean { return true; }
+  /** Delete once; abnormal completion never proves successful deletion.
+   * @param issueId - Provider identity explicitly selected for deletion.
+   */
   async deleteIssue(issueId: number): Promise<void> {
-    const result = await this.runCommand(
-      ["gh", "issue", "delete", String(issueId), "--confirm"],
-      { timeoutMs: 30_000, cwd: this.repoPath },
-    );
-
-    if (result.code != null && result.code !== 0) {
-      throw new Error(result.stderr?.trim() || `gh issue delete failed with exit code ${result.code}`);
-    }
+    await this.ghOnce(["issue", "delete", String(issueId), "--confirm"]);
   }
 
   async getMergedMRUrl(issueId: number): Promise<string | null> {
@@ -415,6 +450,9 @@ export class GitHubProvider implements IssueProvider {
     return prs[0].url;
   }
 
+  /** Observe PR state; missing PRs require successful lookup and failed reads remain typed errors.
+   * @param issueId - Managed issue whose associated PR state is observed.
+   */
   async getPrStatus(issueId: number): Promise<PrStatus> {
     // Check open PRs first — include mergeable for conflict detection
     type OpenPr = { title: string; body: string; headRefName: string; url: string; number: number; reviewDecision: string; mergeable: string };
@@ -495,7 +533,7 @@ export class GitHubProvider implements IssueProvider {
       ]);
 
       return raw.trim().length > 0;
-    } catch { return false; }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   /**
@@ -532,14 +570,18 @@ export class GitHubProvider implements IssueProvider {
           const hasEyes = reactions.some((r) => r.content === "eyes");
 
           if (!hasEyes) return true; // Found unacknowledged review
-        } catch {
-          // Can't check reactions — treat as unacknowledged to be safe
+        } catch (error) {
+          // Review-summary reaction support is handled separately from transport failures.
+          const failure = normalizeProviderFailure(error);
+
+          if (failure.code !== PROVIDER_OPERATION_ERROR.NOT_FOUND || failure.outcomeUnknown) throw error;
+
           return true;
         }
       }
 
       return false;
-    } catch { return false; }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   /**
@@ -555,7 +597,7 @@ export class GitHubProvider implements IssueProvider {
       return comments.some(
         (c) => !c.user.login.endsWith("[bot]") && c.body.trim().length > 0 && !(c.reactions?.eyes > 0),
       );
-    } catch { return false; }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   /**
@@ -573,7 +615,7 @@ export class GitHubProvider implements IssueProvider {
       return all.filter(
         (c) => !c.user.login.endsWith("[bot]") && c.body.trim().length > 0,
       );
-    } catch { return []; }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   async mergePr(issueId: number): Promise<void> {
@@ -581,7 +623,7 @@ export class GitHubProvider implements IssueProvider {
     const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,url");
 
     if (prs.length === 0) throw new Error(`No open PR found for issue #${issueId}`);
-    await this.gh(["pr", "merge", prs[0].url, "--merge"]);
+    await this.ghOnce(["pr", "merge", prs[0].url, "--merge"]);
   }
 
   async getPrDiff(issueId: number): Promise<string | null> {
@@ -591,7 +633,7 @@ export class GitHubProvider implements IssueProvider {
     if (prs.length === 0) return null;
     try {
       return await this.gh(["pr", "diff", String(prs[0].number)]);
-    } catch { return null; }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   async getPrReviewComments(issueId: number): Promise<PrReviewComment[]> {
@@ -621,7 +663,7 @@ export class GitHubProvider implements IssueProvider {
           created_at: r.submitted_at,
         });
       }
-    } catch { /* best-effort */ }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
 
     try {
       // Inline (file-level) review comments
@@ -642,7 +684,7 @@ export class GitHubProvider implements IssueProvider {
           line: c.line ?? undefined,
         });
       }
-    } catch { /* best-effort */ }
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
 
     // Top-level conversation comments (regular PR comments via Issues API)
     const conversationComments = await this.fetchConversationComments(prNumber);
@@ -693,7 +735,7 @@ export class GitHubProvider implements IssueProvider {
 
   async reactToIssue(issueId: number, emoji: string): Promise<void> {
     try {
-      await this.gh([
+      await this.ghOnce([
         "api", `repos/:owner/:repo/issues/${issueId}/reactions`,
         "--method", "POST",
         "--field", `content=${emoji}`,
@@ -717,7 +759,7 @@ export class GitHubProvider implements IssueProvider {
       const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
 
       if (prs.length === 0) return;
-      await this.gh([
+      await this.ghOnce([
         "api", `repos/:owner/:repo/issues/${prs[0].number}/reactions`,
         "--method", "POST",
         "--field", `content=${emoji}`,
@@ -740,7 +782,7 @@ export class GitHubProvider implements IssueProvider {
 
   async reactToIssueComment(_issueId: number, commentId: number, emoji: string): Promise<void> {
     try {
-      await this.gh([
+      await this.ghOnce([
         "api", `repos/:owner/:repo/issues/comments/${commentId}/reactions`,
         "--method", "POST",
         "--field", `content=${emoji}`,
@@ -755,7 +797,7 @@ export class GitHubProvider implements IssueProvider {
    */
   async reactToPrComment(_issueId: number, commentId: number, emoji: string): Promise<void> {
     try {
-      await this.gh([
+      await this.ghOnce([
         "api", `repos/:owner/:repo/issues/comments/${commentId}/reactions`,
         "--method", "POST",
         "--field", `content=${emoji}`,
@@ -769,7 +811,7 @@ export class GitHubProvider implements IssueProvider {
    * @param emoji - GitHub reaction content.
    */
   async reactToPrReviewComment(_issueId: number, commentId: number, emoji: string): Promise<void> {
-    await this.gh(["api", `repos/:owner/:repo/pulls/comments/${commentId}/reactions`,
+    await this.ghOnce(["api", `repos/:owner/:repo/pulls/comments/${commentId}/reactions`,
       "--method", "POST", "--field", `content=${emoji}`]);
   }
 
@@ -810,7 +852,7 @@ export class GitHubProvider implements IssueProvider {
 
     if (updates.title !== undefined) args.push("--title", updates.title);
     if (updates.body !== undefined) args.push("--body", updates.body);
-    await this.gh(args);
+    await this.ghWrite(args);
 
     return this.getIssue(issueId);
   }
@@ -822,13 +864,11 @@ export class GitHubProvider implements IssueProvider {
    */
   async isCommitOnBaseBranch(issueId: number, baseBranch: string): Promise<boolean> {
     try {
-      const result = await this.runCommand(
-        ["git", "log", `origin/${baseBranch}`, "--oneline", "-200", "--grep", `#${issueId}`],
-        { timeoutMs: 15_000, cwd: this.repoPath },
-      );
+      const output = await runProviderCommand(this.runCommand,
+        ["git", "log", `origin/${baseBranch}`, "--oneline", "-200", "--grep", `#${issueId}`], this.repoPath);
 
-      return result.stdout.trim().length > 0;
-    } catch { return false; }
+      return output.length > 0;
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   async uploadAttachment(
@@ -844,7 +884,6 @@ export class GitHubProvider implements IssueProvider {
       // Get repo owner/name
       const repo = await this.getRepoInfo();
 
-      if (!repo) return null;
 
       // Ensure branch exists
       let branchExists = false;
@@ -852,7 +891,11 @@ export class GitHubProvider implements IssueProvider {
       try {
         await this.gh(["api", `repos/${repo.owner}/${repo.name}/git/ref/heads/${branch}`]);
         branchExists = true;
-      } catch { /* doesn't exist */ }
+      } catch (error) {
+        const failure = normalizeProviderFailure(error);
+
+        if (failure.code !== PROVIDER_OPERATION_ERROR.NOT_FOUND || failure.outcomeUnknown) throw error;
+      }
 
       if (!branchExists) {
         const raw = await this.gh([
@@ -864,7 +907,7 @@ export class GitHubProvider implements IssueProvider {
           "--jq", ".object.sha",
         ]);
 
-        await this.gh([
+        await this.ghOnce([
           "api", `repos/${repo.owner}/${repo.name}/git/refs`,
           "--method", "POST",
           "--field", `ref=refs/heads/${branch}`,
@@ -873,7 +916,7 @@ export class GitHubProvider implements IssueProvider {
       }
 
       // Upload via Contents API
-      await this.gh([
+      await this.ghOnce([
         "api", `repos/${repo.owner}/${repo.name}/contents/${filePath}`,
         "--method", "PUT",
         "--field", `message=attachment: ${file.filename} for issue #${issueId}`,

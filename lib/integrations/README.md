@@ -23,6 +23,23 @@ decides whether to retain or release its worker reservation.
 Comment creation submits exactly once. Lost responses and missing comment identities
 remain outcome-unknown; the adapter never repeats the POST automatically.
 
+Provider commands declare replay safety: read, explicitly idempotent state change,
+or one non-replayable mutation. Creation, comment POST, merge, upload and deletion
+commands are never automatically replayed. Read/idempotent retries handle classified
+temporary and rate-limit failures; permanent failures do not retry or open a breaker.
+Each adapter instance owns its breaker. Abnormal termination and command exceptions
+remain outcome-unknown even when stderr resembles a known server rejection.
+Successful issue creation without a safe positive provider identity requires manual
+repair. Typed mutation errors are preserved through repeated classification.
+
+PR/MR lookup, required review observations and issue collections propagate typed read
+failures rather than reporting absence. Empty validated responses can establish absence;
+malformed/partial GraphQL responses cannot. Only an explicit rejected unsupported query
+permits the GitHub timeline fallback. Repository identity caches successful observations
+only, allowing later calls to recover after temporary failures.
+Provider detection accepts exact known origin hosts and checks git completion. Unknown
+and self-hosted hosts require explicit provider selection, which skips auto-detection.
+
 Gateway session observations include inventory completeness. Only successfully reading
 every advertised store and validating its records proves absence. Recent observations
 are always merged, but their bounded list alone never proves a session is missing.
