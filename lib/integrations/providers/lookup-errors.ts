@@ -2,39 +2,28 @@
  * Defines typed provider issue lookup failures at the integration boundary.
  * Application code consumes codes and never infers destructive meaning from error text.
  */
-import { PROVIDER_OPERATION_ERROR } from "./const.js";
+
+import { PROVIDER_ERROR_NAME, PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "./const.js";
 import { normalizeProviderFailure } from "./failures.js";
-
-export const PROVIDER_ISSUE_LOOKUP_ERROR = {
-  ISSUE_NOT_FOUND: "ISSUE_NOT_FOUND",
-  PROJECT_NOT_FOUND_OR_FORBIDDEN: "PROJECT_NOT_FOUND_OR_FORBIDDEN",
-  UNAUTHORIZED: "UNAUTHORIZED",
-  FORBIDDEN: "FORBIDDEN",
-  RATE_LIMITED: "RATE_LIMITED",
-  TRANSIENT: "TRANSIENT",
-  UNKNOWN: "UNKNOWN",
-} as const;
-
-/** Stable failure code used by application logic without parsing provider messages. */
-export type ProviderIssueLookupErrorCode = typeof PROVIDER_ISSUE_LOOKUP_ERROR[keyof typeof PROVIDER_ISSUE_LOOKUP_ERROR];
+import type { ProviderIssueLookupErrorCode, ProviderLookupErrorOptions } from "./types.js";
 
 /** Typed failure emitted after a provider adapter classifies an issue lookup. */
 export class ProviderIssueLookupError extends Error {
+  /** Stable classified failure category consumed without parsing messages. */
   readonly code: ProviderIssueLookupErrorCode;
+  /** Concrete provider owning the failed lookup. */
   readonly provider: string;
+  /** Whether the explicitly replayable operation may be retried. */
   readonly retryable: boolean;
+  /** Confirmed HTTP status when available. */
   readonly status?: number;
 
-  constructor(opts: {
-    code: ProviderIssueLookupErrorCode;
-    provider: string;
-    retryable: boolean;
-    message: string;
-    status?: number;
-    cause?: unknown;
-  }) {
+  /** Preserve classified read evidence without deriving lifecycle or deletion policy.
+   * @param opts - Provider identity, classified category and original diagnostic.
+   */
+  constructor(opts: ProviderLookupErrorOptions) {
     super(opts.message, { cause: opts.cause });
-    this.name = "ProviderIssueLookupError";
+    this.name = PROVIDER_ERROR_NAME.LOOKUP;
     this.code = opts.code;
     this.provider = opts.provider;
     this.retryable = opts.retryable;
@@ -42,12 +31,10 @@ export class ProviderIssueLookupError extends Error {
   }
 }
 
-/** Check whether a caught value is a classified provider lookup failure. */
-export function isProviderIssueLookupError(error: unknown): error is ProviderIssueLookupError {
-  return error instanceof ProviderIssueLookupError;
-}
-
-/** Classify non-missing transport and authorization failures inside an adapter. */
+/** Classify non-missing transport and authorization failures inside an adapter.
+ * @param provider - Concrete provider owning the failed observation.
+ * @param error - Unknown failure whose existing classification must be preserved.
+ */
 export function classifyProviderLookupFailure(provider: string, error: unknown): ProviderIssueLookupError {
   if (error instanceof ProviderIssueLookupError) return error;
   const message = error instanceof Error ? error.message : String(error);
@@ -59,7 +46,10 @@ export function classifyProviderLookupFailure(provider: string, error: unknown):
   return new ProviderIssueLookupError({ code, provider, retryable: failure.retryable, message, status: failure.status, cause: error });
 }
 
-/** Classify a failed repository/project probe while preserving auth, rate, and transport codes. */
+/** Classify a failed repository/project probe while preserving auth, rate, and transport codes.
+ * @param provider - Concrete provider owning the failed observation.
+ * @param error - Unknown failure whose existing classification must be preserved.
+ */
 export function classifyProviderProjectAccessFailure(provider: string, error: unknown): ProviderIssueLookupError {
   const classified = classifyProviderLookupFailure(provider, error);
 
@@ -74,7 +64,9 @@ export function classifyProviderProjectAccessFailure(provider: string, error: un
   });
 }
 
-/** Identify a provider CLI response that warrants a separate repository-access check. */
+/** Identify a provider CLI response that warrants a separate repository-access check.
+ * @param error - Unknown failure whose existing classification must be preserved.
+ */
 export function mayBeMissingProviderIssue(error: unknown): boolean {
   const failure = normalizeProviderFailure(error);
 

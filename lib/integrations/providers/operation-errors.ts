@@ -2,29 +2,28 @@
  * Classifies provider mutation failures into stable codes at the integration boundary.
  * Application sagas use these codes instead of inferring recovery safety from CLI text.
  */
-import { normalizeProviderFailure } from "./failures.js";
-import type { ProviderOperationErrorCode } from "./types.js";
 
-export { PROVIDER_OPERATION_ERROR } from "./const.js";
-export type { ProviderOperationErrorCode } from "./types.js";
+import { PROVIDER_ERROR_NAME } from "./const.js";
+import { normalizeProviderFailure } from "./failures.js";
+import type { ProviderOperationErrorCode, ProviderOperationErrorOptions } from "./types.js";
 
 /** Typed provider mutation failure with retry and request-outcome semantics. */
 export class ProviderOperationError extends Error {
+  /** Stable classified failure category consumed without parsing messages. */
   readonly code: ProviderOperationErrorCode;
+  /** Whether the explicitly replayable operation may be retried. */
   readonly retryable: boolean;
+  /** Whether the submitted mutation may already have taken effect. */
   readonly outcomeUnknown: boolean;
+  /** Provider-supplied retry delay when available. */
   readonly retryAfter?: string;
 
-  constructor(opts: {
-    code: ProviderOperationErrorCode;
-    message: string;
-    retryable: boolean;
-    outcomeUnknown?: boolean;
-    retryAfter?: string;
-    cause?: unknown;
-  }) {
+  /** Preserve mutation replayability and unknown-outcome evidence through outer classification.
+   * @param opts - Classified command outcome and diagnostic context.
+   */
+  constructor(opts: ProviderOperationErrorOptions) {
     super(opts.message, { cause: opts.cause });
-    this.name = "ProviderOperationError";
+    this.name = PROVIDER_ERROR_NAME.OPERATION;
     this.code = opts.code;
     this.retryable = opts.retryable;
     this.outcomeUnknown = opts.outcomeUnknown ?? false;
@@ -32,12 +31,9 @@ export class ProviderOperationError extends Error {
   }
 }
 
-/** Check whether a caught value is a classified provider mutation failure. */
-export function isProviderOperationError(error: unknown): error is ProviderOperationError {
-  return error instanceof ProviderOperationError;
-}
-
-/** Classify a failed provider mutation conservatively, treating transport failures as outcome-unknown. */
+/** Classify a failed provider mutation conservatively, treating transport failures as outcome-unknown.
+ * @param error - Unknown failure whose existing classification must be preserved.
+ */
 export function classifyProviderOperationError(error: unknown): ProviderOperationError {
   if (error instanceof ProviderOperationError) return error;
   const message = error instanceof Error ? error.message : String(error);

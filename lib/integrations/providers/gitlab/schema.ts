@@ -2,6 +2,9 @@
 
 import { z } from "zod";
 
+import { ProviderIdentitySchema } from "../schema.js";
+import { GITLAB_REQUEST_STATE } from "./const.js";
+
 /** Optional conflict evidence remains unknown unless the provider explicitly supplies valid fields. */
 export const GitLabMergeabilitySchema = z.object({
   has_conflicts: z.boolean().optional(),
@@ -10,7 +13,7 @@ export const GitLabMergeabilitySchema = z.object({
 
 /** Validates GitLabIssueSchema provider payloads. */
 export const GitLabIssueSchema = z.object({
-  iid: z.number(), title: z.string(), description: z.string().nullable().transform(value => value ?? ""), labels: z.array(z.string()),
+  iid: ProviderIdentitySchema, title: z.string(), description: z.string().nullable().transform(value => value ?? ""), labels: z.array(z.string()),
   state: z.string(), web_url: z.string(),
 });
 
@@ -21,7 +24,7 @@ export const GitLabMRSchema = z.object({
   title: z.string(),
   description: z.string().nullable().optional().transform(value => value ?? ""),
   web_url: z.string().min(1),
-  state: z.enum(["opened", "merged", "closed"]),
+  state: z.enum([GITLAB_REQUEST_STATE.OPEN, GITLAB_REQUEST_STATE.MERGED, GITLAB_REQUEST_STATE.CLOSED]),
   source_branch: z.string().optional(),
   merged_at: z.string().nullable().optional().transform(value => value ?? null),
 });
@@ -40,3 +43,6 @@ export const GitLabDiscussionSchema = z.object({ notes: z.array(GitLabNoteSchema
 
 /** Cosmetic emoji metadata returned in complete reaction collections. */
 export const GitLabEmojiSchema = z.object({ name: z.string() });
+
+/** Confirmed project identity used to fence project-local merge-request IIDs. */
+export const GitLabProjectIdentitySchema = z.object({ id: ProviderIdentitySchema });

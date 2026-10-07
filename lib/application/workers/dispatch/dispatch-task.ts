@@ -1,5 +1,6 @@
 /**
- * Coordinates atomic worker reservation, provider transition, session dispatch, and runtime persistence.
+ * Coordinates dispatch after an atomic local worker reservation. Provider projection,
+ * gateway submission and runtime persistence are sequenced effects that may partially complete.
  * This application capability owns the dispatch use case while state retains worker-slot authority.
  */
 

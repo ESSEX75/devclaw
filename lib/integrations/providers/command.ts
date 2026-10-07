@@ -1,6 +1,7 @@
 /** Executes one CLI request and preserves abnormal process completion as unknown mutation evidence. */
 
 import type { RunCommand } from "../../context.js";
+import { isCompleteCommandOutput,isCompletedCommand } from "../process/index.js";
 import { PROVIDER_OPERATION_ERROR, PROVIDER_TRANSPORT_POLICY } from "./const.js";
 import { normalizeProviderFailure, ProviderTransportError } from "./failures.js";
 
@@ -22,8 +23,13 @@ export async function runProviderCommand(runCommand: RunCommand, argv: string[],
     throw new ProviderTransportError(error instanceof Error ? error.message : String(error), { ...failure, outcomeUnknown: true }, error);
   }
 
-  if (result.termination !== "exit" || result.killed || result.signal !== null || result.code === null) {
+  if (!isCompletedCommand(result)) {
     throw new ProviderTransportError(result.stderr?.trim() || `Provider command ended abnormally: ${result.termination}.`,
+      { code: PROVIDER_OPERATION_ERROR.TRANSIENT, retryable: true, outcomeUnknown: true });
+  }
+
+  if (!isCompleteCommandOutput(result)) {
+    throw new ProviderTransportError("Provider command output was incomplete.",
       { code: PROVIDER_OPERATION_ERROR.TRANSIENT, retryable: true, outcomeUnknown: true });
   }
 

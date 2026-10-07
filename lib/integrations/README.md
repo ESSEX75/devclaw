@@ -2,6 +2,13 @@
 
 This layer owns concrete external adapters.
 
+`process/index.ts` exposes pure transport evidence guards shared by adapters. A clean
+exit and a complete output capture are separate facts. Providers and JSON-observation
+adapters reject explicitly clipped output or stream capture failures before interpreting
+response content or failure text. Notification/worker-turn acceptance can rely on clean
+exit evidence without requiring an optional receipt body; these operations never fall
+back or replay after submission.
+
 ## OpenClaw package ownership
 
 The OpenClaw adapter exposes separate APIs through `agents/index.ts`, `sessions/index.ts`,
@@ -43,7 +50,8 @@ which configured labels must be removed.
 `transport.ts` supplies one checked CLI transport and one resilience policy per adapter
 instance, shared across its capabilities. Root transport/error/pagination modules own
 common completion, classification and replay guarantees. Concrete implementations import
-these shared root leaves and `types.ts`/`const.ts` directly to avoid factory/barrel cycles;
+these shared root leaves (including `schema.ts`, `guards.ts` and attachment-name policy)
+and `types.ts`/`const.ts` directly to avoid factory/barrel cycles;
 they use sibling implementation imports within their own concrete package. All other
 consumers use the provider root API or the concrete provider's `index.ts`. Internal
 capability classes, schemas and staging helpers are not supported public APIs.
@@ -56,6 +64,14 @@ to application/projection; providers apply only explicit label additions/removal
 Integration modules talk to external systems such as GitHub, GitLab, OpenClaw
 gateway/session APIs, and provider-specific capabilities. They should expose
 small adapter functions and typed results for application use cases.
+
+Provider issue JSON must carry a positive safe integer identity matching the explicitly
+requested issue. Invalid, mismatched or malformed observations remain failed reads;
+local schema/JSON decoding diagnostics cannot be mistaken for HTTP status evidence.
+Provider-specific endpoint resources, wire lifecycle states and protocol selectors
+belong to concrete `const.ts`; root `types.ts` derives supported categories through
+canonical registries. Internal validators, endpoint builders and diagnostic classifiers
+are excluded from the supported package entrypoint.
 
 Provider issue lookups classify not-found, authorization, rate-limit, transient,
 and unknown failures at the adapter boundary. Application code must branch on

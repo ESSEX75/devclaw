@@ -5,7 +5,8 @@ import fs from "node:fs/promises";
 import { z } from "zod";
 
 import type { RunCommand } from "../../../context.js";
-import { GATEWAY_COMMAND, GATEWAY_STATUS_METHOD, GATEWAY_STATUS_TIMEOUT_MS, SESSION_STORE_ENCODING } from "./const.js";
+import { isCompleteCommandOutput,isCompletedCommand } from "../../process/index.js";
+import { GATEWAY_COMMAND, GATEWAY_STATUS_METHOD, GATEWAY_STATUS_TIMEOUT_MS, SESSION_STORE_ENCODING, SESSION_USAGE_PERCENT_SCALE } from "./const.js";
 import type { GatewaySession, SessionLookup } from "./types.js";
 
 /** Invalid optional metrics are unknown, never evidence of zero usage. */
@@ -42,7 +43,7 @@ const SessionStoreSchema = z.record(z.string().min(1), z.unknown());
 function normalizeSession(key: string, entry: z.infer<typeof SessionEntrySchema>): GatewaySession {
   const totalTokens = entry.totalTokensFresh === false ? undefined : entry.totalTokens;
   const percentUsed = totalTokens !== undefined && entry.contextTokens !== undefined && entry.contextTokens > 0
-    ? Math.round(totalTokens / entry.contextTokens * 100) : entry.percentUsed;
+    ? Math.round(totalTokens / entry.contextTokens * SESSION_USAGE_PERCENT_SCALE) : entry.percentUsed;
 
   return { key, updatedAt: entry.updatedAt ?? 0, percentUsed, abortedLastRun: entry.abortedLastRun,
     totalTokens, contextTokens: entry.contextTokens };
@@ -67,7 +68,7 @@ export async function fetchGatewaySessions(gatewayTimeoutMs = GATEWAY_STATUS_TIM
   try {
     const result = await runCommand([...GATEWAY_COMMAND, GATEWAY_STATUS_METHOD, "--json"], { timeoutMs: gatewayTimeoutMs });
 
-    if (result.code !== 0 || result.termination !== "exit" || result.killed || result.signal !== null) return null;
+    if (!isCompletedCommand(result) || !isCompleteCommandOutput(result) || result.code !== 0) return null;
     const jsonStart = result.stdout.indexOf("{");
     const raw: unknown = JSON.parse(jsonStart >= 0 ? result.stdout.slice(jsonStart) : result.stdout);
     const data = GatewayStatusSchema.parse(raw);

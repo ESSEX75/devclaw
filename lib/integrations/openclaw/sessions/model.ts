@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import type { RunCommand } from "../../../context.js";
+import { isCompleteCommandOutput,isCompletedCommand } from "../../process/index.js";
 import { GATEWAY_COMMAND, SESSION_PATCH_METHOD } from "./const.js";
 
 /** Gateway acknowledgement includes the canonical session key and resolved model identity. */
@@ -41,7 +42,7 @@ export async function ensureSessionModel(
       { timeoutMs },
     );
 
-    if (result.termination !== "exit" || result.killed || result.code !== 0 || result.signal !== null) {
+    if (!isCompletedCommand(result) || !isCompleteCommandOutput(result) || result.code !== 0) {
       throw new Error(`Gateway model patch failed (${result.termination}, exit ${result.code}): ${result.stderr}`);
     }
 

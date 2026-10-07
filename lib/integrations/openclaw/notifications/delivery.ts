@@ -1,5 +1,6 @@
 /** Sends through OpenClaw once; never retries a possibly delivered message through another path. */
 
+import { isCompletedCommand } from "../../process/index.js";
 import { MESSAGE_COMMAND, MESSAGE_DELIVERY_PATH, MESSAGE_DELIVERY_STATUS, MESSAGE_TIMEOUT_MS } from "./const.js";
 import { hasTextSender } from "./guards.js";
 import type { MessageDeliveryInput, MessageDeliveryOutcome } from "./types.js";
@@ -66,7 +67,7 @@ export async function deliverNotificationMessage(input: MessageDeliveryInput): P
   try {
     const result = await input.runCommand(args, { timeoutMs: MESSAGE_TIMEOUT_MS });
 
-    if (result.code !== 0 || result.killed || result.signal || result.termination !== "exit") {
+    if (!isCompletedCommand(result) || result.code !== 0) {
       return { status: MESSAGE_DELIVERY_STATUS.UNKNOWN, delivered: false, path: MESSAGE_DELIVERY_PATH.FALLBACK,
         reason: `Notification command exited with code ${result.code}: ${result.stderr}` };
     }

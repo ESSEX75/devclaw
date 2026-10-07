@@ -2,12 +2,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-  classifyProviderLookupFailure,
-  isProviderIssueLookupError,
-  PROVIDER_ISSUE_LOOKUP_ERROR,
-  ProviderIssueLookupError,
-} from "./lookup-errors.js";
+import { classifyProviderLookupFailure, ProviderIssueLookupError } from "./lookup-errors.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR } from "./const.js";
+import { isProviderIssueLookupError } from "./guards.js";
 
 describe("provider issue lookup errors", () => {
   it("does not classify arbitrary 404 text as a confirmed missing issue", () => {

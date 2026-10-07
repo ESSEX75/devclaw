@@ -9,11 +9,17 @@ export type AgentWorkspaceConfig = {
 /** Workspace settings understood by SDK agent resolution. */
 type AgentWorkspaceInventory = {
   /** Default workspace root when no per-agent override exists. */
-  readonly defaults?: { /** Filesystem workspace root. */ readonly workspace?: string };
+  readonly defaults?: AgentWorkspaceDefaults;
   /** Configured agent identifiers and workspace overrides. */
   readonly entries?: Readonly<Record<string, Omit<AgentWorkspaceEntry, "id">>>;
   /** Agent entries supplied in the SDK list representation. */
   readonly list?: readonly AgentWorkspaceEntry[];
+};
+
+/** SDK workspace inheritance defaults read without mutation. */
+type AgentWorkspaceDefaults = {
+  /** Filesystem workspace root supplied by SDK configuration. */
+  readonly workspace?: string;
 };
 
 /** One configured agent's workspace identity. */
@@ -27,7 +33,7 @@ type AgentWorkspaceEntry = {
 };
 
 /** Agent inventories whose IDs are supplied by keys in the current entries representation. */
-type ActiveAgentRegistry<T extends { readonly id: string }> = {
+type ActiveAgentRegistry<T extends AgentRegistryIdentity> = {
   /** Current SDK serialized entries; key-derived identities take precedence over list. */
   readonly entries?: Readonly<Record<string, Omit<T, "id">>>;
   /** SDK list representation used only when entries is absent. */
@@ -35,7 +41,22 @@ type ActiveAgentRegistry<T extends { readonly id: string }> = {
 };
 
 /** Minimal registry snapshot shared by SDK configuration and read-only consumers. */
-export type AgentRegistryConfig<T extends { readonly id: string }> = {
+export type AgentRegistryConfig<T extends AgentRegistryIdentity> = {
   /** Agent inventory in its active SDK representation. */
   readonly agents?: ActiveAgentRegistry<T>;
 };
+
+/** Minimum read-only identity required of SDK registry entries. */
+export type AgentRegistryIdentity = {
+  /** Configured agent identity observed without rewriting the original entry. */
+  readonly id: string;
+};
+
+/** Fresh mutable identity attached to the cloned active registry entry. */
+type ResolvedAgentIdentity = {
+  /** Identity derived from the active entry key or SDK list entry. */
+  id: string;
+};
+
+/** Cloned registry metadata whose identity follows the active SDK representation. */
+export type ConfiguredAgent<T extends AgentRegistryIdentity> = Omit<T, "id"> & ResolvedAgentIdentity;

@@ -44,23 +44,26 @@ type DeliveryMetadata = {
   messageId?: string;
 };
 
-/** Acceptance, proven local rejection, or uncertain external outcome. */
-export type MessageDeliveryOutcome = DeliveryMetadata & (
-  | {
-    /** Transport reported acceptance. */
-    status: typeof MESSAGE_DELIVERY_STATUS.ACCEPTED;
-    /** Acceptance evidence. */
-    delivered: true;
-  }
-  | {
-    /** No send began, or its outcome is unknown. */
-    status: typeof MESSAGE_DELIVERY_STATUS.REJECTED | typeof MESSAGE_DELIVERY_STATUS.UNKNOWN;
-    /** No confirmed acceptance. */
-    delivered: false;
-    /** Operator diagnostic; unknown requires inspection before any retry. */
-    reason: string;
-  }
-);
+/** Transport reported acceptance; recipient reading or workflow completion is not implied. */
+type AcceptedMessageDelivery = {
+  /** Confirmed command/native-send acceptance. */
+  status: typeof MESSAGE_DELIVERY_STATUS.ACCEPTED;
+  /** Positive acceptance evidence. */
+  delivered: true;
+};
+
+/** No send began, or a submitted operation has an uncertain external outcome. */
+type UnconfirmedMessageDelivery = {
+  /** Proven local rejection or unresolved submitted delivery. */
+  status: typeof MESSAGE_DELIVERY_STATUS.REJECTED | typeof MESSAGE_DELIVERY_STATUS.UNKNOWN;
+  /** Acceptance has not been established. */
+  delivered: false;
+  /** Operator diagnostic; unknown outcomes require inspection before retry. */
+  reason: string;
+};
+
+/** Acceptance, proven local rejection, or uncertain external outcome with optional receipt metadata. */
+export type MessageDeliveryOutcome = DeliveryMetadata & (AcceptedMessageDelivery | UnconfirmedMessageDelivery);
 
 /** Native adapter payload derived from the exact application-selected route. */
 type RuntimeSendPayload = {

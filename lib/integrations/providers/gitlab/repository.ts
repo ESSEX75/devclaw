@@ -1,11 +1,9 @@
 /** Owns GitLab repository operations and their provider-specific API semantics. */
 
-import { z } from "zod";
-
 import { classifyProviderLookupFailure } from "../lookup-errors.js";
-import type {
-  ProviderTransport,
-} from "../types.js";
+import type { ProviderTransport } from "../types.js";
+import { gitlabApiPath } from "./endpoints.js";
+import { GitLabProjectIdentitySchema } from "./schema.js";
 
 /** Implements the repository capability using dependencies shared by one adapter instance. */
 export class GitLabRepository {
@@ -20,8 +18,8 @@ export class GitLabRepository {
   async getProjectId(): Promise<number> {
     if (this.projectId !== undefined) return this.projectId;
     try {
-      const response: unknown = JSON.parse(await this.transport.read(["api", "projects/:id"]));
-      const project = z.object({ id: z.number().int().positive().safe() }).parse(response);
+      const response: unknown = JSON.parse(await this.transport.read(["api", gitlabApiPath()]));
+      const project = GitLabProjectIdentitySchema.parse(response);
 
       this.projectId = project.id;
 

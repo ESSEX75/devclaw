@@ -2,9 +2,12 @@
 
 import { z } from "zod";
 
+import { ProviderIdentitySchema } from "../schema.js";
+import { GITHUB_OBJECT_SHA_PATTERN, GITHUB_REQUEST_STATE } from "./const.js";
+
 /** Validates GhIssueSchema provider payloads. */
 export const GhIssueSchema = z.object({
-  number: z.number(),
+  number: ProviderIdentitySchema,
   title: z.string(),
   body: z.string().nullable().optional(),
   labels: z.array(z.object({ name: z.string() })),
@@ -46,7 +49,8 @@ export const GhTimelineSchema = z.object({
 export const GhPullRequestSchema = z.object({
   number: z.number().int().positive().safe(), title: z.string(), body: z.string().nullable().optional().transform(value => value ?? ""),
   headRefName: z.string().nullable().optional().transform(value => value ?? ""), url: z.string().min(1),
-  state: z.enum(["OPEN", "MERGED", "CLOSED"]), mergedAt: z.string().nullable().optional().transform(value => value ?? null),
+  state: z.enum([GITHUB_REQUEST_STATE.OPEN, GITHUB_REQUEST_STATE.MERGED, GITHUB_REQUEST_STATE.CLOSED]),
+  mergedAt: z.string().nullable().optional().transform(value => value ?? null),
   reviewDecision: z.string().nullable().optional().transform(value => value ?? null),
   mergeable: z.string().nullable().optional().transform(value => value ?? null),
 });
@@ -73,3 +77,12 @@ export const GhInlineSchema = GhCommentSchema.extend({ path: z.string().optional
 /** REST issue collection DTO includes pull-request markers so they are not reported as issues. */
 export const GhRestIssueSchema = z.object({ number: z.number().int().positive().safe(), title: z.string(), body: z.string().nullable(),
   labels: z.array(z.object({ name: z.string() })), state: z.string(), html_url: z.string(), pull_request: z.unknown().optional() });
+
+/** Contents API acknowledgement confirms the uploaded resource path, exact object identity and public location. */
+export const GhAttachmentSchema = z.object({
+  content: z.object({
+    path: z.string().min(1),
+    sha: z.string().regex(GITHUB_OBJECT_SHA_PATTERN),
+    download_url: z.string().url(),
+  }),
+});

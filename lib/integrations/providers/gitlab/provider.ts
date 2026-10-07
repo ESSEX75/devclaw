@@ -197,8 +197,8 @@ export class GitLabProvider implements IssueProvider {
   }
 
   /** Add an emoji award (reaction) to an MR note/comment.
- Uses the GitLab Award Emoji API on MR notes.
- Best-effort — swallows all errors.
+   * Uses the GitLab Award Emoji API on MR notes.
+   * Best-effort — swallows all errors.
    * @param issueId - Provider-local issue identity within the configured repository.
    * @param emoji - Exact provider reaction identifier.
    */
@@ -293,8 +293,8 @@ export class GitLabProvider implements IssueProvider {
   }
 
   /** Check if work for an issue is already present on the base branch via git log.
- Searches complete reachable history for an exact issue reference; MR numbers are independent identities.
- Used as a fallback when no MR exists (e.g., direct commit to main).
+   * Searches complete reachable history for an exact issue reference; MR numbers are independent identities.
+   * Used as a fallback when no MR exists (e.g., direct commit to main).
    * @param issueId - Provider-local issue identity within the configured repository.
    * @param baseBranch - Application-selected base branch whose complete history is inspected.
    */

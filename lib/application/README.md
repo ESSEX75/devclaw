@@ -46,6 +46,10 @@ separate READMEs. Their file responsibilities and API details belong in source J
 - Application/projection selects exact workflow labels and colors from resolved configuration.
   Workflow label effects add the selected target before removing obsolete configured labels;
   required cleanup failures propagate, while optional final observations remain diagnostic.
+  Provider label effects are a two-phase projection: failed cleanup may leave both source
+  and target visible. Local reservation/record writes have their own atomic boundary;
+  labels, gateway submission and local runtime persistence do not form one transaction.
+  Recovery resumes explicit idempotent effects against the same managed issue/worker frame.
   Recovery uses fresh evidence to skip an already applied addition and resume cleanup.
   Provider observations verify projection only and never select local workflow transitions.
 - Worker context is checked before reservation. Required task/PR/attachment/instruction

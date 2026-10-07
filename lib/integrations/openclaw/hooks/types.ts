@@ -2,7 +2,7 @@
 
 import type { toPluginMessageContext, toPluginMessageReceivedEvent } from "openclaw/plugin-sdk/hook-runtime";
 
-import type { PluginContext,RunCommand } from "../../../context.js";
+import type { PluginContext, RunCommand } from "../../../context.js";
 import type { ATTACHMENT_MESSAGE_HOOK } from "./const.js";
 
 /** Mutable instruction resource owned by the SDK bootstrap event. */

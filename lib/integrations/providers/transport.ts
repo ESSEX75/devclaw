@@ -3,7 +3,7 @@
 import type { z } from "zod";
 
 import { runProviderCommand } from "./command.js";
-import { PROVIDER_CLI, PROVIDER_COMMAND_MODE, PROVIDER_PAGE_SIZE } from "./const.js";
+import { PROVIDER_CLI, PROVIDER_COMMAND_MODE, PROVIDER_PAGE_QUERY,PROVIDER_PAGE_SIZE } from "./const.js";
 import { classifyProviderLookupFailure } from "./lookup-errors.js";
 import { classifyProviderOperationError } from "./operation-errors.js";
 import { parseProviderPages } from "./pagination.js";
@@ -47,7 +47,7 @@ export function createProviderTransport(opts: ProviderAdapterOptions, cli: Provi
     async collection<T>(endpoint: string, schema: z.ZodType<T>): Promise<T[]> {
       try {
         const separator = endpoint.includes("?") ? "&" : "?";
-        const args = ["api", `${endpoint}${separator}per_page=${PROVIDER_PAGE_SIZE}`, "--paginate"];
+        const args = ["api", `${endpoint}${separator}${PROVIDER_PAGE_QUERY}=${PROVIDER_PAGE_SIZE}`, "--paginate"];
 
         if (cli === PROVIDER_CLI.GITHUB) args.push("--slurp");
 

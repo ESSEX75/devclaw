@@ -1,7 +1,7 @@
 /** Submits one gateway worker turn with an application-owned immutable token and conservative delivery evidence. */
 
-import { AGENT_TURN_IDEMPOTENCY_PREFIX, AGENT_TURN_LANE, AGENT_TURN_METHOD, AGENT_TURN_STATUS,
-  AGENT_TURN_TIMEOUT_MS, DEFAULT_GATEWAY_AGENT_ID, GATEWAY_COMMAND } from "./const.js";
+import { isCompletedCommand } from "../../process/index.js";
+import { AGENT_TURN_IDEMPOTENCY_PREFIX, AGENT_TURN_LANE, AGENT_TURN_METHOD, AGENT_TURN_STATUS, AGENT_TURN_TIMEOUT_MS, DEFAULT_GATEWAY_AGENT_ID, GATEWAY_COMMAND } from "./const.js";
 import type { AgentTurnInput, AgentTurnOutcome } from "./types.js";
 
 /**
@@ -21,7 +21,7 @@ export async function submitAgentTurn(sessionKey: string, taskMessage: string, o
       timeoutMs: opts.dispatchTimeoutMs ?? AGENT_TURN_TIMEOUT_MS,
     });
 
-    if (result.termination !== "exit" || result.killed || result.signal !== null) {
+    if (!isCompletedCommand(result)) {
       return { kind: AGENT_TURN_STATUS.UNKNOWN,
         reason: `Gateway command ended abnormally (${result.termination}, signal ${result.signal}, killed ${result.killed}).` };
     }

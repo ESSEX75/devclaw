@@ -1,10 +1,16 @@
 /** Provider DTO discriminants shared by adapters and application consumers. */
 
 /** Source namespace of PR feedback; numeric IDs are not interchangeable between these sources. */
-export const PR_COMMENT_KIND = { REVIEW: "review", INLINE: "inline", CONVERSATION: "conversation" } as const;
+export const PR_COMMENT_KIND = {
+  REVIEW: "review",
+  INLINE: "inline",
+  CONVERSATION: "conversation",
+} as const;
 
 /** Canonical issue state used when comparing provider values without regard to case. */
-export const PROVIDER_ISSUE_STATE = { CLOSED: "closed" } as const;
+export const PROVIDER_ISSUE_STATE = {
+  CLOSED: "closed",
+} as const;
 
 /** Explicit replay safety selected by each provider operation. */
 export const PROVIDER_COMMAND_MODE = {
@@ -51,7 +57,6 @@ export const PROVIDER_HISTORY_REMOTE = "origin";
 /** Git history output contains only confirmed matching commit identifiers. */
 export const PROVIDER_HISTORY_FORMAT = "%H";
 
-
 /** Provider review decisions consumed independently of their source namespace. */
 export const PROVIDER_REVIEW_STATE = {
   APPROVED: "APPROVED",
@@ -60,15 +65,11 @@ export const PROVIDER_REVIEW_STATE = {
   DISMISSED: "DISMISSED",
 } as const;
 
-
 /** Isolated upload staging resources; display names never become directory paths. */
 export const PROVIDER_ATTACHMENT_STORAGE = {
-  TEMP_PREFIX: "devclaw-upload-",
-  FILE_PREFIX: "attachment-",
   FALLBACK_NAME: "file",
   MAX_NAME_LENGTH: 180,
 } as const;
-
 
 /** Provider-neutral lifecycle and review observation states. */
 export const PR_STATE = {
@@ -85,3 +86,59 @@ export const PROVIDER_CLI = {
   GITHUB: "gh",
   GITLAB: "glab",
 } as const;
+
+/** Read-failure categories consumed by application without parsing provider diagnostics. */
+export const PROVIDER_ISSUE_LOOKUP_ERROR = {
+  ISSUE_NOT_FOUND: "ISSUE_NOT_FOUND",
+  PROJECT_NOT_FOUND_OR_FORBIDDEN: "PROJECT_NOT_FOUND_OR_FORBIDDEN",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  FORBIDDEN: "FORBIDDEN",
+  RATE_LIMITED: "RATE_LIMITED",
+  TRANSIENT: "TRANSIENT",
+  UNKNOWN: "UNKNOWN",
+} as const;
+
+/** HTTP categories recognized in provider transport diagnostics. */
+export const PROVIDER_HTTP_STATUS = {
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  VALIDATION_FAILED: 422,
+  RATE_LIMITED: 429,
+  SERVER_ERROR: 500,
+} as const;
+
+/** Non-formal feedback kinds retained in normalized provider comment state. */
+export const PROVIDER_FEEDBACK_STATE = {
+  INLINE: "INLINE",
+  UNRESOLVED: "UNRESOLVED",
+} as const;
+
+/** Provider-side collection filters, independent of configured workflow labels. */
+export const PROVIDER_COLLECTION_STATE = {
+  OPEN: "open",
+  CLOSED: "closed",
+  ALL: "all",
+} as const;
+
+/** Numeric status fragments recognized only in actual transport diagnostics. */
+export const PROVIDER_HTTP_STATUS_PATTERN = /\b(401|403|404|409|422|429|5\d\d)\b/;
+
+/** Error instance names used in diagnostic serialization. */
+export const PROVIDER_ERROR_NAME = {
+  LOOKUP: "ProviderIssueLookupError",
+  OPERATION: "ProviderOperationError",
+  TRANSPORT: "ProviderTransportError",
+} as const;
+
+/** HTTP methods shared by provider CLI REST calls; replay safety is still explicitly chosen per operation. */
+export const PROVIDER_HTTP_METHOD = {
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  DELETE: "DELETE",
+} as const;
+
+/** Provider collection page-size query identifier. */
+export const PROVIDER_PAGE_QUERY = "per_page";

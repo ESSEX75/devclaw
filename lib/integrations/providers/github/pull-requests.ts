@@ -1,15 +1,12 @@
 /** Owns GitHub pull-requests operations and their provider-specific API semantics. */
 import { hasIssueCommitOnBaseBranch } from "../commit-references.js";
-import { PR_STATE, PROVIDER_REVIEW_STATE } from "../const.js";
-import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../lookup-errors.js";
+import { PR_STATE, PROVIDER_ISSUE_LOOKUP_ERROR,PROVIDER_REVIEW_STATE } from "../const.js";
+import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../lookup-errors.js";
 import { latestFormalReviews } from "../review-observations.js";
-import type {
-  ProviderTransport,
-  PrState,
-  PrStatus,
-} from "../types.js";
-import { GITHUB_REVIEW_BOT_SUFFIX } from "./const.js";
+import type { ProviderTransport, PrState, PrStatus } from "../types.js";
+import { GITHUB_API_RESOURCE, GITHUB_DISCOVERY_STATE, GITHUB_MERGEABILITY, GITHUB_REQUEST_STATE, GITHUB_REVIEW_BOT_SUFFIX } from "./const.js";
 import { GitHubDiscovery } from "./discovery.js";
+import { githubApiPath } from "./endpoints.js";
 import { GitHubReviews } from "./reviews.js";
 import { GhInlineSchema } from "./schema.js";
 
@@ -23,33 +20,33 @@ export class GitHubPullRequests {
   constructor(private readonly transport: ProviderTransport, private readonly discovery: GitHubDiscovery, private readonly reviews: GitHubReviews) {}
 
   /** Return the newest confirmed merged request URL after complete discovery.
-     * @param issueId - Provider-local issue identity within the configured repository.
-     */
+   * @param issueId - Provider-local issue identity within the configured repository.
+   */
   async getMergedMRUrl(issueId: number): Promise<string | null> {
-      const prs = await this.discovery.findPrsForIssue(issueId, "merged");
+    const prs = await this.discovery.findPrsForIssue(issueId, GITHUB_DISCOVERY_STATE.MERGED);
 
-      if (prs.length === 0) return null;
+    if (prs.length === 0) return null;
 
-      return prs[0].url;
-    }
+    return prs[0].url;
+  }
 
   /** Observe PR state; missing PRs require successful lookup and failed reads remain typed errors.
    * @param issueId - Managed issue whose associated PR state is observed.
    * @param prUrl - Optional exact request URL supplied by prior application evidence.
    */
   async getPrStatus(issueId: number, prUrl?: string): Promise<PrStatus> {
-    const found = await this.discovery.findPrsForIssue(issueId, "all");
+    const found = await this.discovery.findPrsForIssue(issueId, GITHUB_DISCOVERY_STATE.ALL);
     const candidates = prUrl ? found.filter(pr => pr.url === prUrl) : found;
 
     if (prUrl && !candidates.length) throw new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.UNKNOWN, provider: "github",
       retryable: false, message: `Previously selected PR is no longer associated with this issue: ${prUrl}` });
-    const open = candidates.find(pr => pr.state === "OPEN");
+    const open = candidates.find(pr => pr.state === GITHUB_REQUEST_STATE.OPEN);
 
     if (open) {
       const reviews = await this.reviews.readReviews(open.number);
       const summaries = reviews.filter(review => review.state === PROVIDER_REVIEW_STATE.COMMENTED && review.body.trim().length > 0);
       const conversations = await this.reviews.fetchConversationComments(open.number);
-      const inlines = await this.transport.collection(`repos/:owner/:repo/pulls/${open.number}/comments`, GhInlineSchema);
+      const inlines = await this.transport.collection(githubApiPath(GITHUB_API_RESOURCE.PULLS, open.number, GITHUB_API_RESOURCE.COMMENTS), GhInlineSchema);
       const hasCommentFeedback = conversations.some(comment => (comment.reactions?.eyes ?? 0) === 0)
         || inlines.some(comment => !comment.user.login.endsWith(GITHUB_REVIEW_BOT_SUFFIX) && comment.body.trim().length > 0 && (comment.reactions?.eyes ?? 0) === 0);
       const decisions = latestFormalReviews(reviews);
@@ -60,16 +57,16 @@ export class GitHubPullRequests {
       else if (open.reviewDecision === PROVIDER_REVIEW_STATE.APPROVED
         || decisions.some(review => review.state === PROVIDER_REVIEW_STATE.APPROVED)) state = PR_STATE.APPROVED;
       else state = hasCommentFeedback || summaries.length ? PR_STATE.HAS_COMMENTS : PR_STATE.OPEN;
-      const mergeable = open.mergeable === "CONFLICTING" ? false : open.mergeable === "MERGEABLE" ? true : undefined;
+      const mergeable = open.mergeable === GITHUB_MERGEABILITY.CONFLICTING ? false : open.mergeable === GITHUB_MERGEABILITY.MERGEABLE ? true : undefined;
 
       return { state, url: open.url, title: open.title, sourceBranch: open.headRefName, mergeable,
         reviewSummaries: summaries, hasCommentFeedback };
     }
 
-    const merged = candidates.find(pr => pr.state === "MERGED");
+    const merged = candidates.find(pr => pr.state === GITHUB_REQUEST_STATE.MERGED);
 
     if (merged) return { state: PR_STATE.MERGED, url: merged.url, title: merged.title, sourceBranch: merged.headRefName };
-    const closed = candidates.find(pr => pr.state === "CLOSED");
+    const closed = candidates.find(pr => pr.state === GITHUB_REQUEST_STATE.CLOSED);
 
     return closed ? { state: PR_STATE.CLOSED, url: closed.url, title: closed.title, sourceBranch: closed.headRefName } : { state: PR_STATE.CLOSED, url: null };
   }

@@ -2,19 +2,15 @@
 
 import { z } from "zod";
 
-import { PROVIDER_PAGE_SIZE } from "../const.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR,PROVIDER_PAGE_SIZE } from "../const.js";
 import { ProviderTransportError } from "../failures.js";
-import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../lookup-errors.js";
-import { PROVIDER_OPERATION_ERROR } from "../operation-errors.js";
-import type {
-  ProviderTransport,
-} from "../types.js";
-import { GITHUB_PR_FIELDS } from "./const.js";
+import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../lookup-errors.js";
+import type { ProviderTransport } from "../types.js";
+import { GITHUB_API_RESOURCE, GITHUB_DISCOVERY_STATE, GITHUB_PR_FIELDS,GITHUB_QUERY, GITHUB_REQUEST_STATE } from "./const.js";
+import { githubApiPath } from "./endpoints.js";
 import { GitHubRepository } from "./repository.js";
-import { GhPullRequestSchema, GhRestPullSchema,GhTimelineSchema } from "./schema.js";
-import type {
-  GhPullRequest,
-} from "./types.js";
+import { GhPullRequestSchema, GhRestPullSchema, GhTimelineSchema } from "./schema.js";
+import type { GhDiscoveryState, GhPullRequest } from "./types.js";
 
 /** Implements the discovery capability using dependencies shared by one adapter instance. */
 export class GitHubDiscovery {
@@ -47,7 +43,7 @@ export class GitHubDiscovery {
     }`;
 
     try {
-      const raw: unknown = JSON.parse(await this.transport.read(["api", "graphql", "--paginate", "--slurp", "-f", `query=${query}`]));
+      const raw: unknown = JSON.parse(await this.transport.read(["api", GITHUB_QUERY.GRAPHQL, "--paginate", "--slurp", "-f", `query=${query}`]));
       const pages = z.array(GhTimelineSchema).min(1).parse(raw);
       const last = pages[pages.length - 1].data.repository.issue.timelineItems;
 
@@ -80,12 +76,12 @@ export class GitHubDiscovery {
    * @param issueId - Managed issue whose PR candidates are requested.
    * @param state - Lifecycle state to retain after complete discovery.
    */
-  async findPrsForIssue(issueId: number, state: "open" | "merged" | "all"): Promise<GhPullRequest[]> {
+  async findPrsForIssue(issueId: number, state: GhDiscoveryState): Promise<GhPullRequest[]> {
     const linked = await this.findPrsViaTimeline(issueId);
     let candidates = linked ?? [];
 
-    if (!linked?.some(pr => pr.state === "OPEN")) {
-      const all = await this.transport.collection("repos/:owner/:repo/pulls?state=all", GhRestPullSchema);
+    if (!linked?.some(pr => pr.state === GITHUB_REQUEST_STATE.OPEN)) {
+      const all = await this.transport.collection(`${githubApiPath(GITHUB_API_RESOURCE.PULLS)}?state=all`, GhRestPullSchema);
       const branchPattern = new RegExp(`^(?:fix|feat|feature|chore|bugfix|hotfix|refactor|docs|test)/${issueId}-`);
       const mention = new RegExp(`(^|[^A-Za-z0-9_#])#${issueId}(?![A-Za-z0-9_])`);
       const byBranch = all.filter(pr => branchPattern.test(pr.head.ref));
@@ -101,7 +97,8 @@ export class GitHubDiscovery {
 
     const unique = new Map(candidates.map(pr => [pr.number, pr]));
 
-    return [...unique.values()].filter(pr => state === "all" || (state === "open" ? pr.state === "OPEN" : pr.state === "MERGED"))
+    return [...unique.values()].filter(pr => state === GITHUB_DISCOVERY_STATE.ALL
+      || (state === GITHUB_DISCOVERY_STATE.OPEN ? pr.state === GITHUB_REQUEST_STATE.OPEN : pr.state === GITHUB_REQUEST_STATE.MERGED))
       .sort((a, b) => b.number - a.number);
   }
 
@@ -110,7 +107,7 @@ export class GitHubDiscovery {
    * @param prUrl - Optional exact URL previously observed by the application.
    */
   async selectOpenPr(issueId: number, prUrl?: string): Promise<GhPullRequest | undefined> {
-    const candidates = await this.findPrsForIssue(issueId, "open");
+    const candidates = await this.findPrsForIssue(issueId, GITHUB_DISCOVERY_STATE.OPEN);
     const selected = prUrl ? candidates.find(pr => pr.url === prUrl) : candidates[0];
 
     if (prUrl && !selected) throw new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.UNKNOWN, provider: "github",

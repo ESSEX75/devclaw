@@ -1,8 +1,6 @@
 /** Owns GitLab health operations and their provider-specific API semantics. */
 
-import type {
-  ProviderTransport,
-} from "../types.js";
+import type { ProviderTransport } from "../types.js";
 
 /** Implements the health capability using dependencies shared by one adapter instance. */
 export class GitLabHealth {
@@ -12,12 +10,12 @@ export class GitLabHealth {
   constructor(private readonly transport: ProviderTransport) {}
 
   /** Probe CLI authentication; unavailability is a failed health observation.
-     */
+   */
   async healthCheck(): Promise<boolean> {
-      try {
-        await this.transport.read(["auth", "status"]);
+    try {
+      await this.transport.read(["auth", "status"]);
 
-        return true;
-      } catch { return false; }
-    }
+      return true;
+    } catch { return false; }
+  }
 }

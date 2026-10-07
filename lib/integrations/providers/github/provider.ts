@@ -245,8 +245,8 @@ export class GitHubProvider implements IssueProvider {
   }
 
   /** Add an emoji reaction to a PR/MR issue comment.
- Uses the GitHub Issues Comments Reactions API (PRs share the issue comment namespace).
- Best-effort — swallows all errors.
+   * Uses the GitHub Issues Comments Reactions API (PRs share the issue comment namespace).
+   * Best-effort — swallows all errors.
    * @param _issueId - Capability dependency scoped to this adapter.
    * @param commentId - Provider comment identity within the endpoint-specific source namespace.
    * @param emoji - Exact provider reaction identifier.
@@ -300,8 +300,8 @@ export class GitHubProvider implements IssueProvider {
   }
 
   /** Check if work for an issue is already present on the base branch via git log.
- Searches complete reachable history for an exact issue reference without a numeric-prefix match.
- Used as a fallback when no PR exists (e.g., direct commit to main).
+   * Searches complete reachable history for an exact issue reference without a numeric-prefix match.
+   * Used as a fallback when no PR exists (e.g., direct commit to main).
    * @param issueId - Provider-local issue identity within the configured repository.
    * @param baseBranch - Application-selected base branch whose complete history is inspected.
    */
@@ -310,7 +310,7 @@ export class GitHubProvider implements IssueProvider {
   }
 
   /** Publish bytes once and return only a location confirmed by the Contents API response.
- Unavailable or unidentified uploads preserve application-owned local attachment bytes.
+   * Unavailable or unidentified uploads preserve application-owned local attachment bytes.
    * @param issueId - Provider-local issue identity within the configured repository.
    * @param file - Already locally persisted attachment bytes and untrusted display metadata.
    */

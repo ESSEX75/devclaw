@@ -48,3 +48,6 @@ export const DEFAULT_GATEWAY_AGENT_ID = "devclaw";
 
 /** Fallback transport bound when application has not supplied a dispatch timeout. */
 export const AGENT_TURN_TIMEOUT_MS = 600_000;
+
+/** Context utilization is reported as a percentage rather than an application budget ratio. */
+export const SESSION_USAGE_PERCENT_SCALE = 100;

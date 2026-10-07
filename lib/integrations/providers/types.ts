@@ -7,7 +7,7 @@ import type { z } from "zod";
 import type { RunCommand } from "../../context.js";
 import type { IssueProviderId } from "../../domain/index.js";
 import type { ValueOf } from "../../types.js";
-import type { PR_COMMENT_KIND, PROVIDER_CLI, PROVIDER_COMMAND_MODE, PROVIDER_OPERATION_ERROR } from "./const.js";
+import type { PR_COMMENT_KIND, PROVIDER_CLI, PROVIDER_COLLECTION_STATE, PROVIDER_COMMAND_MODE, PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "./const.js";
 import { PR_STATE } from "./const.js";
 
 /** Stable transport category reused by mutation errors. */
@@ -105,7 +105,7 @@ export type IssueListFilter = {
   /** Exact provider label used as an observation filter or explicit mutation target. */
   label?: string;
   /** Provider lifecycle or review observation, independent of local workflow ownership. */
-  state?: "open" | "closed" | "all";
+  state?: ValueOf<typeof PROVIDER_COLLECTION_STATE>;
 };
 
 /** Complete provider issue payload used by transactional creation. */
@@ -417,3 +417,38 @@ export type AttachmentUploadInput = {
 
 /** Concrete CLI identity derived from the canonical registry. */
 export type ProviderCli = ValueOf<typeof PROVIDER_CLI>;
+
+/** Read error category derived from the canonical provider registry. */
+export type ProviderIssueLookupErrorCode = ValueOf<typeof PROVIDER_ISSUE_LOOKUP_ERROR>;
+
+/** Validated context carried by a provider read failure. */
+export type ProviderLookupErrorOptions = {
+  /** Classified category; absence requires a separate successful access probe. */
+  code: ProviderIssueLookupErrorCode;
+  /** Concrete provider owning the failed observation. */
+  provider: string;
+  /** Whether observation can safely be repeated. */
+  retryable: boolean;
+  /** Diagnostic describing the failed observation. */
+  message: string;
+  /** Confirmed HTTP status when supplied by the transport. */
+  status?: number;
+  /** Original failure retained for inspection. */
+  cause?: unknown;
+};
+
+/** Mutation evidence retained after one submitted provider operation. */
+export type ProviderOperationErrorOptions = {
+  /** Stable mutation failure category. */
+  code: ProviderOperationErrorCode;
+  /** Diagnostic excluding command argument vectors. */
+  message: string;
+  /** Whether the explicitly replayable operation can be repeated. */
+  retryable: boolean;
+  /** Whether the submitted mutation may already have taken effect. */
+  outcomeUnknown?: boolean;
+  /** Provider-supplied retry delay when available. */
+  retryAfter?: string;
+  /** Original failure retained for inspection. */
+  cause?: unknown;
+};

@@ -1,18 +1,14 @@
 /** Owns GitLab reviews operations and their provider-specific API semantics. */
 
-import { PR_COMMENT_KIND } from "../const.js";
+import { PR_COMMENT_KIND,PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../const.js";
 import { classifyProviderLookupFailure } from "../lookup-errors.js";
-import type {
-  ProviderTransport,
-  PrReviewComment,
-} from "../types.js";
-import { GITLAB_INLINE_NOTE_TYPE } from "./const.js";
+import type { ProviderTransport, PrReviewComment } from "../types.js";
+import { GITLAB_API_RESOURCE, GITLAB_INLINE_NOTE_TYPE } from "./const.js";
 import { GitLabDiscovery } from "./discovery.js";
+import { gitlabApiPath } from "./endpoints.js";
 import { GitLabReactions } from "./reactions.js";
-import { GitLabApprovalSchema, GitLabDiscussionSchema,GitLabNoteSchema } from "./schema.js";
-import type {
-  GitLabNote,
-} from "./types.js";
+import { GitLabApprovalSchema, GitLabDiscussionSchema, GitLabNoteSchema } from "./schema.js";
+import type { GitLabNote } from "./types.js";
 
 /** Implements the reviews capability using dependencies shared by one adapter instance. */
 export class GitLabReviews {
@@ -28,7 +24,7 @@ export class GitLabReviews {
    */
   async hasUnresolvedDiscussions(mrIid: number): Promise<boolean> {
     try {
-      const discussions = await this.transport.collection(`projects/:id/merge_requests/${mrIid}/discussions`, GitLabDiscussionSchema);
+      const discussions = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_API_RESOURCE.DISCUSSIONS), GitLabDiscussionSchema);
 
       return discussions.some((d) =>
         d.notes.some((n) => n.resolvable && !n.resolved && !n.system),
@@ -44,7 +40,7 @@ export class GitLabReviews {
    */
   async hasConversationComments(mrIid: number): Promise<boolean> {
     try {
-      const notes = await this.transport.collection(`projects/:id/merge_requests/${mrIid}/notes`, GitLabNoteSchema);
+      const notes = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_API_RESOURCE.NOTES), GitLabNoteSchema);
       const candidates = notes.filter((n) => !n.system && n.body.trim().length > 0);
 
       for (const note of candidates) {
@@ -64,7 +60,7 @@ export class GitLabReviews {
     mrIid: number,
   ): Promise<GitLabNote[]> {
     try {
-      const all = await this.transport.collection(`projects/:id/merge_requests/${mrIid}/notes`, GitLabNoteSchema);
+      const all = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_API_RESOURCE.NOTES), GitLabNoteSchema);
 
       return all.filter(
         (n) => !n.system && n.body.trim().length > 0,
@@ -77,7 +73,7 @@ export class GitLabReviews {
    */
   async isMrApproved(mrIid: number): Promise<boolean> {
     try {
-      const raw = await this.transport.read(["api", `projects/:id/merge_requests/${mrIid}/approvals`]);
+      const raw = await this.transport.read(["api", gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_API_RESOURCE.APPROVALS)]);
       const response: unknown = JSON.parse(raw);
       const data = GitLabApprovalSchema.parse(response);
       // Only trust explicit approvals — ignore bare 'approved' flag.
@@ -103,7 +99,7 @@ export class GitLabReviews {
     const comments: PrReviewComment[] = [];
 
     try {
-      const discussions = await this.transport.collection(`projects/:id/merge_requests/${open.iid}/discussions`, GitLabDiscussionSchema);
+      const discussions = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.DISCUSSIONS), GitLabDiscussionSchema);
 
       for (const disc of discussions) {
         for (const note of disc.notes) {
@@ -113,7 +109,7 @@ export class GitLabReviews {
             id: note.id,
             author: note.author.username,
             body: note.body,
-            state: note.resolvable ? (note.resolved ? "RESOLVED" : "UNRESOLVED") : "COMMENTED",
+            state: note.resolvable ? (note.resolved ? "RESOLVED" : PROVIDER_FEEDBACK_STATE.UNRESOLVED) : PROVIDER_REVIEW_STATE.COMMENTED,
             created_at: note.created_at,
             path: note.position?.new_path,
             line: note.position?.new_line ?? undefined,
@@ -133,7 +129,7 @@ export class GitLabReviews {
           id: n.id,
           author: n.author.username,
           body: n.body,
-          state: "COMMENTED",
+          state: PROVIDER_REVIEW_STATE.COMMENTED,
           created_at: n.created_at,
         });
       }

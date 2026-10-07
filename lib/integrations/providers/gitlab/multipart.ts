@@ -6,12 +6,13 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import type {
-  RunCommand,
-} from "../../../context.js";
+import type { RunCommand } from "../../../context.js";
+import { sanitizeProviderAttachmentName } from "../attachment-name.js";
 import { runProviderCommand } from "../command.js";
-import { PROVIDER_ATTACHMENT_STORAGE } from "../const.js";
-import { GITLAB_UPLOAD_PATH } from "./const.js";
+import { PROVIDER_HTTP_METHOD } from "../const.js";
+import { parseProviderJson } from "../schema.js";
+import { GITLAB_ATTACHMENT_STORAGE, GITLAB_FILENAME_CONTROL_LIMIT, GITLAB_UPLOAD_PATH, GITLAB_UPLOAD_PATH_PATTERN } from "./const.js";
+import { gitlabApiPath } from "./endpoints.js";
 
 /** Provider-confirmed identity needed to distinguish installation prefixes from nested namespaces. */
 const projectSchema = z.object({
@@ -34,7 +35,7 @@ const uploadSchema = z.object({ url: z.string().optional(), full_path: z.string(
  */
 export async function uploadGitLabAttachment(runCommand: RunCommand, repoPath: string,
   read: (args: string[]) => Promise<string>, filename: string, buffer: Buffer): Promise<string> {
-  const project = projectSchema.parse(JSON.parse(await read(["api", "projects/:id", "--method", "GET"])));
+  const project = parseProviderJson(await read(["api", gitlabApiPath(), "--method", PROVIDER_HTTP_METHOD.GET]), projectSchema);
   const webUrl = new URL(project.web_url);
 
   if (!["https:", "http:"].includes(webUrl.protocol) || webUrl.username || webUrl.password || webUrl.search || webUrl.hash) {
@@ -57,21 +58,20 @@ export async function uploadGitLabAttachment(runCommand: RunCommand, repoPath: s
 
   if (!token || /[\r\n]/.test(token)) throw new Error("GitLab upload credentials are unavailable.");
 
-  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, PROVIDER_ATTACHMENT_STORAGE.MAX_NAME_LENGTH)
-    || PROVIDER_ATTACHMENT_STORAGE.FALLBACK_NAME;
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), PROVIDER_ATTACHMENT_STORAGE.TEMP_PREFIX));
+  const safeName = sanitizeProviderAttachmentName(filename);
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), GITLAB_ATTACHMENT_STORAGE.TEMP_PREFIX));
 
   try {
-    const tmpFile = path.join(tmpDir, `${PROVIDER_ATTACHMENT_STORAGE.FILE_PREFIX}${safeName}`);
+    const tmpFile = path.join(tmpDir, `${GITLAB_ATTACHMENT_STORAGE.FILE_PREFIX}${safeName}`);
 
-    await fs.writeFile(tmpFile, buffer, { flag: "wx", mode: 0o600 });
+    await fs.writeFile(tmpFile, buffer, { flag: GITLAB_ATTACHMENT_STORAGE.CREATE_FLAG, mode: GITLAB_ATTACHMENT_STORAGE.FILE_MODE });
     // Curl parses multipart syntax itself; quoting also protects commas and semicolons in trusted temp roots.
     const curlPath = path.sep === "\\" ? tmpFile.replace(/\\/g, "/") : tmpFile;
     const quotedFile = curlPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
     const output = await runProviderCommand(runCommand, ["curl", "--disable", "--silent", "--fail", "--show-error",
       "--header", `PRIVATE-TOKEN: ${token}`, "--form", `file=@"${quotedFile}"`,
       `${installationUrl}${GITLAB_UPLOAD_PATH.API}${project.id}${GITLAB_UPLOAD_PATH.ENDPOINT}`], repoPath);
-    const upload = uploadSchema.parse(JSON.parse(output));
+    const upload = parseProviderJson(output, uploadSchema);
     const relativePath = upload.url;
 
     if (relativePath !== undefined) {
@@ -93,7 +93,7 @@ export async function uploadGitLabAttachment(runCommand: RunCommand, repoPath: s
 
     return `${installationUrl}${scopedPath}`;
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    await fs.rm(tmpDir, { recursive: true, force: true, maxRetries: GITLAB_ATTACHMENT_STORAGE.CLEANUP_RETRIES, retryDelay: GITLAB_ATTACHMENT_STORAGE.CLEANUP_DELAY_MS });
   }
 }
 
@@ -101,11 +101,11 @@ export async function uploadGitLabAttachment(runCommand: RunCommand, repoPath: s
  * @param value - Provider-relative upload path with one secret and one filename.
  */
 function validateUploadPath(value: string): void {
-  if (!/^\/uploads\/[a-fA-F0-9]{32}\/[^/?#\\]+$/.test(value)) throw new Error("Invalid GitLab upload path.");
+  if (!GITLAB_UPLOAD_PATH_PATTERN.test(value)) throw new Error("Invalid GitLab upload path.");
   const filename = decodeURIComponent(value.slice(value.lastIndexOf("/") + 1));
 
   if (!filename || filename === "." || filename === ".." || filename.includes("/") || filename.includes("\\")
-    || Array.from(filename).some(character => character.charCodeAt(0) < 32)) {
+    || Array.from(filename).some(character => character.charCodeAt(0) < GITLAB_FILENAME_CONTROL_LIMIT)) {
     throw new Error("Invalid GitLab upload filename.");
   }
 }

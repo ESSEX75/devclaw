@@ -7,7 +7,7 @@ import type { RunCommand } from "../../context.js";
 import { PR_COMMENT_KIND } from "./const.js";
 import { GitHubProvider } from "./github/index.js";
 import { GitLabProvider } from "./gitlab/index.js";
-import { isProviderIssueLookupError } from "./lookup-errors.js";
+import { isProviderIssueLookupError } from "./guards.js";
 import { PR_STATE } from "./const.js";
 
 /** Serialize one clean provider CLI response without bypassing transport validation.

@@ -1,10 +1,11 @@
 /** Owns GitLab reactions operations and their provider-specific API semantics. */
 
+import { PROVIDER_HTTP_METHOD } from "../const.js";
 import { classifyProviderLookupFailure } from "../lookup-errors.js";
-import type {
-  ProviderTransport,
-} from "../types.js";
+import type { ProviderTransport } from "../types.js";
+import { GITLAB_API_RESOURCE,GITLAB_REQUEST_STATE } from "./const.js";
 import { GitLabDiscovery } from "./discovery.js";
+import { gitlabApiPath } from "./endpoints.js";
 import { GitLabEmojiSchema } from "./schema.js";
 
 /** Implements the reactions capability using dependencies shared by one adapter instance. */
@@ -26,92 +27,92 @@ export class GitLabReactions {
   async reactToIssue(issueId: number, emoji: string): Promise<void> {
     try {
       await this.transport.once([
-        "api", `projects/:id/issues/${issueId}/award_emoji`,
-        "--method", "POST",
+        "api", gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        "--method", PROVIDER_HTTP_METHOD.POST,
         "--field", `name=${emoji}`,
       ]);
     } catch { /* best-effort */ }
   }
 
   /** Observe an issue reaction; unavailable cosmetic evidence remains false.
-     * @param issueId - Provider-local issue identity within the configured repository.
-     * @param emoji - Exact provider reaction identifier.
-     */
+   * @param issueId - Provider-local issue identity within the configured repository.
+   * @param emoji - Exact provider reaction identifier.
+   */
   async issueHasReaction(issueId: number, emoji: string): Promise<boolean> {
-      try {
-        const emojis = await this.transport.collection(`projects/:id/issues/${issueId}/award_emoji`, GitLabEmojiSchema);
+    try {
+      const emojis = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.AWARD_EMOJI), GitLabEmojiSchema);
 
-        return emojis.some((e) => e.name === emoji);
-      } catch { return false; }
-    }
+      return emojis.some((e) => e.name === emoji);
+    } catch { return false; }
+  }
 
   /** Submit one best-effort reaction to the deterministically selected open request.
-     * @param issueId - Provider-local issue identity within the configured repository.
-     * @param emoji - Exact provider reaction identifier.
-     */
+   * @param issueId - Provider-local issue identity within the configured repository.
+   * @param emoji - Exact provider reaction identifier.
+   */
   async reactToPr(issueId: number, emoji: string): Promise<void> {
-      try {
-        const mrs = await this.discovery.getRelatedMRs(issueId);
-        const open = mrs.find((mr) => mr.state === "opened");
+    try {
+      const mrs = await this.discovery.getRelatedMRs(issueId);
+      const open = mrs.find((mr) => mr.state === GITLAB_REQUEST_STATE.OPEN);
 
-        if (!open) return;
-        await this.transport.once([
-          "api", `projects/:id/merge_requests/${open.iid}/award_emoji`,
-          "--method", "POST",
-          "--field", `name=${emoji}`,
-        ]);
-      } catch { /* best-effort */ }
-    }
+      if (!open) return;
+      await this.transport.once([
+        "api", gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        "--method", PROVIDER_HTTP_METHOD.POST,
+        "--field", `name=${emoji}`,
+      ]);
+    } catch { /* best-effort */ }
+  }
 
   /** Observe cosmetic reaction evidence on the selected open request.
-     * @param issueId - Provider-local issue identity within the configured repository.
-     * @param emoji - Exact provider reaction identifier.
-     */
+   * @param issueId - Provider-local issue identity within the configured repository.
+   * @param emoji - Exact provider reaction identifier.
+   */
   async prHasReaction(issueId: number, emoji: string): Promise<boolean> {
-      try {
-        const mrs = await this.discovery.getRelatedMRs(issueId);
-        const open = mrs.find((mr) => mr.state === "opened");
+    try {
+      const mrs = await this.discovery.getRelatedMRs(issueId);
+      const open = mrs.find((mr) => mr.state === GITLAB_REQUEST_STATE.OPEN);
 
-        if (!open) return false;
-        const emojis = await this.transport.collection(`projects/:id/merge_requests/${open.iid}/award_emoji`, GitLabEmojiSchema);
+      if (!open) return false;
+      const emojis = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.AWARD_EMOJI), GitLabEmojiSchema);
 
-        return emojis.some((e) => e.name === emoji);
-      } catch { return false; }
-    }
+      return emojis.some((e) => e.name === emoji);
+    } catch { return false; }
+  }
 
   /** Submit one best-effort reaction in the issue-comment source namespace.
-     * @param issueId - Provider-local issue identity within the configured repository.
-     * @param commentId - Provider comment identity within the endpoint-specific source namespace.
-     * @param emoji - Exact provider reaction identifier.
-     */
+   * @param issueId - Provider-local issue identity within the configured repository.
+   * @param commentId - Provider comment identity within the endpoint-specific source namespace.
+   * @param emoji - Exact provider reaction identifier.
+   */
   async reactToIssueComment(issueId: number, commentId: number, emoji: string): Promise<void> {
-      try {
-        await this.transport.once([
-          "api", `projects/:id/issues/${issueId}/notes/${commentId}/award_emoji`,
-          "--method", "POST",
-          "--field", `name=${emoji}`,
-        ]);
-      } catch { /* best-effort */ }
-    }
+    try {
+      await this.transport.once([
+        "api", gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        "--method", PROVIDER_HTTP_METHOD.POST,
+        "--field", `name=${emoji}`,
+      ]);
+    } catch { /* best-effort */ }
+  }
 
   /** Submit one best-effort reaction in the request conversation namespace.
-     * @param issueId - Provider-local issue identity within the configured repository.
-     * @param commentId - Provider comment identity within the endpoint-specific source namespace.
-     * @param emoji - Exact provider reaction identifier.
-     */
+   * @param issueId - Provider-local issue identity within the configured repository.
+   * @param commentId - Provider comment identity within the endpoint-specific source namespace.
+   * @param emoji - Exact provider reaction identifier.
+   */
   async reactToPrComment(issueId: number, commentId: number, emoji: string): Promise<void> {
-      try {
-        const mrs = await this.discovery.getRelatedMRs(issueId);
-        const open = mrs.find((mr) => mr.state === "opened");
+    try {
+      const mrs = await this.discovery.getRelatedMRs(issueId);
+      const open = mrs.find((mr) => mr.state === GITLAB_REQUEST_STATE.OPEN);
 
-        if (!open) return;
-        await this.transport.once([
-          "api", `projects/:id/merge_requests/${open.iid}/notes/${commentId}/award_emoji`,
-          "--method", "POST",
-          "--field", `name=${emoji}`,
-        ]);
-      } catch { /* best-effort */ }
-    }
+      if (!open) return;
+      await this.transport.once([
+        "api", gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        "--method", PROVIDER_HTTP_METHOD.POST,
+        "--field", `name=${emoji}`,
+      ]);
+    } catch { /* best-effort */ }
+  }
 
   /** React to an inline review comment using its provider comment namespace.
    * @param issueId - Issue used to resolve the active pull request.
@@ -123,34 +124,40 @@ export class GitLabReactions {
   }
 
   /** Observe cosmetic reaction evidence in the issue-comment namespace.
-     * @param issueId - Provider-local issue identity within the configured repository.
-     * @param commentId - Provider comment identity within the endpoint-specific source namespace.
-     * @param emoji - Exact provider reaction identifier.
-     */
+   * @param issueId - Provider-local issue identity within the configured repository.
+   * @param commentId - Provider comment identity within the endpoint-specific source namespace.
+   * @param emoji - Exact provider reaction identifier.
+   */
   async issueCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
-      try {
-        const emojis = await this.transport.collection(`projects/:id/issues/${issueId}/notes/${commentId}/award_emoji`, GitLabEmojiSchema);
+    try {
+      const emojis = await this.transport.collection(
+        gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        GitLabEmojiSchema,
+      );
 
-        return emojis.some((e) => e.name === emoji);
-      } catch { return false; }
-    }
+      return emojis.some((e) => e.name === emoji);
+    } catch { return false; }
+  }
 
   /** Observe cosmetic reaction evidence in the request conversation namespace.
-     * @param issueId - Provider-local issue identity within the configured repository.
-     * @param commentId - Provider comment identity within the endpoint-specific source namespace.
-     * @param emoji - Exact provider reaction identifier.
-     */
+   * @param issueId - Provider-local issue identity within the configured repository.
+   * @param commentId - Provider comment identity within the endpoint-specific source namespace.
+   * @param emoji - Exact provider reaction identifier.
+   */
   async prCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
-      try {
-        const mrs = await this.discovery.getRelatedMRs(issueId);
-        const open = mrs.find((mr) => mr.state === "opened");
+    try {
+      const mrs = await this.discovery.getRelatedMRs(issueId);
+      const open = mrs.find((mr) => mr.state === GITLAB_REQUEST_STATE.OPEN);
 
-        if (!open) return false;
-        const emojis = await this.transport.collection(`projects/:id/merge_requests/${open.iid}/notes/${commentId}/award_emoji`, GitLabEmojiSchema);
+      if (!open) return false;
+      const emojis = await this.transport.collection(
+        gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        GitLabEmojiSchema,
+      );
 
-        return emojis.some((e) => e.name === emoji);
-      } catch { return false; }
-    }
+      return emojis.some((e) => e.name === emoji);
+    } catch { return false; }
+  }
 
   /** Check whether an inline review comment already carries the requested reaction.
    * @param issueId - Issue used to resolve the active pull request.
@@ -167,7 +174,10 @@ export class GitLabReactions {
    */
   async noteHasEyesEmoji(mrIid: number, noteId: number): Promise<boolean> {
     try {
-      const emojis = await this.transport.collection(`projects/:id/merge_requests/${mrIid}/notes/${noteId}/award_emoji`, GitLabEmojiSchema);
+      const emojis = await this.transport.collection(
+        gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_API_RESOURCE.NOTES, noteId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        GitLabEmojiSchema,
+      );
 
       return emojis.some((e) => e.name === "eyes");
     } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }

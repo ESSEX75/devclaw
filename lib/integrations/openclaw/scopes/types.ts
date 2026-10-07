@@ -16,7 +16,19 @@ export type ScopeCommandResult = {
   message?: string;
 };
 
-/** Distinguishes a missing CLI capability from a successful command response. */
-export type ScopeCommandOutcome =
-  | { /** CLI capability is installed. */ supported: true; /** Validated JSON payload. */ result: ScopeCommandResult }
-  | { /** CLI capability is not installed. */ supported: false };
+/** Installed CLI returned a fully validated response; application interprets approval policy. */
+type SupportedScopeCommand = {
+  /** Observed installed CLI capability. */
+  supported: true;
+  /** Validated transport response, without inferred permission grants. */
+  result: ScopeCommandResult;
+};
+
+/** A clean rejected unsupported command establishes that the optional capability is absent. */
+type UnsupportedScopeCommand = {
+  /** CLI capability absence, independently of operational failures. */
+  supported: false;
+};
+
+/** Distinguish missing optional CLI support from a validated response. */
+export type ScopeCommandOutcome = SupportedScopeCommand | UnsupportedScopeCommand;

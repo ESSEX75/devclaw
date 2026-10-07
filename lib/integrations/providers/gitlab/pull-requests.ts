@@ -1,12 +1,9 @@
 import { hasIssueCommitOnBaseBranch } from "../commit-references.js";
 /** Owns GitLab pull-requests operations and their provider-specific API semantics. */
-import { PR_STATE } from "../const.js";
-import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../lookup-errors.js";
-import type {
-  ProviderTransport,
-  PrState,
-  PrStatus,
-} from "../types.js";
+import { PR_STATE, PROVIDER_ISSUE_LOOKUP_ERROR } from "../const.js";
+import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../lookup-errors.js";
+import type { ProviderTransport, PrState, PrStatus } from "../types.js";
+import { GITLAB_REQUEST_STATE } from "./const.js";
 import { GitLabDiscovery } from "./discovery.js";
 import { GitLabReviews } from "./reviews.js";
 
@@ -20,14 +17,14 @@ export class GitLabPullRequests {
   constructor(private readonly transport: ProviderTransport, private readonly discovery: GitLabDiscovery, private readonly reviews: GitLabReviews) {}
 
   /** Return the newest confirmed merged request URL after complete discovery.
-     * @param issueId - Provider-local issue identity within the configured repository.
-     */
+   * @param issueId - Provider-local issue identity within the configured repository.
+   */
   async getMergedMRUrl(issueId: number): Promise<string | null> {
-      const mrs = await this.discovery.getRelatedMRs(issueId);
-      const merged = mrs.filter(mr => mr.state === "merged");
+    const mrs = await this.discovery.getRelatedMRs(issueId);
+    const merged = mrs.filter(mr => mr.state === GITLAB_REQUEST_STATE.MERGED);
 
-      return merged[0]?.web_url ?? null;
-    }
+    return merged[0]?.web_url ?? null;
+  }
 
   /** Observe MR state; required review read failures propagate rather than reporting no feedback.
    * @param issueId - Managed issue whose associated MR state is observed.
@@ -40,7 +37,7 @@ export class GitLabPullRequests {
     if (prUrl && !mrs.length) throw new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.UNKNOWN, provider: "gitlab",
       retryable: false, message: `Previously selected MR is no longer associated with this issue: ${prUrl}` });
     // Check open MRs first
-    const open = mrs.find((mr) => mr.state === "opened");
+    const open = mrs.find((mr) => mr.state === GITLAB_REQUEST_STATE.OPEN);
 
     if (open) {
       const approved = await this.reviews.isMrApproved(open.iid);
@@ -70,12 +67,12 @@ export class GitLabPullRequests {
     }
 
     // Check merged MRs
-    const merged = mrs.find((mr) => mr.state === "merged");
+    const merged = mrs.find((mr) => mr.state === GITLAB_REQUEST_STATE.MERGED);
 
     if (merged) return { state: PR_STATE.MERGED, url: merged.web_url, title: merged.title, sourceBranch: merged.source_branch };
     // Check for closed-without-merge MRs. url: non-null = MR was explicitly closed;
     // url: null = no MR has ever been created for this issue.
-    const closed = mrs.find((mr) => mr.state === "closed");
+    const closed = mrs.find((mr) => mr.state === GITLAB_REQUEST_STATE.CLOSED);
 
     if (closed) return { state: PR_STATE.CLOSED, url: closed.web_url, title: closed.title, sourceBranch: closed.source_branch };
 
