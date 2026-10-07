@@ -51,8 +51,6 @@ export const PROVIDER_HISTORY_REMOTE = "origin";
 /** Git history output contains only confirmed matching commit identifiers. */
 export const PROVIDER_HISTORY_FORMAT = "%H";
 
-/** GitHub PR fields shared by status, diff, merge and feedback discovery. */
-export const GITHUB_PR_FIELDS = "number,title,body,headRefName,url,state,mergedAt,reviewDecision,mergeable";
 
 /** Provider review decisions consumed independently of their source namespace. */
 export const PROVIDER_REVIEW_STATE = {
@@ -62,11 +60,6 @@ export const PROVIDER_REVIEW_STATE = {
   DISMISSED: "DISMISSED",
 } as const;
 
-/** Login suffix identifying provider bot accounts in GitHub review observations. */
-export const GITHUB_REVIEW_BOT_SUFFIX = "[bot]";
-
-/** GitLab's explicit inline-note discriminator, independent of optional position fields. */
-export const GITLAB_INLINE_NOTE_TYPE = "DiffNote";
 
 /** Isolated upload staging resources; display names never become directory paths. */
 export const PROVIDER_ATTACHMENT_STORAGE = {
@@ -74,14 +67,21 @@ export const PROVIDER_ATTACHMENT_STORAGE = {
   FILE_PREFIX: "attachment-",
   FALLBACK_NAME: "file",
   MAX_NAME_LENGTH: 180,
-  GITHUB_BRANCH: "devclaw-attachments",
-  GITHUB_DIRECTORY: "attachments",
 } as const;
 
-/** GitLab resource paths resolved against confirmed installation/project context. */
-export const GITLAB_UPLOAD_PATH = {
-  API: "/api/v4/projects/",
-  ENDPOINT: "/uploads",
-  FILES: "/uploads/",
-  PROJECT: "/-/project/",
+
+/** Provider-neutral lifecycle and review observation states. */
+export const PR_STATE = {
+  OPEN: "open",
+  APPROVED: "approved",
+  CHANGES_REQUESTED: "changes_requested",
+  HAS_COMMENTS: "has_comments",
+  MERGED: "merged",
+  CLOSED: "closed",
+} as const;
+
+/** Concrete CLI identities used by shared checked transport. */
+export const PROVIDER_CLI = {
+  GITHUB: "gh",
+  GITLAB: "glab",
 } as const;

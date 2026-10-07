@@ -79,12 +79,7 @@ export async function resolveProvider(
   project: Project,
   runCommand: RunCommand,
 ): Promise<ProviderWithType> {
-  const config = await loadConfig(workspaceDir, project.slug);
+  await loadConfig(workspaceDir, project.slug);
 
-  return createProvider({
-    repo: project.repo,
-    provider: project.provider,
-    runCommand,
-    workflow: config.workflow,
-  });
+  return createProvider({ repo: project.repo, provider: project.provider, runCommand });
 }

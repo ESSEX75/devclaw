@@ -322,7 +322,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
   const { interceptor, handler } = createCommandInterceptor();
 
   // Create test provider
-  const provider = new TestProvider({ workflow });
+  const provider = new TestProvider();
 
   return {
     workspaceDir,

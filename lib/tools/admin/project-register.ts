@@ -12,6 +12,7 @@ import path from "node:path";
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
+import { ensureWorkflowLabels } from "../../application/index.js";
 import {
   validateDestinationAvailability,
   validateProjectRoute,
@@ -237,11 +238,7 @@ export function createProjectRegisterTool(ctx: PluginContext): OpenClawPluginToo
       const resolvedConfig = await loadConfig(workspaceDir, slug);
 
       // 3. Create provider and verify it works
-      const { provider, type: providerType } = await createProvider({
-        repo,
-        runCommand: ctx.runCommand,
-        workflow: resolvedConfig.workflow,
-      });
+      const { provider, type: providerType } = await createProvider({ repo, runCommand: ctx.runCommand });
 
       const healthy = await provider.healthCheck();
 
@@ -261,7 +258,7 @@ export function createProjectRegisterTool(ctx: PluginContext): OpenClawPluginToo
       }
 
       // 4. Create all state labels (idempotent)
-      await provider.ensureAllStateLabels();
+      await ensureWorkflowLabels(provider, resolvedConfig.workflow);
 
       // 4b. Create role:level + step routing labels (e.g. developer:junior, review:human, test:skip)
       const roleLabels = getRoleLabels(resolvedConfig.roles);

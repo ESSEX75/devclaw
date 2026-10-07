@@ -3,7 +3,7 @@
 import type { RunCommand } from "../../../context.js";
 import type { Project } from "../../../domain/index.js";
 import type { MediaAttachmentInfo } from "../../../integrations/openclaw/types.js";
-import type { IssueProvider } from "../../../integrations/providers/provider.js";
+import type { IssueProvider } from "../../../integrations/providers/index.js";
 import type { AttachmentMeta } from "../../../state/index.js";
 import type { ValueOf } from "../../../types.js";
 import type { ATTACHMENT_ACTION } from "./const.js";

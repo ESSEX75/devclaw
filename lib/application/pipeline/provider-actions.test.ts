@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 
 import { ACTION } from "../../domain/index.js";
-import { PrState } from "../../integrations/providers/index.js";
+import { PR_STATE } from "../../integrations/providers/index.js";
 import { createTestHarness } from "../../testing/index.js";
 import { executeCompletionActions } from "./provider-actions.js";
 
@@ -16,8 +16,8 @@ for (const failed of [false, true]) {
     const merges: (string | undefined)[] = [];
     h.provider.getPrStatus = async (_issueId, prUrl?: string) => {
       reads.push(prUrl);
-      return prUrl ? { state: PrState.OPEN, url: prUrl, mergeable: true }
-        : { state: PrState.MERGED, url: "https://example.test/pr/2" };
+      return prUrl ? { state: PR_STATE.OPEN, url: prUrl, mergeable: true }
+        : { state: PR_STATE.MERGED, url: "https://example.test/pr/2" };
     };
     h.provider.mergePr = async (_issueId, prUrl?: string) => {
       merges.push(prUrl);

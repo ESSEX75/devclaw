@@ -6,9 +6,7 @@
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { DEFAULT_WORKFLOW, getStateLabels, type WorkflowConfig } from "../domain/index.js";
-import type { CreateIssueInput } from "../integrations/providers/capabilities.js";
-import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../integrations/providers/lookup-errors.js";
+import type { CreateIssueInput } from "../integrations/providers/index.js";
 import type {
   Issue,
   IssueComment,
@@ -16,40 +14,14 @@ import type {
   PrReviewComment,
   PrStatus,
   StateLabel,
-} from "../integrations/providers/provider.js";
+} from "../integrations/providers/index.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../integrations/providers/index.js";
+import type { ProviderCall } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Call tracking
 // ---------------------------------------------------------------------------
 
-export type ProviderCall =
-  | { method: "ensureLabel"; args: { name: string; color: string } }
-  | { method: "ensureAllStateLabels"; args: Record<string, never> }
-  | {
-    method: "createIssue";
-    args: CreateIssueInput;
-  }
-  | { method: "listIssuesByLabel"; args: { label: StateLabel } }
-  | { method: "listIssues"; args: { label?: string; state?: string } }
-  | { method: "getIssue"; args: { issueId: number } }
-  | { method: "listComments"; args: { issueId: number } }
-  | {
-    method: "transitionLabel";
-    args: { issueId: number; from: StateLabel; to: StateLabel };
-  }
-  | { method: "addLabel"; args: { issueId: number; label: string } }
-  | { method: "removeLabels"; args: { issueId: number; labels: string[] } }
-  | { method: "closeIssue"; args: { issueId: number } }
-  | { method: "reopenIssue"; args: { issueId: number } }
-  | { method: "deleteIssue"; args: { issueId: number } }
-  | { method: "getMergedMRUrl"; args: { issueId: number } }
-  | { method: "getPrStatus"; args: { issueId: number } }
-  | { method: "mergePr"; args: { issueId: number } }
-  | { method: "getPrDiff"; args: { issueId: number } }
-  | { method: "getPrReviewComments"; args: { issueId: number } }
-  | { method: "addComment"; args: { issueId: number; body: string } }
-  | { method: "editIssue"; args: { issueId: number; updates: { title?: string; body?: string } } }
-  | { method: "healthCheck"; args: Record<string, never> };
 
 // ---------------------------------------------------------------------------
 // TestProvider
@@ -74,12 +46,6 @@ export class TestProvider implements IssueProvider {
   calls: ProviderCall[] = [];
 
   private nextIssueId = 1;
-  private workflow: WorkflowConfig;
-
-  constructor(opts?: { workflow?: WorkflowConfig }) {
-    this.workflow = opts?.workflow ?? DEFAULT_WORKFLOW;
-  }
-
   // -------------------------------------------------------------------------
   // Test helpers
   // -------------------------------------------------------------------------
@@ -139,15 +105,6 @@ export class TestProvider implements IssueProvider {
   async ensureLabel(name: string, color: string): Promise<void> {
     this.calls.push({ method: "ensureLabel", args: { name, color } });
     this.labels.set(name, color);
-  }
-
-  async ensureAllStateLabels(): Promise<void> {
-    this.calls.push({ method: "ensureAllStateLabels", args: {} });
-    const stateLabels = getStateLabels(this.workflow);
-
-    for (const label of stateLabels) {
-      this.labels.set(label, "#000000");
-    }
   }
 
   async createIssue(input: CreateIssueInput): Promise<Issue> {
@@ -210,20 +167,16 @@ export class TestProvider implements IssueProvider {
     return this.comments.get(issueId) ?? [];
   }
 
-  async transitionLabel(
-    issueId: number,
-    from: StateLabel,
-    to: StateLabel,
-  ): Promise<void> {
-    this.calls.push({ method: "transitionLabel", args: { issueId, from, to } });
+  /** Model only explicit label additions selected by application orchestration.
+   * @param issueId - Fake provider identity.
+   * @param labels - Exact labels to add.
+   */
+  async addLabels(issueId: number, labels: string[]): Promise<void> {
+    this.calls.push({ method: "addLabels", args: { issueId, labels } });
     const issue = this.issues.get(issueId);
 
     if (!issue) throw new Error(`Issue #${issueId} not found in TestProvider`);
-    // Remove all state labels, add the new one
-    const stateLabels = new Set<string>(getStateLabels(this.workflow));
-
-    issue.labels = issue.labels.filter((label) => !stateLabels.has(label));
-    issue.labels.push(to);
+    for (const label of labels) if (!issue.labels.includes(label)) issue.labels.push(label);
   }
 
   async addLabel(issueId: number, label: string): Promise<void> {

@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { PR_COMMENT_KIND, PrState } from "../../integrations/providers/index.js";
+import { PR_COMMENT_KIND, PR_STATE } from "../../integrations/providers/index.js";
 import { PR_DIFF_LIMIT } from "./const.js";
 import { formatPrContext, formatPrFeedback } from "./format.js";
 import { fetchPrContext, fetchPrFeedback } from "./pr-context.js";
@@ -10,7 +10,7 @@ import type { FeedbackProvider } from "./types.js";
 
 it("preserves conflict identity when secondary comments cannot be read", async () => {
   const feedback = await fetchPrFeedback({
-    getPrStatus: async () => ({ state: PrState.OPEN, url: "https://example.test/pr/1", mergeable: false }),
+    getPrStatus: async () => ({ state: PR_STATE.OPEN, url: "https://example.test/pr/1", mergeable: false }),
     getPrReviewComments: async () => { throw new Error("unavailable"); },
   }, 1);
   assert.ok(feedback);
@@ -20,7 +20,7 @@ it("preserves conflict identity when secondary comments cannot be read", async (
 });
 
 it("rejects terminal PR context even if the provider still reports conflicts", async () => {
-  for (const state of [PrState.CLOSED, PrState.MERGED]) {
+  for (const state of [PR_STATE.CLOSED, PR_STATE.MERGED]) {
     const provider = {
       getPrStatus: async () => ({ state, url: "https://example.test/pr/1", mergeable: false }),
       getPrReviewComments: async () => { throw new Error("must not fetch"); },
@@ -33,7 +33,7 @@ it("rejects terminal PR context even if the provider still reports conflicts", a
 
 it("preserves ordinary feedback resource identity and ignores empty non-conflict feedback", async () => {
   const provider: FeedbackProvider = {
-    getPrStatus: async () => ({ state: PrState.CHANGES_REQUESTED, url: "pr", sourceBranch: "feature" }),
+    getPrStatus: async () => ({ state: PR_STATE.CHANGES_REQUESTED, url: "pr", sourceBranch: "feature" }),
     getPrReviewComments: async () => [{ kind: PR_COMMENT_KIND.REVIEW, id: 2, author: "reviewer", body: "fix", state: "COMMENTED", created_at: "today" }],
   };
   const feedback = await fetchPrFeedback(provider, 1);
@@ -49,7 +49,7 @@ it("degrades unavailable status to no context and unavailable diff to PR identit
   assert.equal(await fetchPrFeedback({ getPrStatus, getPrReviewComments: async () => [] }, 1), undefined);
   assert.equal(await fetchPrContext({ getPrStatus, getPrDiff: async () => "diff" }, 1), undefined);
   assert.deepEqual(await fetchPrContext({
-    getPrStatus: async () => ({ state: PrState.OPEN, url: "pr" }),
+    getPrStatus: async () => ({ state: PR_STATE.OPEN, url: "pr" }),
     getPrDiff: async () => { throw new Error("offline"); },
   }, 1), { url: "pr", diff: undefined });
 });

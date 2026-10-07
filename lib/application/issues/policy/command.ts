@@ -85,12 +85,7 @@ export async function migrateIssuePolicies(opts: MigrationOptions): Promise<Issu
         });
       }
 
-      provider ??= (await createProvider({
-        repo: project.repo,
-        provider: project.provider,
-        runCommand: opts.runCommand,
-        workflow: config.workflow,
-      })).provider;
+      provider ??= (await createProvider({ repo: project.repo, provider: project.provider, runCommand: opts.runCommand })).provider;
       const projection = await reconcileManagedLabelsLocked({
         workspaceDir: opts.workspaceDir,
         projectSlug: project.slug,

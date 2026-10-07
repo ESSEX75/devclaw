@@ -8,6 +8,7 @@ import {
 import { readIssueStateStore, readOptionalProjects,readWorkerDeliveryResolution } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { NOTIFICATION_EVENT } from "../notifications/index.js";
+import { transitionWorkflowLabel } from "../projection/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
 import { findTransitionWorker, releaseTransitionWorkerLocked } from "./recovery.js";
 import { archiveTerminalIssueLocked } from "./terminal-archive.js";
@@ -50,7 +51,7 @@ export async function commitWorkflowTransitionLocked(input: CommitTransitionInpu
   }
 
   await input.beforeCommit?.();
-  if (!issue.labels.includes(plan.toLabel)) await provider.transitionLabel(issueId, plan.from, plan.toLabel);
+  if (!issue.labels.includes(plan.toLabel)) await transitionWorkflowLabel(provider, workflow, issueId, plan.from, plan.toLabel);
   await input.afterLabel?.();
   const labels = issue.labels.filter((label) => !getStateLabels(workflow).includes(label)).concat(plan.toLabel);
 

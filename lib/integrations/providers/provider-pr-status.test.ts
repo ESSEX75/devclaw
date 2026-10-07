@@ -4,9 +4,9 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 
 import type { RunCommand } from "../../context.js";
-import { GitHubProvider } from "./github.js";
-import { GitLabProvider } from "./gitlab.js";
-import { PrState } from "./types.js";
+import { GitHubProvider } from "./github/index.js";
+import { GitLabProvider } from "./gitlab/index.js";
+import { PR_STATE } from "./const.js";
 
 /** Construct complete GitHub PR observations without overriding private adapter methods.
  * @param number - Provider PR identity.
@@ -51,7 +51,7 @@ for (const Provider of [GitHubProvider, GitLabProvider]) {
     for (const state of [undefined, "CLOSED", "MERGED"]) {
       const provider = new Provider({ repoPath: ".", runCommand: transport(state ? [pull(7, state)] : []) });
       const status = await provider.getPrStatus(42);
-      assert.equal(status.state, state === "MERGED" ? PrState.MERGED : PrState.CLOSED);
+      assert.equal(status.state, state === "MERGED" ? PR_STATE.MERGED : PR_STATE.CLOSED);
       assert.equal(status.url, state ? pull(7).url : null);
     }
   });
@@ -92,7 +92,7 @@ for (const Provider of [GitHubProvider, GitLabProvider]) {
 }
 
 it("GitHub uses the latest formal decision per author, including approval and dismissal", async () => {
-  for (const [latestState, expected] of [["APPROVED", PrState.APPROVED], ["CHANGES_REQUESTED", PrState.CHANGES_REQUESTED], ["DISMISSED", PrState.OPEN]]) {
+  for (const [latestState, expected] of [["APPROVED", PR_STATE.APPROVED], ["CHANGES_REQUESTED", PR_STATE.CHANGES_REQUESTED], ["DISMISSED", PR_STATE.OPEN]]) {
     const reviews = [
       { id: 1, user: { login: "reviewer" }, body: "", state: "CHANGES_REQUESTED", submitted_at: "2026-01-01T00:00:00Z" },
       { id: 2, user: { login: "reviewer" }, body: "", state: latestState, submitted_at: "2026-01-02T00:00:00Z" },
@@ -107,7 +107,7 @@ it("GitHub exposes summary-only feedback without querying a summary reaction end
   const reviews = [{ id: 42, user: { login: "reviewer" }, body: "fix", state: "COMMENTED", submitted_at: "2026-01-01T00:00:00Z" }];
   const provider = new GitHubProvider({ repoPath: ".", runCommand: transport([pull(7)], reviews, calls) });
   const status = await provider.getPrStatus(42);
-  assert.equal(status.state, PrState.HAS_COMMENTS);
+  assert.equal(status.state, PR_STATE.HAS_COMMENTS);
   assert.equal(status.hasCommentFeedback, false);
   assert.equal(status.reviewSummaries?.[0].id, 42);
   assert.ok(!calls.some(argv => /reviews\/\d+\/reactions/.test(argv[2] ?? "")));

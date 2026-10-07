@@ -21,12 +21,7 @@ export async function resolveRepairContext(input: RepairManagedIssueInput): Prom
   const local = store.issues[String(input.issueId)];
 
   if (!local) throw repairFailure(ISSUE_REPAIR_ERROR.LOCAL_STATE_NOT_FOUND, `Issue #${input.issueId} has no active local state.`);
-  const provider = input.provider ?? (await createProvider({
-    repo: project.repo,
-    provider: project.provider,
-    runCommand: input.runCommand,
-    workflow: config.workflow,
-  })).provider;
+  const provider = input.provider ?? (await createProvider({ repo: project.repo, provider: project.provider, runCommand: input.runCommand })).provider;
   let providerIssue: Issue;
 
   try {

@@ -95,6 +95,6 @@ describe("custom-role health checks", () => {
     assert.equal(findings[0]?.issue.type, "issue_state_missing");
     assert.equal(findings[0]?.plannedAction, undefined);
     assert.equal(findings[0]?.fixed, false);
-    assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+    assert.equal(harness.provider.callsTo("addLabels").length, 0);
   });
 });

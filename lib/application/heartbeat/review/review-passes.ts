@@ -2,7 +2,7 @@
 
 import type { RunCommand } from "../../../context.js";
 import type { Project } from "../../../domain/index.js";
-import type { IssueProvider } from "../../../integrations/providers/provider.js";
+import type { IssueProvider } from "../../../integrations/providers/index.js";
 import type { ResolvedConfig } from "../../../state/index.js";
 import { getNotificationConfig, NOTIFICATION_EVENT, NOTIFICATION_MERGE_ACTOR, type NotificationRuntime } from "../../notifications/index.js";
 import { REVIEW_TRANSITION_REASON } from "./const.js";

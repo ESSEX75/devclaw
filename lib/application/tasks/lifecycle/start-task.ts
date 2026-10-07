@@ -9,6 +9,7 @@ import {
 import { isIssueCreationReady, loadConfig, withIssueOrchestrationLock } from "../../../state/index.js";
 import { ISSUE_RUNTIME_KIND } from "../../issue-runtime/const.js";
 import { resolveIssueRuntimeState, writeIssueRuntimeState } from "../../issue-runtime/index.js";
+import { transitionWorkflowLabel } from "../../projection/index.js";
 import { reconcileManagedLabelsLocked } from "../../projection/index.js";
 import { resolveProject, resolveProvider } from "../../projects/index.js";
 import { TASK_EVENT } from "./const.js";
@@ -79,7 +80,7 @@ async function startTaskLocked(input: StartTaskInput): Promise<StartTaskResult> 
     issueDescription: issue.description ?? "",
   });
 
-  await provider.transitionLabel(issueId, decision.fromLabel, decision.targetLabel);
+  await transitionWorkflowLabel(provider, workflow, issueId, decision.fromLabel, decision.targetLabel);
 
   const configuredRoleIds = Object.keys(resolvedConfig.roles);
   const nextLabels = issue.labels

@@ -20,4 +20,5 @@ export {
   replaceIssueArchiveStoreForTesting,
   replaceIssueStateStoreForTesting,
 } from "./state-fixtures.js";
-export { type ProviderCall, TestProvider } from "./test-provider.js";
+export { TestProvider } from "./test-provider.js";
+export type { ProviderCall } from "./types.js";

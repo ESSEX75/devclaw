@@ -4,7 +4,7 @@ import type { RunCommand } from "../../context.js";
 import type {
   ActiveIssueWorker, CompletionRule, IssueRuntimeState, NotificationEndpoint, Project, TransitionAction, WorkflowConfig, WorkflowPolicyRouting,
 } from "../../domain/index.js";
-import type { Issue, IssueProvider } from "../../integrations/providers/provider.js";
+import type { Issue, IssueProvider } from "../../integrations/providers/index.js";
 import type { NotificationCreatedTask, NotificationRuntime } from "../notifications/index.js";
 
 /** A validated workflow transition with its provider actions. */

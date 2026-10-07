@@ -2,7 +2,7 @@
 
 import { log as auditLog } from "../../audit.js";
 import { ACTION, type CompletionRule } from "../../domain/index.js";
-import { type Issue, PROVIDER_ISSUE_STATE, PrState } from "../../integrations/providers/index.js";
+import { type Issue, PR_STATE,PROVIDER_ISSUE_STATE } from "../../integrations/providers/index.js";
 import { PIPELINE_AUDIT, PIPELINE_GIT_PULL_COMMAND } from "./const.js";
 import type { CompletionActions, CompletionInput } from "./types.js";
 
@@ -52,12 +52,12 @@ export async function executeCompletionActions(opts: CompletionInput, rule: Comp
         prTitle = observed.title;
         sourceBranch = observed.sourceBranch;
         try {
-          if (observed.state !== PrState.MERGED) await provider.mergePr(issueId, prUrl);
+          if (observed.state !== PR_STATE.MERGED) await provider.mergePr(issueId, prUrl);
           mergedPr = true;
         } catch (err) {
           const observed = await provider.getPrStatus(issueId, prUrl);
 
-          if (observed.state === PrState.MERGED) { mergedPr = true; break; }
+          if (observed.state === PR_STATE.MERGED) { mergedPr = true; break; }
 
           if (observed.mergeable !== false) throw err;
           const error = err instanceof Error ? err.message : String(err);

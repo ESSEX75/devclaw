@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
-import { PR_COMMENT_KIND, PrState } from "../../integrations/providers/index.js";
+import { PR_COMMENT_KIND, PR_STATE } from "../../integrations/providers/index.js";
 import { readIssueStateStore, updateIssueRuntimeRecord } from "../../state/index.js";
 import { createTestHarness } from "../../testing/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
@@ -21,11 +21,11 @@ it("only matching accepted summary receipts suppress feedback, retaining edited 
     const context = { workspaceDir: h.workspaceDir, projectSlug: h.project.slug };
     const summary = { kind: PR_COMMENT_KIND.REVIEW, id: 7, author: "reviewer", body: "fix", state: "COMMENTED", created_at: "2026-01-01" };
     const feedback: PrFeedback = { url: "https://example.test/pr/1", comments: [summary] };
-    const provider = { getPrStatus: async () => ({ state: PrState.HAS_COMMENTS, url: feedback.url,
+    const provider = { getPrStatus: async () => ({ state: PR_STATE.HAS_COMMENTS, url: feedback.url,
       reviewSummaries: [summary], hasCommentFeedback: false }), getPrReviewComments: async () => [summary] };
-    assert.equal((await observePrStatusWithReceipts(provider, 42, context)).state, PrState.HAS_COMMENTS);
+    assert.equal((await observePrStatusWithReceipts(provider, 42, context)).state, PR_STATE.HAS_COMMENTS);
     await recordProcessedReviewSummaries(context, 42, feedback);
-    assert.equal((await observePrStatusWithReceipts(provider, 42, context)).state, PrState.OPEN);
+    assert.equal((await observePrStatusWithReceipts(provider, 42, context)).state, PR_STATE.OPEN);
     assert.equal((await fetchPrFeedback(provider, 42))?.comments[0].body, summary.body, "retried workers still receive the original feedback");
     assert.equal((await filterProcessedReviewSummaries(context, 42, feedback)).comments.length, 0);
     assert.equal((await filterProcessedReviewSummaries(context, 42, { ...feedback, url: "https://example.test/pr/2" })).comments.length, 1);

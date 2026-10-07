@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 
 import type { ReviewSummaryReceipt } from "../../domain/index.js";
-import { PR_COMMENT_KIND, PROVIDER_REVIEW_STATE, PrState, type PrStatus } from "../../integrations/providers/index.js";
+import { PR_COMMENT_KIND, PR_STATE, PROVIDER_REVIEW_STATE, type PrStatus } from "../../integrations/providers/index.js";
 import { readIssueStateStore, updateIssueRuntimeRecord } from "../../state/index.js";
 import { REVIEW_SUMMARY_HASH_ALGORITHM } from "./const.js";
 import type { FeedbackProvider, PrFeedback, ReviewIssueContext } from "./types.js";
@@ -81,8 +81,8 @@ export async function observePrStatusWithReceipts(provider: Pick<FeedbackProvide
   issueId: number, context: ReviewIssueContext): Promise<PrStatus> {
   const status = await provider.getPrStatus(issueId);
 
-  if (status.state !== PrState.HAS_COMMENTS || !status.url || !status.reviewSummaries || status.hasCommentFeedback !== false) return status;
+  if (status.state !== PR_STATE.HAS_COMMENTS || !status.url || !status.reviewSummaries || status.hasCommentFeedback !== false) return status;
   const remaining = await filterProcessedReviewSummaries(context, issueId, { url: status.url, comments: status.reviewSummaries });
 
-  return remaining.comments.length ? status : { ...status, state: PrState.OPEN };
+  return remaining.comments.length ? status : { ...status, state: PR_STATE.OPEN };
 }

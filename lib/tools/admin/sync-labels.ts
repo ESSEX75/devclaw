@@ -5,16 +5,15 @@
  * from the resolved (three-layer merged) config. Use after editing workflow.yaml
  * to push label changes to your issue tracker.
  *
- * Calls provider.ensureLabel() directly instead of provider.ensureAllStateLabels()
- * so that custom workflow states from workspace/project overrides are included.
+ * Uses the application workflow-label capability with resolved workspace/project overrides.
  */
 
 import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFactory } from "openclaw/plugin-sdk/core";
 
+import { ensureWorkflowLabels } from "../../application/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
 import {
-  getLabelColors,
   getRoleLabels,
   getStateLabels,
   getStepRoutingLabels,
@@ -24,6 +23,9 @@ import { loadConfig } from "../../state/index.js";
 import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";
 
+/** Bind label synchronization to plugin-owned transport and application workflow projection.
+ * @param ctx - Plugin dependencies used for explicit provider effects.
+ */
 export function createSyncLabelsTool(ctx: PluginContext): OpenClawPluginToolFactory {
   return (toolCtx: OpenClawPluginToolContext) => ({
     name: "sync_labels",
@@ -43,9 +45,17 @@ export function createSyncLabelsTool(ctx: PluginContext): OpenClawPluginToolFact
       },
     },
 
+    /** Synchronize the selected registered projects without treating invalid input as all-project scope.
+     * @param _id - SDK invocation identifier; synchronization does not depend on it.
+     * @param params - Optional exact canonical project selection supplied by the tool boundary.
+     */
     async execute(_id: string, params: Record<string, unknown>) {
       const workspaceDir = requireWorkspaceDir(toolCtx);
-      const projectSlug = params.projectSlug as string | undefined;
+      const projectSlug = params.projectSlug;
+
+      if (projectSlug !== undefined && (typeof projectSlug !== "string" || !projectSlug)) {
+        throw new Error("projectSlug must be a non-empty string when supplied.");
+      }
 
       const data = await readProjects(workspaceDir);
       let slugs: string[];
@@ -84,23 +94,12 @@ export function createSyncLabelsTool(ctx: PluginContext): OpenClawPluginToolFact
         try {
           const resolvedConfig = await loadConfig(workspaceDir, project.slug);
 
-          const { provider } = await createProvider({
-            repo: project.repo,
-            provider: project.provider,
-            runCommand: ctx.runCommand,
-            workflow: resolvedConfig.workflow,
-          });
+          const { provider } = await createProvider({ repo: project.repo, provider: project.provider, runCommand: ctx.runCommand });
 
           // State labels from the resolved workflow (not DEFAULT_WORKFLOW)
           const stateLabels = getStateLabels(resolvedConfig.workflow);
-          const labelColors = getLabelColors(resolvedConfig.workflow);
 
-          for (const label of stateLabels) {
-            const color = labelColors.get(label);
-
-            if (!color) throw new Error(`No color configured for workflow label "${label}".`);
-            await provider.ensureLabel(label, color);
-          }
+          await ensureWorkflowLabels(provider, resolvedConfig.workflow);
 
           const roleLabels = getRoleLabels(resolvedConfig.roles);
           const routingLabels = getStepRoutingLabels();
@@ -121,7 +120,7 @@ export function createSyncLabelsTool(ctx: PluginContext): OpenClawPluginToolFact
             stateLabels: [],
             roleLabels: [],
             routingLabels: [],
-            error: (err as Error).message,
+            error: err instanceof Error ? err.message : String(err),
           });
         }
       }

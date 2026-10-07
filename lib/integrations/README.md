@@ -2,6 +2,33 @@
 
 This layer owns concrete external adapters.
 
+## Provider package ownership
+
+`providers/index.ts` exposes provider-neutral capability contracts and DTOs from
+`types.ts`, classified failures, canonical observation constants and `createProvider`.
+`factory.ts` composes adapters; `detection.ts` owns verified known-origin selection.
+Workflow configuration is resolved by application and is not a provider factory input.
+
+`providers/github/index.ts` and `providers/gitlab/index.ts` expose their concrete
+provider facades. Each facade only composes and delegates to identity, discovery,
+issues, labels, pull requests, reviews, reactions, attachments and health capabilities.
+Schemas and issue mapping belong to the concrete provider. GitLab multipart staging
+belongs to its attachment capability. No provider interprets workflow states or selects
+which configured labels must be removed.
+
+`transport.ts` supplies one checked CLI transport and one resilience policy per adapter
+instance, shared across its capabilities. Root transport/error/pagination modules own
+common completion, classification and replay guarantees. Concrete implementations import
+these shared root leaves and `types.ts`/`const.ts` directly to avoid factory/barrel cycles;
+they use sibling implementation imports within their own concrete package. All other
+consumers use the provider root API or the concrete provider's `index.ts`. Internal
+capability classes, schemas and staging helpers are not supported public APIs.
+
+The concrete packages remain cohesive around one adapter instance; focused modules
+separate responsibilities without introducing independently exported nested packages.
+Workflow label creation, two-phase projection and optional anomaly observation belong
+to application/projection; providers apply only explicit label additions/removals.
+
 Integration modules talk to external systems such as GitHub, GitLab, OpenClaw
 gateway/session APIs, and provider-specific capabilities. They should expose
 small adapter functions and typed results for application use cases.

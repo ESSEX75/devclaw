@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 
 import type { RunCommand } from "../../context.js";
-import { GitHubProvider } from "./github.js";
-import { GitLabProvider } from "./gitlab.js";
+import { GitHubProvider } from "./github/index.js";
+import { GitLabProvider } from "./gitlab/index.js";
 
 for (const Provider of [GitHubProvider, GitLabProvider]) {
   it(`${Provider.name} matches exact issue references while rejecting numeric prefixes and unrelated MR IDs`, async () => {

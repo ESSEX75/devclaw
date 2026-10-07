@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import type { RunCommand } from "../../../context.js";
-import { PR_COMMENT_KIND, PrState } from "../../../integrations/providers/index.js";
+import { PR_COMMENT_KIND, PR_STATE } from "../../../integrations/providers/index.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState, WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
 import { checkWorkerHealth } from "../../heartbeat/health/index.js";
 import { summarizeTaskIssue } from "../../tasks/index.js";
@@ -32,7 +32,7 @@ describe("worker delivery outcome", () => {
     const h = await createTestHarness();
     const summary = { kind: PR_COMMENT_KIND.REVIEW, id: 42, author: "reviewer", body: "summary feedback", state: "COMMENTED", created_at: "2026-01-01" };
     h.provider.seedIssue({ iid: 93, labels: ["To Improve"] });
-    h.provider.setPrStatus(93, { state: PrState.HAS_COMMENTS, url: "https://example.test/pr/1", reviewSummaries: [summary], hasCommentFeedback: false });
+    h.provider.setPrStatus(93, { state: PR_STATE.HAS_COMMENTS, url: "https://example.test/pr/1", reviewSummaries: [summary], hasCommentFeedback: false });
     h.provider.getPrReviewComments = async () => [summary];
     let finishReply = () => {};
     const reply = new Promise<Awaited<ReturnType<RunCommand>>>(resolve => {
@@ -90,7 +90,7 @@ describe("worker delivery outcome", () => {
       const h = await createTestHarness();
       const summary = { kind: PR_COMMENT_KIND.REVIEW, id: 42, author: "reviewer", body: "summary feedback", state: "COMMENTED", created_at: "2026-01-01" };
       h.provider.seedIssue({ iid: 92, labels: ["To Improve"] });
-      h.provider.setPrStatus(92, { state: PrState.HAS_COMMENTS, url: "https://example.test/pr/1", reviewSummaries: [summary], hasCommentFeedback: false });
+      h.provider.setPrStatus(92, { state: PR_STATE.HAS_COMMENTS, url: "https://example.test/pr/1", reviewSummaries: [summary], hasCommentFeedback: false });
       h.provider.getPrReviewComments = async () => [summary];
       const runCommand: RunCommand = async (argv, options) => !accepted && argv[3] === "agent"
         ? { stdout: "", stderr: "lost", code: 1, signal: null, killed: false, termination: "exit" } : h.runCommand(argv, options);
@@ -107,7 +107,7 @@ describe("worker delivery outcome", () => {
   it("waits for model confirmation before provider transition or worker submission", { timeout: 20_000 }, async (t) => {
     const h = await createTestHarness();
     h.provider.seedIssue({ iid: 84, labels: ["To Do"] });
-    const transition = t.mock.method(h.provider, "transitionLabel");
+    const transition = t.mock.method(h.provider, "addLabels");
     let releasePatch: () => void = () => {};
     let patchStarted: () => void = () => {};
     const gate = new Promise<void>(resolve => { releasePatch = resolve; });
@@ -147,7 +147,7 @@ describe("worker delivery outcome", () => {
     it(`releases the reservation without submitting work when model setup fails: ${failure}`, async (t) => {
       const h = await createTestHarness();
       h.provider.seedIssue({ iid: 85, labels: ["To Do"] });
-      const transition = t.mock.method(h.provider, "transitionLabel");
+      const transition = t.mock.method(h.provider, "addLabels");
       const queued: IssueRuntimeState = {
         projectSlug: h.project.slug, issueId: 85, provider: ISSUE_PROVIDER.GITHUB,
         workflowState: "todo", workflowLabel: "To Do", assignedRole: "developer", assignedLevel: "medior",
@@ -193,7 +193,7 @@ describe("worker delivery outcome", () => {
   it("rejects an unknown level before reservation, provider transition, or gateway commands", async (t) => {
     const h = await createTestHarness();
     h.provider.seedIssue({ iid: 83, labels: ["To Do"] });
-    const transition = t.mock.method(h.provider, "transitionLabel");
+    const transition = t.mock.method(h.provider, "addLabels");
     const runCommand = t.mock.fn(h.runCommand);
     const workersBefore = (await h.readProjects()).projects[h.project.slug].workers;
 
@@ -213,7 +213,7 @@ describe("worker delivery outcome", () => {
   it("rejects oversized required task input before reservation or provider transition", async (t) => {
     const h = await createTestHarness();
     h.provider.seedIssue({ iid: 81, labels: ["To Do"] });
-    const transition = t.mock.method(h.provider, "transitionLabel");
+    const transition = t.mock.method(h.provider, "addLabels");
     const reaction = t.mock.method(h.provider, "reactToIssueComment");
     const workersBefore = (await h.readProjects()).projects[h.project.slug].workers;
 
@@ -659,7 +659,7 @@ it("acknowledges only the recent comments included in the accepted task", async 
 it("delivers a commentless conflict PR and leaves excluded issue comments unacknowledged", async (t) => {
   const h = await createTestHarness();
   h.provider.seedIssue({ iid: 82, labels: ["To Improve"] });
-  h.provider.setPrStatus(82, { state: PrState.OPEN, url: "https://example.test/pr/82", mergeable: false, sourceBranch: "feature/82-fix" });
+  h.provider.setPrStatus(82, { state: PR_STATE.OPEN, url: "https://example.test/pr/82", mergeable: false, sourceBranch: "feature/82-fix" });
   t.mock.method(h.provider, "listComments", async () => [{ id: 1, author: "reviewer", body: "UNRELATED-ISSUE-COMMENT", created_at: "2026-01-01" }]);
   const reaction = t.mock.method(h.provider, "reactToIssueComment");
   try {

@@ -1,6 +1,6 @@
 /** Validates current PR evidence; audit history never authorizes completion or bypasses a conflict. */
 
-import { type IssueProvider, PrState } from "../../../integrations/providers/index.js";
+import { type IssueProvider, PR_STATE } from "../../../integrations/providers/index.js";
 import { EYES_EMOJI } from "../../review/index.js";
 
 /** Require a live reviewable PR and reject current conflicts; lookup failures propagate unchanged.
@@ -12,7 +12,7 @@ import { EYES_EMOJI } from "../../review/index.js";
 export async function validateFinishPullRequest(provider: IssueProvider, issueId: number, prUrl?: string): Promise<void> {
   const status = await provider.getPrStatus(issueId, prUrl);
 
-  if (!status.url || status.state === PrState.CLOSED || status.state === PrState.MERGED) {
+  if (!status.url || status.state === PR_STATE.CLOSED || status.state === PR_STATE.MERGED) {
     throw new Error(`Cannot mark work_finish(done) without an open PR for issue #${issueId}. Create a PR referencing the issue without closing keywords, then retry.`);
   }
 

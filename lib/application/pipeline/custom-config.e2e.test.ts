@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 
+import { ensureWorkflowLabels } from "../projection/index.js";
 import {
   DEFAULT_WORKFLOW,
   DEFAULT_RESULT_EMOJI,
@@ -121,7 +122,7 @@ workflow:
     assert.equal(getStepRoutingLabels().some((label) => label.name === "review:human"), true);
     assert.equal(getCompletionEmoji("audited"), DEFAULT_RESULT_EMOJI);
 
-    await harness.provider.ensureAllStateLabels();
+    await ensureWorkflowLabels(harness.provider, harness.workflow);
     assert.equal(harness.provider.labels.has(CUSTOM_QUEUE_LABEL), true);
     assert.equal(harness.provider.labels.has(CUSTOM_ACTIVE_LABEL), true);
     assert.equal(getLabelColors(customWorkflow).get(CUSTOM_QUEUE_LABEL), "#123456");
@@ -187,12 +188,12 @@ workflow:
       /No completion event configured/,
     );
     assert.equal(harness.provider.callsTo("mergePr").length, 0);
-    assert.equal(harness.provider.callsTo("transitionLabel").length, 1);
+    assert.equal(harness.provider.callsTo("addLabels").length, 1);
     await executeCompletion({ ...completionInput, result: "audited" });
 
-    const transitionsAfterCompletion = harness.provider.callsTo("transitionLabel").length;
+    const transitionsAfterCompletion = harness.provider.callsTo("addLabels").length;
     await executeCompletion({ ...completionInput, result: "audited" });
-    assert.equal(harness.provider.callsTo("transitionLabel").length, transitionsAfterCompletion);
+    assert.equal(harness.provider.callsTo("addLabels").length, transitionsAfterCompletion);
 
     const completedProjects = await readProjects(harness.workspaceDir);
     const completedProject = getProject(completedProjects, harness.project.slug);

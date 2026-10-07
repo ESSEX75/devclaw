@@ -4,7 +4,7 @@ import { log as auditLog } from "../../audit.js";
 import {
   ACTION, COMPLETION_RESULT, DEFAULT_ROLES, DEFAULT_WORKFLOW, findStateByLabel, ISSUE_INTEGRITY_STATUS, NOTIFICATION_CHANNEL, REVIEW_POLICY, STATE_TYPE,
 } from "../../domain/index.js";
-import { PrState } from "../../integrations/providers/index.js";
+import { PR_STATE } from "../../integrations/providers/index.js";
 import { reservePipelineNotification } from "../../state/index.js";
 import { NOTIFICATION_BLOCKED } from "../notifications/const.js";
 import {
@@ -64,7 +64,7 @@ export async function notifyCompletion(input: CompletionNotificationInput): Prom
         //TODO: The behavior of the tester, reviewer, etc. is hard-coded.
         const outcome = await notify({
           ...context, type: NOTIFICATION_EVENT.PIPELINE_COMPLETE, issueTitle: issue.title,
-          terminalState: rule.to, pullRequestUrl: prUrl, mergeResult: mergedPr ? PrState.MERGED : undefined,
+          terminalState: rule.to, pullRequestUrl: prUrl, mergeResult: mergedPr ? PR_STATE.MERGED : undefined,
           testResult: role === DEFAULT_ROLES.TESTER ? result : undefined, issueClosed: rule.actions.includes(ACTION.CLOSE_ISSUE),
         }, delivery);
 

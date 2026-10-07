@@ -25,7 +25,7 @@ describe("task_create managed initial-state flow", () => {
     };
 
     try {
-      const provider = new TestProvider({ workflow });
+      const provider = new TestProvider();
       const result = await createManagedTaskIssue({
         workspaceDir: tmpDir,
         project: { slug: "triage-app", channels: [] },
@@ -78,7 +78,7 @@ describe("task_create managed initial-state flow", () => {
     };
 
     try {
-      const provider = new TestProvider({ workflow });
+      const provider = new TestProvider();
       const result = await createManagedTaskIssue({
         workspaceDir: tmpDir,
         project: {

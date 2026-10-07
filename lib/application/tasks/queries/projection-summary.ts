@@ -3,8 +3,8 @@
  */
 
 import { getStateLabels, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState } from "../../../domain/index.js";
-import type { IssueReader } from "../../../integrations/providers/capabilities.js";
-import type { Issue } from "../../../integrations/providers/provider.js";
+import type { IssueReader } from "../../../integrations/providers/index.js";
+import type { Issue } from "../../../integrations/providers/index.js";
 import { diffIssueProjection } from "../../../projection/index.js";
 import type { ProjectionViewContext, TaskIssueProjectionView, TaskIssueSummary } from "./types.js";
 

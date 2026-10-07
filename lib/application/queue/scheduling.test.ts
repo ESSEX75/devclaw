@@ -74,7 +74,7 @@ describe("queue scheduling guarantees", () => {
       }
 
       assert.equal(harness.commands.taskMessages().length, 0);
-      assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(harness.provider.callsTo("addLabels").length, 0);
     } finally { await harness.cleanup(); }
   });
 
@@ -145,7 +145,7 @@ describe("queue scheduling guarantees", () => {
       assert.equal(arrivals, 2, "both ticks passed their separate issue-lock prechecks");
       assert.equal(results.flatMap(result => result.pickups).length, 1);
       assert.equal(harness.commands.taskMessages().length, 1);
-      assert.equal(harness.provider.callsTo("transitionLabel").length, 1);
+      assert.equal(harness.provider.callsTo("addLabels").length, 1);
       assert.ok(results.flatMap(result => result.skipped).some(skip => /Sequential/.test(skip.reason)));
     } finally { release(); await harness.cleanup(); }
   });

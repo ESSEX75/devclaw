@@ -91,7 +91,7 @@ describe("projectTick issue orchestration lock", () => {
       });
       await new Promise((resolve) => setTimeout(resolve, 30));
 
-      assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(harness.provider.callsTo("addLabels").length, 0);
 
       store.issues[String(issueId)] = issueState(harness.project.slug, issueId, {
         workflowState: "planning",
@@ -106,7 +106,7 @@ describe("projectTick issue orchestration lock", () => {
 
       await blocker;
       assert.equal(result.pickups.length, 0);
-      assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(harness.provider.callsTo("addLabels").length, 0);
     } finally {
       releaseLock?.();
       await harness.cleanup();
@@ -130,7 +130,7 @@ describe("projectTick issue orchestration lock", () => {
       const results = await Promise.all([projectTick(options), projectTick(options)]);
 
       assert.equal(results.flatMap((result) => result.pickups).length, 1);
-      assert.equal(harness.provider.callsTo("transitionLabel").filter((call) => call.args.to === "Doing").length, 1);
+      assert.equal(harness.provider.callsTo("addLabels").filter((call) => call.args.labels.includes("Doing")).length, 1);
       assert.equal(harness.commands.taskMessages().length, 1);
     } finally {
       await harness.cleanup();

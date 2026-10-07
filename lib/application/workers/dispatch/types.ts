@@ -5,7 +5,7 @@ import type { Project, SlotState, WorkflowConfig } from "../../../domain/index.j
 import { WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
 import type { AGENT_TURN_STATUS } from "../../../integrations/openclaw/const.js";
 import type { AgentTurnOutcome } from "../../../integrations/openclaw/types.js";
-import type { IssueComment, IssueProvider } from "../../../integrations/providers/provider.js";
+import type { IssueComment, IssueProvider } from "../../../integrations/providers/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 import type { ValueOf } from "../../../types.js";
 import type { NotificationRuntime } from "../../notifications/index.js";

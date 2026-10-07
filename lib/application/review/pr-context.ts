@@ -1,6 +1,6 @@
 /** Fetches optional PR observations while preserving known identity on secondary read failures. */
 
-import { PrState } from "../../integrations/providers/index.js";
+import { PR_STATE } from "../../integrations/providers/index.js";
 import { PR_FEEDBACK_REASON } from "./const.js";
 import type { ContextProvider, FeedbackProvider, PrContext, PrFeedback } from "./types.js";
 
@@ -13,14 +13,14 @@ export async function fetchPrFeedback(provider: FeedbackProvider, issueId: numbe
   try {
     const status = await provider.getPrStatus(issueId);
 
-    if (!status.url || status.state === PrState.MERGED || status.state === PrState.CLOSED) return undefined;
+    if (!status.url || status.state === PR_STATE.MERGED || status.state === PR_STATE.CLOSED) return undefined;
     // A delivery receipt suppresses duplicate workflow events, not context needed by a retried worker.
     const comments = await provider.getPrReviewComments(issueId, status.url).catch(() => []);
     const conflict = status.mergeable === false;
 
     if (!conflict && comments.length === 0) return undefined;
     const reason = conflict ? PR_FEEDBACK_REASON.MERGE_CONFLICT
-      : status.state === PrState.CHANGES_REQUESTED || status.state === PrState.HAS_COMMENTS
+      : status.state === PR_STATE.CHANGES_REQUESTED || status.state === PR_STATE.HAS_COMMENTS
         ? PR_FEEDBACK_REASON.CHANGES_REQUESTED : PR_FEEDBACK_REASON.REJECTED;
 
     return {
@@ -42,7 +42,7 @@ export async function fetchPrContext(provider: ContextProvider, issueId: number)
   try {
     const status = await provider.getPrStatus(issueId);
 
-    if (!status.url || status.state === PrState.MERGED || status.state === PrState.CLOSED) return undefined;
+    if (!status.url || status.state === PR_STATE.MERGED || status.state === PR_STATE.CLOSED) return undefined;
     const diff = await provider.getPrDiff(issueId, status.url).catch(() => null);
 
     return { url: status.url, diff: diff ?? undefined };

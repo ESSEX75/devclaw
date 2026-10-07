@@ -5,10 +5,10 @@ import { it } from "node:test";
 
 import type { RunCommand } from "../../context.js";
 import { PR_COMMENT_KIND } from "./const.js";
-import { GitHubProvider } from "./github.js";
-import { GitLabProvider } from "./gitlab.js";
+import { GitHubProvider } from "./github/index.js";
+import { GitLabProvider } from "./gitlab/index.js";
 import { isProviderIssueLookupError } from "./lookup-errors.js";
-import { PrState } from "./types.js";
+import { PR_STATE } from "./const.js";
 
 /** Serialize one clean provider CLI response without bypassing transport validation.
  * @param data - Complete paginated or scalar fixture payload.
@@ -39,7 +39,7 @@ it("GitHub reads later timeline and review pages and excludes cross-repository r
   const provider = new GitHubProvider({ repoPath: ".", runCommand });
   const status = await provider.getPrStatus(42);
   assert.equal(status.url, pr.url);
-  assert.equal(status.state, PrState.APPROVED);
+  assert.equal(status.state, PR_STATE.APPROVED);
   const feedback = await provider.getPrReviewComments(42);
   assert.ok(!feedback.some(comment => comment.body === first.body));
   assert.equal(feedback.filter(comment => comment.kind === PR_COMMENT_KIND.INLINE).length, 2);

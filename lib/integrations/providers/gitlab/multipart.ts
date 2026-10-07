@@ -6,9 +6,12 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import type { RunCommand } from "../../context.js";
-import { runProviderCommand } from "./command.js";
-import { GITLAB_UPLOAD_PATH, PROVIDER_ATTACHMENT_STORAGE } from "./const.js";
+import type {
+  RunCommand,
+} from "../../../context.js";
+import { runProviderCommand } from "../command.js";
+import { PROVIDER_ATTACHMENT_STORAGE } from "../const.js";
+import { GITLAB_UPLOAD_PATH } from "./const.js";
 
 /** Provider-confirmed identity needed to distinguish installation prefixes from nested namespaces. */
 const projectSchema = z.object({

@@ -18,7 +18,7 @@ describe("finish preconditions", () => {
         fault.mock.restore();
       }
 
-      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.provider.callsTo("addLabels").length, 0);
     } finally { await h.cleanup(); }
   });
 

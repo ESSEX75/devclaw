@@ -43,6 +43,11 @@ separate READMEs. Their file responsibilities and API details belong in source J
   manual repair. Projection and provider read-back precede the local ready-state commit.
   Lifecycle commands lock and recheck readiness; body edits preserve managed metadata.
   Attachment capture requires exact project/route identity and saves bytes before upload.
+- Application/projection selects exact workflow labels and colors from resolved configuration.
+  Workflow label effects add the selected target before removing obsolete configured labels;
+  required cleanup failures propagate, while optional final observations remain diagnostic.
+  Recovery uses fresh evidence to skip an already applied addition and resume cleanup.
+  Provider observations verify projection only and never select local workflow transitions.
 - Worker context is checked before reservation. Required task/PR/attachment/instruction
   content remains intact; comments use a count cap and budget, visible omissions, and
   at most one marked fragment. Only full comments receive acknowledgement. UTF-8 byte

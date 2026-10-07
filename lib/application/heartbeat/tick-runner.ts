@@ -75,12 +75,7 @@ export async function tick(opts: HeartbeatRunInput): Promise<HeartbeatTickResult
       if (!project || (agentId && project.agentId !== agentId)) continue;
 
       const resolvedConfig = await loadConfig(workspaceDir, project.slug);
-      const provider = opts.providerFactory ? await opts.providerFactory(project) : (await createProvider({
-        repo: project.repo,
-        provider: project.provider,
-        runCommand,
-        workflow: resolvedConfig.workflow,
-      })).provider;
+      const provider = opts.providerFactory ? await opts.providerFactory(project) : (await createProvider({ repo: project.repo, provider: project.provider, runCommand })).provider;
 
       const recovered = await runHeartbeatPasses(slug, [
         { name: HEARTBEAT_PASS.CREATION, run: async () => {

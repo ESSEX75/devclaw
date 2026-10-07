@@ -45,7 +45,7 @@ export async function projectTick(opts: ProjectTickOptions): Promise<ProjectTick
 
   if (!provider) {
     if (!runCommand) throw new Error("runCommand is required to create the queue provider.");
-    provider = (await createProvider({ repo: project.repo, provider: project.provider, runCommand, workflow })).provider;
+    provider = (await createProvider({ repo: project.repo, provider: project.provider, runCommand })).provider;
   }
 
   const roleExecution = workflow.roleExecution ?? EXECUTION_MODE.PARALLEL;

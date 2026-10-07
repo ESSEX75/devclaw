@@ -82,7 +82,7 @@ describe("completion interruption recovery", () => {
     try {
       h.provider.seedIssue({ iid: 42, labels: ["Reviewing"] });
       h.provider.setPrStatus(42, { state: "open", url: "https://example.com/pr/42" });
-      const transition = t.mock.method(h.provider, "transitionLabel", async () => { throw new Error("transition unavailable"); });
+      const transition = t.mock.method(h.provider, "addLabels", async () => { throw new Error("transition unavailable"); });
 
       await assert.rejects(executeCompletion(input(h, "reviewer", "approve")), /transition unavailable/);
       transition.mock.restore();
@@ -120,9 +120,9 @@ describe("completion interruption recovery", () => {
     try {
       h.provider.seedIssue({ iid: 42, labels: ["Reviewing"] });
       h.provider.setPrStatus(42, { state: "open", url: "https://example.com/pr/42" });
-      const transition = h.provider.transitionLabel.bind(h.provider);
+      const transition = h.provider.addLabels.bind(h.provider);
 
-      t.mock.method(h.provider, "transitionLabel", async (...args: Parameters<typeof transition>) => {
+      t.mock.method(h.provider, "addLabels", async (...args: Parameters<typeof transition>) => {
         await transition(...args);
         failWrites = true;
       });

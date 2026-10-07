@@ -12,6 +12,8 @@ agent-facing plugin API and deterministic DevClaw behavior.
 - Move reusable business behavior into `lib/application/*`.
 - Do not access provider or state internals directly when an application use case
   exists.
+- Workflow label synchronization calls application/projection with resolved configuration;
+  tool adapters validate project selection and format results, while providers apply explicit labels.
 - Register public tool factories in `lib/tools/registry.ts`.
 - Creation adapters must call the shared durable use case and report pending or
   manual-repair states honestly; only a `ready` operation is successful.

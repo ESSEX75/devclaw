@@ -46,14 +46,14 @@ describe("worker diagnosis and remediation", () => {
     const before = await snapshot(harness.workspaceDir);
     assert.deepEqual(await checkWorkerHealth({ ...input, autoFix: true }), []);
     assert.deepEqual(await snapshot(harness.workspaceDir), before);
-    assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+    assert.equal(harness.provider.callsTo("addLabels").length, 0);
     assert.equal(harness.commands.commands.length, 0);
   });
 
   it("does not infer a stalled session when its activity timestamp is unknown", async () => {
     input.sessions?.sessions.set("worker", { key: "worker", updatedAt: 0 });
     assert.deepEqual(await checkWorkerHealth({ ...input, autoFix: true }), []);
-    assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+    assert.equal(harness.provider.callsTo("addLabels").length, 0);
   });
 
   it("dry-run context overflow makes no filesystem, provider, or session writes", async () => {
@@ -63,7 +63,7 @@ describe("worker diagnosis and remediation", () => {
     assert.equal(findings[0]?.issue.type, "context_overflow");
     assert.equal(findings[0]?.plannedAction, "requeue");
     assert.deepEqual(await snapshot(harness.workspaceDir), before);
-    assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+    assert.equal(harness.provider.callsTo("addLabels").length, 0);
     assert.equal(harness.commands.commands.length, 0);
   });
 
@@ -73,7 +73,7 @@ describe("worker diagnosis and remediation", () => {
     await updateSlot(input.workspaceDir, input.projectSlug, input.role, "medior", 0, (slot) => ({ ...slot, sessionKey: "replacement" }));
     const result = await remediateWorkerHealth(input, finding);
     assert.equal(result.fixed, false);
-    assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+    assert.equal(harness.provider.callsTo("addLabels").length, 0);
     const project = getProject(await readProjects(input.workspaceDir), input.projectSlug);
     assert.ok(project);
     assert.equal(getRoleWorker(project, "developer").levels.medior?.[0]?.sessionKey, "replacement");
@@ -89,7 +89,7 @@ describe("worker diagnosis and remediation", () => {
     assert.equal(harness.provider.callsTo("listIssues").length, 0);
     assert.deepEqual(await snapshot(harness.workspaceDir), before);
     assert.equal(harness.commands.commands.length, 0);
-    assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+    assert.equal(harness.provider.callsTo("addLabels").length, 0);
   });
 
   it("plans and applies stale-worker recovery while retaining the configured previous queue", async () => {
@@ -103,7 +103,7 @@ describe("worker diagnosis and remediation", () => {
   });
 
   it("keeps ownership when requeue fails and reports the error", async () => {
-    harness.provider.transitionLabel = async () => { throw new Error("provider write failed"); };
+    harness.provider.addLabels = async () => { throw new Error("provider write failed"); };
     const results = await checkWorkerHealth({ ...input, autoFix: true });
     assert.equal(results[0]?.fixed, false);
     assert.match(results[0]?.error ?? "", /provider write failed/);
@@ -124,9 +124,9 @@ describe("worker diagnosis and remediation", () => {
     assert.equal((await checkWorkerHealth({ ...input, autoFix: true }))[0]?.fixed, true);
     const project = getProject(await readProjects(input.workspaceDir), input.projectSlug);
     assert.ok(project);
-    const calls = harness.provider.callsTo("transitionLabel").length;
+    const calls = harness.provider.callsTo("addLabels").length;
     assert.deepEqual(await checkWorkerHealth({ ...input, project, autoFix: true }), []);
-    assert.equal(harness.provider.callsTo("transitionLabel").length, calls);
+    assert.equal(harness.provider.callsTo("addLabels").length, calls);
   });
 
   it("repairs provider label drift without releasing a locally active worker", async () => {

@@ -17,6 +17,7 @@ import { readIssueStateStore, readWorkerDeliveryResolution, withIssueOrchestrati
 import { getProject, getRoleWorker, readProjects } from "../../../state/index.js";
 import { getNotificationConfig, notify } from "../../notifications/index.js";
 import { resolveIssueNotificationEndpoint } from "../../notifications/resolve-endpoint.js";
+import { transitionWorkflowLabel } from "../../projection/index.js";
 import { acknowledgeComments, confirmReviewSummaryDelivery, EYES_EMOJI, stageReviewSummaryDelivery } from "../../review/index.js";
 import { buildAnnouncement, formatSessionLabel } from "../../tasks/index.js";
 import { REVIEW_SUMMARY_RECEIPT_STEP, WORKER_AUDIT_EVENT } from "../const.js";
@@ -131,7 +132,7 @@ export async function dispatchTaskLocked(
     await ensureSessionModel(sessionKey, model, rc, timeouts.sessionPatchMs, sessionLabel);
 
     // ── Provider transition — compensated if agent send does not begin ──
-    await provider.transitionLabel(issueId, fromLabel, toLabel);
+    await transitionWorkflowLabel(provider, resolvedConfig.workflow, issueId, fromLabel, toLabel);
     providerTransitioned = true;
 
     const issue = await provider.getIssue(issueId);
@@ -237,7 +238,7 @@ export async function dispatchTaskLocked(
     if (!taskDispatched) {
       if (providerTransitioned) {
         try {
-          await provider.transitionLabel(issueId, toLabel, fromLabel);
+          await transitionWorkflowLabel(provider, resolvedConfig.workflow, issueId, toLabel, fromLabel);
         } catch (rollbackError) {
           await auditLog(workspaceDir, WORKER_AUDIT_EVENT.WARNING, {
             step: "restoreProviderLabel",

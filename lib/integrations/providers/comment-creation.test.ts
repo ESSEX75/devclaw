@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 
 import type { RunCommand } from "../../context.js";
-import { GitHubProvider } from "./github.js";
-import { GitLabProvider } from "./gitlab.js";
+import { GitHubProvider } from "./github/index.js";
+import { GitLabProvider } from "./gitlab/index.js";
 import { isProviderOperationError } from "./operation-errors.js";
 
 /** Real provider adapters exercised through deterministic CLI responses. */

@@ -74,7 +74,7 @@ describe("heartbeat transition state sync", () => {
         await assert.rejects(reviewPass({ workspaceDir, projectName: selectedProject.name, project: selectedProject,
           provider, workflow: DEFAULT_WORKFLOW, repoPath: ".", baseBranch: "main", runCommand }), isProviderIssueLookupError);
         assert.equal(fallbackCalls, 0);
-        assert.equal(provider.callsTo("transitionLabel").length, 0);
+        assert.equal(provider.callsTo("addLabels").length, 0);
         assert.equal((await readIssueStateStore(workspaceDir, project.slug)).issues["90"].workflowLabel, "To Review");
       });
     });
@@ -96,7 +96,7 @@ describe("heartbeat transition state sync", () => {
       });
       assert.equal(transitioned, false);
       assert.equal(actionCalled, false);
-      assert.equal(provider.callsTo("transitionLabel").length, 0);
+      assert.equal(provider.callsTo("addLabels").length, 0);
       assert.equal(provider.callsTo("mergePr").length, 0);
     });
   });
@@ -116,7 +116,7 @@ describe("heartbeat transition state sync", () => {
         beforeCommit: () => provider.mergePr(87),
       });
       assert.equal(transitioned, false);
-      assert.equal(provider.callsTo("transitionLabel").length, 0);
+      assert.equal(provider.callsTo("addLabels").length, 0);
       assert.equal(provider.callsTo("mergePr").length, 0);
     });
   });

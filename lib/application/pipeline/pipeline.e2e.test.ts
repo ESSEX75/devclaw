@@ -8,6 +8,7 @@
  *
  * Run: npx tsx --test lib/application/pipeline/pipeline.e2e.test.ts
  */
+import { transitionWorkflowLabel } from "../projection/index.js";
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { createTestHarness, type TestHarness } from "../../testing/index.js";
@@ -112,7 +113,7 @@ describe("E2E pipeline", () => {
    * @param to - Active workflow label.
    */
   async function activateFixtureState(issueId: number, from: string, to: string): Promise<void> {
-    await h.provider.transitionLabel(issueId, from, to);
+    await transitionWorkflowLabel(h.provider, h.workflow, issueId, from, to);
     const key = findStateKeyByLabel(DEFAULT_WORKFLOW, to);
     if (!key) throw new Error(`Unknown fixture state: ${to}`);
     await writeIssueRuntimeState({
@@ -844,7 +845,7 @@ describe("E2E pipeline", () => {
     });
 
     it("should transition To Review → Rejected when PR is closed without merging (url non-null)", async () => {
-      // After #315: PrState.CLOSED + url non-null = PR was explicitly closed without merging
+      // After #315: PR_STATE.CLOSED + url non-null = PR was explicitly closed without merging
       await seedManagedReviewIssue({ iid: 80, title: "Closed PR feature", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(80, { state: "closed", url: "https://example.com/pr/80" });
 
@@ -882,7 +883,7 @@ describe("E2E pipeline", () => {
     });
 
     it("should NOT transition when PR state is CLOSED with url:null (no PR has ever been created)", async () => {
-      // After #315: PrState.CLOSED + url:null = no PR exists — do nothing, preserve existing behavior
+      // After #315: PR_STATE.CLOSED + url:null = no PR exists — do nothing, preserve existing behavior
       await seedManagedReviewIssue({ iid: 81, title: "No PR yet", labels: ["To Review", "review:human"] });
       h.provider.setPrStatus(81, { state: "closed", url: null });
 
@@ -1293,7 +1294,7 @@ describe("E2E pipeline", () => {
 
       assert.strictEqual(result.pickups.length, 0, "Should NOT dispatch reviewer");
       assert.equal(h.provider.callsTo("getIssue").length, 0, "Saved policy filters the issue before provider lookup");
-      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.provider.callsTo("addLabels").length, 0);
       assert.equal(h.commands.taskMessages().length, 0);
     });
 
@@ -1344,7 +1345,7 @@ describe("E2E pipeline", () => {
 
       assert.strictEqual(result.pickups.length, 0, "Should NOT dispatch reviewer under skip policy");
       assert.equal(h.provider.callsTo("getIssue").length, 0, "Saved policy filters the issue before provider lookup");
-      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.provider.callsTo("addLabels").length, 0);
       assert.equal(h.commands.taskMessages().length, 0);
     });
 
@@ -1553,7 +1554,7 @@ describe("E2E pipeline", () => {
 
       assert.strictEqual(result.pickups.length, 0, "Should NOT dispatch reviewer for review:human");
       assert.equal(h.provider.callsTo("getIssue").length, 0, "Saved policy filters the issue before provider lookup");
-      assert.equal(h.provider.callsTo("transitionLabel").length, 0);
+      assert.equal(h.provider.callsTo("addLabels").length, 0);
       assert.equal(h.commands.taskMessages().length, 0);
     });
 
@@ -1615,14 +1616,14 @@ describe("E2E pipeline", () => {
 
       // Should have: getIssue (for URL), transitionLabel, closeIssue
       assert.ok(h.provider.callsTo("getIssue").length >= 1, "Should call getIssue");
-      assert.strictEqual(h.provider.callsTo("transitionLabel").length, 1);
+      assert.strictEqual(h.provider.callsTo("addLabels").length, 1);
       assert.strictEqual(h.provider.callsTo("closeIssue").length, 1);
 
       // Verify transition args
-      const transition = h.provider.callsTo("transitionLabel")[0];
+      const transition = h.provider.callsTo("addLabels")[0];
       assert.strictEqual(transition.args.issueId, 90);
-      assert.strictEqual(transition.args.from, "Testing");
-      assert.strictEqual(transition.args.to, "Done");
+      assert.ok(h.provider.callsTo("removeLabels").some(call => call.args.labels.includes("Testing")));
+      assert.strictEqual(transition.args.labels[0], "Done");
     });
   });
 });

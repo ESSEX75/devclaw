@@ -5,8 +5,8 @@ import { it } from "node:test";
 
 import type { RunCommand } from "../../context.js";
 import { createProvider } from "./index.js";
-import { GitHubProvider } from "./github.js";
-import { GitLabProvider } from "./gitlab.js";
+import { GitHubProvider } from "./github/index.js";
+import { GitLabProvider } from "./gitlab/index.js";
 import { isProviderIssueLookupError } from "./lookup-errors.js";
 import { classifyProviderOperationError, isProviderOperationError } from "./operation-errors.js";
 import { classifyProviderLookupFailure } from "./lookup-errors.js";

@@ -13,7 +13,7 @@ import {
   REVIEW_ROUTING_FIELD,
   WORKFLOW_EVENT,
 } from "../../../domain/index.js";
-import { PrState } from "../../../integrations/providers/provider.js";
+import { PR_STATE } from "../../../integrations/providers/index.js";
 import { planWorkflowEvent } from "../../pipeline/plan.js";
 import { observePrStatusWithReceipts } from "../../review/index.js";
 import { getHeartbeatCandidates } from "../local-candidates.js";
@@ -77,12 +77,12 @@ export async function reviewPass(opts: ReviewPassInput): Promise<number> {
 
       // Fallback: no PR found, but work may have been committed directly to base branch.
       // Check git history for commits mentioning this issue number.
-      if (!status.url && status.state === PrState.CLOSED && baseBranch) {
+      if (!status.url && status.state === PR_STATE.CLOSED && baseBranch) {
         try {
           const isOnBranch = await provider.isCommitOnBaseBranch(issue.iid, baseBranch);
 
           if (isOnBranch) {
-            status.state = PrState.MERGED;
+            status.state = PR_STATE.MERGED;
             await auditLog(workspaceDir, REVIEW_AUDIT_EVENT.GIT_FALLBACK, {
               project: projectName, issueId: issue.iid,
               reason: REVIEW_TRANSITION_REASON.COMMIT_ON_BASE_BRANCH,
@@ -112,7 +112,7 @@ export async function reviewPass(opts: ReviewPassInput): Promise<number> {
             await auditLog(workspaceDir, REVIEW_AUDIT_EVENT.TRANSITION, {
               project: projectName, issueId: issue.iid,
               from: state.label, to: targetState.label,
-              reason: status.state === PrState.HAS_COMMENTS
+              reason: status.state === PR_STATE.HAS_COMMENTS
                 ? REVIEW_TRANSITION_REASON.PR_COMMENTS : REVIEW_TRANSITION_REASON.CHANGES_REQUESTED,
               prUrl: status.url,
             });
@@ -207,7 +207,7 @@ export async function reviewPass(opts: ReviewPassInput): Promise<number> {
           for (const action of actions) {
             switch (action) {
               case ACTION.MERGE_PR:
-                if (status.state !== PrState.MERGED) {
+                if (status.state !== PR_STATE.MERGED) {
                   try { await provider.mergePr(issue.iid); }
                   catch (error) { mergeFailure = error; throw error; }
                 }

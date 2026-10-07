@@ -61,10 +61,10 @@ describe("durable worker resolution", () => {
         assert.equal(pending?.completed, failedWrite === 1 ? undefined : false);
         if (failedWrite === 1) assert.ok((await h.provider.getIssue(42)).labels.includes("Doing"));
         await resolveWorkerDelivery(input);
-        const transitions = h.provider.callsTo("transitionLabel").length;
+        const transitions = h.provider.callsTo("addLabels").length;
 
         await resolveWorkerDelivery(input);
-        assert.equal(h.provider.callsTo("transitionLabel").length, transitions);
+        assert.equal(h.provider.callsTo("addLabels").length, transitions);
         assert.equal((await readWorkerDeliveryResolution(h.workspaceDir, h.project.slug, 42))?.completed, true);
         assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["42"].activeWorker, null);
         assert.equal((await h.readProjects()).projects[h.project.slug].workers.developer.levels.medior?.[0]?.active, false);
@@ -101,18 +101,18 @@ describe("durable worker resolution", () => {
 
     try {
       const input = await resolutionInput(h);
-      const transition = h.provider.transitionLabel.bind(h.provider);
-      const fault = t.mock.method(h.provider, "transitionLabel", async (...args: Parameters<typeof transition>) => {
+      const transition = h.provider.addLabels.bind(h.provider);
+      const fault = t.mock.method(h.provider, "addLabels", async (...args: Parameters<typeof transition>) => {
         await transition(...args);
         throw new Error("response lost");
       });
 
       await assert.rejects(resolveWorkerDelivery(input), /response lost/);
       fault.mock.restore();
-      const calls = h.provider.callsTo("transitionLabel").length;
+      const calls = h.provider.callsTo("addLabels").length;
 
       await resolveWorkerDelivery(input);
-      assert.equal(h.provider.callsTo("transitionLabel").length, calls);
+      assert.equal(h.provider.callsTo("addLabels").length, calls);
     } finally { await h.cleanup(); }
   });
 
@@ -121,15 +121,15 @@ describe("durable worker resolution", () => {
 
     try {
       const input = await resolutionInput(h);
-      const fault = t.mock.method(h.provider, "transitionLabel", async () => { throw new Error("provider unavailable"); });
+      const fault = t.mock.method(h.provider, "addLabels", async () => { throw new Error("provider unavailable"); });
 
       await assert.rejects(resolveWorkerDelivery(input), /provider unavailable/);
       fault.mock.restore();
       await updateSlot(h.workspaceDir, h.project.slug, "developer", "medior", 0, (slot) => ({ ...slot, sessionKey: "replacement" }));
-      const calls = h.provider.callsTo("transitionLabel").length;
+      const calls = h.provider.callsTo("addLabels").length;
 
       await assert.rejects(resolveWorkerDelivery(input), /replacement delivery/);
-      assert.equal(h.provider.callsTo("transitionLabel").length, calls);
+      assert.equal(h.provider.callsTo("addLabels").length, calls);
       assert.equal((await h.readProjects()).projects[h.project.slug].workers.developer.levels.medior?.[0]?.sessionKey, "replacement");
     } finally { await h.cleanup(); }
   });

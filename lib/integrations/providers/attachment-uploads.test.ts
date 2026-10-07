@@ -6,8 +6,8 @@ import path from "node:path";
 import { it } from "node:test";
 
 import type { RunCommand } from "../../context.js";
-import { GitHubProvider } from "./github.js";
-import { GitLabProvider } from "./gitlab.js";
+import { GitHubProvider } from "./github/index.js";
+import { GitLabProvider } from "./gitlab/index.js";
 
 /** Deterministic process completion for provider-facing fixtures.
  * @param stdout - Serialized provider response.
