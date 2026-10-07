@@ -1,13 +1,9 @@
 /** Resolves validated merged configuration into application-facing runtime contracts. */
 
-import { DEFAULT_WORKFLOW, isBuiltInRoleId } from "../../domain/index.js";
-import { getAllRoleIds, requireRole } from "../../roles/index.js";
-import { copyBuiltInLevels } from "./defaults.js";
+import { getAllRoleIds } from "../../roles/index.js";
+import { DEFAULT_ISSUE_ARCHIVE_MAINTENANCE, DEFAULT_MAX_WORKERS_PER_LEVEL, DEFAULT_TIMEOUTS } from "./const.js";
 import { parseResolvedWorkflowConfig, validateRoleIntegrity, validateWorkflowIntegrity } from "./schema.js";
 import type { DevClawConfig, LevelOverride, ResolvedConfig, ResolvedLevelConfig, ResolvedRoleConfig, ResolvedTimeouts } from "./types.js";
-
-/** Built-in worker concurrency applied when no configuration layer overrides it. */
-const DEFAULT_MAX_WORKERS_PER_LEVEL = 2;
 
 /**
  * Resolve a validated layered configuration into the complete application-facing runtime contract.
@@ -23,76 +19,45 @@ export function resolveConfig(config: DevClawConfig): ResolvedConfig {
   if (roleErrors.length > 0) throw new Error(`Role config integrity errors:\n  - ${roleErrors.join("\n  - ")}`);
 
   for (const [id, override] of Object.entries(config.roles ?? {})) {
-    if (isBuiltInRoleId(id) && override === false) {
-      roles[id] = resolveBuiltInRole(requireRole(id), globalMaxWorkers, false);
-      continue;
-    }
-
-    if (override === false) continue;
-    if (isBuiltInRoleId(id)) {
-      const role = requireRole(id);
-
-      roles[id] = {
-        levels: resolveLevels(override.levels ?? copyBuiltInLevels(role.levels), globalMaxWorkers),
-        defaultLevel: override.defaultLevel ?? role.defaultLevel,
-        completion: { ...(override.completion ?? role.completion) },
-        enabled: override.enabled ?? true,
-      };
-      continue;
+    if (override === false || !override.levels || !override.defaultLevel || !override.completion) {
+      throw new Error(`Cannot resolve incomplete merged role "${id}".`);
     }
 
     roles[id] = {
-      levels: resolveLevels(override.levels ?? {}, globalMaxWorkers),
-      defaultLevel: override.defaultLevel ?? "",
+      levels: resolveLevels(override.levels, globalMaxWorkers),
+      defaultLevel: override.defaultLevel,
       completion: { ...override.completion },
       enabled: override.enabled ?? true,
     };
   }
 
-  for (const id of getAllRoleIds()) if (!roles[id]) roles[id] = resolveBuiltInRole(requireRole(id), globalMaxWorkers, true);
-
   const workflow = parseResolvedWorkflowConfig({
-    initial: config.workflow?.initial ?? DEFAULT_WORKFLOW.initial,
-    reviewPolicy: config.workflow?.reviewPolicy ?? DEFAULT_WORKFLOW.reviewPolicy,
-    testPolicy: config.workflow?.testPolicy ?? DEFAULT_WORKFLOW.testPolicy,
-    roleExecution: config.workflow?.roleExecution ?? DEFAULT_WORKFLOW.roleExecution,
+    ...config.workflow,
     maxWorkersPerLevel: globalMaxWorkers,
-    states: config.workflow?.states ?? DEFAULT_WORKFLOW.states,
   });
   const workflowErrors = validateWorkflowIntegrity(workflow, new Set(Object.keys(roles)));
 
   if (workflowErrors.length > 0) throw new Error(`Workflow config integrity errors:\n  - ${workflowErrors.join("\n  - ")}`);
 
   const timeouts: ResolvedTimeouts = {
-    gitPullMs: config.timeouts?.gitPullMs ?? 30_000,
-    gatewayMs: config.timeouts?.gatewayMs ?? 15_000,
-    sessionPatchMs: config.timeouts?.sessionPatchMs ?? 30_000,
-    dispatchMs: config.timeouts?.dispatchMs ?? 600_000,
-    staleWorkerHours: config.timeouts?.staleWorkerHours ?? 2,
-    sessionContextBudget: config.timeouts?.sessionContextBudget ?? 0.6,
-    stallTimeoutMinutes: config.timeouts?.stallTimeoutMinutes ?? 15,
+    gitPullMs: config.timeouts?.gitPullMs ?? DEFAULT_TIMEOUTS.gitPullMs,
+    gatewayMs: config.timeouts?.gatewayMs ?? DEFAULT_TIMEOUTS.gatewayMs,
+    sessionPatchMs: config.timeouts?.sessionPatchMs ?? DEFAULT_TIMEOUTS.sessionPatchMs,
+    dispatchMs: config.timeouts?.dispatchMs ?? DEFAULT_TIMEOUTS.dispatchMs,
+    staleWorkerHours: config.timeouts?.staleWorkerHours ?? DEFAULT_TIMEOUTS.staleWorkerHours,
+    sessionContextBudget: config.timeouts?.sessionContextBudget ?? DEFAULT_TIMEOUTS.sessionContextBudget,
+    stallTimeoutMinutes: config.timeouts?.stallTimeoutMinutes ?? DEFAULT_TIMEOUTS.stallTimeoutMinutes,
   };
 
   return {
     roles, workflow, timeouts, instanceName: config.instance?.name,
     issueArchiveMaintenance: {
-      deletedProviderRetention: config.issueArchiveMaintenance?.deletedProviderRetention ?? "90d",
-      archiveRetention: config.issueArchiveMaintenance?.archiveRetention ?? "365d",
-      attachmentsRetention: config.issueArchiveMaintenance?.attachmentsRetention ?? "90d",
-      maxPerHeartbeat: config.issueArchiveMaintenance?.maxPerHeartbeat ?? 100,
+      deletedProviderRetention: config.issueArchiveMaintenance?.deletedProviderRetention ?? DEFAULT_ISSUE_ARCHIVE_MAINTENANCE.deletedProviderRetention,
+      archiveRetention: config.issueArchiveMaintenance?.archiveRetention ?? DEFAULT_ISSUE_ARCHIVE_MAINTENANCE.archiveRetention,
+      attachmentsRetention: config.issueArchiveMaintenance?.attachmentsRetention ?? DEFAULT_ISSUE_ARCHIVE_MAINTENANCE.attachmentsRetention,
+      maxPerHeartbeat: config.issueArchiveMaintenance?.maxPerHeartbeat ?? DEFAULT_ISSUE_ARCHIVE_MAINTENANCE.maxPerHeartbeat,
     },
   };
-}
-
-/**
- * Resolve one built-in role with registry defaults and an explicit enabled state.
- *
- * @param role - Built-in role selected through the roles API.
- * @param globalMaxWorkers - Default capacity for its levels.
- * @param enabled - Whether dispatch is enabled.
- */
-function resolveBuiltInRole(role: ReturnType<typeof requireRole>, globalMaxWorkers: number, enabled: boolean): ResolvedRoleConfig {
-  return { levels: resolveLevels(copyBuiltInLevels(role.levels), globalMaxWorkers), defaultLevel: role.defaultLevel, completion: { ...role.completion }, enabled };
 }
 
 /**

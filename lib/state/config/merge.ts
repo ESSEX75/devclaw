@@ -9,6 +9,7 @@
  * - Primitives: override
  */
 
+import { isBuiltInRoleId } from "../../domain/index.js";
 import type { DevClawConfig, LevelOverride, RoleOverride, StateOverride } from "./types.js";
 
 /**
@@ -30,11 +31,15 @@ export function mergeConfig(
     if (overlay.roles) {
       for (const [roleId, overrideValue] of Object.entries(overlay.roles)) {
         if (overrideValue === false) {
-          // Disable role
-          merged.roles[roleId] = false;
+          const baseRole = merged.roles[roleId];
+
+          // Preserve built-in definitions for an explicit higher-layer re-enable.
+          // Custom false declarations remain invalid at the integrity boundary.
+          merged.roles[roleId] = isBuiltInRoleId(roleId) && typeof baseRole === "object"
+            ? { ...baseRole, enabled: false }
+            : false;
         } else if (merged.roles[roleId] === false) {
-          // Re-enable with override
-          merged.roles[roleId] = overrideValue;
+          merged.roles[roleId] = { ...overrideValue, enabled: overrideValue.enabled ?? false };
         } else {
           // Merge role override on top of base role
           const baseRole = merged.roles[roleId];
@@ -70,6 +75,10 @@ export function mergeConfig(
   // Merge timeouts
   if (base.timeouts || overlay.timeouts) {
     merged.timeouts = { ...base.timeouts, ...overlay.timeouts };
+  }
+
+  if (base.instance || overlay.instance) {
+    merged.instance = { ...base.instance, ...overlay.instance };
   }
 
   if (base.issueArchiveMaintenance || overlay.issueArchiveMaintenance) {

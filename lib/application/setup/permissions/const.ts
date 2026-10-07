@@ -27,7 +27,6 @@ export const DEVCLAW_AGENT_TOOLS = [
   "channel_list",
   "setup",
   "onboard",
-  "autoconfigure_models",
   "research_task",
   "workflow_guide",
   "config",

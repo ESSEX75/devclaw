@@ -6,12 +6,12 @@ import { describe, it } from "node:test";
 
 import type { RunCommand } from "../../../context.js";
 import { PrState } from "../../../integrations/providers/index.js";
-import { WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
+import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState, WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
 import { checkWorkerHealth } from "../../heartbeat/health/index.js";
 import { summarizeTaskIssue } from "../../tasks/index.js";
 import { getRoleWorker, updateIssueRuntimeRecord, updateSlot } from "../../../state/index.js";
 import { readIssueStateStore } from "../../../state/index.js";
-import { createTestHarness } from "../../../testing/index.js";
+import { createEmptyIssueStateStoreForTesting, createTestHarness, replaceIssueStateStoreForTesting } from "../../../testing/index.js";
 import { dispatchTask } from "./dispatch-task.js";
 import { WORKER_DELIVERY_RESOLUTION } from "../../../domain/index.js";
 import { resolveWorkerDelivery } from "../delivery-recovery/index.js";
@@ -27,6 +27,112 @@ function dispatchInput(h: Awaited<ReturnType<typeof createTestHarness>>, issueId
 }
 
 describe("worker delivery outcome", () => {
+  it("waits for model confirmation before provider transition or worker submission", { timeout: 20_000 }, async (t) => {
+    const h = await createTestHarness();
+    h.provider.seedIssue({ iid: 84, labels: ["To Do"] });
+    const transition = t.mock.method(h.provider, "transitionLabel");
+    let releasePatch: () => void = () => {};
+    let patchStarted: () => void = () => {};
+    const gate = new Promise<void>(resolve => { releasePatch = resolve; });
+    const started = new Promise<void>(resolve => { patchStarted = resolve; });
+    const runCommand: RunCommand = async (args, options) => {
+      if (args[3] === "sessions.patch") {
+        patchStarted();
+        await gate;
+      }
+
+      return h.runCommand(args, options);
+    };
+    const dispatch = dispatchTask(dispatchInput(h, 84, runCommand));
+
+    try {
+      await started;
+      assert.equal(transition.mock.callCount(), 0);
+      assert.equal(h.commands.taskMessages().length, 0);
+      const reserved = getRoleWorker((await h.readProjects()).projects[h.project.slug], "developer").levels.medior?.[0];
+
+      assert.equal(reserved?.active, true);
+      releasePatch();
+      await dispatch;
+      assert.equal(transition.mock.callCount(), 1);
+      assert.equal(h.commands.taskMessages().length, 1);
+      const methods = h.commands.commands.map(command => command.argv[3]);
+
+      assert.ok(methods.indexOf("sessions.patch") < methods.indexOf("agent"));
+    } finally {
+      releasePatch();
+      await dispatch.catch(() => {});
+      await h.cleanup();
+    }
+  });
+
+  for (const failure of ["exit", "timeout", "invalid acknowledgement"]) {
+    it(`releases the reservation without submitting work when model setup fails: ${failure}`, async (t) => {
+      const h = await createTestHarness();
+      h.provider.seedIssue({ iid: 85, labels: ["To Do"] });
+      const transition = t.mock.method(h.provider, "transitionLabel");
+      const queued: IssueRuntimeState = {
+        projectSlug: h.project.slug, issueId: 85, provider: ISSUE_PROVIDER.GITHUB,
+        workflowState: "todo", workflowLabel: "To Do", assignedRole: "developer", assignedLevel: "medior",
+        owner: null, reviewPolicy: null, testPolicy: null, notifyTarget: null, activeWorker: null,
+        integrityStatus: ISSUE_INTEGRITY_STATUS.OK, integrityErrors: [],
+        createdAt: "2026-10-06T00:00:00.000Z", updatedAt: "2026-10-06T00:00:00.000Z",
+        closedAt: null, providerMissing: null, pipelineNotification: null,
+      };
+      const store = createEmptyIssueStateStoreForTesting(h.project.slug);
+
+      store.issues["85"] = queued;
+      await replaceIssueStateStoreForTesting(h.workspaceDir, h.project.slug, store);
+      const runCommand: RunCommand = async (args, options) => {
+        if (args[3] !== "sessions.patch") return h.runCommand(args, options);
+        if (failure === "timeout") throw new Error("model patch timed out");
+
+        return {
+          stdout: "{}", stderr: failure, code: failure === "exit" ? 1 : 0,
+          signal: null, killed: false, termination: "exit",
+        };
+      };
+
+      try {
+        await assert.rejects(dispatchTask(dispatchInput(h, 85, runCommand)), /Session model setup failed/);
+        const slot = getRoleWorker((await h.readProjects()).projects[h.project.slug], "developer").levels.medior?.[0];
+
+        assert.equal(slot?.active, false);
+        assert.equal(slot?.issueId, null);
+        assert.equal(slot?.delivery, undefined);
+        assert.equal(transition.mock.callCount(), 0);
+        assert.equal(h.commands.taskMessages().length, 0);
+        assert.ok((await h.provider.getIssue(85)).labels.includes("To Do"));
+        assert.deepEqual((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["85"], queued);
+        await dispatchTask(dispatchInput(h, 85, h.runCommand));
+        assert.equal(h.commands.taskMessages().length, 1);
+        assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["85"].activeWorker?.role, "developer");
+      } finally {
+        await h.cleanup();
+      }
+    });
+  }
+
+  it("rejects an unknown level before reservation, provider transition, or gateway commands", async (t) => {
+    const h = await createTestHarness();
+    h.provider.seedIssue({ iid: 83, labels: ["To Do"] });
+    const transition = t.mock.method(h.provider, "transitionLabel");
+    const runCommand = t.mock.fn(h.runCommand);
+    const workersBefore = (await h.readProjects()).projects[h.project.slug].workers;
+
+    try {
+      await assert.rejects(dispatchTask({
+        ...dispatchInput(h, 83, runCommand), level: "provider/raw-model",
+      }), /Unknown configured level/);
+      assert.deepEqual((await h.readProjects()).projects[h.project.slug].workers, workersBefore);
+      assert.equal(transition.mock.callCount(), 0);
+      assert.equal(runCommand.mock.callCount(), 0);
+      assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["83"], undefined);
+    } finally {
+      await h.cleanup();
+    }
+  });
+
   it("rejects oversized required task input before reservation or provider transition", async (t) => {
     const h = await createTestHarness();
     h.provider.seedIssue({ iid: 81, labels: ["To Do"] });

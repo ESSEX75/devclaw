@@ -70,27 +70,6 @@ export async function shouldClearSession(
 // Private helpers — exist so dispatchTask reads as a sequence of steps
 // ---------------------------------------------------------------------------
 
-/**
- * Fire-and-forget session creation/update.
- * Session key is deterministic, so we don't need to wait for confirmation.
- * If this fails, health check will catch orphaned state later.
- */
-export function ensureSessionFireAndForget(sessionKey: string, model: string, workspaceDir: string, runCommand: RunCommand, timeoutMs = 30_000, label?: string): void {
-  const rc = runCommand;
-  const params: Record<string, unknown> = { key: sessionKey, model };
-
-  if (label) params.label = label;
-  rc(
-    ["openclaw", "gateway", "call", "sessions.patch", "--params", JSON.stringify(params)],
-    { timeoutMs },
-  ).catch((err) => {
-    auditLog(workspaceDir, "dispatch_warning", {
-      step: "ensureSession", sessionKey,
-      error: (err as Error).message ?? String(err),
-    }).catch(() => { });
-  });
-}
-
 export function sendToAgent(
   sessionKey: string, taskMessage: string,
   opts: AgentTurnInput,

@@ -91,6 +91,12 @@ onboard({ "mode": "first-run" })
 
 The tool returns step-by-step instructions that guide the agent through the setup conversation.
 
+Model assignments are explicit: accept the defaults or provide a model ID for each
+role-level change. Existing assignments are preserved when `models` is omitted.
+Reconfiguration guidance shows effective workspace assignments, including custom
+roles and levels. Define new roles and levels in `workflow.yaml` before updating
+their models through `setup`. OpenClaw model authentication is configured separately.
+
 **Direct setup (skip conversation):**
 ```json
 setup({
@@ -267,7 +273,7 @@ Each project is fully isolated — separate queue, separate workers, separate st
 
 ## Developer levels
 
-DevClaw assigns tasks to developer levels instead of raw model names. This makes the system intuitive — you're assigning a "junior" to fix a typo, not configuring model parameters. All roles use the same level scheme.
+DevClaw assigns tasks to developer levels instead of raw model names. This makes the system intuitive — you're assigning a "junior" to fix a typo, not configuring model parameters. Roles have configured level scales; built-in developer/tester use junior/medior/senior, while architect/reviewer use junior/senior.
 
 | Role | Level | Default Model | When to assign |
 |------|-------|---------------|----------------|

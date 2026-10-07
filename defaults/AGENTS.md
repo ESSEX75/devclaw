@@ -101,7 +101,7 @@ Evaluate each task and pass the appropriate developer level to `task_start`:
 - **medior** — standard: features, bug fixes, multi-file changes
 - **senior** — complex: architecture, system-wide refactoring, 5+ services
 
-All roles (Developer, Tester, Architect) use the same level scheme. Levels describe task complexity, not the model.
+Roles use their configured level scales and explicit capability ranks. Built-in Developer/Tester use junior/medior/senior; Architect/Reviewer use junior/senior. Levels describe task complexity and resolve to the model configured for that role and level.
 
 ### Picking Up Work
 

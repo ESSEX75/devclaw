@@ -8,7 +8,7 @@ import {
   runSetup,
   type SetupOpts,
 } from "../../application/index.js";
-import { getAllDefaultModels, getAllRoleIds, getLevelsForRole } from "../../roles/index.js";
+import { getAllBuiltInDefaultModels, getAllRoleIds, getBuiltInLevelsForRole } from "../../roles/index.js";
 import {
   normalizeChannelBinding,
   normalizeProjectExecution,
@@ -40,10 +40,10 @@ export function registerSetupCommand(parent: Command, ctx: Pick<SetupOpts, "runt
     .option("--reset-defaults", "Reset packaged defaults with backups")
     .option("--refresh-instructions", "Refresh system instructions with backups");
 
-  const defaults = getAllDefaultModels();
+  const defaults = getAllBuiltInDefaultModels();
 
   for (const role of getAllRoleIds()) {
-    for (const level of getLevelsForRole(role)) {
+    for (const level of getBuiltInLevelsForRole(role)) {
       const flag = `--${role}-${level}`;
 
       setupCmd.option(`${flag} <model>`, `${role.toUpperCase()} ${level} model (default: ${defaults[role]?.[level] ?? "auto"})`);
@@ -64,7 +64,7 @@ export function registerSetupCommand(parent: Command, ctx: Pick<SetupOpts, "runt
       for (const role of getAllRoleIds()) {
         const roleModels: Record<string, string> = {};
 
-        for (const level of getLevelsForRole(role)) {
+        for (const level of getBuiltInLevelsForRole(role)) {
           const key = `${role}${level.charAt(0).toUpperCase()}${level.slice(1)}`;
           const model = opts[key];
 

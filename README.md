@@ -80,7 +80,7 @@ GitHub/GitLab issues are the visible task surface; initialized managed issue run
 
 - **[External task surface](#your-issues-stay-in-your-tracker)** — issues, projected labels, and status visibility stay in your issue tracker
 - **[Atomic operations](#what-atomic-means-here)** — label transition + state update + session dispatch + audit log in one call
-- **[Tool-based guardrails](#the-toolbox)** — 23 tools enforce the process; the agent provides intent, the plugin handles mechanics
+- **[Tool-based guardrails](#the-toolbox)** — 25 tools enforce the process; the agent provides intent, the plugin handles mechanics
 
 ### ~60-80% token savings
 
@@ -485,7 +485,7 @@ You can also use the [CLI wizard or non-interactive setup](docs/ONBOARDING.md#st
 
 ## The toolbox
 
-DevClaw gives the orchestrator 23 tools. These aren't just convenience wrappers — they're **guardrails**. Each tool encodes a complex multi-step operation into a single atomic call. The agent provides intent, the plugin handles mechanics. The agent physically cannot skip a label transition, forget to update state, or dispatch to the wrong session — those decisions are made by deterministic code, not LLM reasoning.
+DevClaw gives the orchestrator 25 tools. These aren't just convenience wrappers — they're **guardrails**. Each tool encodes a complex multi-step operation into a single atomic call. The agent provides intent, the plugin handles mechanics. The agent physically cannot skip a label transition, forget to update state, or dispatch to the wrong session — those decisions are made by deterministic code, not LLM reasoning.
 
 | Tool                   | What it does                                                                            |
 | ---------------------- | --------------------------------------------------------------------------------------- |
@@ -512,7 +512,6 @@ DevClaw gives the orchestrator 23 tools. These aren't just convenience wrappers 
 | `channel_list`         | List channels for a project or all projects                                             |
 | `setup`                | Agent + workspace initialization                                                        |
 | `onboard`              | Conversational setup guide                                                              |
-| `autoconfigure_models` | LLM-powered model selection based on available models                                   |
 | `workflow_guide`       | Configuration reference for workflow.yaml (call before editing)                         |
 | `config`               | Manage workspace config: reset to defaults, diff against defaults, version info         |
 | `research_task`        | Spawn an architect for design investigation — creates issue, dispatches worker          |

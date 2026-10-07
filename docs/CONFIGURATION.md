@@ -5,7 +5,7 @@ DevClaw uses a three-layer configuration system. All role, workflow, and timeout
 ## Three-Layer Config Resolution
 
 ```
-Layer 1: Built-in defaults (ROLE_REGISTRY + DEFAULT_WORKFLOW)
+Layer 1: Built-in role defaults + DEFAULT_WORKFLOW
 Layer 2: Workspace:  <workspace>/devclaw/workflow.yaml
 Layer 3: Project:    <workspace>/devclaw/projects/<project>/workflow.yaml
 ```
@@ -62,6 +62,12 @@ Each level accepts `rank`, `model`, `maxWorkers`, and `emoji`. After all layers 
 `rank` and `model` are required. Worker capacity comes from the level's `maxWorkers`,
 then `workflow.maxWorkersPerLevel`, then the built-in default.
 
+Disabling a built-in role with `false` preserves its inherited configuration.
+A higher layer must explicitly set `enabled: true` to re-enable it; changing a
+model alone leaves it disabled. Custom roles use `enabled: false` for disabling.
+Removing a level with `false` discards its inherited definition; restoring it
+requires both `rank` and `model`.
+
 Role and level identifiers are extensible. A custom role must provide a complete
 definition after workspace and project layers are merged:
 
@@ -90,6 +96,13 @@ Automatic selection uses the lowest-ranked level for simple tasks, the highest-r
 level for complex tasks, and `defaultLevel` otherwise. Runtime routing,
 worker slots, persisted issue state, and projected `role:level` labels all use
 the resolved role definition rather than the built-in registry.
+
+Text classification gives complex signals priority over simple signals and matches
+whole words or phrases. An explicit `research_task.complexity` overrides text:
+`simple` selects the lowest rank, `medium` selects `defaultLevel`, and `complex`
+selects the highest rank. Without that parameter, research uses text classification.
+Task lifecycle operations preserve a valid explicit level or existing assignment
+before applying automatic selection.
 
 #### Place a custom role in the workflow
 
@@ -170,14 +183,17 @@ without the outgoing transition, work cannot continue after it finishes.
 | reviewer | junior | `anthropic/claude-haiku-4-5` |
 | reviewer | senior | `anthropic/claude-sonnet-4-5` |
 
-**Source:** [`lib/roles/registry.ts`](../lib/roles/registry.ts)
+**Source:** [`lib/roles/built-in/defaults.ts`](../lib/roles/built-in/defaults.ts)
 
 **Model resolution order:**
 
 1. Project `workflow.yaml` → `roles.<role>.levels.<level>.model`
 2. Workspace `workflow.yaml` → `roles.<role>.levels.<level>.model`
-3. Built-in defaults from `ROLE_REGISTRY`
-4. Passthrough — treat the level string as a raw model ID
+3. Built-in defaults from `lib/roles/built-in/defaults.ts`
+
+These layers are merged before runtime selection. Workers read the model from the
+selected configured level. Unknown levels fail; a level string is never treated
+as a raw model ID.
 
 ### Workflow States
 
@@ -406,7 +422,6 @@ Restrict DevClaw tools to your orchestrator agent. Setup writes these tools to `
             "channel_list",
             "setup",
             "onboard",
-            "autoconfigure_models",
             "research_task",
             "workflow_guide",
             "config"

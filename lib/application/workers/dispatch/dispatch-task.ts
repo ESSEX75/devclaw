@@ -9,8 +9,9 @@ import { log as auditLog } from "../../../audit.js";
 import type { WorkerDeliveryState } from "../../../domain/index.js";
 import { emptySlot, ISSUE_INTEGRITY_STATUS, NOTIFICATION_CHANNEL, WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
 import { AGENT_TURN_STATUS } from "../../../integrations/openclaw/const.js";
-import { ensureSessionFireAndForget, shouldClearSession } from "../../../integrations/openclaw/session.js";
+import { shouldClearSession } from "../../../integrations/openclaw/session.js";
 import { deleteWorkerSession } from "../../../integrations/openclaw/session-cleanup.js";
+import { ensureSessionModel } from "../../../integrations/openclaw/session-model.js";
 import { isIssueCreationReady, loadConfig } from "../../../state/index.js";
 import { readIssueStateStore, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../../state/index.js";
 import { getProject, getRoleWorker, readProjects } from "../../../state/index.js";
@@ -125,17 +126,15 @@ export async function dispatchTaskLocked(
       await deleteWorkerSession(sessionKeyToDelete, rc).catch(() => {});
     }
 
+    const sessionLabel = formatSessionLabel(project.name, role, level, botName);
+
+    await ensureSessionModel(sessionKey, model, rc, timeouts.sessionPatchMs, sessionLabel);
+
     // ── Provider transition — compensated if agent send does not begin ──
     await provider.transitionLabel(issueId, fromLabel, toLabel);
     providerTransitioned = true;
 
     const issue = await provider.getIssue(issueId);
-
-    // Ensure session exists (fire-and-forget — don't wait for gateway)
-    // Session key is deterministic, so we can proceed immediately
-    const sessionLabel = formatSessionLabel(project.name, role, level, botName);
-
-    ensureSessionFireAndForget(sessionKey, model, workspaceDir, rc, timeouts.sessionPatchMs, sessionLabel);
 
     // Model is set on the session via sessions.patch, not on the agent RPC —
     // the gateway's agent endpoint rejects unknown properties like 'model'.

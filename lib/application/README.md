@@ -55,6 +55,8 @@ separate READMEs. Their file responsibilities and API details belong in source J
   Confirmed start retains ownership; confirmed non-start restores the validated queue
   and releases the exact slot. Completion requires an unambiguous current run and,
   for developers, a live conflict-free open PR; pipeline rechecks under lock.
+- Dispatch requires a resolved role and resolves the selected level's explicit model before reservation. Removed or unknown levels fail without restoring registry defaults or interpreting levels as raw model IDs.
+- After reservation, dispatch awaits confirmed session model setup before provider transition or worker submission. Setup failure releases the exact reservation while retaining the queued issue; uncertainty in a model patch alone does not imply a submitted worker turn.
 - Notifications use the persisted exact endpoint without redirecting. Transport fallback
   is allowed only before submission. Terminal release precedes delivery and archival;
   unknown attempts require exact operator settlement and never automatically resend.
@@ -74,6 +76,7 @@ separate READMEs. Their file responsibilities and API details belong in source J
   bindings and rejects conflicting owners; inspection does not prove live connectivity.
   Ownership and SDK configuration are not one transaction. Denied/pending scope evidence
   overrides positive fields; an unavailable scope command is nonblocking.
+- Onboarding collects explicit role-level model overrides or accepts defaults. Reconfiguration guidance reads effective enabled workspace roles, including custom levels; it does not discover models or invoke LLM selection.
 
 Within workers, shared root evidence operations/constants may be imported directly
 to avoid command-barrel cycles; recovery must not depend on dispatch. In setup,

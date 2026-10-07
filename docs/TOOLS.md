@@ -446,7 +446,7 @@ Spawn an architect for a design investigation. Creates a `To Research` issue wit
 | `title` | string | Yes | Design task title |
 | `description` | string | Yes | Detailed background context for the architect |
 | `focusAreas` | string[] | No | Specific areas to investigate |
-| `complexity` | `"simple"` \| `"medium"` \| `"complex"` | No | Guides level selection. Default: `"medium"`. |
+| `complexity` | `"simple"` \| `"medium"` \| `"complex"` | No | Explicitly selects lowest rank, configured default, or highest rank. Omitted: analyze task text. |
 
 ---
 

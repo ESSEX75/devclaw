@@ -1,37 +1,5 @@
-/**
- * roles/ — Centralized role configuration.
- *
- * Single source of truth for all worker roles in DevClaw.
- * To add a new role, add an entry to registry.ts — everything else derives from it.
- */
+/** Exposes supported roles capabilities to external consumers through one stable package API. */
 
-export { ROLE_REGISTRY } from "./registry.js";
-export {
-  // Role/level aliases (used by migration + tests)
-  canonicalLevel,
-  getAllDefaultModels,
-  getAllLevels,
-  // Role IDs
-  getAllRoleIds,
-  // Completion
-  getCompletionEvent,
-  getCompletionResults,
-  getDefaultLevel,
-  // Models
-  getDefaultModel,
-  // Emoji
-  getEmoji,
-  getFallbackEmoji,
-  // Levels
-  getLevelsForRole,
-  getRole,
-  // Session keys
-  getSessionKeyRolePattern,
-  isLevelForRole,
-  isValidResult,
-  isValidRole,
-  requireRole,
-  resolveModel,
-  roleForLevel,
-} from "./selectors.js";
-export type { ResolvedRoleDefinition, RoleConfig, RoleLevelConfig } from "./types.js";
+export * from "./built-in/index.js";
+export * from "./complexity/index.js";
+export * from "./selection/index.js";

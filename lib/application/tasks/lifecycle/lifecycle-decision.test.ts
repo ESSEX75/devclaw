@@ -7,8 +7,9 @@ import {
   ISSUE_INTEGRITY_STATUS,
   ISSUE_PROVIDER,
   type IssueRuntimeState,
+  type RoleId,
 } from "../../../domain/index.js";
-import { ROLE_REGISTRY } from "../../../roles/index.js";
+import { requireBuiltInRole } from "../../../roles/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 import { resolveRoleLevel, resolveStartTaskDecision } from "./lifecycle-decision.js";
 
@@ -37,8 +38,8 @@ const baseState: IssueRuntimeState = {
 /** Resolve a built-in role fixture with usable worker capacity.
  * @param role - Built-in role whose configured levels are exercised.
  */
-function roleConfig(role: keyof typeof ROLE_REGISTRY): ResolvedRoleConfig {
-  const definition = ROLE_REGISTRY[role];
+function roleConfig(role: RoleId): ResolvedRoleConfig {
+  const definition = requireBuiltInRole(role);
   const levels: ResolvedRoleConfig["levels"] = {};
 
   for (const [level, config] of Object.entries(definition.levels)) {
@@ -54,6 +55,25 @@ function roleConfig(role: keyof typeof ROLE_REGISTRY): ResolvedRoleConfig {
 }
 
 describe("task lifecycle decisions", () => {
+  it("preserves an explicit level even when the text implies a complex task", () => {
+    assert.equal(resolveRoleLevel({
+      runtimeState: { ...baseState, assignedRole: "developer", assignedLevel: "senior" },
+      targetRole: "developer", roleConfig: roleConfig("developer"), requestedLevel: "junior",
+      issueTitle: "Simple security refactor", issueDescription: "",
+    }), "junior");
+  });
+
+  it("rejects inherited object keys as levels and reselects stale prepared assignments", () => {
+    const input = {
+      runtimeState: { ...baseState, assignedRole: "developer", assignedLevel: "toString" },
+      targetRole: "developer", roleConfig: roleConfig("developer"),
+      issueTitle: "Simple security refactor", issueDescription: "",
+    };
+
+    assert.equal(resolveRoleLevel(input), "senior");
+    assert.throws(() => resolveRoleLevel({ ...input, requestedLevel: "toString" }), /Invalid level/);
+  });
+
   it("uses an explicit valid level for the target role", () => {
     const decision = resolveStartTaskDecision({
       workflow: DEFAULT_WORKFLOW,

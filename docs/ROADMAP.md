@@ -11,7 +11,7 @@ in public docs.
 - **Managed issue runtime state** — `devclaw/projects/<project>/issues.json` is
   the runtime source of truth; provider labels and issue bodies are projections.
 - **Role registry** — developer, tester, architect, and reviewer roles are
-  configured through `lib/roles/registry.ts` and overridable workflow config.
+  configured through `lib/roles/built-in/defaults.ts` and overridable workflow config.
 - **Project/channel routing** — projects are keyed by slug and can be linked to
   one or more channels.
 - **Provider abstraction** — GitHub and GitLab share the `IssueProvider`

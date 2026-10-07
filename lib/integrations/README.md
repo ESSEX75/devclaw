@@ -63,3 +63,8 @@ by this adapter.
 
 The session cleanup adapter owns the `sessions.delete` payload and command timeout.
 Application decides whether optional stale-session cleanup failure blocks dispatch.
+
+The session model adapter awaits `sessions.patch --json` and validates its persisted
+acknowledgement, exact session key, and resolved model identity. The gateway owns
+model aliases and normalization. Command failure or absent confirmation blocks
+worker submission; a model patch never submits a task by itself.

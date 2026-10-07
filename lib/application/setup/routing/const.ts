@@ -18,8 +18,9 @@ export const ROUTE_DIAGNOSTIC_CODE = {
   DESTINATION_CONFLICT: "route.destination_conflict",
 } as const;
 
-/** OpenClaw peer kinds accepted for group notification destinations. */
+/** OpenClaw peer kinds accepted for exact notification destinations. */
 export const ROUTE_PEER_KIND = {
+  DIRECT: "direct",
   GROUP: "group",
   CHANNEL: "channel",
 } as const;

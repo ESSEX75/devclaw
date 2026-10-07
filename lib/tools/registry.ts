@@ -1,7 +1,6 @@
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/core";
 
 import type { PluginContext } from "../context.js";
-import { createAutoConfigureModelsTool } from "./admin/autoconfigure-models.js";
 import { createChannelLinkTool } from "./admin/channel-link.js";
 import { createChannelListTool } from "./admin/channel-list.js";
 import { createChannelUnlinkTool } from "./admin/channel-unlink.js";
@@ -73,7 +72,6 @@ export const toolRegistry = [
   // Setup & onboarding
   { names: ["setup"], factory: createSetupTool },
   { names: ["onboard"], factory: createOnboardTool },
-  { names: ["autoconfigure_models"], factory: createAutoConfigureModelsTool },
   { names: ["workflow_guide"], factory: createWorkflowGuideTool },
   { names: ["config"], factory: createConfigTool },
 ] as const satisfies readonly ToolRegistryEntry[];

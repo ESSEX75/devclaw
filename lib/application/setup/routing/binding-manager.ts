@@ -5,7 +5,7 @@ import type { OpenClawConfig } from "openclaw/plugin-sdk/core";
 import { CONFIG_RELOAD_MODE } from "../const.js";
 import type { SetupRuntime } from "../types.js";
 import { ROUTE_PEER_KIND } from "./const.js";
-import { matchesGroupDestination } from "./route-matching.js";
+import { isDirectDestination, matchesExactDestination } from "./route-matching.js";
 import { validateExactRoute } from "./route-validation.js";
 import type { RouteConfig } from "./types.js";
 
@@ -26,7 +26,7 @@ export async function ensureChannelBinding(runtime: SetupRuntime, channel: strin
       const binding = buildBinding(channel, agentId, accountId, peerId);
 
       config.bindings ??= [];
-      if (config.bindings.some(entry => matchesGroupDestination(entry, channel, accountId, peerId))) return;
+      if (config.bindings.some(entry => matchesExactDestination(entry, channel, accountId, peerId))) return;
       const index = config.bindings.findIndex(entry => entry.match.channel === channel && entry.match.accountId === binding.match.accountId && !entry.match.peer);
 
       config.bindings.splice(index < 0 ? config.bindings.length : index, 0, binding);
@@ -44,7 +44,7 @@ export async function ensureChannelBinding(runtime: SetupRuntime, channel: strin
  */
 export function planChannelBinding(config: RouteConfig, channel: string, agentId: string, accountId: string, peerId: string): void {
   const binding = buildBinding(channel, agentId, accountId, peerId);
-  const existing = (config.bindings ?? []).filter(entry => matchesGroupDestination(entry, channel, accountId, peerId));
+  const existing = (config.bindings ?? []).filter(entry => matchesExactDestination(entry, channel, accountId, peerId));
   const occupied = existing.find(entry => entry.agentId !== agentId);
 
   if (occupied) throw new Error(`${channel}/${accountId}/${peerId} is already bound to agent "${occupied.agentId}"`);
@@ -53,7 +53,7 @@ export function planChannelBinding(config: RouteConfig, channel: string, agentId
   validateExactRoute({ ...config, bindings }, agentId, channel, accountId.trim(), peerId.trim());
 }
 
-/** Construct an exact, normalized group destination after checking required fields.
+/** Construct an exact, normalized destination after checking required fields.
  * @param channel - Destination transport.
  * @param agentId - Exact route owner.
  * @param accountId - Configured account identifier.
@@ -63,5 +63,7 @@ function buildBinding(channel: string, agentId: string, accountId: string, peerI
   if (!accountId.trim()) throw new Error("accountId is required for an exact DevClaw binding");
   if (!peerId.trim()) throw new Error("peerId is required for an exact DevClaw binding");
 
-  return { agentId, match: { channel, accountId: accountId.trim(), peer: { kind: ROUTE_PEER_KIND.GROUP, id: peerId.trim() } } };
+  const kind = isDirectDestination(channel, peerId) ? ROUTE_PEER_KIND.DIRECT : ROUTE_PEER_KIND.GROUP;
+
+  return { agentId, match: { channel, accountId: accountId.trim(), peer: { kind, id: peerId.trim() } } };
 }

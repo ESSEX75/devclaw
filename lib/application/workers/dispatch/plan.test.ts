@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 
 import { emptySlot } from "../../../domain/index.js";
+import { loadConfig } from "../../../state/index.js";
 import { createTestHarness } from "../../../testing/index.js";
 import { buildDispatchPlan } from "./plan.js";
 
@@ -14,6 +15,7 @@ it("reuses a returning issue session and resets it for a different issue or budg
       project: h.project, agentId: h.project.agentId,
       issueId: 91, role: "developer", level: "medior", slotIndex: 0,
       slot: emptySlot(), clearExisting: false,
+      resolvedRole: (await loadConfig(h.workspaceDir)).roles.developer,
     };
     const first = buildDispatchPlan(base);
     const previous = { ...emptySlot(), sessionKey: first.sessionKey, lastIssueId: 91 };

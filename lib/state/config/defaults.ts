@@ -1,7 +1,7 @@
 /** Builds the product's built-in configuration layer through role selectors. */
 
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";
-import { getAllRoleIds, requireRole } from "../../roles/index.js";
+import { getAllRoleIds, requireBuiltInRole } from "../../roles/index.js";
 import type { DevClawConfig, LevelOverride, RoleOverride } from "./types.js";
 
 /** Build the complete built-in configuration layer. */
@@ -9,7 +9,7 @@ export function buildDefaultConfig(): DevClawConfig {
   const roles: Record<string, RoleOverride> = {};
 
   for (const id of getAllRoleIds()) {
-    const role = requireRole(id);
+    const role = requireBuiltInRole(id);
 
     roles[id] = { levels: copyBuiltInLevels(role.levels), defaultLevel: role.defaultLevel, completion: { ...role.completion } };
   }
