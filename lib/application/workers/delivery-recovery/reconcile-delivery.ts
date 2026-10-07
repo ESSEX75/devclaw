@@ -3,7 +3,7 @@
 import { log as auditLog } from "../../../audit.js";
 import type { WorkerDeliveryState } from "../../../domain/index.js";
 import { WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
-import { fetchGatewaySessions } from "../../../integrations/openclaw/gateway-sessions.js";
+import { fetchGatewaySessions, isSessionAlive } from "../../../integrations/openclaw/gateway-sessions.js";
 import { getProject, getRoleWorker, readIssueStateStore, readProjects, readWorkerDeliveryResolution, updateSlot } from "../../../state/index.js";
 import { WORKER_AUDIT_EVENT } from "../const.js";
 import { recordIssueDelivery } from "../delivery-state.js";
@@ -32,9 +32,9 @@ export async function reconcileUncertainDispatch(input: UnknownDispatchInput): P
 
   if (resolution && resolution.deliveryId === marker.operationId) return;
   const sessions = input.sessions !== undefined ? input.sessions : await fetchGatewaySessions(DELIVERY_INSPECTION_TIMEOUT_MS, runCommand);
-  const sessionObserved = sessions ? sessions.has(sessionKey) : null;
+  const sessionObserved = isSessionAlive(sessionKey, sessions);
   const elapsed = Date.now() - Date.parse(marker.recordedAt);
-  const observedSession = sessions?.get(sessionKey);
+  const observedSession = sessions?.sessions.get(sessionKey);
   const recentWorkerActivity = observedSession !== undefined
     && (observedSession.contextTokens ?? 0) > 0
     && Date.now() - observedSession.updatedAt < DELIVERY_ATTENTION_AFTER_MS;

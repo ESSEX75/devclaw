@@ -15,7 +15,7 @@ import {
   PROVIDER_ISSUE_LOOKUP_ERROR,
   ProviderIssueLookupError,
 } from "./lookup-errors.js";
-import { classifyProviderOperationError } from "./operation-errors.js";
+import { classifyProviderOperationError, PROVIDER_OPERATION_ERROR, ProviderOperationError } from "./operation-errors.js";
 import type { IssueProvider } from "./provider.js";
 import { withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
@@ -56,7 +56,7 @@ export class GitLabProvider implements IssueProvider {
   private async glabOnce(args: string[]): Promise<string> {
     const result = await this.runCommand(["glab", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
 
-    if (result.code != null && result.code !== 0) {
+    if (result.code !== 0 || result.termination !== "exit" || result.killed || result.signal !== null) {
       throw new Error(result.stderr?.trim() || `glab command failed with exit code ${result.code}`);
     }
 
@@ -480,15 +480,31 @@ export class GitLabProvider implements IssueProvider {
     return comments;
   }
 
+  /** Create one note without replaying a mutation whose response may have been lost.
+   * @param issueId - Provider issue receiving the note.
+   * @param body - Complete note text submitted once.
+   */
   async addComment(issueId: number, body: string): Promise<number> {
-    const raw = await this.glab([
-      "api", `projects/:id/issues/${issueId}/notes`,
-      "--method", "POST",
-      "--field", `body=${body}`,
-    ]);
-    const parsed = JSON.parse(raw) as { id: number };
+    let raw: string;
 
-    return parsed.id;
+    try {
+      raw = await this.glabOnce([
+        "api", `projects/:id/issues/${issueId}/notes`,
+        "--method", "POST", "--field", `body=${body}`,
+      ]);
+    } catch (error) {
+      throw classifyProviderOperationError(error);
+    }
+
+    try {
+      const response: unknown = JSON.parse(raw);
+
+      return z.object({ id: z.number().int().positive().safe() }).parse(response).id;
+    } catch (error) {
+      throw new ProviderOperationError({ code: PROVIDER_OPERATION_ERROR.UNKNOWN,
+        message: "GitLab note creation returned no confirmed comment identity.",
+        retryable: false, outcomeUnknown: true, cause: error });
+    }
   }
 
   /**

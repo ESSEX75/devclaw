@@ -1,5 +1,6 @@
 /** Verifies heartbeat ownership discovery using active agent entries and explicit workspaces. */
 import assert from "node:assert/strict";
+import { realpath } from "node:fs/promises";
 import { it } from "node:test";
 
 import { createTestHarness } from "../../../testing/index.js";
@@ -18,7 +19,7 @@ it("discovers dev-agent's project in its entries workspace", async () => {
     }, list: [{ id: "legacy", workspace: harness.workspaceDir }] } });
 
     assert.deepEqual(result.agents, []);
-    assert.deepEqual(discovered, { agents: [{ agentId: "dev-agent", workspace: harness.workspaceDir }], errors: [] });
+    assert.deepEqual(discovered, { agents: [{ agentId: "dev-agent", workspace: await realpath(harness.workspaceDir) }], errors: [] });
   } finally {
     await harness.cleanup();
   }

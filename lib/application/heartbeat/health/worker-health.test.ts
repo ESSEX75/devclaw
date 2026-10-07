@@ -37,12 +37,27 @@ describe("worker diagnosis and remediation", () => {
       workflowState: "doing", workflowLabel: "Doing",
       activeWorker: { role: "developer", level: "medior", slotIndex: 0, sessionKey: "worker", startedAt },
     });
-    input = { workspaceDir: harness.workspaceDir, projectSlug: harness.project.slug, project: harness.project, role: "developer", provider: harness.provider, workflow: harness.workflow, sessions: new Map(), runCommand: harness.runCommand };
+    input = { workspaceDir: harness.workspaceDir, projectSlug: harness.project.slug, project: harness.project, role: "developer", provider: harness.provider, workflow: harness.workflow, sessions: { sessions: new Map(), complete: true }, runCommand: harness.runCommand };
   });
   afterEach(async () => { await harness.cleanup(); });
 
+  it("retains issue and slot ownership when a session is absent from an incomplete snapshot", async () => {
+    input.sessions = { sessions: new Map(), complete: false };
+    const before = await snapshot(harness.workspaceDir);
+    assert.deepEqual(await checkWorkerHealth({ ...input, autoFix: true }), []);
+    assert.deepEqual(await snapshot(harness.workspaceDir), before);
+    assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+    assert.equal(harness.commands.commands.length, 0);
+  });
+
+  it("does not infer a stalled session when its activity timestamp is unknown", async () => {
+    input.sessions?.sessions.set("worker", { key: "worker", updatedAt: 0 });
+    assert.deepEqual(await checkWorkerHealth({ ...input, autoFix: true }), []);
+    assert.equal(harness.provider.callsTo("transitionLabel").length, 0);
+  });
+
   it("dry-run context overflow makes no filesystem, provider, or session writes", async () => {
-    input.sessions?.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 100, abortedLastRun: true });
+    input.sessions?.sessions.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 100, abortedLastRun: true });
     const before = await snapshot(harness.workspaceDir);
     const findings = await checkWorkerHealth({ ...input, autoFix: false });
     assert.equal(findings[0]?.issue.type, "context_overflow");
@@ -78,7 +93,7 @@ describe("worker diagnosis and remediation", () => {
   });
 
   it("plans and applies stale-worker recovery while retaining the configured previous queue", async () => {
-    input.sessions?.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
+    input.sessions?.sessions.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
     input.staleWorkerHours = 0.1;
     const findings = await diagnoseWorkerHealth(input);
     assert.equal(findings[0]?.issue.type, "stale_worker");
@@ -115,7 +130,7 @@ describe("worker diagnosis and remediation", () => {
   });
 
   it("repairs provider label drift without releasing a locally active worker", async () => {
-    input.sessions?.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
+    input.sessions?.sessions.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
     harness.provider.seedIssue({ iid: 42, labels: ["To Do"] });
     const results = await checkWorkerHealth({ ...input, autoFix: true });
     assert.equal(results[0]?.plannedAction, "reconcile_projection");
@@ -127,7 +142,7 @@ describe("worker diagnosis and remediation", () => {
   });
 
   it("retains a worker when its locally active issue is closed at the provider", async () => {
-    input.sessions?.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
+    input.sessions?.sessions.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
     await harness.provider.closeIssue(42);
     const findings = await checkWorkerHealth({ ...input, autoFix: true });
 
@@ -141,7 +156,7 @@ describe("worker diagnosis and remediation", () => {
   });
 
   it("retains a worker when its locally active issue is absent at the provider", async () => {
-    input.sessions?.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
+    input.sessions?.sessions.set("worker", { key: "worker", updatedAt: Date.now(), percentUsed: 1 });
     harness.provider.issues.delete(42);
     const findings = await checkWorkerHealth({ ...input, autoFix: true });
 
@@ -153,7 +168,7 @@ describe("worker diagnosis and remediation", () => {
   });
 
   it("records a failed nudge attempt and does not resubmit it on the next tick", async () => {
-    input.sessions?.set("worker", { key: "worker", updatedAt: Date.now() - 20 * 60_000,
+    input.sessions?.sessions.set("worker", { key: "worker", updatedAt: Date.now() - 20 * 60_000,
       percentUsed: 90, contextTokens: 2_000 });
     let submissions = 0;
     input.runCommand = async () => {

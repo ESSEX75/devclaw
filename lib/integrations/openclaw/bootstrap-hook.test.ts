@@ -1,59 +1,92 @@
 /**
- * Tests for bootstrap hook session key parsing and instruction loading.
+ * Tests exact saved bootstrap ownership, custom roles and instruction loading failures.
  * Run with: npx tsx --test lib/integrations/openclaw/bootstrap-hook.test.ts
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { loadRoleInstructions } from "../../state/index.js";
-import { parseDevClawSessionKey } from "./bootstrap-hook.js";
+import { createTestHarness } from "../../testing/index.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+import { registerBootstrapHook } from "./bootstrap-hook.js";
 
-describe("parseDevClawSessionKey", () => {
-  it("should parse a standard developer session key", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:my-project-developer-medior-ada");
-    assert.deepStrictEqual(result, { projectSlug: "my-project", role: "developer" });
+describe("registered worker bootstrap", () => {
+  for (const role of ["developer", "tester", "architect", "security_auditor", "security-auditor"]) {
+    it(`replaces orchestrator instructions for the exact ${role} session on repeated turns`, async () => {
+      const sessionKey = `agent:test-agent:subagent:my-project-${role}-expert-long-ada`;
+      const h = await createTestHarness({ projectName: "my-project", workers: { [role]: { level: "expert-long", sessionKey } } });
+      try {
+        if (role.startsWith("security")) {
+          await fs.writeFile(path.join(h.workspaceDir, "devclaw", "workflow.yaml"),
+            `roles:\n  ${role}:\n    levels:\n      expert-long:\n        rank: 1\n        model: model/security\n    defaultLevel: expert-long\n    completion:\n      done: COMPLETE\n`);
+        }
+        await h.writePrompt(role, `Instructions for ${role}`, h.project.slug);
+        for (let turn = 0; turn < 2; turn++) {
+          const result = await h.simulateBootstrap(sessionKey.toUpperCase());
+          assert.equal(result.agentsMdContent, `Instructions for ${role}`);
+        }
+        const wrongAgent = await h.simulateBootstrap(sessionKey.replace("test-agent", "other-agent"));
+        assert.ok(wrongAgent.agentsMdContent.includes("Orchestrator instructions"));
+        const unregistered = await h.simulateBootstrap(sessionKey.replace("-ada", "-grace"));
+        assert.ok(unregistered.agentsMdContent.includes("Orchestrator instructions"));
+      } finally {
+        await h.cleanup();
+      }
+    });
+  }
+
+  it("strips a registered custom worker's orchestrator prompt when no role prompt exists", async () => {
+    const role = "security_auditor";
+    const sessionKey = `agent:test-agent:subagent:my-project-${role}-standard-0`;
+    const h = await createTestHarness({ projectName: "my-project", workers: { [role]: { level: "standard", sessionKey } } });
+    try {
+      await fs.writeFile(path.join(h.workspaceDir, "devclaw", "workflow.yaml"),
+        `roles:\n  ${role}:\n    levels:\n      standard:\n        rank: 1\n        model: model/security\n    defaultLevel: standard\n    completion:\n      done: COMPLETE\n`);
+      assert.equal((await h.simulateBootstrap(sessionKey)).agentsMdStripped, true);
+    } finally {
+      await h.cleanup();
+    }
   });
 
-  it("should parse a tester session key", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:webapp-tester-medior-0");
-    assert.deepStrictEqual(result, { projectSlug: "webapp", role: "tester" });
+  it("clears orchestrator instructions before a registered worker's prompt read fails", async () => {
+    const sessionKey = "agent:test-agent:subagent:my-project-developer-medior-ada";
+    const h = await createTestHarness({ projectName: "my-project", workers: { developer: { level: "medior", sessionKey } } });
+    try {
+      const promptDirectory = path.join(h.workspaceDir, "devclaw", "projects", h.project.slug, "prompts", "developer.md");
+      await fs.mkdir(promptDirectory, { recursive: true });
+      const handlers: Parameters<OpenClawPluginApi["registerHook"]>[1][] = [];
+      const bootstrapFiles = [{ name: "AGENTS.md", path: path.join(h.workspaceDir, "AGENTS.md"),
+        content: "Orchestrator instructions", missing: false }];
+      registerBootstrapHook({ registerHook(_events, handler) { handlers.push(handler); } }, {
+        logger: { debug() {}, info() {}, warn() {}, error() {} },
+      });
+      await assert.rejects(async () => {
+        for (const handler of handlers) {
+          await handler({ type: "agent", action: "bootstrap", sessionKey, timestamp: new Date(), messages: [],
+            context: { workspaceDir: h.workspaceDir, bootstrapFiles } });
+        }
+      }, /Cannot read role instructions/);
+      assert.equal(bootstrapFiles[0].content, "");
+      assert.equal(bootstrapFiles[0].missing, true);
+    } finally {
+      await h.cleanup();
+    }
   });
 
-  it("should handle project names with hyphens", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:my-cool-project-developer-junior-1");
-    assert.deepStrictEqual(result, { projectSlug: "my-cool-project", role: "developer" });
-  });
-
-  it("should handle project names with multiple hyphens and tester role", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:a-b-c-d-tester-junior-grace");
-    assert.deepStrictEqual(result, { projectSlug: "a-b-c-d", role: "tester" });
-  });
-
-  it("should return null for non-subagent session keys", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:main");
-    assert.strictEqual(result, null);
-  });
-
-  it("should return null for session keys without role", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:project-unknown-level");
-    assert.strictEqual(result, null);
-  });
-
-  it("should return null for empty string", () => {
-    const result = parseDevClawSessionKey("");
-    assert.strictEqual(result, null);
-  });
-
-  it("should require slot suffix for senior developer level", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:devclaw-developer-senior");
-    assert.strictEqual(result, null);
-  });
-
-  it("should parse simple project name", () => {
-    const result = parseDevClawSessionKey("agent:devclaw:subagent:api-developer-junior-0");
-    assert.deepStrictEqual(result, { projectSlug: "api", role: "developer" });
+  it("does not use inherited object keys as configured roles", async () => {
+    const sessionKey = "agent:test-agent:subagent:my-project-toString-standard-0";
+    const h = await createTestHarness({ projectName: "my-project" });
+    try {
+      await h.writeProjects({ projects: { [h.project.slug]: { ...h.project, workers: { ...h.project.workers,
+        toString: { levels: { standard: [{ active: false, issueId: null, sessionKey, startTime: null }] } },
+      } } } });
+      await h.writePrompt("toString", "Unconfigured prompt", h.project.slug);
+      assert.equal((await h.simulateBootstrap(sessionKey)).agentsMdStripped, true);
+    } finally {
+      await h.cleanup();
+    }
   });
 });
 

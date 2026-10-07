@@ -13,7 +13,7 @@ import path from "node:path";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
-import type { PluginContext, RunCommand } from "../context.js";
+import type { RunCommand } from "../context.js";
 import {
   DEFAULT_WORKFLOW,
   ISSUE_PROVIDER,
@@ -37,6 +37,8 @@ const PROJECTS_FIXTURE_FILE_NAME = "projects.json";
 export type BootstrapResult = {
   /** Whether AGENTS.md was stripped from bootstrap files. */
   agentsMdStripped: boolean;
+  /** Instruction content after bootstrap replacement. */
+  agentsMdContent: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -344,50 +346,25 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, `${role}.md`), content, "utf-8");
     },
+    /** Fire the SDK hook with its resolved workspace and original mutable files.
+     * @param sessionKey - Exact session identity supplied by a worker bootstrap.
+     */
     async simulateBootstrap(sessionKey: string) {
-      // Capture the agent:bootstrap hook callback
-      let internalHookCb: ((event: unknown) => Promise<void>) | null = null;
-      const mockApi = {
-        registerHook(_name: string, cb: (event: unknown) => Promise<void>) {
-          internalHookCb = cb;
-        },
-        logger: {
-          debug() { },
-          info() { },
-          warn() { },
-          error() { },
-        },
-      } as unknown as OpenClawPluginApi;
+      const handlers: Parameters<OpenClawPluginApi["registerHook"]>[1][] = [];
 
-      const mockCtx = {
-        logger: mockApi.logger,
-      } as unknown as PluginContext;
+      registerBootstrapHook({ registerHook(_events, handler) { handlers.push(handler); } }, {
+        logger: { debug() {}, info() {}, warn() {}, error() {} },
+      });
+      const bootstrapFiles = [{ name: "AGENTS.md", path: path.join(workspaceDir, "AGENTS.md"),
+        content: "# Orchestrator instructions\nThis content should be stripped.", missing: false }];
 
-      registerBootstrapHook(mockApi, mockCtx);
-
-      // Fire the internal hook (agent:bootstrap) to test AGENTS.md stripping
-      const bootstrapFiles = [
-        {
-          name: "AGENTS.md",
-          path: path.join(workspaceDir, "AGENTS.md"),
-          content: "# Orchestrator instructions\nThis content should be stripped.",
-          missing: false,
-        },
-      ];
-
-      // Cast needed: TS strict mode doesn't track cross-function mutation of locals
-      const hookCb = internalHookCb as ((event: unknown) => Promise<void>) | null;
-
-      if (hookCb) {
-        await hookCb({
-          sessionKey,
-          context: { bootstrapFiles },
-        });
+      for (const handler of handlers) {
+        await handler({ type: "agent", action: "bootstrap", sessionKey, timestamp: new Date(), messages: [],
+          context: { workspaceDir, bootstrapFiles } });
       }
 
-      return {
-        agentsMdStripped: bootstrapFiles[0].missing === true && bootstrapFiles[0].content === "",
-      };
+      return { agentsMdStripped: bootstrapFiles[0].missing && bootstrapFiles[0].content === "",
+        agentsMdContent: bootstrapFiles[0].content };
     },
     async cleanup() {
       await fs.rm(workspaceDir, { recursive: true, force: true });

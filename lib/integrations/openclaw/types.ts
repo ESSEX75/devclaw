@@ -7,6 +7,50 @@ import type { PluginContext } from "../../context.js";
 import type { ATTACHMENT_MESSAGE_HOOK } from "./attachment-const.js";
 import type { AGENT_TURN_STATUS } from "./const.js";
 
+/** One validated gateway observation; missing metrics never mean zero usage. */
+export type GatewaySession = {
+  /** Exact gateway session identity. */
+  key: string;
+  /** Last known activity time, or zero when not supplied. */
+  updatedAt: number;
+  /** Known context usage percentage; absent when metrics cannot establish it. */
+  percentUsed?: number;
+  /** Whether the last observed run aborted. */
+  abortedLastRun?: boolean;
+  /** Fresh token usage when supplied. */
+  totalTokens?: number;
+  /** Context window capacity when supplied. */
+  contextTokens?: number;
+};
+
+/** Gateway evidence whose absence is authoritative only after all stores were read. */
+export type SessionLookup = {
+  /** Valid observations merged from stores and the bounded recent list. */
+  sessions: Map<string, GatewaySession>;
+  /** Every advertised store and record was read and validated successfully. */
+  complete: boolean;
+};
+
+/** Mutable instruction resource owned by the SDK bootstrap event. */
+export type WorkerBootstrapFile = {
+  /** SDK resource basename. */
+  name: string;
+  /** SDK resource location. */
+  path: string;
+  /** Instruction contents, absent for missing files. */
+  content?: string;
+  /** Whether the SDK should omit this resource. */
+  missing: boolean;
+};
+
+/** Validated SDK bootstrap context; file objects remain SDK-owned and mutable. */
+export type WorkerBootstrapContext = {
+  /** Resolved workspace used to inspect instruction ownership. */
+  workspaceDir: string;
+  /** Original SDK resources to replace in place. */
+  bootstrapFiles: WorkerBootstrapFile[];
+};
+
 /** SDK media callback with the concrete received-message contract. */
 type AttachmentMessageHandler = (
   event: ReturnType<typeof toPluginMessageReceivedEvent>,

@@ -3,7 +3,7 @@
 import type { RunCommand } from "../../../context.js";
 import type { WorkflowConfig } from "../../../domain/index.js";
 import { WORKER_DELIVERY_RESOLUTION } from "../../../domain/index.js";
-import type { SessionLookup } from "../../../integrations/openclaw/gateway-sessions.js";
+import type { SessionLookup } from "../../../integrations/openclaw/types.js";
 import type { IssueProvider } from "../../../integrations/providers/provider.js";
 import type { ValueOf } from "../../../types.js";
 

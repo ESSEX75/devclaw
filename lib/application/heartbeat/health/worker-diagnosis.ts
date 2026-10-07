@@ -52,8 +52,8 @@ export async function diagnoseWorkerHealth(input: WorkerHealthInput): Promise<He
       const providerLabel = issue ? getCurrentStateLabel(issue.labels, workflow) : null;
       // Provider label edits do not become authoritative workflow transitions.
       const currentLabel = local?.workflowLabel;
-      const session = slot.sessionKey ? sessions?.get(slot.sessionKey) : undefined;
-      const alive = !!slot.sessionKey && !!sessions && isSessionAlive(slot.sessionKey, sessions);
+      const session = slot.sessionKey ? sessions?.sessions.get(slot.sessionKey) : undefined;
+      const alive = slot.sessionKey ? isSessionAlive(slot.sessionKey, sessions) : false;
       const ageMs = slot.startTime ? Date.now() - new Date(slot.startTime).getTime() : 0;
       const inGrace = !!slot.startTime && ageMs < GRACE_PERIOD_MS;
       let type: HealthIssueType | undefined;
@@ -61,9 +61,10 @@ export async function diagnoseWorkerHealth(input: WorkerHealthInput): Promise<He
       let severity: HealthIssueSeverity = HEALTH_ISSUE_SEVERITY.CRITICAL;
 
       if (slot.active && issue && currentLabel !== expectedLabel) { type = HEALTH_ISSUE_TYPE.LABEL_MISMATCH; action = HEALTH_ACTION.RELEASE; }
-      else if (slot.active && (!slot.sessionKey || (sessions && !inGrace && !alive))) { type = HEALTH_ISSUE_TYPE.SESSION_DEAD; action = HEALTH_ACTION.REQUEUE; }
+      else if (slot.active && (!slot.sessionKey || (!inGrace && alive === false))) { type = HEALTH_ISSUE_TYPE.SESSION_DEAD; action = HEALTH_ACTION.REQUEUE; }
       else if (slot.active && alive && session?.abortedLastRun) { type = HEALTH_ISSUE_TYPE.CONTEXT_OVERFLOW; action = HEALTH_ACTION.REQUEUE; }
-      else if (slot.active && alive && session && !inGrace && Date.now() - (session.updatedAt || 0) > (input.stallTimeoutMinutes ?? 15) * 60_000) {
+      else if (slot.active && alive && session && session.updatedAt > 0 && !inGrace
+        && Date.now() - session.updatedAt > (input.stallTimeoutMinutes ?? 15) * 60_000) {
         type = HEALTH_ISSUE_TYPE.SESSION_STALLED;
         action = (session.contextTokens ?? 0) < STALL_CONTEXT_THRESHOLD ? HEALTH_ACTION.REQUEUE : HEALTH_ACTION.NUDGE;
       } else if (slot.active && alive && slot.startTime && ageMs > (input.staleWorkerHours ?? 2) * 3_600_000) {

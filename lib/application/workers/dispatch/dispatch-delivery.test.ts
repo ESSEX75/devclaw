@@ -305,9 +305,9 @@ describe("worker delivery outcome", () => {
         workspaceDir: h.workspaceDir, projectSlug: h.project.slug,
         project: (await h.readProjects()).projects[h.project.slug],
         role: "developer", autoFix: true, provider: h.provider,
-        sessions: new Map([[result.sessionKey, {
+        sessions: { complete: true, sessions: new Map([[result.sessionKey, {
           key: result.sessionKey, updatedAt: Date.now(), percentUsed: 1, contextTokens: 2_000,
-        }]]),
+        }]]) },
         workflow: h.workflow, runCommand,
       });
       assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["65"].activeWorker?.delivery?.status, WORKER_DELIVERY_STATUS.PENDING);
@@ -347,15 +347,26 @@ describe("worker delivery outcome", () => {
         workspaceDir: h.workspaceDir, projectSlug: h.project.slug,
         project: (await h.readProjects()).projects[h.project.slug],
         role: "developer", autoFix: false, provider: h.provider,
-        sessions: new Map(), workflow: h.workflow, runCommand,
+        sessions: { sessions: new Map(), complete: true }, workflow: h.workflow, runCommand,
       });
       assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["67"].activeWorker?.delivery?.status, WORKER_DELIVERY_STATUS.UNKNOWN);
+
+      await checkWorkerHealth({
+        workspaceDir: h.workspaceDir, projectSlug: h.project.slug,
+        project: (await h.readProjects()).projects[h.project.slug],
+        role: "developer", autoFix: true, provider: h.provider,
+        sessions: { sessions: new Map(), complete: false }, workflow: h.workflow, runCommand,
+      });
+      const unresolved = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["67"].activeWorker;
+      assert.equal(unresolved?.delivery?.sessionObserved, null);
+      assert.equal(unresolved?.sessionKey, result.sessionKey);
+      assert.equal(getRoleWorker((await h.readProjects()).projects[h.project.slug], "developer").levels.medior?.[0]?.issueId, 67);
 
       const fixes = await checkWorkerHealth({
         workspaceDir: h.workspaceDir, projectSlug: h.project.slug,
         project: (await h.readProjects()).projects[h.project.slug],
         role: "developer", autoFix: true, provider: h.provider,
-        sessions: new Map(), workflow: h.workflow, runCommand,
+        sessions: { sessions: new Map(), complete: true }, workflow: h.workflow, runCommand,
         staleWorkerHours: 0,
       });
       const project = (await h.readProjects()).projects[h.project.slug];

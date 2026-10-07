@@ -40,9 +40,9 @@ export async function shouldClearSession(
 
     if (!sessions) return false; // Gateway unavailable — don't clear
 
-    const session = sessions.get(sessionKey);
+    const session = sessions.sessions.get(sessionKey);
 
-    if (!session) return false; // Session not found — will be spawned fresh anyway
+    if (!session || session.percentUsed === undefined) return false;
 
     const ratio = session.percentUsed / 100;
 

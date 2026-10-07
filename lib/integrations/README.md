@@ -20,6 +20,21 @@ The OpenClaw session adapter exposes a typed worker-turn submission outcome.
 Command timeouts and lost responses remain unknown; application orchestration
 decides whether to retain or release its worker reservation.
 
+Comment creation submits exactly once. Lost responses and missing comment identities
+remain outcome-unknown; the adapter never repeats the POST automatically.
+
+Gateway session observations include inventory completeness. Only successfully reading
+every advertised store and validating its records proves absence. Recent observations
+are always merged, but their bounded list alone never proves a session is missing.
+Unavailable or malformed token metrics remain unknown; context usage is fresh used
+tokens divided by context capacity. External session observations never establish local
+issue ownership or prove that a particular worker submission started.
+
+Bootstrap hooks replace instructions only after application resolves an exact saved
+worker session under its persisted project agent. Application validates runtime role
+membership and loads the prompt; the adapter clears orchestrator instructions before
+that load. Custom role and level names are not parsed through a built-in role pattern.
+
 Review comments carry an explicit source kind: review summary, inline comment, or
 PR conversation comment. This kind is independent of review status and optional
 file location. GitHub inline reactions use the pull-request comment endpoint;

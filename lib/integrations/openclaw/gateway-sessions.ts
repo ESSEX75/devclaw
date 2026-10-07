@@ -1,108 +1,115 @@
-/**
- * gateway-sessions.ts — Gateway session lookup.
- *
- * Queries the gateway for active sessions. Reads session store files directly
- * to avoid the `sessions.recent` cap (limited to 10 entries).
- *
- * Separated from health.ts to avoid co-locating fs reads with process execution,
- * which triggers false-positive "data exfiltration" warnings in plugin scanners.
- */
+/** Reads gateway-owned session stores and preserves uncertainty in incomplete observations. */
 
 import fs from "node:fs/promises";
 
+import { z } from "zod";
+
 import type { RunCommand } from "../../context.js";
+import { GATEWAY_STATUS_METHOD, GATEWAY_STATUS_TIMEOUT_MS, SESSION_STORE_ENCODING } from "./const.js";
+import type { GatewaySession, SessionLookup } from "./types.js";
 
-export type GatewaySession = {
-  key: string;
-  updatedAt: number;
-  percentUsed: number;
-  abortedLastRun?: boolean;
-  totalTokens?: number;
-  contextTokens?: number;
-};
+/** Invalid optional metrics are unknown, never evidence of zero usage. */
+const SessionMetricSchema = z.number().finite().nonnegative().optional().catch(undefined);
 
-export type SessionLookup = Map<string, GatewaySession>;
+/** Minimal store metadata; unrelated SDK fields do not cross this boundary. */
+const SessionEntrySchema = z.object({
+  updatedAt: SessionMetricSchema,
+  percentUsed: SessionMetricSchema,
+  abortedLastRun: z.boolean().optional().catch(undefined),
+  totalTokens: SessionMetricSchema,
+  totalTokensFresh: z.boolean().optional().catch(undefined),
+  contextTokens: SessionMetricSchema,
+});
 
-/**
- * Query gateway status and build a lookup map of active sessions.
- *
- * Instead of relying on `sessions.recent` (capped at 10 entries), this function:
- *   1. Gets the session file paths from `sessions.paths` in the status response
- *   2. Reads each sessions JSON file directly to get ALL session keys without cap
- *
- * Falls back to `sessions.recent` if file reads fail (e.g., permission issues).
- * Returns null if gateway is unavailable (timeout, error, etc).
- * Callers should skip session liveness checks if null — unknown ≠ dead.
+/** Gateway inventory locations and bounded observations still requiring record validation. */
+const GatewayStatusSchema = z.object({
+  sessions: z.object({
+    paths: z.array(z.string().min(1)).optional(),
+    recent: z.array(z.unknown()).optional(),
+  }),
+});
+
+/** A recent observation includes its own session identity. */
+const RecentSessionSchema = SessionEntrySchema.extend({ key: z.string().min(1) });
+
+/** Store records are validated individually so malformed records do not hide other sessions. */
+const SessionStoreSchema = z.record(z.string().min(1), z.unknown());
+
+/** Normalize token usage against capacity without inventing missing metrics.
+ * @param key - Exact session identity from the validated response or store key.
+ * @param entry - Validated gateway metadata with optional metrics.
  */
-export async function fetchGatewaySessions(gatewayTimeoutMs = 15_000, runCommand: RunCommand): Promise<SessionLookup | null> {
-  const rc = runCommand;
-  const lookup: SessionLookup = new Map();
+function normalizeSession(key: string, entry: z.infer<typeof SessionEntrySchema>): GatewaySession {
+  const totalTokens = entry.totalTokensFresh === false ? undefined : entry.totalTokens;
+  const percentUsed = totalTokens !== undefined && entry.contextTokens !== undefined && entry.contextTokens > 0
+    ? Math.round(totalTokens / entry.contextTokens * 100) : entry.percentUsed;
 
+  return { key, updatedAt: entry.updatedAt ?? 0, percentUsed, abortedLastRun: entry.abortedLastRun,
+    totalTokens, contextTokens: entry.contextTokens };
+}
+
+/** Keep the newest observation when the recent list and stores overlap.
+ * @param lookup - Snapshot being assembled for one gateway status call.
+ * @param session - Validated observation to merge.
+ */
+function mergeSession(lookup: SessionLookup, session: GatewaySession): void {
+  const previous = lookup.sessions.get(session.key);
+
+  if (!previous || session.updatedAt > previous.updatedAt) lookup.sessions.set(session.key, session);
+}
+
+/** Read all advertised stores and merge recent observations, retaining partial evidence on read failure.
+ * A bounded recent list never proves absence. Transport failures return null; partial stores set complete=false.
+ * @param gatewayTimeoutMs - Maximum wait for the gateway status command.
+ * @param runCommand - Runtime-owned CLI transport.
+ */
+export async function fetchGatewaySessions(gatewayTimeoutMs = GATEWAY_STATUS_TIMEOUT_MS, runCommand: RunCommand): Promise<SessionLookup | null> {
   try {
-    const result = await rc(
-      ["openclaw", "gateway", "call", "status", "--json"],
-      { timeoutMs: gatewayTimeoutMs },
-    );
+    const result = await runCommand(["openclaw", "gateway", "call", GATEWAY_STATUS_METHOD, "--json"], { timeoutMs: gatewayTimeoutMs });
 
+    if (result.code !== 0 || result.termination !== "exit" || result.killed || result.signal !== null) return null;
     const jsonStart = result.stdout.indexOf("{");
-    const data = JSON.parse(jsonStart >= 0 ? result.stdout.slice(jsonStart) : result.stdout);
+    const raw: unknown = JSON.parse(jsonStart >= 0 ? result.stdout.slice(jsonStart) : result.stdout);
+    const data = GatewayStatusSchema.parse(raw);
+    const paths = [...new Set(data.sessions.paths ?? [])];
+    const lookup: SessionLookup = { sessions: new Map(), complete: paths.length > 0 };
 
-    // Primary strategy: read session files directly to avoid the `recent` cap.
-    // `sessions.paths` lists all session store files managed by the gateway.
-    const sessionPaths: string[] = data?.sessions?.paths ?? [];
-    let readFromFiles = false;
+    for (const rawSession of data.sessions.recent ?? []) {
+      const session = RecentSessionSchema.safeParse(rawSession);
 
-    for (const filePath of sessionPaths) {
-      try {
-        const raw = await fs.readFile(filePath, "utf-8");
-        const fileData = JSON.parse(raw) as Record<string, { updatedAt?: number; percentUsed?: number; abortedLastRun?: boolean; totalTokens?: number; contextTokens?: number }>;
-
-        for (const [key, entry] of Object.entries(fileData)) {
-          if (key && !lookup.has(key)) {
-            lookup.set(key, {
-              key,
-              updatedAt: entry.updatedAt ?? 0,
-              percentUsed: entry.percentUsed
-                ?? (entry.contextTokens && entry.totalTokens
-                  ? Math.round((entry.contextTokens / entry.totalTokens) * 100)
-                  : 0),
-              abortedLastRun: entry.abortedLastRun,
-              totalTokens: entry.totalTokens,
-              contextTokens: entry.contextTokens,
-            });
-          }
-        }
-
-        readFromFiles = true;
-      } catch {
-        // File unreadable — skip and fall back to recent
-      }
+      if (session.success) mergeSession(lookup, normalizeSession(session.data.key, session.data));
     }
 
-    // Fallback: if file reads all failed, use `sessions.recent` (may be capped)
-    if (!readFromFiles) {
-      const recentSessions: GatewaySession[] = data?.sessions?.recent ?? [];
+    for (const filePath of paths) {
+      try {
+        const rawStore: unknown = JSON.parse(await fs.readFile(filePath, SESSION_STORE_ENCODING));
+        const store = SessionStoreSchema.parse(rawStore);
 
-      for (const session of recentSessions) {
-        if (session.key) {
-          lookup.set(session.key, session);
+        for (const [key, rawEntry] of Object.entries(store)) {
+          const entry = SessionEntrySchema.safeParse(rawEntry);
+
+          if (entry.success) mergeSession(lookup, normalizeSession(key, entry.data));
+          else lookup.complete = false;
         }
+      } catch {
+        lookup.complete = false;
       }
     }
 
     return lookup;
   } catch {
-    // Gateway unavailable — return null (don't assume sessions are dead)
     return null;
   }
 }
 
-/**
- * Check if a session key exists in the gateway and is considered "alive".
- * A session is alive if it exists. We don't consider percentUsed or abortedLastRun
- * as dead indicators — those are normal states for reusable sessions.
- * Returns false if sessions lookup is null (gateway unavailable).
+/** Report observed presence, proven absence, or unknown absence in incomplete/unavailable evidence.
+ * Session presence alone never proves that a particular worker turn started.
+ * @param sessionKey - Exact worker session to inspect.
+ * @param lookup - Gateway evidence for this inspection, or null when unavailable.
  */
-export function isSessionAlive(sessionKey: string, sessions: SessionLookup | null): boolean {
-  return sessions ? sessions.has(sessionKey) : false;
+export function isSessionAlive(sessionKey: string, lookup: SessionLookup | null): boolean | null {
+  if (!lookup) return null;
+  if (lookup.sessions.has(sessionKey)) return true;
+
+  return lookup.complete ? false : null;
 }

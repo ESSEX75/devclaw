@@ -208,13 +208,15 @@ describe("E2E bootstrap — agent:bootstrap hook (AGENTS.md stripping)", () => {
     if (h) await h.cleanup();
   });
 
-  it("should strip AGENTS.md for DevClaw worker sessions", async () => {
-    h = await createTestHarness({ projectName: "my-app" });
+  it("should replace AGENTS.md for exactly registered DevClaw worker sessions", async () => {
+    const sessionKey = "agent:test-agent:subagent:my-app-developer-medior-ada";
+    h = await createTestHarness({ projectName: "my-app", workers: { developer: { sessionKey, level: "medior" } } });
 
     const result = await h.simulateBootstrap(
-      "agent:main:subagent:my-app-developer-medior-Ada",
+      sessionKey,
     );
-    assert.strictEqual(result.agentsMdStripped, true);
+    assert.ok(result.agentsMdContent.includes("# DEVELOPER Worker Instructions"));
+    assert.ok(!result.agentsMdContent.includes("Orchestrator instructions"));
   });
 
   it("should NOT strip AGENTS.md for non-DevClaw sessions", async () => {

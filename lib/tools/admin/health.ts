@@ -84,14 +84,16 @@ export function createHealthTool(ctx: PluginContext): OpenClawPluginToolFactory 
         fix,
         issuesFound: issues.length,
         issuesFixed: issues.filter((i) => i.fixed).length,
-        sessionsCached: sessions?.size ?? 0,
+        sessionsCached: sessions?.sessions.size ?? 0,
+        sessionInventoryComplete: sessions?.complete ?? false,
       });
 
       return jsonResult({
         success: true,
         fix,
         projectsScanned: slugs.length,
-        sessionsQueried: sessions?.size ?? 0,
+        sessionsQueried: sessions?.sessions.size ?? 0,
+        sessionInventoryComplete: sessions?.complete ?? false,
         issues,
       });
     },

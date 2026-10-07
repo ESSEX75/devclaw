@@ -15,7 +15,7 @@ import {
   PROVIDER_ISSUE_LOOKUP_ERROR,
   ProviderIssueLookupError,
 } from "./lookup-errors.js";
-import { classifyProviderOperationError } from "./operation-errors.js";
+import { classifyProviderOperationError, PROVIDER_OPERATION_ERROR, ProviderOperationError } from "./operation-errors.js";
 import type { IssueProvider } from "./provider.js";
 import { withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
@@ -67,7 +67,7 @@ export class GitHubProvider implements IssueProvider {
   private async ghOnce(args: string[]): Promise<string> {
     const result = await this.runCommand(["gh", ...args], { timeoutMs: 30_000, cwd: this.repoPath });
 
-    if (result.code != null && result.code !== 0) {
+    if (result.code !== 0 || result.termination !== "exit" || result.killed || result.signal !== null) {
       throw new Error(result.stderr?.trim() || `gh command failed with exit code ${result.code}`);
     }
 
@@ -664,15 +664,31 @@ export class GitHubProvider implements IssueProvider {
     return comments;
   }
 
+  /** Create one comment without replaying a mutation whose response may have been lost.
+   * @param issueId - Provider issue receiving the comment.
+   * @param body - Complete comment text submitted once.
+   */
   async addComment(issueId: number, body: string): Promise<number> {
-    const raw = await this.gh([
-      "api", `repos/:owner/:repo/issues/${issueId}/comments`,
-      "--method", "POST",
-      "--field", `body=${body}`,
-    ]);
-    const parsed = JSON.parse(raw) as { id: number };
+    let raw: string;
 
-    return parsed.id;
+    try {
+      raw = await this.ghOnce([
+        "api", `repos/:owner/:repo/issues/${issueId}/comments`,
+        "--method", "POST", "--field", `body=${body}`,
+      ]);
+    } catch (error) {
+      throw classifyProviderOperationError(error);
+    }
+
+    try {
+      const response: unknown = JSON.parse(raw);
+
+      return z.object({ id: z.number().int().positive().safe() }).parse(response).id;
+    } catch (error) {
+      throw new ProviderOperationError({ code: PROVIDER_OPERATION_ERROR.UNKNOWN,
+        message: "GitHub comment creation returned no confirmed comment identity.",
+        retryable: false, outcomeUnknown: true, cause: error });
+    }
   }
 
   async reactToIssue(issueId: number, emoji: string): Promise<void> {

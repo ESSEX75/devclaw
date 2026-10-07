@@ -70,6 +70,12 @@ separate READMEs. Their file responsibilities and API details belong in source J
   Recovery failure stops later project phases; workflow failures block that project's
   dispatch without suppressing independent projects. Diagnosis is read-only; remediation
   locks and rechecks local ownership. Provider absence alone never releases active work.
+  Session absence in an incomplete gateway inventory is unknown and cannot authorize
+  requeue. Uncertain-delivery evidence records that absence as null, retaining reservations.
+- Worker bootstrap resolves instruction ownership by exact saved session and project
+  agent identity, independently of built-in role names. Ambiguous matches fail closed;
+  runtime configuration validates the selected role before any prompt path is read.
+  Missing or removed role instructions leave the worker without orchestrator instructions.
 - Setup previews are read-only; ordinary setup preserves files. Permissions derive
   from validated ownership in SDK-resolved workspaces, preserve unrelated/global rules,
   and deny nonowners. Corrupt registries block mutation. Routing requires enabled exact
