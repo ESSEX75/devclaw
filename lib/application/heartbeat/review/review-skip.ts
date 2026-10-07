@@ -92,7 +92,7 @@ export async function reviewSkipPass(opts: ReviewSkipPassInput): Promise<number>
                   }
 
                   if (!status.url) break;
-                  try { await provider.mergePr(issue.iid); }
+                  try { await provider.mergePr(issue.iid, status.url); }
                   catch (error) { mergeFailure = error; throw error; }
 
                   mergeNotification.status = status;

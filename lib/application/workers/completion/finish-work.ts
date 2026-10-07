@@ -21,7 +21,7 @@ export async function finishWork(input: FinishWorkInput): Promise<FinishWorkResu
 
   //TODO: The behavior of the tester, reviewer, etc. is hard-coded.
   if (role === DEFAULT_ROLES.DEVELOPER && result === COMPLETION_RESULT.DONE) {
-    await validateFinishPullRequest(provider, issueId);
+    await validateFinishPullRequest(provider, issueId, prUrl);
   }
 
   const completion = await executeCompletion({

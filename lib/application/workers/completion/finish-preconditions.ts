@@ -7,9 +7,10 @@ import { EYES_EMOJI } from "../../review/index.js";
  * The provider is already scoped to this project and issue. Reactions are cosmetic.
  * @param provider - Project-scoped provider capability.
  * @param issueId - Issue currently assigned to the completing worker.
+ * @param prUrl - Optional exact request reported by that worker.
  */
-export async function validateFinishPullRequest(provider: IssueProvider, issueId: number): Promise<void> {
-  const status = await provider.getPrStatus(issueId);
+export async function validateFinishPullRequest(provider: IssueProvider, issueId: number, prUrl?: string): Promise<void> {
+  const status = await provider.getPrStatus(issueId, prUrl);
 
   if (!status.url || status.state === PrState.CLOSED || status.state === PrState.MERGED) {
     throw new Error(`Cannot mark work_finish(done) without an open PR for issue #${issueId}. Create a PR referencing the issue without closing keywords, then retry.`);

@@ -3,6 +3,9 @@
 /** Reaction indicating context was supplied to an accepted worker turn, not proof of human reading. */
 export const EYES_EMOJI = "eyes";
 
+/** Digest used to distinguish edited review summaries from already delivered content. */
+export const REVIEW_SUMMARY_HASH_ALGORITHM = "sha256";
+
 /** Maximum characters from a PR diff included in worker context. */
 export const PR_DIFF_LIMIT = 50_000;
 

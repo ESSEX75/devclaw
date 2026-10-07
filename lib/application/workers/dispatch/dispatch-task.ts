@@ -17,9 +17,9 @@ import { readIssueStateStore, readWorkerDeliveryResolution, withIssueOrchestrati
 import { getProject, getRoleWorker, readProjects } from "../../../state/index.js";
 import { getNotificationConfig, notify } from "../../notifications/index.js";
 import { resolveIssueNotificationEndpoint } from "../../notifications/resolve-endpoint.js";
-import { acknowledgeComments, EYES_EMOJI } from "../../review/index.js";
+import { acknowledgeComments, confirmReviewSummaryDelivery, EYES_EMOJI, stageReviewSummaryDelivery } from "../../review/index.js";
 import { buildAnnouncement, formatSessionLabel } from "../../tasks/index.js";
-import { WORKER_AUDIT_EVENT } from "../const.js";
+import { REVIEW_SUMMARY_RECEIPT_STEP, WORKER_AUDIT_EVENT } from "../const.js";
 import { reconcileUncertainDispatch } from "../delivery-recovery/index.js";
 import { recordSlotDelivery } from "../delivery-state.js";
 import { auditDispatch, dispatchErrorMessage } from "./audit.js";
@@ -139,8 +139,9 @@ export async function dispatchTaskLocked(
     // Model is set on the session via sessions.patch, not on the agent RPC —
     // the gateway's agent endpoint rejects unknown properties like 'model'.
     const delivery = await beginWorkerDelivery(sessionKey, taskMessage, {
-      agentId, projectName: project.name, issueId, role, level, slotIndex, fromLabel,
-      orchestratorSessionKey: opts.sessionKey, workspaceDir,
+      submissionId: plan.deliveryId,
+      agentId,
+      orchestratorSessionKey: opts.sessionKey,
       dispatchTimeoutMs: timeouts.dispatchMs,
       extraSystemPrompt: roleInstructions.trim() || undefined,
       runCommand: rc,
@@ -194,6 +195,10 @@ export async function dispatchTaskLocked(
       }).catch(() => { });
     }
 
+    await stageReviewSummaryDelivery({ workspaceDir, projectSlug: project.slug }, issueId, plan.deliveryId, plan, prFeedback)
+      .catch(error => auditLog(workspaceDir, WORKER_AUDIT_EVENT.WARNING, { step: REVIEW_SUMMARY_RECEIPT_STEP, issue: issueId,
+        error: dispatchErrorMessage(error) }).catch(() => {}));
+
     if (delivery.initial.kind === AGENT_TURN_STATUS.UNKNOWN) {
       await reconcileUncertainDispatch({
         workspaceDir, projectSlug: project.slug, role, level, slotIndex, issueId, sessionKey, deliveryId: plan.deliveryId,
@@ -209,6 +214,12 @@ export async function dispatchTaskLocked(
     if (delivery.initial.kind === AGENT_TURN_STATUS.ACCEPTED) {
       provider.reactToIssue(issueId, EYES_EMOJI).catch(() => {});
       provider.reactToPr(issueId, EYES_EMOJI).catch(() => {});
+      if (prFeedback) {
+        await confirmReviewSummaryDelivery({ workspaceDir, projectSlug: project.slug }, issueId, plan.deliveryId).catch(error =>
+          auditLog(workspaceDir, WORKER_AUDIT_EVENT.WARNING, { step: REVIEW_SUMMARY_RECEIPT_STEP, issue: issueId,
+            error: dispatchErrorMessage(error) }).catch(() => {}));
+      }
+
       acknowledgeComments(provider, issueId, isConflictFix ? [] : comments, prFeedback, workspaceDir).catch(() => {});
     }
 

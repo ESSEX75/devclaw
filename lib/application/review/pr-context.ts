@@ -14,7 +14,8 @@ export async function fetchPrFeedback(provider: FeedbackProvider, issueId: numbe
     const status = await provider.getPrStatus(issueId);
 
     if (!status.url || status.state === PrState.MERGED || status.state === PrState.CLOSED) return undefined;
-    const comments = await provider.getPrReviewComments(issueId).catch(() => []);
+    // A delivery receipt suppresses duplicate workflow events, not context needed by a retried worker.
+    const comments = await provider.getPrReviewComments(issueId, status.url).catch(() => []);
     const conflict = status.mergeable === false;
 
     if (!conflict && comments.length === 0) return undefined;
@@ -42,7 +43,7 @@ export async function fetchPrContext(provider: ContextProvider, issueId: number)
     const status = await provider.getPrStatus(issueId);
 
     if (!status.url || status.state === PrState.MERGED || status.state === PrState.CLOSED) return undefined;
-    const diff = await provider.getPrDiff(issueId).catch(() => null);
+    const diff = await provider.getPrDiff(issueId, status.url).catch(() => null);
 
     return { url: status.url, diff: diff ?? undefined };
   } catch {

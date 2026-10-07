@@ -32,3 +32,6 @@ export const WORKER_BOOTSTRAP_FILE = "AGENTS.md";
 
 /** Registration identity of the worker instruction hook. */
 export const WORKER_BOOTSTRAP_REGISTRATION = "devclaw-bootstrap-role-instructions";
+
+/** Prefix of opaque gateway idempotency identities supplied by application orchestration. */
+export const AGENT_TURN_IDEMPOTENCY_PREFIX = "devclaw";

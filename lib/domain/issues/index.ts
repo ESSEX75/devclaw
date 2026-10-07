@@ -24,6 +24,8 @@ export type {
   IssueProjectionState,
   IssueProviderId,
   IssueRuntimeState,
+  PendingReviewSummaryDelivery,
   PipelineNotificationState,
   ProviderMissingState,
+  ReviewSummaryReceipt,
 } from "./types.js";

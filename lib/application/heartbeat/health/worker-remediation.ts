@@ -74,8 +74,8 @@ export async function remediateWorkerHealth(input: WorkerHealthInput, finding: H
         return { ...previous, activeWorker: { ...previous.activeWorker, lastNudgeAt: attemptedAt } };
       });
       const outcome = await submitAgentTurn(slot.sessionKey, NUDGE_MESSAGE, {
-        workspaceDir, projectName: project.name, role, level, slotIndex, issueId,
-        agentId: input.agentId, runCommand: input.runCommand, fromLabel: `health-nudge-${attemptedAt}`,
+        submissionId: `${slot.sessionKey}:${attemptedAt}`,
+        agentId: input.agentId, runCommand: input.runCommand,
         dispatchTimeoutMs: NUDGE_COMMAND_TIMEOUT_MS,
       });
 

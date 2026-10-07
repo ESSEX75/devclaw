@@ -8,7 +8,8 @@ import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
 import type { CreateIssueInput } from "./capabilities.js";
 import { runProviderCommand } from "./command.js";
-import { PR_COMMENT_KIND, PROVIDER_COMMAND_MODE } from "./const.js";
+import { hasIssueCommitOnBaseBranch } from "./commit-references.js";
+import { GITHUB_PR_FIELDS, GITHUB_REVIEW_BOT_SUFFIX, PR_COMMENT_KIND, PROVIDER_COMMAND_MODE, PROVIDER_PAGE_SIZE, PROVIDER_REVIEW_STATE } from "./const.js";
 import { normalizeProviderFailure, ProviderTransportError } from "./failures.js";
 import {
   classifyProviderLookupFailure,
@@ -18,8 +19,10 @@ import {
   ProviderIssueLookupError,
 } from "./lookup-errors.js";
 import { classifyProviderOperationError, PROVIDER_OPERATION_ERROR, ProviderOperationError } from "./operation-errors.js";
+import { parseProviderPages } from "./pagination.js";
 import type { IssueProvider } from "./provider.js";
 import { createProviderPolicy, withResilience } from "./resilience.js";
+import { latestFormalReviews } from "./review-observations.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
 
 type GhIssue = {
@@ -63,9 +66,45 @@ const GhTimelineReferenceSchema = z.object({
 const GhTimelineSchema = z.object({
   errors: z.array(z.unknown()).optional(),
   data: z.object({ repository: z.object({ issue: z.object({ timelineItems: z.object({
+    pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }),
     nodes: z.array(z.object({ subject: GhTimelineReferenceSchema.nullable().optional(), source: GhTimelineReferenceSchema.nullable().optional() })),
   }) }) }) }),
 }).refine(response => !response.errors?.length, "Partial GraphQL response cannot establish PR absence.");
+
+/** Concrete PR observation used consistently by every GitHub operation. */
+const GhPullRequestSchema = z.object({
+  number: z.number().int().positive().safe(), title: z.string(), body: z.string().nullable().optional().transform(value => value ?? ""),
+  headRefName: z.string().nullable().optional().transform(value => value ?? ""), url: z.string().min(1),
+  state: z.enum(["OPEN", "MERGED", "CLOSED"]), mergedAt: z.string().nullable().optional().transform(value => value ?? null),
+  reviewDecision: z.string().nullable().optional().transform(value => value ?? null),
+  mergeable: z.string().nullable().optional().transform(value => value ?? null),
+});
+
+/** Internal confirmed PR DTO inferred from the owning boundary schema. */
+type GhPullRequest = z.infer<typeof GhPullRequestSchema>;
+
+/** REST pull-request listing fields used for complete fallback discovery. */
+const GhRestPullSchema = z.object({ number: z.number().int().positive().safe(), title: z.string(), body: z.string().nullable(),
+  head: z.object({ ref: z.string() }), html_url: z.string().min(1) });
+
+/** Review summaries carry timestamps for selecting the latest formal decision per reviewer. */
+const GhReviewSchema = z.object({ id: z.number().int().positive().safe(), user: z.object({ login: z.string() }),
+  body: z.string().nullable().optional().transform(value => value ?? ""), state: z.string(),
+  submitted_at: z.string().refine(value => Number.isFinite(Date.parse(value)), "Invalid review timestamp.").nullable() });
+
+/** Complete cosmetic reaction payload used only as an indicator, never a durable receipt. */
+const GhReactionSchema = z.object({ content: z.string() });
+
+/** Conversation comments retain cosmetic reaction counts independently of summary receipts. */
+const GhCommentSchema = z.object({ id: z.number().int().positive().safe(), user: z.object({ login: z.string() }), body: z.string(), created_at: z.string(),
+  reactions: z.object({ eyes: z.number().nonnegative().optional() }).optional() });
+
+/** Inline review comments have a namespace distinct from summaries and conversations. */
+const GhInlineSchema = GhCommentSchema.extend({ path: z.string().optional(), line: z.number().nullable().optional() });
+
+/** REST issue collection DTO includes pull-request markers so they are not reported as issues. */
+const GhRestIssueSchema = z.object({ number: z.number().int().positive().safe(), title: z.string(), body: z.string().nullable(),
+  labels: z.array(z.object({ name: z.string() })), state: z.string(), html_url: z.string(), pull_request: z.unknown().optional() });
 
 function toIssue(gh: GhIssue): Issue {
   return {
@@ -94,6 +133,19 @@ export class GitHubProvider implements IssueProvider {
   private async gh(args: string[]): Promise<string> {
     return withResilience(PROVIDER_COMMAND_MODE.READ, this.policy, () =>
       runProviderCommand(this.runCommand, ["gh", ...args], this.repoPath));
+  }
+
+  /** Read complete REST pages, rejecting incomplete process output and malformed provider records.
+   * @param endpoint - Project-scoped REST collection including optional filters.
+   * @param schema - Provider-owned element validation contract.
+   */
+  private async ghCollection<T>(endpoint: string, schema: z.ZodType<T>): Promise<T[]> {
+    try {
+      const separator = endpoint.includes("?") ? "&" : "?";
+      const raw = await this.gh(["api", `${endpoint}${separator}per_page=${PROVIDER_PAGE_SIZE}`, "--paginate", "--slurp"]);
+
+      return parseProviderPages(raw, schema, true);
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 
   /** Repeat only a mutation whose desired final state is explicitly idempotent.
@@ -140,84 +192,45 @@ export class GitHubProvider implements IssueProvider {
    * @param issueId - Managed issue whose linked PR observations are requested.
    * @param state - Provider lifecycle states to retain in the result.
    */
-  private async findPrsViaTimeline(
-    issueId: number,
-    state: "open" | "merged" | "all",
-  ): Promise<Array<{
-    number: number;
-    title: string;
-    body: string;
-    headRefName: string;
-    url: string;
-    mergedAt: string | null;
-    reviewDecision: string | null;
-    state: string;
-    mergeable: string | null;
-  }> | null> {
+  private async findPrsViaTimeline(issueId: number): Promise<GhPullRequest[] | null> {
     const repo = await this.getRepoInfo();
-
-
-    try {
-      const query = `{
-        repository(owner: "${repo.owner}", name: "${repo.name}") {
-          issue(number: ${issueId}) {
-            timelineItems(itemTypes: [CONNECTED_EVENT, CROSS_REFERENCED_EVENT], first: 20) {
-              nodes {
-                __typename
-                ... on ConnectedEvent {
-                  subject { ... on PullRequest { number title body headRefName state url mergedAt reviewDecision mergeable } }
-                }
-                ... on CrossReferencedEvent {
-                  source { ... on PullRequest { number title body headRefName state url mergedAt reviewDecision mergeable } }
-                }
-              }
+    const query = `query($endCursor: String) {
+      repository(owner: ${JSON.stringify(repo.owner)}, name: ${JSON.stringify(repo.name)}) {
+        issue(number: ${issueId}) {
+          timelineItems(itemTypes: [CONNECTED_EVENT, CROSS_REFERENCED_EVENT], first: ${PROVIDER_PAGE_SIZE}, after: $endCursor) {
+            pageInfo { hasNextPage endCursor }
+            nodes {
+              ... on ConnectedEvent { subject { ... on PullRequest { number title body headRefName state url mergedAt reviewDecision mergeable } } }
+              ... on CrossReferencedEvent { source { ... on PullRequest { number title body headRefName state url mergedAt reviewDecision mergeable } } }
             }
           }
         }
-      }`;
+      }
+    }`;
 
-      const raw = await this.gh(["api", "graphql", "-f", `query=${query}`]);
-      const response: unknown = JSON.parse(raw);
-      const nodes = GhTimelineSchema.parse(response).data.repository.issue.timelineItems.nodes;
+    try {
+      const raw: unknown = JSON.parse(await this.gh(["api", "graphql", "--paginate", "--slurp", "-f", `query=${query}`]));
+      const pages = z.array(GhTimelineSchema).min(1).parse(raw);
+      const last = pages[pages.length - 1].data.repository.issue.timelineItems;
 
-      // Extract PR data from both event types
-      const seen = new Set<number>();
-      const prs: Array<{
-        number: number;
-        title: string;
-        body: string;
-        headRefName: string;
-        url: string;
-        mergedAt: string | null;
-        reviewDecision: string | null;
-        state: string;
-        mergeable: string | null;
-      }> = [];
+      if (last.pageInfo.hasNextPage) throw new Error("Incomplete GitHub timeline pagination.");
+      const prs = new Map<number, GhPullRequest>();
 
-      for (const node of nodes) {
-        const pr = node.subject ?? node.source;
+      for (const page of pages) {
+        for (const node of page.data.repository.issue.timelineItems.nodes) {
+          const reference = node.subject ?? node.source;
 
-        if (!pr?.number || !pr?.url) continue; // Not a PR or empty source
-        if (seen.has(pr.number)) continue;
-        seen.add(pr.number);
-        prs.push({
-          number: pr.number,
-          title: pr.title ?? "",
-          body: pr.body ?? "",
-          headRefName: pr.headRefName ?? "",
-          url: pr.url,
-          mergedAt: pr.mergedAt ?? null,
-          reviewDecision: pr.reviewDecision ?? null,
-          state: pr.state ?? "",
-          mergeable: pr.mergeable ?? null,
-        });
+          if (!reference?.number || !reference.url) continue;
+          const expectedPath = `/${repo.owner}/${repo.name}/pull/${reference.number}`;
+
+          if (new URL(reference.url).pathname.toLowerCase() !== expectedPath.toLowerCase()) continue;
+          const pr = GhPullRequestSchema.parse(reference);
+
+          prs.set(pr.number, pr);
+        }
       }
 
-      // Filter by state
-      if (state === "open") return prs.filter((pr) => pr.state === "OPEN");
-      if (state === "merged") return prs.filter((pr) => pr.state === "MERGED");
-
-      return prs;
+      return [...prs.values()];
     } catch (error) {
       if (error instanceof ProviderTransportError && !error.failure.outcomeUnknown
         && error.failure.code === PROVIDER_OPERATION_ERROR.VALIDATION_FAILED) return null;
@@ -225,49 +238,47 @@ export class GitHubProvider implements IssueProvider {
     }
   }
 
-  /**
-   * Find PRs associated with an issue.
-   * Primary: GitHub timeline API (convention-free, catches all linked PRs).
-   * Fallback: regex matching on branch name / title / body.
-   *
-   * Operational and malformed-response failures never become an empty observation.
-   * @param issueId - Managed issue whose candidate PRs are requested.
-   * @param state - Provider lifecycle states to search.
-   * @param fields - CLI fields requested by this internal caller's result contract.
+  /** Discover all candidates with a concrete DTO, selecting newer PR IDs consistently across capabilities.
+   * @param issueId - Managed issue whose PR candidates are requested.
+   * @param state - Lifecycle state to retain after complete discovery.
    */
-  private async findPrsForIssue<T extends { title: string; body: string; headRefName?: string }>(
-    issueId: number,
-    state: "open" | "merged" | "all",
-    fields: string,
-  ): Promise<T[]> {
-    // Try timeline API first (returns all linked PRs regardless of naming convention)
-    const timelinePrs = await this.findPrsViaTimeline(issueId, state);
+  private async findPrsForIssue(issueId: number, state: "open" | "merged" | "all"): Promise<GhPullRequest[]> {
+    const linked = await this.findPrsViaTimeline(issueId);
+    let candidates = linked ?? [];
 
-    if (timelinePrs && timelinePrs.length > 0) {
-      // Map timeline results to the expected shape (T includes the requested fields)
-      // The timeline query now provides: number, title, body, headRefName, state, url, mergedAt, reviewDecision, mergeable
-      return timelinePrs as unknown as T[];
+    if (!linked?.some(pr => pr.state === "OPEN")) {
+      const all = await this.ghCollection("repos/:owner/:repo/pulls?state=all", GhRestPullSchema);
+      const branchPattern = new RegExp(`^(?:fix|feat|feature|chore|bugfix|hotfix|refactor|docs|test)/${issueId}-`);
+      const mention = new RegExp(`(^|[^A-Za-z0-9_#])#${issueId}(?![A-Za-z0-9_])`);
+      const byBranch = all.filter(pr => branchPattern.test(pr.head.ref));
+      const matching = byBranch.length ? byBranch : all.filter(pr => mention.test(pr.title) || mention.test(pr.body ?? ""));
+
+      candidates = [...(linked ?? [])];
+      for (const pr of matching) {
+        const raw: unknown = JSON.parse(await this.gh(["pr", "view", String(pr.number), "--json", GITHUB_PR_FIELDS]));
+
+        candidates.push(GhPullRequestSchema.parse(raw));
+      }
     }
 
-    // Fallback: regex-based matching on branch name / title / body
-    try {
-      const args = ["pr", "list", "--json", fields, "--limit", "50"];
+    const unique = new Map(candidates.map(pr => [pr.number, pr]));
 
-      if (state !== "all") args.push("--state", state);
-      const raw = await this.gh(args);
+    return [...unique.values()].filter(pr => state === "all" || (state === "open" ? pr.state === "OPEN" : pr.state === "MERGED"))
+      .sort((a, b) => b.number - a.number);
+  }
 
-      const prs = JSON.parse(raw) as T[];
-      const branchPat = new RegExp(`^(?:fix|feat|feature|chore|bugfix|hotfix|refactor|docs|test)/${issueId}-`);
-      const titlePat = new RegExp(`#${issueId}\\b`);
+  /** Resolve the observed request explicitly, preventing a newer candidate from silently replacing it.
+   * @param issueId - Managed issue whose open PRs are searched.
+   * @param prUrl - Optional exact URL previously observed by the application.
+   */
+  private async selectOpenPr(issueId: number, prUrl?: string): Promise<GhPullRequest | undefined> {
+    const candidates = await this.findPrsForIssue(issueId, "open");
+    const selected = prUrl ? candidates.find(pr => pr.url === prUrl) : candidates[0];
 
-      // Primary: match by branch name
-      const byBranch = prs.filter((pr) => pr.headRefName && branchPat.test(pr.headRefName));
+    if (prUrl && !selected) throw new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.UNKNOWN, provider: "github",
+      retryable: false, message: `Previously selected PR is no longer available as an open request: ${prUrl}` });
 
-      if (byBranch.length > 0) return byBranch;
-
-      // Fallback: word-boundary match in title/body
-      return prs.filter((pr) => titlePat.test(pr.title) || titlePat.test(pr.body ?? ""));
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
+    return selected;
   }
 
   async ensureLabel(name: string, color: string): Promise<void> {
@@ -313,23 +324,21 @@ export class GitHubProvider implements IssueProvider {
     }
   }
 
+  /** List all open issues carrying the requested provider-visible label.
+   * @param label - Provider label used as a read-only filter.
+   */
   async listIssuesByLabel(label: StateLabel): Promise<Issue[]> {
-    try {
-      const raw = await this.gh(["issue", "list", "--label", label, "--state", "open", "--json", "number,title,body,labels,state,url"]);
-
-      return (JSON.parse(raw) as GhIssue[]).map(toIssue);
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
+    return this.listIssues({ label, state: "open" });
   }
 
+  /** Read every matching issue page; pull requests returned by the REST issues endpoint are excluded.
+   * @param opts - Provider-side issue state and label filters.
+   */
   async listIssues(opts?: { label?: string; state?: "open" | "closed" | "all" }): Promise<Issue[]> {
-    try {
-      const args = ["issue", "list", "--state", opts?.state ?? "open", "--json", "number,title,body,labels,state,url"];
+    const label = opts?.label ? `&labels=${encodeURIComponent(opts.label)}` : "";
+    const issues = await this.ghCollection(`repos/:owner/:repo/issues?state=${opts?.state ?? "open"}${label}`, GhRestIssueSchema);
 
-      if (opts?.label) args.push("--label", opts.label);
-      const raw = await this.gh(args);
-
-      return (JSON.parse(raw) as GhIssue[]).map(toIssue);
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
+    return issues.filter(issue => issue.pull_request === undefined).map(issue => toIssue({ ...issue, url: issue.html_url }));
   }
 
   async getIssue(issueId: number): Promise<Issue> {
@@ -370,13 +379,13 @@ export class GitHubProvider implements IssueProvider {
     };
   }
 
+  /** Read all issue conversation pages before building worker context.
+   * @param issueId - Provider issue whose complete discussion is requested.
+   */
   async listComments(issueId: number): Promise<IssueComment[]> {
-    try {
-      const raw = await this.gh(["api", `repos/:owner/:repo/issues/${issueId}/comments`, "--jq", ".[] | {id: .id, author: .user.login, body: .body, created_at: .created_at}"]);
+    const comments = await this.ghCollection(`repos/:owner/:repo/issues/${issueId}/comments`, GhCommentSchema);
 
-
-      return raw.split("\n").filter(Boolean).map((line) => JSON.parse(line));
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
+    return comments.map(comment => ({ id: comment.id, author: comment.user.login, body: comment.body, created_at: comment.created_at }));
   }
 
   async transitionLabel(issueId: number, from: StateLabel, to: StateLabel): Promise<void> {
@@ -441,269 +450,124 @@ export class GitHubProvider implements IssueProvider {
   }
 
   async getMergedMRUrl(issueId: number): Promise<string | null> {
-    type MergedPr = { title: string; body: string; headRefName: string; url: string; mergedAt: string };
-    const prs = await this.findPrsForIssue<MergedPr>(issueId, "merged", "title,body,headRefName,url,mergedAt");
+    const prs = await this.findPrsForIssue(issueId, "merged");
 
     if (prs.length === 0) return null;
-    prs.sort((a, b) => new Date(b.mergedAt).getTime() - new Date(a.mergedAt).getTime());
 
     return prs[0].url;
   }
 
   /** Observe PR state; missing PRs require successful lookup and failed reads remain typed errors.
    * @param issueId - Managed issue whose associated PR state is observed.
+   * @param prUrl - Optional exact request URL supplied by prior application evidence.
    */
-  async getPrStatus(issueId: number): Promise<PrStatus> {
-    // Check open PRs first — include mergeable for conflict detection
-    type OpenPr = { title: string; body: string; headRefName: string; url: string; number: number; reviewDecision: string; mergeable: string };
-    const open = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,url,number,reviewDecision,mergeable");
+  async getPrStatus(issueId: number, prUrl?: string): Promise<PrStatus> {
+    const found = await this.findPrsForIssue(issueId, "all");
+    const candidates = prUrl ? found.filter(pr => pr.url === prUrl) : found;
 
-    if (open.length > 0) {
-      const pr = open[0];
+    if (prUrl && !candidates.length) throw new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.UNKNOWN, provider: "github",
+      retryable: false, message: `Previously selected PR is no longer associated with this issue: ${prUrl}` });
+    const open = candidates.find(pr => pr.state === "OPEN");
+
+    if (open) {
+      const reviews = await this.readReviews(open.number);
+      const summaries = reviews.filter(review => review.state === PROVIDER_REVIEW_STATE.COMMENTED && review.body.trim().length > 0);
+      const conversations = await this.fetchConversationComments(open.number);
+      const inlines = await this.ghCollection(`repos/:owner/:repo/pulls/${open.number}/comments`, GhInlineSchema);
+      const hasCommentFeedback = conversations.some(comment => (comment.reactions?.eyes ?? 0) === 0)
+        || inlines.some(comment => !comment.user.login.endsWith(GITHUB_REVIEW_BOT_SUFFIX) && comment.body.trim().length > 0 && (comment.reactions?.eyes ?? 0) === 0);
+      const decisions = latestFormalReviews(reviews);
       let state: PrState;
 
-      if (pr.reviewDecision === "APPROVED") {
-        state = PrState.APPROVED;
-      } else if (pr.reviewDecision === "CHANGES_REQUESTED") {
-        state = PrState.CHANGES_REQUESTED;
-      } else {
-        // No branch protection → reviewDecision may be empty. Check individual reviews.
-        const hasChangesRequested = await this.hasChangesRequestedReview(pr.number);
+      if (open.reviewDecision === PROVIDER_REVIEW_STATE.CHANGES_REQUESTED
+        || decisions.some(review => review.state === PROVIDER_REVIEW_STATE.CHANGES_REQUESTED)) state = PrState.CHANGES_REQUESTED;
+      else if (open.reviewDecision === PROVIDER_REVIEW_STATE.APPROVED
+        || decisions.some(review => review.state === PROVIDER_REVIEW_STATE.APPROVED)) state = PrState.APPROVED;
+      else state = hasCommentFeedback || summaries.length ? PrState.HAS_COMMENTS : PrState.OPEN;
+      const mergeable = open.mergeable === "CONFLICTING" ? false : open.mergeable === "MERGEABLE" ? true : undefined;
 
-        if (hasChangesRequested) {
-          state = PrState.CHANGES_REQUESTED;
-        } else {
-          // Check for unacknowledged COMMENTED reviews (feedback without formal "Request changes")
-          const hasReviewFeedback = await this.hasUnacknowledgedReviews(pr.number);
-
-          if (hasReviewFeedback) {
-            state = PrState.HAS_COMMENTS;
-          } else {
-            // Fall through to conversation comment detection
-            const hasComments = await this.hasConversationComments(pr.number);
-
-            state = hasComments ? PrState.HAS_COMMENTS : PrState.OPEN;
-          }
-        }
-      }
-
-      // Conflict detection: "CONFLICTING" means merge conflicts, "UNKNOWN" means still computing
-      const mergeable = pr.mergeable === "CONFLICTING" ? false
-        : pr.mergeable === "MERGEABLE" ? true
-          : undefined; // UNKNOWN or missing — don't assume
-
-      return { state, url: pr.url, title: pr.title, sourceBranch: pr.headRefName, mergeable };
+      return { state, url: open.url, title: open.title, sourceBranch: open.headRefName, mergeable,
+        reviewSummaries: summaries, hasCommentFeedback };
     }
 
-    // Check merged PRs — also fetch reviewDecision to detect approved-then-merged vs self-merged.
-    type MergedPr = { title: string; body: string; headRefName: string; url: string; reviewDecision: string | null };
-    const merged = await this.findPrsForIssue<MergedPr>(issueId, "merged", "title,body,headRefName,url,reviewDecision");
+    const merged = candidates.find(pr => pr.state === "MERGED");
 
-    if (merged.length > 0) {
-      const pr = merged[0];
-      const state = pr.reviewDecision === "APPROVED" ? PrState.APPROVED : PrState.MERGED;
+    if (merged) return { state: PrState.MERGED, url: merged.url, title: merged.title, sourceBranch: merged.headRefName };
+    const closed = candidates.find(pr => pr.state === "CLOSED");
 
-      return { state, url: pr.url, title: pr.title, sourceBranch: pr.headRefName };
+    return closed ? { state: PrState.CLOSED, url: closed.url, title: closed.title, sourceBranch: closed.headRefName } : { state: PrState.CLOSED, url: null };
+  }
+
+  /** Read complete review summaries while keeping their reaction-free source identity.
+   * @param prNumber - Exact selected pull request.
+   */
+  private async readReviews(prNumber: number): Promise<PrReviewComment[]> {
+    const reviews = await this.ghCollection(`repos/:owner/:repo/pulls/${prNumber}/reviews`, GhReviewSchema);
+
+    return reviews.filter(review => review.submitted_at !== null && !review.user.login.endsWith(GITHUB_REVIEW_BOT_SUFFIX)).map(review => ({ kind: PR_COMMENT_KIND.REVIEW,
+      id: review.id, author: review.user.login, body: review.body, state: review.state, created_at: review.submitted_at ?? "" }));
+  }
+
+  /** Read complete human PR conversations; author comments remain eligible.
+   * @param prNumber - Exact selected pull request.
+   */
+  private async fetchConversationComments(prNumber: number) {
+    const comments = await this.ghCollection(`repos/:owner/:repo/issues/${prNumber}/comments`, GhCommentSchema);
+
+    return comments.filter(comment => !comment.user.login.endsWith(GITHUB_REVIEW_BOT_SUFFIX) && comment.body.trim().length > 0);
+  }
+
+  /** Merge one exact observed PR, never redirecting to another open candidate.
+   * @param issueId - Managed issue whose request is selected.
+   * @param prUrl - Optional exact URL supplied by prior application evidence.
+   */
+  async mergePr(issueId: number, prUrl?: string): Promise<void> {
+    const pr = await this.selectOpenPr(issueId, prUrl);
+
+    if (!pr) throw new Error(`No open PR found for issue #${issueId}`);
+    await this.ghOnce(["pr", "merge", pr.url, "--merge"]);
+  }
+
+  /** Read the same selected PR's diff; failed explicit selection cannot yield another request's content.
+   * @param issueId - Managed issue whose request is selected.
+   * @param prUrl - Optional exact URL supplied by prior application evidence.
+   */
+  async getPrDiff(issueId: number, prUrl?: string): Promise<string | null> {
+    const pr = await this.selectOpenPr(issueId, prUrl);
+
+    if (!pr) return null;
+    try {
+      return await this.gh(["pr", "diff", String(pr.number)]);
+    } catch (error) { throw classifyProviderLookupFailure("github", error); }
+  }
+
+  /** Read every feedback source for the same deterministically selected open PR.
+   * @param issueId - Managed issue whose full PR feedback is requested.
+   * @param prUrl - Exact observed request to read, when supplied.
+   */
+  async getPrReviewComments(issueId: number, prUrl?: string): Promise<PrReviewComment[]> {
+    const pr = await this.selectOpenPr(issueId, prUrl);
+
+    if (!pr) return [];
+    const prNumber = pr.number;
+    const reviews = await this.readReviews(prNumber);
+    const comments = [
+      ...reviews.filter(review => review.state === PROVIDER_REVIEW_STATE.COMMENTED && review.body.trim().length > 0),
+      ...latestFormalReviews(reviews).filter(review => review.state !== PROVIDER_REVIEW_STATE.DISMISSED),
+    ];
+    const inlines = await this.ghCollection(`repos/:owner/:repo/pulls/${prNumber}/comments`, GhInlineSchema);
+
+    for (const comment of inlines.filter(comment => !comment.user.login.endsWith(GITHUB_REVIEW_BOT_SUFFIX))) {
+      comments.push({ kind: PR_COMMENT_KIND.INLINE, id: comment.id, author: comment.user.login, body: comment.body,
+        state: "INLINE", created_at: comment.created_at, path: comment.path, line: comment.line ?? undefined });
     }
 
-    // Check for closed-without-merge PRs. url: non-null = PR was explicitly closed;
-    // url: null = no PR has ever been created for this issue.
-    const allPrs = await this.findPrsViaTimeline(issueId, "all");
-    const closedPr = allPrs?.find((pr) => pr.state === "CLOSED");
-
-    if (closedPr) {
-      return { state: PrState.CLOSED, url: closedPr.url, title: closedPr.title, sourceBranch: closedPr.headRefName };
+    for (const comment of await this.fetchConversationComments(prNumber)) {
+      comments.push({ kind: PR_COMMENT_KIND.CONVERSATION, id: comment.id, author: comment.user.login,
+        body: comment.body, state: PROVIDER_REVIEW_STATE.COMMENTED, created_at: comment.created_at });
     }
 
-    return { state: PrState.CLOSED, url: null };
-  }
-
-  /**
-   * Check individual reviews for CHANGES_REQUESTED state.
-   * Used when branch protection is disabled (reviewDecision is empty).
-   */
-  private async hasChangesRequestedReview(prNumber: number): Promise<boolean> {
-    try {
-      const raw = await this.gh([
-        "api",
-        `repos/:owner/:repo/pulls/${prNumber}/reviews`,
-        "--jq",
-        `[.[] | select(.state == "CHANGES_REQUESTED" or .state == "APPROVED") | {user: .user.login, state}] | ` +
-        `group_by(.user) | map(sort_by(.state) | last) | .[] | select(.state == "CHANGES_REQUESTED") | .user`,
-      ]);
-
-      return raw.trim().length > 0;
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
-  }
-
-  /**
-   * Check if a PR has unacknowledged COMMENTED reviews from non-bot users.
-   * A review is "acknowledged" if it has an 👀 (eyes) reaction.
-   * This catches the common case where reviewers submit feedback as "Comment"
-   * rather than "Request changes".
-   *
-   * Note: We don't filter out self-reviews because DevClaw agents commit under
-   * the repo owner's account — the PR author and reviewer are the same person.
-   */
-  private async hasUnacknowledgedReviews(prNumber: number): Promise<boolean> {
-    try {
-      const raw = await this.gh(["api", `repos/:owner/:repo/pulls/${prNumber}/reviews`]);
-      const reviews = JSON.parse(raw) as Array<{
-        id: number; user: { login: string }; body: string; state: string;
-      }>;
-
-      // Filter to COMMENTED reviews with non-empty body from non-bot users
-      const commentedReviews = reviews.filter(
-        (r) => r.state === "COMMENTED" && r.body?.trim().length > 0 &&
-          !r.user.login.endsWith("[bot]"),
-      );
-
-      if (commentedReviews.length === 0) return false;
-
-      // Check if any are unacknowledged (no 👀 reaction)
-      for (const review of commentedReviews) {
-        try {
-          const reactionsRaw = await this.gh([
-            "api", `repos/:owner/:repo/pulls/${prNumber}/reviews/${review.id}/reactions`,
-          ]);
-          const reactions = JSON.parse(reactionsRaw) as Array<{ content: string }>;
-          const hasEyes = reactions.some((r) => r.content === "eyes");
-
-          if (!hasEyes) return true; // Found unacknowledged review
-        } catch (error) {
-          // Review-summary reaction support is handled separately from transport failures.
-          const failure = normalizeProviderFailure(error);
-
-          if (failure.code !== PROVIDER_OPERATION_ERROR.NOT_FOUND || failure.outcomeUnknown) throw error;
-
-          return true;
-        }
-      }
-
-      return false;
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
-  }
-
-  /**
-   * Check if a PR has any top-level conversation comments from human users.
-   * Excludes only bot accounts ([bot] suffix) and empty bodies.
-   * Uses the Issues Comments API (PRs are also issues in GitHub).
-   */
-  private async hasConversationComments(prNumber: number): Promise<boolean> {
-    try {
-      const raw = await this.gh(["api", `repos/:owner/:repo/issues/${prNumber}/comments`]);
-      const comments = JSON.parse(raw) as Array<{ user: { login: string }; body: string; reactions: { eyes: number } }>;
-
-      return comments.some(
-        (c) => !c.user.login.endsWith("[bot]") && c.body.trim().length > 0 && !(c.reactions?.eyes > 0),
-      );
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
-  }
-
-  /**
-   * Fetch top-level conversation comments on a PR from human users.
-   * These are comments on the PR timeline (not inline review comments).
-   * Excludes only bot accounts and empty bodies.
-   */
-  private async fetchConversationComments(
-    prNumber: number,
-  ): Promise<Array<{ id: number; user: { login: string }; body: string; created_at: string }>> {
-    try {
-      const raw = await this.gh(["api", `repos/:owner/:repo/issues/${prNumber}/comments`]);
-      const all = JSON.parse(raw) as Array<{ id: number; user: { login: string }; body: string; created_at: string }>;
-
-      return all.filter(
-        (c) => !c.user.login.endsWith("[bot]") && c.body.trim().length > 0,
-      );
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
-  }
-
-  async mergePr(issueId: number): Promise<void> {
-    type OpenPr = { title: string; body: string; headRefName: string; url: string };
-    const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,url");
-
-    if (prs.length === 0) throw new Error(`No open PR found for issue #${issueId}`);
-    await this.ghOnce(["pr", "merge", prs[0].url, "--merge"]);
-  }
-
-  async getPrDiff(issueId: number): Promise<string | null> {
-    type OpenPr = { title: string; body: string; headRefName: string; number: number };
-    const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
-
-    if (prs.length === 0) return null;
-    try {
-      return await this.gh(["pr", "diff", String(prs[0].number)]);
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
-  }
-
-  async getPrReviewComments(issueId: number): Promise<PrReviewComment[]> {
-    type OpenPr = { title: string; body: string; headRefName: string; number: number };
-    const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
-
-    if (prs.length === 0) return [];
-    const prNumber = prs[0].number;
-    const comments: PrReviewComment[] = [];
-
-    try {
-      // Review-level comments (top-level reviews: APPROVED, CHANGES_REQUESTED, COMMENTED)
-      const reviewsRaw = await this.gh(["api", `repos/:owner/:repo/pulls/${prNumber}/reviews`]);
-      const reviews = JSON.parse(reviewsRaw) as Array<{
-        id: number; user: { login: string }; body: string; state: string; submitted_at: string;
-      }>;
-
-      for (const r of reviews) {
-        if (r.state === "DISMISSED") continue; // Skip dismissed
-        if (!r.body && r.state === "COMMENTED") continue; // Skip empty COMMENTED reviews
-        comments.push({
-          kind: PR_COMMENT_KIND.REVIEW,
-          id: r.id,
-          author: r.user.login,
-          body: r.body ?? "",
-          state: r.state,
-          created_at: r.submitted_at,
-        });
-      }
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
-
-    try {
-      // Inline (file-level) review comments
-      const inlineRaw = await this.gh(["api", `repos/:owner/:repo/pulls/${prNumber}/comments`]);
-      const inlines = JSON.parse(inlineRaw) as Array<{
-        id: number; user: { login: string }; body: string; path: string; line: number | null; created_at: string;
-      }>;
-
-      for (const c of inlines) {
-        comments.push({
-          kind: PR_COMMENT_KIND.INLINE,
-          id: c.id,
-          author: c.user.login,
-          body: c.body,
-          state: "INLINE",
-          created_at: c.created_at,
-          path: c.path,
-          line: c.line ?? undefined,
-        });
-      }
-    } catch (error) { throw classifyProviderLookupFailure("github", error); }
-
-    // Top-level conversation comments (regular PR comments via Issues API)
-    const conversationComments = await this.fetchConversationComments(prNumber);
-
-    for (const c of conversationComments) {
-      comments.push({
-        kind: PR_COMMENT_KIND.CONVERSATION,
-        id: c.id,
-        author: c.user.login,
-        body: c.body,
-        state: "COMMENTED",
-        created_at: c.created_at,
-      });
-    }
-
-    // Sort by date
-    comments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-    return comments;
+    return comments.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id - b.id);
   }
 
   /** Create one comment without replaying a mutation whose response may have been lost.
@@ -745,8 +609,7 @@ export class GitHubProvider implements IssueProvider {
 
   async issueHasReaction(issueId: number, emoji: string): Promise<boolean> {
     try {
-      const raw = await this.gh(["api", `repos/:owner/:repo/issues/${issueId}/reactions`]);
-      const reactions = JSON.parse(raw) as Array<{ content: string }>;
+      const reactions = await this.ghCollection(`repos/:owner/:repo/issues/${issueId}/reactions`, GhReactionSchema);
 
       return reactions.some((r) => r.content === emoji);
     } catch { return false; }
@@ -755,8 +618,7 @@ export class GitHubProvider implements IssueProvider {
   async reactToPr(issueId: number, emoji: string): Promise<void> {
     try {
       // GitHub PRs are also issues — use the same reactions API with the PR number
-      type OpenPr = { title: string; body: string; headRefName: string; number: number };
-      const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
+        const prs = await this.findPrsForIssue(issueId, "open");
 
       if (prs.length === 0) return;
       await this.ghOnce([
@@ -769,12 +631,10 @@ export class GitHubProvider implements IssueProvider {
 
   async prHasReaction(issueId: number, emoji: string): Promise<boolean> {
     try {
-      type OpenPr = { title: string; body: string; headRefName: string; number: number };
-      const prs = await this.findPrsForIssue<OpenPr>(issueId, "open", "title,body,headRefName,number");
+        const prs = await this.findPrsForIssue(issueId, "open");
 
       if (prs.length === 0) return false;
-      const raw = await this.gh(["api", `repos/:owner/:repo/issues/${prs[0].number}/reactions`]);
-      const reactions = JSON.parse(raw) as Array<{ content: string }>;
+      const reactions = await this.ghCollection(`repos/:owner/:repo/issues/${prs[0].number}/reactions`, GhReactionSchema);
 
       return reactions.some((r) => r.content === emoji);
     } catch { return false; }
@@ -817,8 +677,7 @@ export class GitHubProvider implements IssueProvider {
 
   async issueCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
     try {
-      const raw = await this.gh(["api", `repos/:owner/:repo/issues/comments/${commentId}/reactions`]);
-      const reactions = JSON.parse(raw) as Array<{ content: string }>;
+      const reactions = await this.ghCollection(`repos/:owner/:repo/issues/comments/${commentId}/reactions`, GhReactionSchema);
 
       return reactions.some((r) => r.content === emoji);
     } catch { return false; }
@@ -826,8 +685,7 @@ export class GitHubProvider implements IssueProvider {
 
   async prCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
     try {
-      const raw = await this.gh(["api", `repos/:owner/:repo/issues/comments/${commentId}/reactions`]);
-      const reactions = JSON.parse(raw) as Array<{ content: string }>;
+      const reactions = await this.ghCollection(`repos/:owner/:repo/issues/comments/${commentId}/reactions`, GhReactionSchema);
 
       return reactions.some((r) => r.content === emoji);
     } catch { return false; }
@@ -839,12 +697,9 @@ export class GitHubProvider implements IssueProvider {
    * @param emoji - Reaction content to find.
    */
   async prReviewCommentHasReaction(_issueId: number, commentId: number, emoji: string): Promise<boolean> {
-    const raw = await this.gh(["api", `repos/:owner/:repo/pulls/comments/${commentId}/reactions`]);
-    const reactions: unknown = JSON.parse(raw);
+    const reactions = await this.ghCollection(`repos/:owner/:repo/pulls/comments/${commentId}/reactions`, GhReactionSchema);
 
-    if (!Array.isArray(reactions)) throw new Error("Invalid inline comment reaction response.");
-
-    return reactions.some((reaction: unknown) => typeof reaction === "object" && reaction !== null && "content" in reaction && reaction.content === emoji);
+    return reactions.some(reaction => reaction.content === emoji);
   }
 
   async editIssue(issueId: number, updates: { title?: string; body?: string }): Promise<Issue> {
@@ -859,15 +714,14 @@ export class GitHubProvider implements IssueProvider {
 
   /**
    * Check if work for an issue is already present on the base branch via git log.
-   * Searches the last 200 commits on baseBranch for commit messages mentioning #issueId.
+   * Searches complete reachable history for an exact issue reference without a numeric-prefix match.
    * Used as a fallback when no PR exists (e.g., direct commit to main).
+   * @param issueId - Positive issue identifier to match exactly.
+   * @param baseBranch - Configured base branch whose history is inspected.
    */
   async isCommitOnBaseBranch(issueId: number, baseBranch: string): Promise<boolean> {
     try {
-      const output = await runProviderCommand(this.runCommand,
-        ["git", "log", `origin/${baseBranch}`, "--oneline", "-200", "--grep", `#${issueId}`], this.repoPath);
-
-      return output.length > 0;
+      return await hasIssueCommitOnBaseBranch(this.runCommand, this.repoPath, issueId, baseBranch);
     } catch (error) { throw classifyProviderLookupFailure("github", error); }
   }
 

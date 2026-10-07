@@ -46,16 +46,16 @@ export async function executeCompletionActions(opts: CompletionInput, rule: Comp
 
         break;
       case ACTION.MERGE_PR: {
-        const observed = await provider.getPrStatus(issueId);
+        const observed = await provider.getPrStatus(issueId, prUrl);
 
         prUrl = prUrl ?? observed.url ?? undefined;
         prTitle = observed.title;
         sourceBranch = observed.sourceBranch;
         try {
-          if (observed.state !== PrState.MERGED) await provider.mergePr(issueId);
+          if (observed.state !== PrState.MERGED) await provider.mergePr(issueId, prUrl);
           mergedPr = true;
         } catch (err) {
-          const observed = await provider.getPrStatus(issueId);
+          const observed = await provider.getPrStatus(issueId, prUrl);
 
           if (observed.state === PrState.MERGED) { mergedPr = true; break; }
 

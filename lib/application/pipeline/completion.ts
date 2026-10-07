@@ -9,6 +9,7 @@ import { ACTION, DEFAULT_WORKFLOW, findStateByLabel, STATE_TYPE } from "../../do
 import { getProject, getRoleWorker, loadConfig, readIssueStateStore, readProjects, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../state/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { reconcileManagedLabelsLocked } from "../projection/index.js";
+import { confirmReviewSummaryDelivery } from "../review/index.js";
 import { renderCompletionAnnouncement } from "./announcement.js";
 import { notifyCompletion } from "./completion-notifications.js";
 import { PIPELINE_AUDIT, PIPELINE_OWNER } from "./const.js";
@@ -74,6 +75,18 @@ async function executeCompletionLocked(opts: CompletionInput): Promise<Completio
   const deliveryResolution = await readWorkerDeliveryResolution(workspaceDir, projectSlug, issueId);
 
   if (deliveryResolution && !deliveryResolution.completed) throw new Error(`Issue #${issueId} has a pending operator delivery resolution.`);
+
+  const pendingSummaries = currentState?.pendingReviewSummaryDelivery;
+
+  if (opts.expectedWorker && pendingSummaries) {
+    const expected = opts.expectedWorker;
+    const captured = pendingSummaries.worker;
+
+    if (expected.role === captured.role && expected.level === captured.level && expected.slotIndex === captured.slotIndex
+      && expected.sessionKey === captured.sessionKey && expected.startedAt === captured.startedAt) {
+      await confirmReviewSummaryDelivery({ workspaceDir, projectSlug }, issueId, pendingSummaries.operationId);
+    }
+  }
 
   const currentIssue = await provider.getIssue(issueId);
 

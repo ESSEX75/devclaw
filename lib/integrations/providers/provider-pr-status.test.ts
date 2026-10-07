@@ -1,358 +1,121 @@
-/**
- * Tests for getPrStatus() — distinguishing closed-PR from no-PR-exists.
- *
- * Issue #315: getPrStatus must return a non-null url for explicitly closed PRs
- * so callers can distinguish "PR was closed without merging" vs "no PR exists".
- *
- * Run with: npx tsx --test lib/integrations/providers/provider-pr-status.test.ts
- */
-import { describe, it, mock } from "node:test";
-import assert from "node:assert";
+/** Tests deterministic PR/MR selection and review chronology through real adapters and CLI fixtures. */
+
+import assert from "node:assert/strict";
+import { it } from "node:test";
+
 import type { RunCommand } from "../../context.js";
 import { GitHubProvider } from "./github.js";
 import { GitLabProvider } from "./gitlab.js";
 import { PrState } from "./types.js";
 
-/** Noop runCommand for tests that mock all provider methods anyway. */
-const mockRunCommand: RunCommand = async () => ({
-  stdout: "", stderr: "", exitCode: 0, code: 0, signal: null, killed: false, termination: "exit",
-} as any);
+/** Construct complete GitHub PR observations without overriding private adapter methods.
+ * @param number - Provider PR identity.
+ * @param state - Provider lifecycle state.
+ * @param reviewDecision - Aggregate server review decision.
+ * @param mergeable - Server mergeability observation.
+ */
+function pull(number: number, state = "OPEN", reviewDecision: string | null = null, mergeable = "MERGEABLE") {
+  return { number, state, reviewDecision, mergeable, title: `Fix #42 (${number})`, body: "", headRefName: `feature/42-${number}`,
+    url: `https://github.com/owner/repo/pull/${number}`, mergedAt: state === "MERGED" ? "2026-01-01T00:00:00Z" : null };
+}
 
-// ---------------------------------------------------------------------------
-// GitHub provider tests
-// ---------------------------------------------------------------------------
+/** Model complete provider responses, recording exact targets for cross-capability agreement.
+ * @param rows - GitHub-shaped candidates converted to the selected provider format.
+ * @param reviews - Summary pages supplied to GitHub review inspection.
+ * @param calls - Captured command argument vectors.
+ */
+function transport(rows: ReturnType<typeof pull>[], reviews: unknown[] = [], calls: string[][] = []): RunCommand {
+  return async argv => {
+    calls.push([...argv]);
+    const endpoint = argv[2]?.split("?")[0];
+    let data: unknown = [];
+    let stdout: string | undefined;
+    if (argv[1] === "repo") data = { owner: { login: "owner" }, name: "repo" };
+    else if (endpoint === "graphql") data = [{ data: { repository: { issue: { timelineItems: {
+      pageInfo: { hasNextPage: false, endCursor: null }, nodes: rows.map(source => ({ source })),
+    } } } } }];
+    else if (endpoint === "projects/:id") data = { id: 1 };
+    else if (endpoint?.endsWith("related_merge_requests")) data = rows.map(pr => ({ iid: pr.number, project_id: 1, title: pr.title,
+      description: pr.body, web_url: pr.url, state: pr.state === "OPEN" ? "opened" : pr.state.toLowerCase(), source_branch: pr.headRefName, merged_at: pr.mergedAt }));
+    else if (endpoint?.endsWith("/reviews")) data = reviews;
+    else if (endpoint?.endsWith("/approvals")) data = { approved_by: [], approvals_left: 1 };
+    else if (/merge_requests\/\d+$/.test(endpoint ?? "")) data = { detailed_merge_status: "mergeable" };
+    else if (argv[1] === "pr" || argv[1] === "mr") stdout = argv[2] === "diff" ? `diff ${argv[3]}` : "";
+    const paginated = argv.includes("--slurp") && endpoint !== "graphql";
+    return { stdout: stdout ?? JSON.stringify(paginated ? [data] : data), stderr: "", code: 0, signal: null, killed: false, termination: "exit" };
+  };
+}
 
-describe("GitHubProvider.getPrStatus — closed PR handling", () => {
-  it("returns url:null when no PR has ever been created", async () => {
-    const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    // findPrsForIssue returns [] for open and merged, findPrsViaTimeline returns null (GraphQL unavailable)
-    (provider as any).findPrsForIssue = async () => [];
-    (provider as any).findPrsViaTimeline = async () => null;
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.CLOSED);
-    assert.strictEqual(status.url, null, "no PR exists → url must be null");
+for (const Provider of [GitHubProvider, GitLabProvider]) {
+  it(`${Provider.name} distinguishes missing, closed and merged PRs`, async () => {
+    for (const state of [undefined, "CLOSED", "MERGED"]) {
+      const provider = new Provider({ repoPath: ".", runCommand: transport(state ? [pull(7, state)] : []) });
+      const status = await provider.getPrStatus(42);
+      assert.equal(status.state, state === "MERGED" ? PrState.MERGED : PrState.CLOSED);
+      assert.equal(status.url, state ? pull(7).url : null);
+    }
   });
 
-  it("returns url:null when timeline returns empty array (no PRs at all)", async () => {
-    const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    (provider as any).findPrsForIssue = async () => [];
-    (provider as any).findPrsViaTimeline = async () => [];
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.CLOSED);
-    assert.strictEqual(status.url, null, "empty timeline → url must be null");
+  it(`${Provider.name} selects the same newest open request for status, diff, merge and feedback`, async () => {
+    const calls: string[][] = [];
+    const provider = new Provider({ repoPath: ".", runCommand: transport([pull(2), pull(9), pull(5, "MERGED"), pull(12, "CLOSED")], [], calls) });
+    assert.equal((await provider.getPrStatus(42)).url, pull(9).url);
+    assert.equal(await provider.getPrDiff(42), "diff 9");
+    await provider.getPrReviewComments(42);
+    await provider.mergePr(42);
+    const merge = calls.find(argv => (argv[1] === "pr" || argv[1] === "mr") && argv[2] === "merge");
+    assert.equal(merge?.[3], Provider === GitHubProvider ? pull(9).url : "9");
+    const feedback = calls.filter(argv => /\/(?:pulls|merge_requests)\/\d+\/(?:reviews|comments|discussions|notes)/.test(argv[2] ?? ""));
+    assert.ok(feedback.length > 0);
+    assert.ok(feedback.every(argv => argv[2].includes("/9/")));
   });
 
-  it("returns url:closedPrUrl when a closed-without-merge PR exists", async () => {
-    const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const closedPrUrl = "https://github.com/owner/repo/pull/7";
-
-    (provider as any).findPrsForIssue = async (_id: number, state: string) => {
-      if (state === "open" || state === "merged") return [];
-      return [];
-    };
-    (provider as any).findPrsViaTimeline = async (_id: number, state: string) => {
-      if (state === "all") {
-        return [
-          {
-            number: 7,
-            title: "feat: some work",
-            body: "",
-            headRefName: "feature/7-some-work",
-            url: closedPrUrl,
-            mergedAt: null,
-            reviewDecision: null,
-            state: "CLOSED",
-          },
-        ];
-      }
-      return [];
-    };
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.CLOSED);
-    assert.strictEqual(status.url, closedPrUrl, "closed PR → url must be the closed PR url");
-    assert.strictEqual(status.sourceBranch, "feature/7-some-work");
+  it(`${Provider.name} uses the same newest merged request for status and merged URL`, async () => {
+    const provider = new Provider({ repoPath: ".", runCommand: transport([pull(2, "MERGED"), pull(8, "MERGED"), pull(9, "CLOSED")]) });
+    assert.equal((await provider.getPrStatus(42)).url, pull(8).url);
+    assert.equal(await provider.getMergedMRUrl(42), pull(8).url);
   });
 
-  it("prefers open PR over closed PR", async () => {
-    const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const openPrUrl = "https://github.com/owner/repo/pull/9";
-
-    (provider as any).findPrsForIssue = async (_id: number, state: string) => {
-      if (state === "open") {
-        return [
-          {
-            title: "feat: open pr",
-            body: "",
-            headRefName: "feature/9-open-pr",
-            url: openPrUrl,
-            number: 9,
-            reviewDecision: "",
-            mergeable: "MERGEABLE",
-          },
-        ];
-      }
-      return [];
-    };
-    // Simulate no changes-requested reviews and no comments
-    (provider as any).hasChangesRequestedReview = async () => false;
-    (provider as any).hasUnacknowledgedReviews = async () => false;
-    (provider as any).hasConversationComments = async () => false;
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.OPEN);
-    assert.strictEqual(status.url, openPrUrl);
+  it(`${Provider.name} honors an observed target and never redirects a missing target to a newer request`, async () => {
+    const calls: string[][] = [];
+    const provider = new Provider({ repoPath: ".", runCommand: transport([pull(2), pull(9)], [], calls) });
+    assert.equal((await provider.getPrStatus(42, pull(2).url)).url, pull(2).url);
+    assert.equal(await provider.getPrDiff(42, pull(2).url), "diff 2");
+    await provider.mergePr(42, pull(2).url);
+    const merge = calls.find(argv => (argv[1] === "pr" || argv[1] === "mr") && argv[2] === "merge");
+    assert.equal(merge?.[3], Provider === GitHubProvider ? pull(2).url : "2");
+    const count = calls.filter(argv => (argv[1] === "pr" || argv[1] === "mr") && argv[2] === "merge").length;
+    await assert.rejects(provider.mergePr(42, pull(3).url), /no longer available/);
+    await assert.rejects(provider.getPrReviewComments(42, pull(3).url), /no longer available/);
+    assert.equal(calls.filter(argv => (argv[1] === "pr" || argv[1] === "mr") && argv[2] === "merge").length, count);
   });
+}
 
-  it("prefers merged PR over closed PR", async () => {
-    const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const mergedPrUrl = "https://github.com/owner/repo/pull/5";
-
-    (provider as any).findPrsForIssue = async (_id: number, state: string) => {
-      if (state === "open") return [];
-      if (state === "merged") {
-        return [
-          {
-            title: "feat: merged",
-            body: "",
-            headRefName: "feature/5-merged",
-            url: mergedPrUrl,
-            reviewDecision: null,
-          },
-        ];
-      }
-      return [];
-    };
-    (provider as any).findPrsViaTimeline = async () => null;
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.MERGED);
-    assert.strictEqual(status.url, mergedPrUrl);
-  });
-
-  it("ignores non-CLOSED states in timeline when returning closed PR", async () => {
-    const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    (provider as any).findPrsForIssue = async () => [];
-    // Timeline has only OPEN PRs — none should trigger closed-PR path
-    (provider as any).findPrsViaTimeline = async (_id: number, state: string) => {
-      if (state === "all") {
-        return [{ number: 10, title: "", body: "", headRefName: "", url: "https://github.com/owner/repo/pull/10", mergedAt: null, reviewDecision: null, state: "OPEN", mergeable: null }];
-      }
-      return [];
-    };
-
-    const status = await provider.getPrStatus(42);
-
-    // OPEN PR in timeline but findPrsForIssue("open") returned [] → shouldn't reach here normally,
-    // but the CLOSED fallback path should not pick it up.
-    assert.strictEqual(status.state, PrState.CLOSED);
-    assert.strictEqual(status.url, null, "OPEN state in timeline should not match closed-PR path");
-  });
-
-  it("detects merge conflicts via mergeable field", async () => {
-    const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const conflictedPrUrl = "https://github.com/owner/repo/pull/11";
-
-    (provider as any).findPrsForIssue = async (_id: number, state: string) => {
-      if (state === "open") {
-        return [
-          {
-            title: "feat: conflicted pr",
-            body: "",
-            headRefName: "feature/11-conflicted",
-            url: conflictedPrUrl,
-            number: 11,
-            reviewDecision: "",
-            mergeable: "CONFLICTING",
-          },
-        ];
-      }
-      return [];
-    };
-    // Simulate no changes-requested reviews and no comments
-    (provider as any).hasChangesRequestedReview = async () => false;
-    (provider as any).hasUnacknowledgedReviews = async () => false;
-    (provider as any).hasConversationComments = async () => false;
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.OPEN);
-    assert.strictEqual(status.url, conflictedPrUrl);
-    assert.strictEqual(status.mergeable, false, "mergeable: CONFLICTING should be detected as false");
-  });
-
-  it("distinguishes mergeable states", async () => {
-    const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const mergeablePrUrl = "https://github.com/owner/repo/pull/12";
-
-    (provider as any).findPrsForIssue = async (_id: number, state: string) => {
-      if (state === "open") {
-        return [
-          {
-            title: "feat: clean pr",
-            body: "",
-            headRefName: "feature/12-clean",
-            url: mergeablePrUrl,
-            number: 12,
-            reviewDecision: "",
-            mergeable: "MERGEABLE",
-          },
-        ];
-      }
-      return [];
-    };
-    (provider as any).hasChangesRequestedReview = async () => false;
-    (provider as any).hasUnacknowledgedReviews = async () => false;
-    (provider as any).hasConversationComments = async () => false;
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.OPEN);
-    assert.strictEqual(status.url, mergeablePrUrl);
-    assert.strictEqual(status.mergeable, true, "mergeable: MERGEABLE should be detected as true");
-  });
-
-  it("handles unknown mergeable state", async () => {
-    const provider = new GitHubProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const unknownPrUrl = "https://github.com/owner/repo/pull/13";
-
-    (provider as any).findPrsForIssue = async (_id: number, state: string) => {
-      if (state === "open") {
-        return [
-          {
-            title: "feat: unknown state pr",
-            body: "",
-            headRefName: "feature/13-unknown",
-            url: unknownPrUrl,
-            number: 13,
-            reviewDecision: "",
-            mergeable: "UNKNOWN",
-          },
-        ];
-      }
-      return [];
-    };
-    (provider as any).hasChangesRequestedReview = async () => false;
-    (provider as any).hasUnacknowledgedReviews = async () => false;
-    (provider as any).hasConversationComments = async () => false;
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.OPEN);
-    assert.strictEqual(status.url, unknownPrUrl);
-    assert.strictEqual(status.mergeable, undefined, "mergeable: UNKNOWN should remain undefined (no assumption)");
-  });
+it("GitHub uses the latest formal decision per author, including approval and dismissal", async () => {
+  for (const [latestState, expected] of [["APPROVED", PrState.APPROVED], ["CHANGES_REQUESTED", PrState.CHANGES_REQUESTED], ["DISMISSED", PrState.OPEN]]) {
+    const reviews = [
+      { id: 1, user: { login: "reviewer" }, body: "", state: "CHANGES_REQUESTED", submitted_at: "2026-01-01T00:00:00Z" },
+      { id: 2, user: { login: "reviewer" }, body: "", state: latestState, submitted_at: "2026-01-02T00:00:00Z" },
+    ];
+    const provider = new GitHubProvider({ repoPath: ".", runCommand: transport([pull(7)], reviews.reverse()) });
+    assert.equal((await provider.getPrStatus(42)).state, expected);
+  }
 });
 
-// ---------------------------------------------------------------------------
-// GitLab provider tests
-// ---------------------------------------------------------------------------
+it("GitHub exposes summary-only feedback without querying a summary reaction endpoint", async () => {
+  const calls: string[][] = [];
+  const reviews = [{ id: 42, user: { login: "reviewer" }, body: "fix", state: "COMMENTED", submitted_at: "2026-01-01T00:00:00Z" }];
+  const provider = new GitHubProvider({ repoPath: ".", runCommand: transport([pull(7)], reviews, calls) });
+  const status = await provider.getPrStatus(42);
+  assert.equal(status.state, PrState.HAS_COMMENTS);
+  assert.equal(status.hasCommentFeedback, false);
+  assert.equal(status.reviewSummaries?.[0].id, 42);
+  assert.ok(!calls.some(argv => /reviews\/\d+\/reactions/.test(argv[2] ?? "")));
+});
 
-describe("GitLabProvider.getPrStatus — closed MR handling", () => {
-  it("returns url:null when no MR has ever been created", async () => {
-    const provider = new GitLabProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    (provider as any).getRelatedMRs = async () => [];
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.CLOSED);
-    assert.strictEqual(status.url, null, "no MR exists → url must be null");
-  });
-
-  it("returns url:closedMrUrl when a closed-without-merge MR exists", async () => {
-    const provider = new GitLabProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const closedMrUrl = "https://gitlab.com/owner/repo/-/merge_requests/3";
-
-    (provider as any).getRelatedMRs = async () => [
-      {
-        iid: 3,
-        title: "feat: some work",
-        description: "",
-        web_url: closedMrUrl,
-        state: "closed",
-        source_branch: "feature/3-some-work",
-        merged_at: null,
-      },
-    ];
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.CLOSED);
-    assert.strictEqual(status.url, closedMrUrl, "closed MR → url must be the closed MR url");
-    assert.strictEqual(status.sourceBranch, "feature/3-some-work");
-  });
-
-  it("prefers open MR over closed MR", async () => {
-    const provider = new GitLabProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const openMrUrl = "https://gitlab.com/owner/repo/-/merge_requests/4";
-    const closedMrUrl = "https://gitlab.com/owner/repo/-/merge_requests/2";
-
-    (provider as any).getRelatedMRs = async () => [
-      { iid: 4, title: "open MR", description: "", web_url: openMrUrl, state: "opened", source_branch: "feature/4", merged_at: null },
-      { iid: 2, title: "closed MR", description: "", web_url: closedMrUrl, state: "closed", source_branch: "feature/2", merged_at: null },
-    ];
-    (provider as any).isMrApproved = async () => false;
-    (provider as any).hasUnresolvedDiscussions = async () => false;
-    (provider as any).hasConversationComments = async () => false;
-    (provider as any).isMrMergeable = async () => true;
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.OPEN);
-    assert.strictEqual(status.url, openMrUrl);
-  });
-
-  it("prefers merged MR over closed MR", async () => {
-    const provider = new GitLabProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const mergedMrUrl = "https://gitlab.com/owner/repo/-/merge_requests/5";
-    const closedMrUrl = "https://gitlab.com/owner/repo/-/merge_requests/1";
-
-    (provider as any).getRelatedMRs = async () => [
-      { iid: 5, title: "merged", description: "", web_url: mergedMrUrl, state: "merged", source_branch: "feature/5", merged_at: "2026-01-01T00:00:00Z" },
-      { iid: 1, title: "closed", description: "", web_url: closedMrUrl, state: "closed", source_branch: "feature/1", merged_at: null },
-    ];
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.MERGED);
-    assert.strictEqual(status.url, mergedMrUrl);
-  });
-
-  it("handles multiple closed MRs — returns the first found", async () => {
-    const provider = new GitLabProvider({ repoPath: "/fake", runCommand: mockRunCommand });
-
-    const closedMrUrl1 = "https://gitlab.com/owner/repo/-/merge_requests/10";
-    const closedMrUrl2 = "https://gitlab.com/owner/repo/-/merge_requests/11";
-
-    (provider as any).getRelatedMRs = async () => [
-      { iid: 10, title: "closed 1", description: "", web_url: closedMrUrl1, state: "closed", source_branch: "feature/10", merged_at: null },
-      { iid: 11, title: "closed 2", description: "", web_url: closedMrUrl2, state: "closed", source_branch: "feature/11", merged_at: null },
-    ];
-
-    const status = await provider.getPrStatus(42);
-
-    assert.strictEqual(status.state, PrState.CLOSED);
-    // First closed MR found is returned
-    assert.strictEqual(status.url, closedMrUrl1);
-  });
+it("GitHub preserves conflicting and unknown mergeability observations", async () => {
+  for (const [value, expected] of [["CONFLICTING", false], ["UNKNOWN", undefined], ["MERGEABLE", true]] as const) {
+    const provider = new GitHubProvider({ repoPath: ".", runCommand: transport([pull(7, "OPEN", null, value)]) });
+    assert.equal((await provider.getPrStatus(42)).mergeable, expected);
+  }
 });

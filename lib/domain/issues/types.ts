@@ -58,6 +58,26 @@ export type PipelineNotificationState = {
   reason?: string;
 };
 
+/** Receipt for one non-formal review summary supplied in full to a confirmed worker turn. */
+export type ReviewSummaryReceipt = {
+  /** Exact provider PR URL, separating summaries from different pull requests. */
+  prUrl: string;
+  /** Provider review-summary identity within that PR. */
+  reviewId: number;
+  /** SHA-256 of the delivered summary content, author, state and optional location. */
+  fingerprint: string;
+};
+
+/** Captured context awaiting explicit acceptance, matching worker completion or operator confirmation. */
+export type PendingReviewSummaryDelivery = {
+  /** Immutable submission identity selected before the gateway turn. */
+  operationId: string;
+  /** Exact worker frame that owns this context, independent of reusable session identity alone. */
+  worker: Pick<ActiveIssueWorker, "role" | "level" | "slotIndex" | "sessionKey" | "startedAt">;
+  /** Full summary fingerprints included in that submission, never presumed delivered while pending. */
+  receipts: ReviewSummaryReceipt[];
+};
+
 /** Local state details for issue synchronization and validation. */
 export type IssueProjectionState = {
   /** Health status of the projection. */
@@ -114,6 +134,10 @@ export type IssueRuntimeState = IssueProjectionState & {
   activeWorker: ActiveIssueWorker | null;
   /** Completed worker whose project slot still needs an idempotent release. */
   pendingWorkerRelease?: ActiveIssueWorker | null;
+  /** Delivered review-summary receipts; provider reactions never establish this evidence. */
+  processedReviewSummaries?: ReviewSummaryReceipt[];
+  /** Submitted context evidence retained until this exact worker turn is confirmed. */
+  pendingReviewSummaryDelivery?: PendingReviewSummaryDelivery;
   /** ISO timestamp when managed state was created. */
   createdAt: string;
   /** ISO timestamp of the last state update. */

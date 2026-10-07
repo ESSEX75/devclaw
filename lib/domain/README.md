@@ -62,3 +62,8 @@ release. This is an ownership guard until application recovery finishes the rele
 
 Worker delivery markers carry a submission ID distinct from reusable session
 identity. Domain owns operator decision values; state owns resumable decision records.
+
+Issue semantics own non-formal review-summary receipts and pending submitted context
+bound to an exact worker frame. These describe delivery evidence, never review resolution
+or provider-label authority. Application decides when external acceptance, completion
+or explicit operator evidence may confirm that pending context.

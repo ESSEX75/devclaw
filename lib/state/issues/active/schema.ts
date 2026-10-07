@@ -26,6 +26,11 @@ const ActiveWorkerSchema = z.object({
   }).strict().optional(),
 }).strict();
 
+/** Full-content summary fingerprint bound to one provider request and review identity. */
+const ReviewSummaryReceiptSchema = z.object({
+  prUrl: z.string().min(1), reviewId: z.number().int().positive().safe(), fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+
 /** Strict schema for one authoritative active issue runtime record. */
 const RuntimeIssueSchema = z.object({
   projectSlug: z.string(), issueId: z.number().int().positive(), provider: z.enum(ISSUE_PROVIDER),
@@ -36,6 +41,10 @@ const RuntimeIssueSchema = z.object({
   notifyTarget: z.object({ channel: z.enum(NOTIFICATION_CHANNEL), name: z.string() }).strict().nullable(),
   activeWorker: ActiveWorkerSchema.nullable(),
   pendingWorkerRelease: ActiveWorkerSchema.nullable().optional(),
+  processedReviewSummaries: z.array(ReviewSummaryReceiptSchema).optional(),
+  pendingReviewSummaryDelivery: z.object({ operationId: z.string().uuid(),
+    worker: ActiveWorkerSchema.omit({ delivery: true, lastNudgeAt: true }), receipts: z.array(ReviewSummaryReceiptSchema),
+  }).strict().optional(),
   integrityStatus: z.enum(ISSUE_INTEGRITY_STATUS), integrityErrors: z.array(z.string()),
   createdAt: z.string(), updatedAt: z.string(),
   closedAt: z.string().nullable(),

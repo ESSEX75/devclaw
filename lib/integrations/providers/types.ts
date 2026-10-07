@@ -58,6 +58,10 @@ export type PrStatus = {
   title?: string;
   sourceBranch?: string;
   mergeable?: boolean;
+  /** COMMENTED review summaries requiring application-owned local receipt comparison. */
+  reviewSummaries?: PrReviewComment[];
+  /** Non-summary feedback still observed without the cosmetic acknowledgement indicator. */
+  hasCommentFeedback?: boolean;
 };
 
 /** Provider review observation with an explicit source namespace for safe acknowledgement. */

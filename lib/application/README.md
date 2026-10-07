@@ -47,6 +47,14 @@ separate READMEs. Their file responsibilities and API details belong in source J
   content remains intact; comments use a count cap and budget, visible omissions, and
   at most one marked fragment. Only full comments receive acknowledgement. UTF-8 byte
   estimates are not model token counts; required overflow blocks dispatch.
+  Non-formal review summaries retain local full-content fingerprints scoped to the exact
+  PR URL and review ID. Submitted context remains pending until acceptance, exact worker
+  completion or explicit operator confirmation; unknown delivery never acknowledges it.
+  Completion can confirm captured context before the gateway's final CLI reply, and stale
+  submission/session frames cannot confirm replacement turns. Verified non-start discards
+  only the matching pending context. Receipts suppress duplicate heartbeat feedback events;
+  retried workers still receive original feedback, since delivery does not prove resolution.
+  Formal review decisions and edited summaries remain independently actionable.
 - Dispatch atomically enforces capacity and execution mode. Proven local rejection
   rolls back reservation; unknown submission retains issue/slot ownership and evidence.
   Session existence alone proves nothing. Recovery persists an immutable operator

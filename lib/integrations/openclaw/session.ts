@@ -5,7 +5,7 @@
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import type { ResolvedTimeouts } from "../../state/index.js";
-import { AGENT_TURN_STATUS } from "./const.js";
+import { AGENT_TURN_IDEMPOTENCY_PREFIX, AGENT_TURN_STATUS } from "./const.js";
 import { fetchGatewaySessions } from "./gateway-sessions.js";
 import type { AgentTurnInput, AgentTurnOutcome } from "./types.js";
 
@@ -70,23 +70,6 @@ export async function shouldClearSession(
 // Private helpers — exist so dispatchTask reads as a sequence of steps
 // ---------------------------------------------------------------------------
 
-export function sendToAgent(
-  sessionKey: string, taskMessage: string,
-  opts: AgentTurnInput,
-): void {
-  // Fire-and-forget: long-running agent turn, don't await
-  opts.runCommand(
-    agentCommand(sessionKey, taskMessage, opts),
-    { timeoutMs: opts.dispatchTimeoutMs ?? 600_000 },
-  ).catch((err) => {
-    auditLog(opts.workspaceDir, "dispatch_warning", {
-      step: "sendToAgent", sessionKey,
-      issue: opts.issueId, role: opts.role,
-      error: (err as Error).message ?? String(err),
-    }).catch(() => { });
-  });
-}
-
 /**
  * Observe the gateway command result without interpreting transport failure as rejection.
  * Only local input validation proves that the command was never submitted.
@@ -95,7 +78,7 @@ export function sendToAgent(
  * @param opts - Gateway address, idempotency, and command capability.
  */
 export async function submitAgentTurn(sessionKey: string, taskMessage: string, opts: AgentTurnInput): Promise<AgentTurnOutcome> {
-  if (!sessionKey.trim() || !taskMessage.trim() || (opts.agentId !== undefined && !opts.agentId.trim())) {
+  if (!sessionKey.trim() || !taskMessage.trim() || (typeof opts.submissionId !== "string" || !opts.submissionId.trim()) || (opts.agentId !== undefined && !opts.agentId.trim())) {
     return { kind: AGENT_TURN_STATUS.REJECTED, reason: "Gateway worker turn has invalid local submission input." };
   }
 
@@ -122,11 +105,11 @@ export async function submitAgentTurn(sessionKey: string, taskMessage: string, o
  * Build the shared gateway RPC with a stable key so a replay addresses one turn.
  * @param sessionKey - Deterministic worker session identity.
  * @param taskMessage - Complete task context to submit.
- * @param opts - Issue and parent session identity for the RPC.
+ * @param opts - Immutable submission token, agent address and optional parent session context.
  */
 function agentCommand(sessionKey: string, taskMessage: string, opts: AgentTurnInput): string[] {
   const gatewayParams = JSON.stringify({
-    idempotencyKey: `devclaw-${opts.projectName}-${opts.issueId}-${opts.role}-${opts.level ?? "unknown"}-${opts.slotIndex ?? 0}-${opts.fromLabel ?? "unknown"}-${sessionKey}`,
+    idempotencyKey: `${AGENT_TURN_IDEMPOTENCY_PREFIX}-${opts.submissionId}`,
     agentId: opts.agentId ?? "devclaw",
     sessionKey,
     message: taskMessage,

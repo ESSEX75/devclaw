@@ -8,7 +8,8 @@ import type { RunCommand } from "../../context.js";
 import { DEFAULT_WORKFLOW, getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
 import type { CreateIssueInput } from "./capabilities.js";
 import { runProviderCommand } from "./command.js";
-import { PR_COMMENT_KIND, PROVIDER_COMMAND_MODE } from "./const.js";
+import { hasIssueCommitOnBaseBranch } from "./commit-references.js";
+import { GITLAB_INLINE_NOTE_TYPE, PR_COMMENT_KIND, PROVIDER_COMMAND_MODE, PROVIDER_PAGE_SIZE } from "./const.js";
 import {
   classifyProviderLookupFailure,
   classifyProviderProjectAccessFailure,
@@ -17,30 +18,20 @@ import {
   ProviderIssueLookupError,
 } from "./lookup-errors.js";
 import { classifyProviderOperationError, PROVIDER_OPERATION_ERROR, ProviderOperationError } from "./operation-errors.js";
+import { parseProviderPages } from "./pagination.js";
 import type { IssueProvider } from "./provider.js";
 import { createProviderPolicy, withResilience } from "./resilience.js";
 import { type Issue, type IssueComment, type PrReviewComment, PrState, type PrStatus, type StateLabel } from "./types.js";
 
-type GitLabMR = {
-  iid: number;
-  title: string;
-  description: string;
-  web_url: string;
-  state: string;
-  source_branch?: string;
-  merged_at: string | null;
-  approved_by?: Array<unknown>;
-  author?: { username: string };
-};
-
 const GitLabIssueSchema = z.object({
-  iid: z.number(), title: z.string(), description: z.string(), labels: z.array(z.string()),
+  iid: z.number(), title: z.string(), description: z.string().nullable().transform(value => value ?? ""), labels: z.array(z.string()),
   state: z.string(), web_url: z.string(),
 });
 
 /** Related merge-request responses must confirm identity before they can drive observations. */
 const GitLabMRSchema = z.object({
   iid: z.number().int().positive().safe(),
+  project_id: z.number().int().positive().safe(),
   title: z.string(),
   description: z.string().nullable().optional().transform(value => value ?? ""),
   web_url: z.string().min(1),
@@ -49,8 +40,23 @@ const GitLabMRSchema = z.object({
   merged_at: z.string().nullable().optional().transform(value => value ?? null),
 });
 
+/** Validated related-request DTO used by every GitLab capability. */
+type GitLabMR = z.infer<typeof GitLabMRSchema>;
+
 /** Approval evidence must include the explicit reviewers and remaining required approvals. */
 const GitLabApprovalSchema = z.object({ approved_by: z.array(z.unknown()), approvals_left: z.number().int().nonnegative() });
+
+/** GitLab notes keep one shared identity across discussion and conversation endpoints. */
+const GitLabNoteSchema = z.object({ id: z.number().int().positive().safe(), author: z.object({ username: z.string() }), body: z.string(),
+  created_at: z.string(), system: z.boolean(), resolvable: z.boolean().optional(), resolved: z.boolean().optional(),
+  type: z.string().nullable().optional(),
+  position: z.object({ new_path: z.string().optional(), new_line: z.number().nullable().optional() }).nullable().optional() });
+
+/** Discussion pages contain notes whose provider identity must be retained. */
+const GitLabDiscussionSchema = z.object({ notes: z.array(GitLabNoteSchema) });
+
+/** Cosmetic emoji metadata returned in complete reaction collections. */
+const GitLabEmojiSchema = z.object({ name: z.string() });
 
 export class GitLabProvider implements IssueProvider {
   private repoPath: string;
@@ -72,6 +78,19 @@ export class GitLabProvider implements IssueProvider {
   private async glab(args: string[]): Promise<string> {
     return withResilience(PROVIDER_COMMAND_MODE.READ, this.policy, () =>
       runProviderCommand(this.runCommand, ["glab", ...args], this.repoPath));
+  }
+
+  /** Read every REST page and validate each returned item before reporting a complete collection.
+   * @param endpoint - Project-scoped collection endpoint and optional filters.
+   * @param schema - Owning provider element schema.
+   */
+  private async glabCollection<T>(endpoint: string, schema: z.ZodType<T>): Promise<T[]> {
+    try {
+      const separator = endpoint.includes("?") ? "&" : "?";
+      const output = await this.glab(["api", `${endpoint}${separator}per_page=${PROVIDER_PAGE_SIZE}`, "--paginate"]);
+
+      return parseProviderPages(output, schema, false);
+    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
   /** Repeat only a mutation whose desired final state is explicitly idempotent.
@@ -97,14 +116,42 @@ export class GitLabProvider implements IssueProvider {
    * @param issueId - Managed issue whose related merge requests are requested.
    */
   private async getRelatedMRs(issueId: number): Promise<GitLabMR[]> {
+    const mrs = await this.glabCollection(`projects/:id/issues/${issueId}/related_merge_requests`, GitLabMRSchema);
+
+    if (!mrs.length) return [];
+    const projectId = await this.getProjectId();
+
+    return mrs.filter(mr => mr.project_id === projectId).sort((a, b) => b.iid - a.iid);
+  }
+
+  /** Cached confirmed project ID prevents cross-project IID collisions in related MR lists. */
+  private projectId: number | undefined;
+
+  /** Resolve the owning project; failures never enter the identity cache. */
+  private async getProjectId(): Promise<number> {
+    if (this.projectId !== undefined) return this.projectId;
     try {
-      const raw = await this.glab(["api", `projects/:id/issues/${issueId}/related_merge_requests`, "--paginate"]);
+      const response: unknown = JSON.parse(await this.glab(["api", "projects/:id"]));
+      const project = z.object({ id: z.number().int().positive().safe() }).parse(response);
 
+      this.projectId = project.id;
 
-      const response: unknown = JSON.parse(raw);
-
-      return z.array(GitLabMRSchema).parse(response);
+      return project.id;
     } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
+  }
+
+  /** Resolve the exact observed MR instead of redirecting work to a newer candidate.
+   * @param issueId - Managed issue whose related open requests are searched.
+   * @param prUrl - Optional exact URL previously observed by the application.
+   */
+  private async selectOpenMr(issueId: number, prUrl?: string): Promise<GitLabMR | undefined> {
+    const candidates = (await this.getRelatedMRs(issueId)).filter(mr => mr.state === "opened");
+    const selected = prUrl ? candidates.find(mr => mr.web_url === prUrl) : candidates[0];
+
+    if (prUrl && !selected) throw new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.UNKNOWN, provider: "gitlab",
+      retryable: false, message: `Previously selected MR is no longer available as an open request: ${prUrl}` });
+
+    return selected;
   }
 
   async ensureLabel(name: string, color: string): Promise<void> {
@@ -171,26 +218,21 @@ export class GitLabProvider implements IssueProvider {
     }
   }
 
+  /** Read all open issue pages carrying the requested label.
+   * @param label - Provider-visible issue label.
+   */
   async listIssuesByLabel(label: StateLabel): Promise<Issue[]> {
-    try {
-      const raw = await this.glab(["issue", "list", "--label", label, "--output", "json"]);
-
-      return JSON.parse(raw) as Issue[];
-    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
+    return this.listIssues({ label, state: "open" });
   }
 
+  /** Read complete issue collections, preserving provider-side filter semantics.
+   * @param opts - Optional label and issue lifecycle filters.
+   */
   async listIssues(opts?: { label?: string; state?: "open" | "closed" | "all" }): Promise<Issue[]> {
-    try {
-      const args = ["issue", "list", "--output", "json"];
+    const state = opts?.state === "open" || opts?.state === undefined ? "opened" : opts.state;
+    const label = opts?.label ? `&labels=${encodeURIComponent(opts.label)}` : "";
 
-      if (opts?.label) args.push("--label", opts.label);
-      if (opts?.state === "closed") args.push("--closed");
-      else if (opts?.state === "all") args.push("--all");
-      else args.push("--opened");
-      const raw = await this.glab(args);
-
-      return JSON.parse(raw) as Issue[];
-    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
+    return this.glabCollection(`projects/:id/issues?state=${state}${label}`, GitLabIssueSchema);
   }
 
   async getIssue(issueId: number): Promise<Issue> {
@@ -221,21 +263,13 @@ export class GitLabProvider implements IssueProvider {
     }
   }
 
+  /** Read all non-system issue notes before constructing worker discussion.
+   * @param issueId - Provider issue whose discussion is requested.
+   */
   async listComments(issueId: number): Promise<IssueComment[]> {
-    try {
-      const raw = await this.glab(["api", `projects/:id/issues/${issueId}/notes`, "--paginate"]);
-      const notes = JSON.parse(raw) as Array<{ id: number; author: { username: string }; body: string; created_at: string; system: boolean }>;
+    const notes = await this.glabCollection(`projects/:id/issues/${issueId}/notes`, GitLabNoteSchema);
 
-      // Filter out system notes (e.g. "changed label", "closed issue")
-      return notes
-        .filter((note) => !note.system)
-        .map((note) => ({
-          id: note.id,
-          author: note.author.username,
-          body: note.body,
-          created_at: note.created_at,
-        }));
-    } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
+    return notes.filter(note => !note.system).map(note => ({ id: note.id, author: note.author.username, body: note.body, created_at: note.created_at }));
   }
 
   async transitionLabel(issueId: number, from: StateLabel, to: StateLabel): Promise<void> {
@@ -296,18 +330,21 @@ export class GitLabProvider implements IssueProvider {
 
   async getMergedMRUrl(issueId: number): Promise<string | null> {
     const mrs = await this.getRelatedMRs(issueId);
-    const merged = mrs
-      .filter((mr) => mr.state === "merged" && mr.merged_at)
-      .sort((a, b) => new Date(b.merged_at!).getTime() - new Date(a.merged_at!).getTime());
+    const merged = mrs.filter(mr => mr.state === "merged");
 
     return merged[0]?.web_url ?? null;
   }
 
   /** Observe MR state; required review read failures propagate rather than reporting no feedback.
    * @param issueId - Managed issue whose associated MR state is observed.
+   * @param prUrl - Optional exact request URL supplied by prior application evidence.
    */
-  async getPrStatus(issueId: number): Promise<PrStatus> {
-    const mrs = await this.getRelatedMRs(issueId);
+  async getPrStatus(issueId: number, prUrl?: string): Promise<PrStatus> {
+    const found = await this.getRelatedMRs(issueId);
+    const mrs = prUrl ? found.filter(mr => mr.web_url === prUrl) : found;
+
+    if (prUrl && !mrs.length) throw new ProviderIssueLookupError({ code: PROVIDER_ISSUE_LOOKUP_ERROR.UNKNOWN, provider: "gitlab",
+      retryable: false, message: `Previously selected MR is no longer associated with this issue: ${prUrl}` });
     // Check open MRs first
     const open = mrs.find((mr) => mr.state === "opened");
 
@@ -354,8 +391,7 @@ export class GitLabProvider implements IssueProvider {
   /** Check if an MR has unresolved discussion threads (proxy for changes requested). */
   private async hasUnresolvedDiscussions(mrIid: number): Promise<boolean> {
     try {
-      const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/discussions`]);
-      const discussions = JSON.parse(raw) as Array<{ notes: Array<{ resolvable: boolean; resolved: boolean; system: boolean }> }>;
+      const discussions = await this.glabCollection(`projects/:id/merge_requests/${mrIid}/discussions`, GitLabDiscussionSchema);
 
       return discussions.some((d) =>
         d.notes.some((n) => n.resolvable && !n.resolved && !n.system),
@@ -370,8 +406,7 @@ export class GitLabProvider implements IssueProvider {
    */
   private async hasConversationComments(mrIid: number): Promise<boolean> {
     try {
-      const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/notes`]);
-      const notes = JSON.parse(raw) as Array<{ id: number; system: boolean; body: string }>;
+      const notes = await this.glabCollection(`projects/:id/merge_requests/${mrIid}/notes`, GitLabNoteSchema);
       const candidates = notes.filter((n) => !n.system && n.body.trim().length > 0);
 
       for (const note of candidates) {
@@ -385,8 +420,7 @@ export class GitLabProvider implements IssueProvider {
   /** Check if a note already has an 👀 award emoji (marks it as processed). */
   private async noteHasEyesEmoji(mrIid: number, noteId: number): Promise<boolean> {
     try {
-      const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/notes/${noteId}/award_emoji`]);
-      const emojis = JSON.parse(raw) as Array<{ name: string }>;
+      const emojis = await this.glabCollection(`projects/:id/merge_requests/${mrIid}/notes/${noteId}/award_emoji`, GitLabEmojiSchema);
 
       return emojis.some((e) => e.name === "eyes");
     } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
@@ -400,8 +434,7 @@ export class GitLabProvider implements IssueProvider {
     mrIid: number,
   ): Promise<Array<{ id: number; author: { username: string }; body: string; created_at: string }>> {
     try {
-      const raw = await this.glab(["api", `projects/:id/merge_requests/${mrIid}/notes`]);
-      const all = JSON.parse(raw) as Array<{ id: number; author: { username: string }; system: boolean; body: string; created_at: string }>;
+      const all = await this.glabCollection(`projects/:id/merge_requests/${mrIid}/notes`, GitLabNoteSchema);
 
       return all.filter(
         (n) => !n.system && n.body.trim().length > 0,
@@ -441,17 +474,23 @@ export class GitLabProvider implements IssueProvider {
     } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
-  async mergePr(issueId: number): Promise<void> {
-    const mrs = await this.getRelatedMRs(issueId);
-    const open = mrs.find((mr) => mr.state === "opened");
+  /** Merge one exact observed MR within the owning project.
+   * @param issueId - Managed issue whose request is selected.
+   * @param prUrl - Optional exact previously observed request URL.
+   */
+  async mergePr(issueId: number, prUrl?: string): Promise<void> {
+    const open = await this.selectOpenMr(issueId, prUrl);
 
     if (!open) throw new Error(`No open MR found for issue #${issueId}`);
     await this.glabOnce(["mr", "merge", String(open.iid)]);
   }
 
-  async getPrDiff(issueId: number): Promise<string | null> {
-    const mrs = await this.getRelatedMRs(issueId);
-    const open = mrs.find((mr) => mr.state === "opened");
+  /** Read one selected MR's diff without replacing an unavailable explicit target.
+   * @param issueId - Managed issue whose request is selected.
+   * @param prUrl - Optional exact previously observed request URL.
+   */
+  async getPrDiff(issueId: number, prUrl?: string): Promise<string | null> {
+    const open = await this.selectOpenMr(issueId, prUrl);
 
     if (!open) return null;
     try {
@@ -459,28 +498,24 @@ export class GitLabProvider implements IssueProvider {
     } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 
-  async getPrReviewComments(issueId: number): Promise<PrReviewComment[]> {
-    const mrs = await this.getRelatedMRs(issueId);
-    const open = mrs.find((mr) => mr.state === "opened");
+  /** Read complete feedback for one selected MR, deduplicating its shared note identities.
+   * @param issueId - Managed issue whose request is selected.
+   * @param prUrl - Optional exact previously observed request URL.
+   */
+  async getPrReviewComments(issueId: number, prUrl?: string): Promise<PrReviewComment[]> {
+    const open = await this.selectOpenMr(issueId, prUrl);
 
     if (!open) return [];
     const comments: PrReviewComment[] = [];
 
     try {
-      const raw = await this.glab(["api", `projects/:id/merge_requests/${open.iid}/discussions`]);
-      const discussions = JSON.parse(raw) as Array<{
-        notes: Array<{
-          id: number; author: { username: string }; body: string;
-          resolvable: boolean; resolved: boolean; system: boolean;
-          created_at: string; position?: { new_path?: string; new_line?: number };
-        }>;
-      }>;
+      const discussions = await this.glabCollection(`projects/:id/merge_requests/${open.iid}/discussions`, GitLabDiscussionSchema);
 
       for (const disc of discussions) {
         for (const note of disc.notes) {
           if (note.system) continue;
           comments.push({
-            kind: note.position ? PR_COMMENT_KIND.INLINE : PR_COMMENT_KIND.CONVERSATION,
+            kind: note.type === GITLAB_INLINE_NOTE_TYPE || note.position ? PR_COMMENT_KIND.INLINE : PR_COMMENT_KIND.CONVERSATION,
             id: note.id,
             author: note.author.username,
             body: note.body,
@@ -562,8 +597,7 @@ export class GitLabProvider implements IssueProvider {
 
   async issueHasReaction(issueId: number, emoji: string): Promise<boolean> {
     try {
-      const raw = await this.glab(["api", `projects/:id/issues/${issueId}/award_emoji`]);
-      const emojis = JSON.parse(raw) as Array<{ name: string }>;
+      const emojis = await this.glabCollection(`projects/:id/issues/${issueId}/award_emoji`, GitLabEmojiSchema);
 
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
@@ -589,8 +623,7 @@ export class GitLabProvider implements IssueProvider {
       const open = mrs.find((mr) => mr.state === "opened");
 
       if (!open) return false;
-      const raw = await this.glab(["api", `projects/:id/merge_requests/${open.iid}/award_emoji`]);
-      const emojis = JSON.parse(raw) as Array<{ name: string }>;
+      const emojis = await this.glabCollection(`projects/:id/merge_requests/${open.iid}/award_emoji`, GitLabEmojiSchema);
 
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
@@ -631,8 +664,7 @@ export class GitLabProvider implements IssueProvider {
 
   async issueCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
     try {
-      const raw = await this.glab(["api", `projects/:id/issues/${issueId}/notes/${commentId}/award_emoji`]);
-      const emojis = JSON.parse(raw) as Array<{ name: string }>;
+      const emojis = await this.glabCollection(`projects/:id/issues/${issueId}/notes/${commentId}/award_emoji`, GitLabEmojiSchema);
 
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
@@ -644,10 +676,7 @@ export class GitLabProvider implements IssueProvider {
       const open = mrs.find((mr) => mr.state === "opened");
 
       if (!open) return false;
-      const raw = await this.glab([
-        "api", `projects/:id/merge_requests/${open.iid}/notes/${commentId}/award_emoji`,
-      ]);
-      const emojis = JSON.parse(raw) as Array<{ name: string }>;
+      const emojis = await this.glabCollection(`projects/:id/merge_requests/${open.iid}/notes/${commentId}/award_emoji`, GitLabEmojiSchema);
 
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
@@ -674,22 +703,14 @@ export class GitLabProvider implements IssueProvider {
 
   /**
    * Check if work for an issue is already present on the base branch via git log.
-   * Searches the last 200 commits on baseBranch for commit messages mentioning #issueId or !issueId.
+   * Searches complete reachable history for an exact issue reference; MR numbers are independent identities.
    * Used as a fallback when no MR exists (e.g., direct commit to main).
+   * @param issueId - Positive issue identifier to match exactly.
+   * @param baseBranch - Configured base branch whose history is inspected.
    */
   async isCommitOnBaseBranch(issueId: number, baseBranch: string): Promise<boolean> {
     try {
-      // Search for issue references: #N (issue) or !N (MR) in commit messages
-      const patterns = [`#${issueId}`, `!${issueId}`];
-
-      for (const pattern of patterns) {
-        const output = await runProviderCommand(this.runCommand,
-          ["git", "log", `origin/${baseBranch}`, "--oneline", "-200", "--grep", pattern], this.repoPath);
-
-        if (output.length > 0) return true;
-      }
-
-      return false;
+      return await hasIssueCommitOnBaseBranch(this.runCommand, this.repoPath, issueId, baseBranch);
     } catch (error) { throw classifyProviderLookupFailure("gitlab", error); }
   }
 

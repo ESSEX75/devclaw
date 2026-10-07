@@ -15,6 +15,7 @@ import {
 } from "../../../domain/index.js";
 import { PrState } from "../../../integrations/providers/provider.js";
 import { planWorkflowEvent } from "../../pipeline/plan.js";
+import { observePrStatusWithReceipts } from "../../review/index.js";
 import { getHeartbeatCandidates } from "../local-candidates.js";
 import { transitionHeartbeatIssue } from "../transition-state.js";
 import {
@@ -51,7 +52,7 @@ export async function reviewPass(opts: ReviewPassInput): Promise<number> {
 
     for (const { issue } of candidates) {
 
-      const status = await provider.getPrStatus(issue.iid);
+      const status = await observePrStatusWithReceipts(provider, issue.iid, { workspaceDir, projectSlug: project.slug });
       const syncTransitionState = async (
         targetKey: string,
         targetLabel: string,

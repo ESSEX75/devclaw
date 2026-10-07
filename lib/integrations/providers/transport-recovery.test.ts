@@ -28,7 +28,8 @@ for (const Provider of [GitHubProvider, GitLabProvider]) {
       if (argv[2] === "graphql") return success(JSON.stringify({ data: { repository: { issue: { timelineItems: { nodes: [{
         source: { number: 7, title: "Fix", body: "", headRefName: "feature/42-fix", url: "https://example.test/pr/7", state: "OPEN" },
       }] } } } } }));
-      if (argv[2]?.endsWith("related_merge_requests")) return success('[{"iid":7,"title":"Fix","web_url":"https://example.test/mr/7","state":"opened"}]');
+      if (argv[2] === "projects/:id") return success('{"id":1}');
+      if (argv[2]?.split("?")[0]?.endsWith("related_merge_requests")) return success('[{"iid":7,"project_id":1,"title":"Fix","web_url":"https://example.test/mr/7","state":"opened"}]');
       return { ...success("[]"), code: 1, stderr: "HTTP 401 Unauthorized" };
     };
     await assert.rejects(new Provider({ repoPath: ".", runCommand }).getPrStatus(42), isProviderIssueLookupError);
@@ -49,8 +50,8 @@ for (const Provider of [GitHubProvider, GitLabProvider]) {
       calls++;
       if (fail) return { ...success("[]"), code: 1, stderr: "HTTP 401 Unauthorized" };
       if (argv[1] === "repo") return success('{"owner":{"login":"owner"},"name":"repo"}');
-      if (argv[2] === "graphql") return success('{"data":{"repository":{"issue":{"timelineItems":{"nodes":[]}}}}}');
-      return success("[]");
+      if (argv[2] === "graphql") return success('[{"data":{"repository":{"issue":{"timelineItems":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}]');
+      return success(Provider === GitHubProvider ? "[[]]" : "[]");
     };
     const provider = new Provider({ repoPath: ".", runCommand });
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -67,7 +68,7 @@ for (const Provider of [GitHubProvider, GitLabProvider]) {
     const runCommand: RunCommand = async () => {
       calls++;
       if (calls === 1) return { ...success(""), code: 1, stderr: "HTTP 503 Service unavailable" };
-      return success("[]");
+      return success(Provider === GitHubProvider ? "[[]]" : "[]");
     };
     const provider = new Provider({ repoPath: ".", runCommand });
     assert.deepEqual(await provider.listIssues(), []);
@@ -131,7 +132,7 @@ it("an exhausted adapter does not block another repository and recovers after th
   let calls = 0;
   const failing = new GitHubProvider({ repoPath: "broken-repo", runCommand: async () => {
     calls++;
-    return fail ? { ...success(""), code: 1, stderr: "HTTP 503" } : success("[]");
+    return fail ? { ...success(""), code: 1, stderr: "HTTP 503" } : success("[[]]");
   } });
   for (let attempt = 0; attempt < 5; attempt++) {
     const rejected = assert.rejects(failing.listIssues());
@@ -144,7 +145,7 @@ it("an exhausted adapter does not block another repository and recovers after th
   const count = calls;
   await assert.rejects(failing.listIssues());
   assert.equal(calls, count);
-  const independent = new GitHubProvider({ repoPath: "healthy-repo", runCommand: async () => success("[]") });
+  const independent = new GitHubProvider({ repoPath: "healthy-repo", runCommand: async () => success("[[]]") });
   assert.deepEqual(await independent.listIssues(), []);
   fail = false;
   t.mock.timers.tick(31_000);
@@ -157,8 +158,8 @@ it("GitHub repository identity is retried after an exhausted transient observati
   const provider = new GitHubProvider({ repoPath: ".", runCommand: async argv => {
     if (fail) return { ...success(""), code: 1, stderr: "HTTP 503" };
     if (argv[1] === "repo") return success('{"owner":{"login":"owner"},"name":"repo"}');
-    if (argv[2] === "graphql") return success('{"data":{"repository":{"issue":{"timelineItems":{"nodes":[]}}}}}');
-    return success("[]");
+    if (argv[2] === "graphql") return success('[{"data":{"repository":{"issue":{"timelineItems":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}]');
+    return success("[[]]");
   } });
   const rejected = assert.rejects(provider.getPrStatus(42), error => isProviderIssueLookupError(error) && error.retryable);
   for (let retry = 0; retry < 5; retry++) {

@@ -60,6 +60,33 @@ supported REST reaction endpoint and are not reaction targets. GitLab inline and
 conversation notes share the MR note reaction endpoint. Reactions are best-effort
 indicators, not durable delivery receipts.
 
+GitHub formal review decisions use the latest timestamp and ID per author; dismissal
+clears that author's previous decision. Summary feedback is observed without querying
+an unsupported summary reaction endpoint. Application compares non-formal summaries
+against local full-content receipts. Formal changes requested remain actionable until
+superseded, independently of delivery receipts.
+
+PR discovery reads complete collections and selects the newest provider-local ID within
+open, merged, then closed lifecycle precedence. Native open links take precedence over
+convention-based fallback; when none remain, fallback candidates augment native history.
+GitHub foreign-repository references and GitLab foreign-project IIDs are excluded.
+Diff, feedback and merge accept an exact observed URL and fail instead of redirecting
+to a newer request when that target disappears. Merged requests report MERGED regardless
+of earlier approvals. GitLab inline kind uses the explicit DiffNote discriminator even
+when optional file position is missing.
+
+REST collections use provider CLI pagination, and GitHub timeline pagination includes
+cursor/pageInfo validation. Truncated JSON or a final cursor indicating more pages is
+an explicit failed observation. Complete issue listings exclude GitHub REST PR entries.
+These transport contracts follow the [GitHub CLI API documentation](https://cli.github.com/manual/gh_api)
+and [GitLab REST pagination documentation](https://docs.gitlab.com/api/rest/).
+Direct-commit observation searches complete reachable history for an exact unqualified
+issue reference. Numeric prefixes and independent GitLab MR references do not qualify.
+
+Gateway turn idempotency uses an application-owned immutable submission identity.
+New feedback cycles have distinct tokens even when their issue, role and session are
+reused. Health nudges use their persisted attempt timestamp and session identity.
+
 ## Boundary Rules
 
 - Keep provider API details in `lib/integrations/providers`.

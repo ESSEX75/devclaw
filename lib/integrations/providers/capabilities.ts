@@ -46,17 +46,33 @@ export interface LabelProjector {
 
 export interface PullRequestReader {
   getMergedMRUrl(issueId: number): Promise<string | null>;
-  getPrStatus(issueId: number): Promise<PrStatus>;
-  getPrDiff(issueId: number): Promise<string | null>;
+  /** Observe the exact previously selected request, or choose deterministically when no target is supplied.
+   * @param issueId - Managed issue whose associated request is inspected.
+   * @param prUrl - Optional exact request URL; unavailable targets are failed observations.
+   */
+  getPrStatus(issueId: number, prUrl?: string): Promise<PrStatus>;
+  /** Read the selected request's diff; an unavailable explicit target never redirects to another PR.
+   * @param issueId - Managed issue whose associated request is inspected.
+   * @param prUrl - Optional exact URL from a previous status observation.
+   */
+  getPrDiff(issueId: number, prUrl?: string): Promise<string | null>;
 }
 
 export interface PullRequestOperator {
-  mergePr(issueId: number): Promise<void>;
+  /** Merge the selected request once, preserving an application-supplied exact target.
+   * @param issueId - Managed issue whose request is selected.
+   * @param prUrl - Optional exact request URL; missing targets fail before mutation.
+   */
+  mergePr(issueId: number, prUrl?: string): Promise<void>;
   isCommitOnBaseBranch(issueId: number, baseBranch: string): Promise<boolean>;
 }
 
 export interface ReviewReader {
-  getPrReviewComments(issueId: number): Promise<PrReviewComment[]>;
+  /** Read all feedback for one selected request without mixing observations from another PR.
+   * @param issueId - Managed issue whose feedback is requested.
+   * @param prUrl - Optional exact request URL observed by application orchestration.
+   */
+  getPrReviewComments(issueId: number, prUrl?: string): Promise<PrReviewComment[]>;
 }
 
 export interface ReactionWriter {

@@ -41,3 +41,29 @@ export const GITHUB_ORIGIN_HOSTS: ReadonlySet<string> = new Set(["github.com", "
 
 /** Known GitLab origin hosts; self-hosted installations require explicit selection. */
 export const GITLAB_ORIGIN_HOSTS: ReadonlySet<string> = new Set(["gitlab.com"]);
+
+/** Page size used with provider-owned CLI pagination; abnormal completion never exposes partial results. */
+export const PROVIDER_PAGE_SIZE = 100;
+
+/** Remote tracking namespace inspected by the direct-commit observation. */
+export const PROVIDER_HISTORY_REMOTE = "origin";
+
+/** Git history output contains only confirmed matching commit identifiers. */
+export const PROVIDER_HISTORY_FORMAT = "%H";
+
+/** GitHub PR fields shared by status, diff, merge and feedback discovery. */
+export const GITHUB_PR_FIELDS = "number,title,body,headRefName,url,state,mergedAt,reviewDecision,mergeable";
+
+/** Provider review decisions consumed independently of their source namespace. */
+export const PROVIDER_REVIEW_STATE = {
+  APPROVED: "APPROVED",
+  CHANGES_REQUESTED: "CHANGES_REQUESTED",
+  COMMENTED: "COMMENTED",
+  DISMISSED: "DISMISSED",
+} as const;
+
+/** Login suffix identifying provider bot accounts in GitHub review observations. */
+export const GITHUB_REVIEW_BOT_SUFFIX = "[bot]";
+
+/** GitLab's explicit inline-note discriminator, independent of optional position fields. */
+export const GITLAB_INLINE_NOTE_TYPE = "DiffNote";

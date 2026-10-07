@@ -24,6 +24,11 @@ contracts exposed to other layers only through `lib/state/index.ts`.
 - `issues.json` contains active managed issue state only.
 - Active issue workers may contain an optional unresolved delivery marker; the
   same marker on a project worker slot protects ownership if issue state commit fails.
+- Active issues can retain non-formal review-summary receipts and pending submitted
+  context bound to a submission ID and exact worker frame. Locked runtime updates preserve
+  these facts without selecting workflow transitions. Application alone supplies acceptance,
+  completion or operator evidence; provider reactions and session presence cannot acknowledge
+  pending context. Receipt fingerprints do not store the original review text.
 - `issues.archive.json` contains archived records and deletion tombstones only.
 - `issue-creations.json` contains resumable creation operations and idempotency
   keys; these records are not active runtime state.

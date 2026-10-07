@@ -3,7 +3,7 @@
 import { AGENT_TURN_STATUS } from "../../../integrations/openclaw/const.js";
 import type { AgentTurnOutcome } from "../../../integrations/openclaw/types.js";
 import { readIssueStateStore, readProjects, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../../state/index.js";
-import { acknowledgeComments, EYES_EMOJI } from "../../review/index.js";
+import { acknowledgeComments, confirmReviewSummaryDelivery, EYES_EMOJI } from "../../review/index.js";
 import { reconcileUncertainDispatch } from "../delivery-recovery/index.js";
 import { recordIssueDelivery, recordSlotDelivery } from "../delivery-state.js";
 import type { DispatchAttempt, DispatchContext, DispatchOpts } from "./types.js";
@@ -28,11 +28,12 @@ export async function settleDispatchDelivery(opts: DispatchOpts, plan: DispatchA
     if (slot?.delivery?.operationId !== deliveryId || slot.issueId !== issueId || slot.sessionKey !== sessionKey) return;
     if (resolved?.deliveryId === deliveryId || current?.activeWorker?.delivery?.operationId !== deliveryId) return;
     if (outcome.kind === AGENT_TURN_STATUS.ACCEPTED) {
+      if (context.prFeedback) await confirmReviewSummaryDelivery({ workspaceDir, projectSlug: project.slug }, issueId, deliveryId);
       await recordSlotDelivery(opts.workspaceDir, opts.project.slug, opts.issueId, plan, undefined);
       await recordIssueDelivery(workspaceDir, project.slug, issueId, sessionKey, deliveryId, undefined);
       provider.reactToIssue(issueId, EYES_EMOJI).catch(() => {});
       provider.reactToPr(issueId, EYES_EMOJI).catch(() => {});
-      await acknowledgeComments(provider, issueId, context.isConflictFix ? [] : context.comments, context.prFeedback, workspaceDir);
+      acknowledgeComments(provider, issueId, context.isConflictFix ? [] : context.comments, context.prFeedback, workspaceDir).catch(() => {});
     } else {
       await reconcileUncertainDispatch({ workspaceDir, projectSlug: project.slug, role, level, slotIndex, issueId,
         sessionKey, deliveryId, runCommand, reason: outcome.reason, outcomeUnknown: true });

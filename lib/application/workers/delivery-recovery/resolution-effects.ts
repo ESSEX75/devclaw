@@ -4,6 +4,7 @@ import { log as auditLog } from "../../../audit.js";
 import { WORKER_DELIVERY_RESOLUTION } from "../../../domain/index.js";
 import type { IssueProvider } from "../../../integrations/providers/index.js";
 import { readIssueStateStore, readProjects, updateIssueRuntimeRecord, updateProjects, type WorkerDeliveryResolution, writeWorkerDeliveryResolution } from "../../../state/index.js";
+import { confirmReviewSummaryDelivery } from "../../review/index.js";
 import { WORKER_AUDIT_EVENT } from "../const.js";
 
 /** Apply idempotent effects under the caller's issue lock, retaining intent on every failure.
@@ -43,6 +44,8 @@ export async function applyDeliveryResolution(
     const issue = await provider.getIssue(record.issueId);
 
     if (!issue.labels.includes(record.toLabel) || issue.labels.includes(record.fromLabel)) await provider.transitionLabel(record.issueId, record.fromLabel, record.toLabel);
+  } else if (state.pendingReviewSummaryDelivery?.operationId === record.deliveryId) {
+    await confirmReviewSummaryDelivery({ workspaceDir, projectSlug }, record.issueId, record.deliveryId);
   }
 
   await updateProjects(workspaceDir, (current) => {
@@ -74,6 +77,8 @@ export async function applyDeliveryResolution(
     }
 
     return { ...current, workflowState: record.toState, workflowLabel: record.toLabel,
+      pendingReviewSummaryDelivery: nonStart && current.pendingReviewSummaryDelivery?.operationId === record.deliveryId
+        ? undefined : current.pendingReviewSummaryDelivery,
       activeWorker: nonStart ? null : worker ? { ...worker, delivery: undefined } : null, updatedAt: new Date().toISOString() };
   });
   await writeWorkerDeliveryResolution(workspaceDir, projectSlug, { ...record, completed: true });

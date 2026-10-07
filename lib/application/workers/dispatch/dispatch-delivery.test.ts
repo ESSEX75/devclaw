@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import type { RunCommand } from "../../../context.js";
-import { PrState } from "../../../integrations/providers/index.js";
+import { PR_COMMENT_KIND, PrState } from "../../../integrations/providers/index.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState, WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
 import { checkWorkerHealth } from "../../heartbeat/health/index.js";
 import { summarizeTaskIssue } from "../../tasks/index.js";
@@ -15,6 +15,7 @@ import { createEmptyIssueStateStoreForTesting, createTestHarness, replaceIssueSt
 import { dispatchTask } from "./dispatch-task.js";
 import { WORKER_DELIVERY_RESOLUTION } from "../../../domain/index.js";
 import { resolveWorkerDelivery } from "../delivery-recovery/index.js";
+import { executeCompletion } from "../../pipeline/index.js";
 
 /** Build a dispatch input for a seeded issue in the temporary project. */
 function dispatchInput(h: Awaited<ReturnType<typeof createTestHarness>>, issueId: number, runCommand: RunCommand) {
@@ -27,6 +28,82 @@ function dispatchInput(h: Awaited<ReturnType<typeof createTestHarness>>, issueId
 }
 
 describe("worker delivery outcome", () => {
+  it("acknowledges captured summaries when the exact worker completes before the final gateway reply", async () => {
+    const h = await createTestHarness();
+    const summary = { kind: PR_COMMENT_KIND.REVIEW, id: 42, author: "reviewer", body: "summary feedback", state: "COMMENTED", created_at: "2026-01-01" };
+    h.provider.seedIssue({ iid: 93, labels: ["To Improve"] });
+    h.provider.setPrStatus(93, { state: PrState.HAS_COMMENTS, url: "https://example.test/pr/1", reviewSummaries: [summary], hasCommentFeedback: false });
+    h.provider.getPrReviewComments = async () => [summary];
+    let finishReply = () => {};
+    const reply = new Promise<Awaited<ReturnType<RunCommand>>>(resolve => {
+      finishReply = () => resolve({ stdout: "", stderr: "", code: 0, signal: null, killed: false, termination: "exit" });
+    });
+    const runCommand: RunCommand = async (argv, options) => argv[3] === "agent" ? reply : h.runCommand(argv, options);
+    try {
+      const result = await dispatchTask({ ...dispatchInput(h, 93, runCommand), fromLabel: "To Improve" });
+      assert.equal(result.deliveryStatus, "pending");
+      const before = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["93"];
+      assert.equal(before.processedReviewSummaries?.length ?? 0, 0);
+      assert.equal(before.pendingReviewSummaryDelivery?.operationId, result.deliveryId);
+      assert.ok(before.activeWorker);
+      await executeCompletion({ workspaceDir: h.workspaceDir, projectSlug: h.project.slug, projectName: h.project.name,
+        channels: h.project.channels, issueId: 93, role: "developer", result: "done", provider: h.provider,
+        repoPath: h.project.repo, runCommand: h.runCommand, workflow: h.workflow, expectedWorker: before.activeWorker });
+      const completed = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["93"];
+      assert.equal(completed.processedReviewSummaries?.length, 1);
+      assert.equal(completed.pendingReviewSummaryDelivery, undefined);
+      assert.equal(completed.activeWorker, null);
+      finishReply();
+    } finally { finishReply(); await h.cleanup(); }
+  });
+
+  it("uses distinct gateway submission identities for successive feedback turns in the same session", async () => {
+    const h = await createTestHarness();
+    h.provider.seedIssue({ iid: 94, labels: ["To Do"] });
+    try {
+      const first = await dispatchTask(dispatchInput(h, 94, h.runCommand));
+      const firstState = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["94"];
+      assert.ok(firstState.activeWorker);
+      await executeCompletion({ workspaceDir: h.workspaceDir, projectSlug: h.project.slug, projectName: h.project.name,
+        channels: h.project.channels, issueId: 94, role: "developer", result: "done", provider: h.provider,
+        repoPath: h.project.repo, runCommand: h.runCommand, workflow: h.workflow, expectedWorker: firstState.activeWorker });
+      await updateIssueRuntimeRecord(h.workspaceDir, h.project.slug, 94, previous => {
+        if (!previous) throw new Error("Missing issue");
+        return { ...previous, workflowState: "todo", workflowLabel: "To Do" };
+      });
+      h.provider.seedIssue({ iid: 94, labels: ["To Do"] });
+      const second = await dispatchTask(dispatchInput(h, 94, h.runCommand));
+      assert.equal(first.sessionKey, second.sessionKey);
+      const keys = h.commands.commands.filter(command => command.argv[3] === "agent").map(command => {
+        const paramsIndex = command.argv.indexOf("--params");
+        const params: unknown = JSON.parse(command.argv[paramsIndex + 1]);
+        if (typeof params !== "object" || params === null || !("idempotencyKey" in params)) throw new Error("Missing gateway identity");
+        return params.idempotencyKey;
+      });
+      assert.equal(keys.length, 2);
+      assert.notEqual(keys[0], keys[1]);
+    } finally { await h.cleanup(); }
+  });
+
+  for (const accepted of [true, false]) {
+    it(`records full review-summary receipts only after ${accepted ? "confirmed acceptance" : "unknown submission"}`, async () => {
+      const h = await createTestHarness();
+      const summary = { kind: PR_COMMENT_KIND.REVIEW, id: 42, author: "reviewer", body: "summary feedback", state: "COMMENTED", created_at: "2026-01-01" };
+      h.provider.seedIssue({ iid: 92, labels: ["To Improve"] });
+      h.provider.setPrStatus(92, { state: PrState.HAS_COMMENTS, url: "https://example.test/pr/1", reviewSummaries: [summary], hasCommentFeedback: false });
+      h.provider.getPrReviewComments = async () => [summary];
+      const runCommand: RunCommand = async (argv, options) => !accepted && argv[3] === "agent"
+        ? { stdout: "", stderr: "lost", code: 1, signal: null, killed: false, termination: "exit" } : h.runCommand(argv, options);
+      try {
+        const result = await dispatchTask({ ...dispatchInput(h, 92, runCommand), fromLabel: "To Improve" });
+        const state = (await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["92"];
+        assert.equal(state.processedReviewSummaries?.length ?? 0, accepted ? 1 : 0);
+        assert.equal(state.activeWorker?.sessionKey, result.sessionKey);
+        assert.equal(getRoleWorker((await h.readProjects()).projects[h.project.slug], "developer").levels.medior?.[0]?.issueId, 92);
+      } finally { await h.cleanup(); }
+    });
+  }
+
   it("waits for model confirmation before provider transition or worker submission", { timeout: 20_000 }, async (t) => {
     const h = await createTestHarness();
     h.provider.seedIssue({ iid: 84, labels: ["To Do"] });
