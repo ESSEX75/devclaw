@@ -1,6 +1,6 @@
 /** Owns GitHub labels operations and their provider-specific API semantics. */
 
-import type { ProviderTransport } from "../transport/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
 
 /** Implements the labels capability using dependencies shared by one adapter instance. */
 export class GitHubLabels {

@@ -1,9 +1,10 @@
 /** Owns GitHub health operations and their provider-specific API semantics. */
 
-import type { ProviderRateLimitStatus } from "../contracts/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { parseProviderJson } from "../transport/index.js";
-import { GhRateLimitSchema,GITHUB_EPOCH_SECOND_MS, GITHUB_HEALTH_QUERY } from "./health/index.js";
+import type { ProviderRateLimitStatus } from "../../contracts/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { parseProviderJson } from "../../transport/index.js";
+import { GITHUB_EPOCH_SECOND_MS, GITHUB_HEALTH_QUERY } from "./const.js";
+import { GhRateLimitSchema } from "./schema.js";
 
 /** Implements the health capability using dependencies shared by one adapter instance. */
 export class GitHubHealth {

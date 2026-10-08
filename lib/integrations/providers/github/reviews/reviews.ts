@@ -1,14 +1,15 @@
 /** Owns GitHub reviews operations and their provider-specific API semantics. */
 
-import type { PrReviewComment } from "../contracts/index.js";
-import { PR_COMMENT_KIND, PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../contracts/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { GITHUB_API_RESOURCE, githubApiPath } from "./api/index.js";
-import type { GhConversationComment } from "./comments/index.js";
-import { GhCommentSchema, GhInlineSchema } from "./comments/index.js";
-import { GitHubDiscovery } from "./discovery/index.js";
+import type { PrReviewComment } from "../../contracts/index.js";
+import { PR_COMMENT_KIND, PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../../contracts/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { GITHUB_API_RESOURCE, githubApiPath } from "../api/index.js";
+import type { GhConversationComment } from "../comments/index.js";
+import { GhCommentSchema, GhInlineSchema } from "../comments/index.js";
+import { GitHubDiscovery } from "../discovery/index.js";
+import { GITHUB_REVIEW_BOT_SUFFIX, GITHUB_REVIEW_RESOURCE } from "./const.js";
 import { latestFormalReviews } from "./review-observations.js";
-import { GhReviewSchema,GITHUB_REVIEW_BOT_SUFFIX, GITHUB_REVIEW_RESOURCE } from "./reviews/index.js";
+import { GhReviewSchema } from "./schema.js";
 
 /** Implements the reviews capability using dependencies shared by one adapter instance. */
 export class GitHubReviews {

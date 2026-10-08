@@ -1,10 +1,11 @@
 /** Owns GitHub reactions operations and their provider-specific API semantics. */
 
-import type { ProviderTransport } from "../transport/index.js";
-import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
-import { GITHUB_API_RESOURCE, githubApiPath } from "./api/index.js";
-import { GITHUB_DISCOVERY_STATE, GitHubDiscovery } from "./discovery/index.js";
-import { GhReactionSchema,GITHUB_REACTION_RESOURCE } from "./reactions/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { PROVIDER_HTTP_METHOD } from "../../transport/index.js";
+import { GITHUB_API_RESOURCE, githubApiPath } from "../api/index.js";
+import { GITHUB_DISCOVERY_STATE, GitHubDiscovery } from "../discovery/index.js";
+import { GITHUB_REACTION_RESOURCE } from "./const.js";
+import { GhReactionSchema } from "./schema.js";
 
 /** Implements the reactions capability using dependencies shared by one adapter instance. */
 export class GitHubReactions {

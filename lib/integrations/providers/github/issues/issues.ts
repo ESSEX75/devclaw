@@ -1,7 +1,7 @@
 /** Owns GitHub issues operations and their provider-specific API semantics. */
 
-import type { CreateIssueInput, Issue, IssueComment, IssueEditInput, IssueListFilter, StateLabel } from "../contracts/index.js";
-import { PROVIDER_COLLECTION_STATE } from "../contracts/index.js";
+import type { CreateIssueInput, Issue, IssueComment, IssueEditInput, IssueListFilter, StateLabel } from "../../contracts/index.js";
+import { PROVIDER_COLLECTION_STATE } from "../../contracts/index.js";
 import {
   classifyProviderLookupFailure,
   classifyProviderOperationError,
@@ -11,13 +11,14 @@ import {
   PROVIDER_OPERATION_ERROR,
   ProviderIssueLookupError,
   ProviderOperationError,
-} from "../errors/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { PROVIDER_HTTP_METHOD, ProviderResourceIdentitySchema } from "../transport/index.js";
-import { GITHUB_API_RESOURCE, GITHUB_REQUEST_STATE, githubApiPath } from "./api/index.js";
-import { GhCommentSchema } from "./comments/index.js";
-import { GhIssueSchema, GhRestIssueSchema,GITHUB_ISSUE_QUERY } from "./issues/index.js";
+} from "../../errors/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { PROVIDER_HTTP_METHOD, ProviderResourceIdentitySchema } from "../../transport/index.js";
+import { GITHUB_API_RESOURCE, GITHUB_REQUEST_STATE, githubApiPath } from "../api/index.js";
+import { GhCommentSchema } from "../comments/index.js";
+import { GITHUB_ISSUE_QUERY } from "./const.js";
 import { toIssue } from "./mappers.js";
+import { GhIssueSchema, GhRestIssueSchema } from "./schema.js";
 
 /** Implements the issues capability using dependencies shared by one adapter instance. */
 export class GitHubIssues {

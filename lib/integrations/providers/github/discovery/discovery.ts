@@ -2,12 +2,12 @@
 
 import { z } from "zod";
 
-import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR, ProviderIssueLookupError,ProviderTransportError } from "../../errors/index.js";
+import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR, ProviderIssueLookupError, ProviderTransportError } from "../../errors/index.js";
 import type { ProviderTransport } from "../../transport/index.js";
 import { PROVIDER_PAGE_SIZE } from "../../transport/index.js";
 import { GITHUB_API_RESOURCE, GITHUB_REQUEST_STATE, githubApiPath } from "../api/index.js";
 import { GitHubRepository } from "../repository/index.js";
-import { GITHUB_DISCOVERY_QUERY,GITHUB_DISCOVERY_STATE, GITHUB_PR_FIELDS } from "./const.js";
+import { GITHUB_DISCOVERY_QUERY, GITHUB_DISCOVERY_STATE, GITHUB_PR_FIELDS } from "./const.js";
 import { GhPullRequestSchema, GhRestPullSchema, GhTimelineSchema } from "./schema.js";
 import type { GhDiscoveryState, GhPullRequest } from "./types.js";
 

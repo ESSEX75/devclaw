@@ -2,13 +2,14 @@
 
 import { randomUUID } from "node:crypto";
 
-import { sanitizeProviderAttachmentName } from "../attachments/index.js";
-import type { AttachmentUploadInput } from "../contracts/index.js";
-import { normalizeProviderFailure,PROVIDER_OPERATION_ERROR } from "../errors/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { parseProviderJson,PROVIDER_HTTP_METHOD } from "../transport/index.js";
-import { GhAttachmentSchema,GITHUB_ATTACHMENT_QUERY, GITHUB_ATTACHMENT_RESOURCE, GITHUB_ATTACHMENT_STORAGE } from "./attachments/index.js";
-import { GitHubRepository,githubRepositoryPath } from "./repository/index.js";
+import { sanitizeProviderAttachmentName } from "../../attachments/index.js";
+import type { AttachmentUploadInput } from "../../contracts/index.js";
+import { normalizeProviderFailure, PROVIDER_OPERATION_ERROR } from "../../errors/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { parseProviderJson, PROVIDER_HTTP_METHOD } from "../../transport/index.js";
+import { GitHubRepository, githubRepositoryPath } from "../repository/index.js";
+import { GITHUB_ATTACHMENT_QUERY, GITHUB_ATTACHMENT_RESOURCE, GITHUB_ATTACHMENT_STORAGE } from "./const.js";
+import { GhAttachmentSchema } from "./schema.js";
 
 /** Implements the attachments capability using dependencies shared by one adapter instance. */
 export class GitHubAttachments {

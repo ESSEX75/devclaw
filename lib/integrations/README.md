@@ -117,6 +117,8 @@ Until a capability is moved, its existing implementation path remains authoritat
 Wire schemas, inferred types and query/resource registries already belong to their
 capability directories; remaining operation classes migrate separately. Shared wire
 lifecycle values remain in `api/` because issue and request observations both use them.
+GitHub operation capabilities are fully migrated; its root contains only the facade
+and its public entrypoint. GitLab operation classes still use their existing root paths.
 
 - `api/` owns shared placeholder endpoint construction and common resource/protocol
   identifiers. Capability-specific query selectors and policies belong to their owners.
