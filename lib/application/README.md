@@ -66,6 +66,9 @@ separate READMEs. Their file responsibilities and API details belong in source J
   Formal review decisions and edited summaries remain independently actionable.
 - Dispatch atomically enforces capacity and execution mode. Proven local rejection
   rolls back reservation; unknown submission retains issue/slot ownership and evidence.
+  Pre-submission failure attempts to restore the selected source projection even when adding the
+  target succeeded and subsequent cleanup failed. Compensation starts from the attempted
+  projection; known or uncertain submitted worker turns keep their reservation instead.
   Session existence alone proves nothing. Recovery persists an immutable operator
   decision before effects and requires exact issue/slot/session/submission identity.
   Pending recovery blocks competing operations; callbacks recheck identity under lock.

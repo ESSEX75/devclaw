@@ -28,6 +28,26 @@ function dispatchInput(h: Awaited<ReturnType<typeof createTestHarness>>, issueId
 }
 
 describe("worker delivery outcome", () => {
+  it("restores labels after cleanup fails during a partially applied pre-submission projection", async t => {
+    const h = await createTestHarness();
+    t.after(() => h.cleanup());
+    h.provider.seedIssue({ iid: 95, labels: ["To Do", "bug"] });
+    const removeLabels = h.provider.removeLabels.bind(h.provider);
+    let cleanupCalls = 0;
+    t.mock.method(h.provider, "removeLabels", async (issueId: number, labels: string[]) => {
+      if (++cleanupCalls === 1) throw new Error("projection cleanup failed");
+      return removeLabels(issueId, labels);
+    });
+
+    await assert.rejects(dispatchTask(dispatchInput(h, 95, h.runCommand)), /projection cleanup failed/);
+    assert.deepEqual((await h.provider.getIssue(95)).labels, ["To Do", "bug"]);
+    const slot = getRoleWorker((await h.readProjects()).projects[h.project.slug], "developer").levels.medior?.[0];
+    assert.equal(slot?.issueId, null);
+    assert.equal(slot?.active, false);
+    assert.equal(h.commands.commands.filter(command => command.argv[3] === "agent").length, 0);
+    assert.equal((await readIssueStateStore(h.workspaceDir, h.project.slug)).issues["95"], undefined);
+  });
+
   it("acknowledges captured summaries when the exact worker completes before the final gateway reply", async () => {
     const h = await createTestHarness();
     const summary = { kind: PR_COMMENT_KIND.REVIEW, id: 42, author: "reviewer", body: "summary feedback", state: "COMMENTED", created_at: "2026-01-01" };

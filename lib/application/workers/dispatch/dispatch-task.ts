@@ -121,7 +121,7 @@ export async function dispatchTaskLocked(
 
   await reserveDispatchSlot(opts, plan, resolvedConfig);
   let taskDispatched = false;
-  let providerTransitioned = false;
+  let providerProjectionAttempted = false;
 
   try {
     if (sessionKeyToDelete) {
@@ -133,8 +133,8 @@ export async function dispatchTaskLocked(
     await ensureSessionModel(sessionKey, model, rc, timeouts.sessionPatchMs, sessionLabel);
 
     // ── Provider transition — compensated if agent send does not begin ──
+    providerProjectionAttempted = true;
     await transitionWorkflowLabel(provider, resolvedConfig.workflow, issueId, fromLabel, toLabel);
-    providerTransitioned = true;
 
     const issue = await provider.getIssue(issueId);
 
@@ -237,7 +237,7 @@ export async function dispatchTaskLocked(
     return { sessionAction, sessionKey, level, model, announcement, deliveryStatus, deliveryId: plan.deliveryId };
   } catch (error) {
     if (!taskDispatched) {
-      if (providerTransitioned) {
+      if (providerProjectionAttempted) {
         try {
           await transitionWorkflowLabel(provider, resolvedConfig.workflow, issueId, toLabel, fromLabel);
         } catch (rollbackError) {
