@@ -62,8 +62,9 @@ or a parent barrel.
 Other consumers use the owning capability or concrete provider's `index.ts`. Internal
 capability classes, concrete schemas and staging helpers are not supported public APIs.
 
-The concrete packages remain cohesive around one adapter instance; focused modules
-separate responsibilities without introducing independently exported nested packages.
+The concrete facades retain one adapter instance, transport and successful identity
+cache. Their internal responsibilities are being separated into capability packages;
+sharing that instance does not require a flat implementation layout.
 Workflow label creation, two-phase projection and optional anomaly observation belong
 to application/projection; providers apply only explicit label additions/removals.
 
@@ -106,6 +107,40 @@ immutable dependency composition, complete pagination and PR/review observations
 It has no production API or barrel. Cross-adapter scenarios stay intact rather than
 being duplicated or distributed by provider name. Local `issues.json` authority and
 completion, pagination, replay, and uncertain-outcome guarantees remain unchanged.
+
+### Concrete adapter responsibility boundaries
+
+GitHub and GitLab are migrating to the following internal capability boundaries.
+Until a capability is moved, its existing implementation path remains authoritative:
+
+- `api/` owns shared placeholder endpoint construction and common resource/protocol
+  identifiers. Capability-specific query selectors and policies belong to their owners.
+- `repository/` owns confirmed repository/project identity, successful-only caching,
+  identity schemas/types and GitHub paths built from that confirmed identity.
+- `comments/` owns shared comment/note wire schemas and inferred types used by issues
+  and reviews. It does not select PRs or interpret review decisions.
+- `discovery/` owns complete associated-request discovery, exact selection, request
+  observation schemas/types and discovery filters. It may use repository identity;
+  it never depends on reviews, reactions or request mutation operations.
+- `issues/` owns issue reads/mutations, issue schemas and GitHub issue mapping.
+- `labels/` owns explicit label effects without choosing workflow transitions.
+- `pull-requests/` owns request status, diff, merge and delegation to shared Git history.
+- `reviews/` owns formal decisions, discussion/feedback observations and GitHub's
+  latest-review selector. It may use discovery and GitLab reaction observations.
+- `reactions/` owns cosmetic endpoint-specific effects/observations and may use discovery;
+  it never depends on reviews or request status/merge operations.
+- `attachments/` owns upload execution, acknowledgement validation and storage policies;
+  GitLab multipart resources and installation URL validation remain within this owner.
+- `health/` owns authentication probes and GitHub quota observations.
+
+Only `provider.ts` and `index.ts` remain at each adapter root after migration. The
+facade composes capabilities through their entrypoints and keeps a single transport,
+repository cache and discovery instance. Siblings import the owning capability's
+`index.ts`; implementation files use local imports within that capability. The root
+API exposes only the completed provider facade, not internal capability classes/schemas.
+Keep the dependency direction `pull-requests -> reviews -> reactions -> discovery ->
+repository` (reviews-to-reactions applies to GitLab); lower wire/API owners never
+import these orchestration capabilities. Do not add nested README files.
 
 Integration modules talk to external systems such as GitHub, GitLab, OpenClaw
 gateway/session APIs, and provider-specific capabilities. They should expose
