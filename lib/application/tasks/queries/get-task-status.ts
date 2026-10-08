@@ -1,7 +1,7 @@
 /** Builds read-only task views from authoritative local state and provider observations. */
 
 import { ISSUE_CREATION_STATUS, STATE_TYPE, type WorkflowConfig } from "../../../domain/index.js";
-import type { IssueReader } from "../../../integrations/providers/contracts/index.js";
+import type { IssueReader } from "../../../integrations/providers/index.js";
 import {
   isIssueCreationReady,
   readIssueCreationStore,

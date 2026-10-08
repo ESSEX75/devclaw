@@ -1,7 +1,7 @@
 /** Marks only delivered comment context as noticed using its provider-owned reaction namespace. */
 
 import { log as auditLog } from "../../audit.js";
-import { type IssueComment, PR_COMMENT_KIND } from "../../integrations/providers/contracts/index.js";
+import { type IssueComment, PR_COMMENT_KIND } from "../../integrations/providers/index.js";
 import { COMMENT_MARKING_ERROR, COMMENT_MARKING_STEP, EYES_EMOJI } from "./const.js";
 import type { AcknowledgementProvider, PrFeedback } from "./types.js";
 

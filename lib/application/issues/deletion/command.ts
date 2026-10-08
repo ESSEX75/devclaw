@@ -7,8 +7,7 @@ import { randomUUID } from "node:crypto";
 
 import { log as auditLog } from "../../../audit.js";
 import { ISSUE_ARCHIVE_REASON, ISSUE_INTEGRITY_STATUS, PIPELINE_NOTIFICATION_STATUS } from "../../../domain/index.js";
-import { isProviderIssueLookupError } from "../../../integrations/providers/errors/index.js";
-import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/providers/errors/index.js";
+import { isProviderIssueLookupError, PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/providers/index.js";
 import { readIssueArchiveStore, readIssueStateStore, readOptionalProjects, readWorkerDeliveryResolution, withIssueOrchestrationLock } from "../../../state/index.js";
 import { archiveManagedIssueLocked } from "../archive/index.js";
 import { hasProjectWorkerSlot } from "../worker-slot.js";

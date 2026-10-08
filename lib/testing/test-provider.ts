@@ -6,10 +6,8 @@
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import type { CreateIssueInput } from "../integrations/providers/contracts/index.js";
-import type { Issue, IssueComment, IssueProvider, PrReviewComment, PrStatus, StateLabel } from "../integrations/providers/contracts/index.js";
-import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../integrations/providers/errors/index.js";
-import { ProviderIssueLookupError } from "../integrations/providers/errors/index.js";
+import type { CreateIssueInput, Issue, IssueComment, IssueProvider, PrReviewComment, PrStatus, StateLabel } from "../integrations/providers/index.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../integrations/providers/index.js";
 import type { ProviderCall } from "./types.js";
 
 // ---------------------------------------------------------------------------

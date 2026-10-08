@@ -18,7 +18,7 @@ import {
   getStateLabels,
   getStepRoutingLabels,
 } from "../../domain/index.js";
-import { createProvider } from "../../integrations/providers/selection/index.js";
+import { createProvider } from "../../integrations/providers/index.js";
 import { loadConfig } from "../../state/index.js";
 import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";

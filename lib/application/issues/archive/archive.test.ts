@@ -13,8 +13,8 @@ import {
   PIPELINE_NOTIFICATION_STATUS,
   type IssueRuntimeState,
 } from "../../../domain/index.js";
-import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/providers/errors/index.js";
-import { ProviderIssueLookupError } from "../../../integrations/providers/errors/index.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../../integrations/providers/index.js";
+
 import {
   listAttachments,
   readIssueArchiveStore,

@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { IssueComment } from "../../../integrations/providers/contracts/index.js";
+import type { IssueComment } from "../../../integrations/providers/index.js";
 import { buildTaskMessage } from "./message-builder.js";
 import { assertTaskInputFits, selectTaskContext } from "./selection.js";
 import type { SelectTaskContextInput } from "./types.js";

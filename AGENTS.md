@@ -20,9 +20,12 @@ Layer-specific contracts live only in the root `lib/<layer>/README.md`. Do not a
 ## Package APIs
 
 - A directory with an `index.ts` exposes an explicit package or subpackage API.
+- A package with an independent external contract must expose a root `index.ts`, even when its implementation is entirely in subpackages. Organizational layers and test directories need no barrel without a supported contract.
 - Import through that entrypoint across its public boundary; keep direct implementation imports inside the owning package unless its README specifies otherwise.
 - Do not import a package through its own barrel from inside that package.
 - Re-export only supported entities owned by the package, and keep file-local implementation details private.
+- Aggregation entrypoints combine public submodule APIs with `export * from "./submodule/index.js"`; each owning submodule's `index.ts` explicitly names its supported exports. Keep private implementation details out of submodule entrypoints, avoid duplicate export-name collisions, and do not aggregate test directories.
+- External consumers use the root API; internal sibling capabilities use the immediate owner's entrypoint without importing their own root barrel. Facade submodules explicitly export their facade and need not aggregate internal composition capabilities.
 - Do not create a top-level barrel for an organizational layer unless it represents a real supported API.
 - Any stricter package-specific API rules belong in that package's README.
 

@@ -1,6 +1,6 @@
 /** Fetches optional PR observations while preserving known identity on secondary read failures. */
 
-import { PR_STATE } from "../../integrations/providers/contracts/index.js";
+import { PR_STATE } from "../../integrations/providers/index.js";
 import { PR_FEEDBACK_REASON } from "./const.js";
 import type { ContextProvider, FeedbackProvider, PrContext, PrFeedback } from "./types.js";
 

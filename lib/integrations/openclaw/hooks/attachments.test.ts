@@ -5,7 +5,7 @@ import path from "node:path";
 import { it } from "node:test";
 import { readProjects } from "../../../state/index.js";
 import { createTestHarness } from "../../../testing/index.js";
-import { GitHubProvider } from "../../providers/github/index.js";
+import { GitHubProvider } from "../../providers/index.js";
 import { registerAttachmentHook } from "./attachments.js";
 import type { AttachmentHookRegistrar } from "./types.js";
 

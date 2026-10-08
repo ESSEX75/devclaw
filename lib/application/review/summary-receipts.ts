@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 
 import type { ReviewSummaryReceipt } from "../../domain/index.js";
-import { PR_COMMENT_KIND, PR_STATE, PROVIDER_REVIEW_STATE, type PrStatus } from "../../integrations/providers/contracts/index.js";
+import { PR_COMMENT_KIND, PR_STATE, PROVIDER_REVIEW_STATE, type PrStatus } from "../../integrations/providers/index.js";
 import { readIssueStateStore, updateIssueRuntimeRecord } from "../../state/index.js";
 import { REVIEW_SUMMARY_HASH_ALGORITHM } from "./const.js";
 import type { FeedbackProvider, PrFeedback, ReviewIssueContext } from "./types.js";

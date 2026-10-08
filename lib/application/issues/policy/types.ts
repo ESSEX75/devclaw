@@ -2,7 +2,7 @@
 
 import type { RunCommand } from "../../../context.js";
 import type { IssueRuntimeState, ReviewPolicy, TestPolicy } from "../../../domain/index.js";
-import { type IssueProvider } from "../../../integrations/providers/contracts/index.js";
+import { type IssueProvider } from "../../../integrations/providers/index.js";
 import { type ManagedProjectionResult } from "../../projection/index.js";
 
 /** One policy mutation with its optional provider reconciliation result. */

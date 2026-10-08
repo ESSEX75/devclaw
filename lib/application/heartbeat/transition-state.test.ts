@@ -5,8 +5,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { RunCommand } from "../../context.js";
-import { createProvider } from "../../integrations/providers/selection/index.js";
-import { isProviderIssueLookupError } from "../../integrations/providers/errors/index.js";
+import { createProvider, isProviderIssueLookupError } from "../../integrations/providers/index.js";
+
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";
 import { readIssueArchiveStore, readIssueStateStore } from "../../state/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";

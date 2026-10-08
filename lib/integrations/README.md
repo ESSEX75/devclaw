@@ -35,13 +35,20 @@ their audit and whether optional cleanup failure blocks dispatch.
 
 ## Provider package ownership
 
-The provider root is an organizational directory. Shared capabilities own explicit
-APIs; cross-capability consumers import the entrypoint that owns their dependency.
+`providers/index.ts` is the supported external API of the provider package. It aggregates
+all eight production submodule APIs with `export * from "./submodule/index.js"`.
+Each submodule's entrypoint explicitly selects its own supported symbols; the root
+does not repeat that selection. Test-only `conformance/` is not aggregated.
+Application, tools, testing helpers and adapters outside this package import this root
+API. Shared provider boundary utilities are exposed when their owning submodule
+explicitly exports them. Concrete wire schemas and internal adapter capability classes
+stay behind the concrete facade's entrypoint.
 
 `providers/contracts/index.ts` exposes provider-neutral capability contracts, DTOs
 and canonical observation constants. `providers/selection/index.ts` exposes
 `createProvider`; selection owns adapter composition and verified known-origin detection.
-The old root API is removed; consumers import the capability that owns their contract.
+These subpackage APIs serve provider implementations and sibling capabilities; external
+consumers reach their aggregated APIs through `providers/index.ts`.
 Workflow configuration is resolved by application and is not a provider factory input.
 
 `providers/github/index.ts` and `providers/gitlab/index.ts` expose their concrete
@@ -59,7 +66,7 @@ Concrete implementations use capability entrypoints for shared contracts, errors
 transport, attachment-name policy and Git-history observations, and sibling
 implementation imports within their own concrete package. No adapter imports selection
 or a parent barrel.
-Application consumers use shared contracts or the completed provider facade's API.
+Application consumers use the aggregated provider root API.
 Nested capability APIs support adapter composition and sibling dependencies; the facade
 entrypoint does not expose internal classes, concrete schemas or staging helpers.
 
@@ -94,12 +101,12 @@ The responsibility map below defines the implemented capability boundaries:
 - `github/` and `gitlab/` retain concrete provider behavior. The formal-review selector
   in `github/reviews/review-observations.ts` is internal to that adapter.
 
-Each capability exposes only its supported API through `index.ts`. Sibling
-capabilities and external consumers import that entrypoint; implementation files use
-local imports inside their owner. None imports a parent barrel or selection to reach
+Each capability exposes only its supported API through `index.ts`. Internal sibling
+capabilities import that entrypoint; implementation files use local imports inside
+their owner. Provider implementations never import the provider root barrel or selection to reach
 shared infrastructure. Types/constants migrate with their owners without duplicate
-registries or forwarding files. The old root API and shared implementation files are
-removed; consumers must use the current owning capability directly.
+registries or forwarding files. Shared implementation files stay in their capability;
+the provider root aggregates submodule APIs without importing their implementation files.
 
 Focused error, pagination/recovery, Git-history and selection tests live beside their
 owning capabilities. `conformance/` owns test-only verification of the shared adapter
@@ -140,7 +147,7 @@ and public entrypoint.
   GitLab multipart resources and installation URL validation remain within this owner.
 - `health/` owns authentication probes and GitHub quota observations.
 
-Only `provider.ts` and `index.ts` remain at each adapter root. The
+Only `provider.ts` and `index.ts` remain at each concrete adapter root. The
 facade composes capabilities through their entrypoints and keeps a single transport,
 repository cache and discovery instance. Siblings import the owning capability's
 `index.ts`; implementation files use local imports within that capability. The root

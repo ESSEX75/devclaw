@@ -2,8 +2,7 @@
  * Maps repair failures into stable adapter-visible errors and recovery plans.
  */
 
-import { isProviderIssueLookupError } from "../../../integrations/providers/errors/index.js";
-import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/providers/errors/index.js";
+import { isProviderIssueLookupError, PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/providers/index.js";
 import { ISSUE_REPAIR_ERROR, REPAIR_STATUS } from "./const.js";
 import type { IssueRepairErrorCode, IssueRepairResult } from "./types.js";
 

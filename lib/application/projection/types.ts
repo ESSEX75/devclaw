@@ -1,7 +1,7 @@
 /** Contracts for managed-label reconciliation and provider mutations. */
 
 import type { IssueProjectionState, WorkflowConfig } from "../../domain/index.js";
-import type { IssueReader, LabelProjector } from "../../integrations/providers/contracts/index.js";
+import type { IssueReader, LabelProjector } from "../../integrations/providers/index.js";
 import type { ProjectionDiff } from "../../projection/index.js";
 
 /** Small provider surface needed to read and mutate managed labels. */

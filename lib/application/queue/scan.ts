@@ -2,7 +2,7 @@
 
 import type { WorkflowConfig } from "../../domain/index.js";
 import { getQueueLabels } from "../../domain/index.js";
-import type { IssueReader } from "../../integrations/providers/contracts/index.js";
+import type { IssueReader } from "../../integrations/providers/index.js";
 import { isIssueCreationReady, readIssueStateStore, readWorkerDeliveryResolution } from "../../state/index.js";
 import { selectLocalQueueCandidates } from "./select.js";
 import type { QueueCandidate, QueueStateLocation } from "./types.js";

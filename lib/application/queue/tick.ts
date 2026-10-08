@@ -11,8 +11,7 @@ import {
   getActiveLabel,
   reconcileSlots,
 } from "../../domain/index.js";
-import { isProviderIssueLookupError } from "../../integrations/providers/errors/index.js";
-import { createProvider } from "../../integrations/providers/selection/index.js";
+import { createProvider,isProviderIssueLookupError } from "../../integrations/providers/index.js";
 import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/index.js";
 import { withIssueOrchestrationLock } from "../../state/index.js";
 import { getProject, getRoleWorker, readProjects } from "../../state/index.js";

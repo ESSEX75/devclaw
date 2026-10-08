@@ -49,12 +49,16 @@ Keep README files only at layer roots (`lib/<layer>/README.md`); do not create t
 ## Package APIs and imports
 
 - Treat a directory with an `index.ts` as an explicit package or subpackage API.
-- Re-export only supported entities owned by that package.
+- Give every package with an independent external contract a root `index.ts`, including when all implementation lives in subpackages. Distinguish that package from a purely organizational layer or test directory, which needs no barrel without a supported contract.
+- Use hierarchical barrels: an aggregation entrypoint combines its public submodule APIs with `export * from "./submodule/index.js"`. Do not repeat a second hand-picked symbol list at the aggregation level; each submodule's `index.ts` explicitly names its supported exports from owning implementation files.
+- Re-export only supported entities owned by that package or its descendant subpackages. Private implementation details stay out of the owning submodule's `index.ts` and therefore out of the aggregate API. Facade submodules may explicitly export their facade without aggregating internal composition capabilities.
+- Aggregate only actual production APIs, not test directories or implementation files. Keep exported names unambiguous across submodules; resolve collisions at the owning APIs rather than relying on ambiguous wildcard exports.
 - Keep file-local implementation details private.
 - Import through the target package's `index.ts` when it defines a public API for the consumer's boundary.
+- External consumers use the root package API. Internal sibling capabilities use the immediate owner's entrypoint; files within one capability use local implementation imports. Document intentionally supported external subpackage APIs in the layer README.
 - Allow direct imports between implementation files inside the same package.
 - Do not import a package through its own barrel from inside that package; avoid cycles.
-- Do not re-export an entity from a package that does not own it.
+- Do not re-export entities from unrelated packages merely to shorten consumer imports.
 - Do not create a large top-level barrel merely to hide legitimate internal package structure.
 - Use `.js` extensions in TypeScript import and export paths.
 
@@ -167,6 +171,7 @@ Before completing an architectural change, verify that:
 - affected package README contracts were read and remain accurate;
 - dependency direction follows package boundaries;
 - public entities are exported from the correct owner API;
+- packages with independent external contracts have a root API, aggregation barrels use `export *` from submodule entrypoints, owning submodules explicitly define their exports, and outside consumers do not bypass the root API;
 - every exported `type` and `interface` is declared in the owning package or subpackage's `types.ts`;
 - filesystem/resource strings and shared architectural identifiers are owned by documented constants in the appropriate `const.ts`;
 - private helpers remain private;

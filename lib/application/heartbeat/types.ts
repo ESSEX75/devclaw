@@ -3,9 +3,7 @@
 import type { RunCommand } from "../../context.js";
 import type { IssueRuntimeState, Project, WorkflowConfig, WorkflowPolicyRouting } from "../../domain/index.js";
 import type { SessionLookup } from "../../integrations/openclaw/sessions/index.js";
-import type { IssueReader } from "../../integrations/providers/contracts/index.js";
-import type { IssueProvider } from "../../integrations/providers/contracts/index.js";
-import type { Issue } from "../../integrations/providers/contracts/index.js";
+import type { Issue,IssueProvider, IssueReader } from "../../integrations/providers/index.js";
 import type { ProjectionDiff } from "../../projection/index.js";
 import type { ValueOf } from "../../types.js";
 import type { NotificationRuntime } from "../notifications/index.js";

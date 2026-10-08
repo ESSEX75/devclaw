@@ -9,7 +9,7 @@ import type {
   Project,
   WorkflowConfig,
 } from "../../../domain/index.js";
-import type { Issue, IssueProvider, ProviderRateLimitStatus } from "../../../integrations/providers/contracts/index.js";
+import type { Issue, IssueProvider, ProviderRateLimitStatus } from "../../../integrations/providers/index.js";
 import type { ProjectionDiff, ProjectionMetadata } from "../../../projection/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 import type { ValueOf } from "../../../types.js";
