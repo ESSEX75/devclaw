@@ -6,11 +6,11 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import type { RunCommand } from "../../../context.js";
-import { sanitizeProviderAttachmentName } from "../attachments/index.js";
-import { parseProviderJson,PROVIDER_HTTP_METHOD, runProviderCommand } from "../transport/index.js";
-import { gitlabApiPath } from "./api/index.js";
-import { GITLAB_ATTACHMENT_STORAGE, GITLAB_FILENAME_CONTROL_LIMIT, GITLAB_UPLOAD_PATH, GITLAB_UPLOAD_PATH_PATTERN } from "./attachments/index.js";
+import type { RunCommand } from "../../../../context.js";
+import { sanitizeProviderAttachmentName } from "../../attachments/index.js";
+import { parseProviderJson, PROVIDER_HTTP_METHOD, runProviderCommand } from "../../transport/index.js";
+import { gitlabApiPath } from "../api/index.js";
+import { GITLAB_ATTACHMENT_STORAGE, GITLAB_FILENAME_CONTROL_LIMIT, GITLAB_UPLOAD_PATH, GITLAB_UPLOAD_PATH_PATTERN } from "./const.js";
 
 /** Provider-confirmed identity needed to distinguish installation prefixes from nested namespaces. */
 const projectSchema = z.object({

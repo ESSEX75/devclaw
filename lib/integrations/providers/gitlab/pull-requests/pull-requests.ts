@@ -1,13 +1,13 @@
 /** Owns GitLab pull-requests operations and their provider-specific API semantics. */
 
-import type { PrState, PrStatus } from "../contracts/index.js";
-import { PR_STATE } from "../contracts/index.js";
-import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../errors/index.js";
-import { hasIssueCommitOnBaseBranch } from "../git/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { GITLAB_REQUEST_STATE } from "./api/index.js";
-import { GitLabDiscovery } from "./discovery/index.js";
-import { GitLabReviews } from "./reviews.js";
+import type { PrState, PrStatus } from "../../contracts/index.js";
+import { PR_STATE } from "../../contracts/index.js";
+import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../errors/index.js";
+import { hasIssueCommitOnBaseBranch } from "../../git/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { GITLAB_REQUEST_STATE } from "../api/index.js";
+import { GitLabDiscovery } from "../discovery/index.js";
+import { GitLabReviews } from "../reviews/index.js";
 
 /** Implements the pull-requests capability using dependencies shared by one adapter instance. */
 export class GitLabPullRequests {

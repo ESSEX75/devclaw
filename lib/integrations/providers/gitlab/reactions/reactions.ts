@@ -1,11 +1,12 @@
 /** Owns GitLab reactions operations and their provider-specific API semantics. */
 
-import { classifyProviderLookupFailure } from "../errors/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
-import { GITLAB_API_RESOURCE, GITLAB_REQUEST_STATE, gitlabApiPath } from "./api/index.js";
-import { GitLabDiscovery } from "./discovery/index.js";
-import { GITLAB_REACTION_RESOURCE, GitLabEmojiSchema } from "./reactions/index.js";
+import { classifyProviderLookupFailure } from "../../errors/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { PROVIDER_HTTP_METHOD } from "../../transport/index.js";
+import { GITLAB_API_RESOURCE, GITLAB_REQUEST_STATE, gitlabApiPath } from "../api/index.js";
+import { GitLabDiscovery } from "../discovery/index.js";
+import { GITLAB_REACTION_RESOURCE } from "./const.js";
+import { GitLabEmojiSchema } from "./schema.js";
 
 /** Implements the reactions capability using dependencies shared by one adapter instance. */
 export class GitLabReactions {

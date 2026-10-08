@@ -1,10 +1,10 @@
 /** Owns GitLab labels operations and their provider-specific API semantics. */
 
-import { classifyProviderOperationError,PROVIDER_OPERATION_ERROR } from "../errors/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
-import { gitlabApiPath } from "./api/index.js";
-import { GITLAB_LABEL_RESOURCE } from "./labels/index.js";
+import { classifyProviderOperationError, PROVIDER_OPERATION_ERROR } from "../../errors/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { PROVIDER_HTTP_METHOD } from "../../transport/index.js";
+import { gitlabApiPath } from "../api/index.js";
+import { GITLAB_LABEL_RESOURCE } from "./const.js";
 
 /** Implements the labels capability using dependencies shared by one adapter instance. */
 export class GitLabLabels {

@@ -1,15 +1,16 @@
 /** Owns GitLab reviews operations and their provider-specific API semantics. */
 
-import type { PrReviewComment } from "../contracts/index.js";
-import { PR_COMMENT_KIND, PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../contracts/index.js";
-import { classifyProviderLookupFailure } from "../errors/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { GITLAB_API_RESOURCE, gitlabApiPath } from "./api/index.js";
-import type { GitLabNote } from "./comments/index.js";
-import { GitLabNoteSchema } from "./comments/index.js";
-import { GitLabDiscovery } from "./discovery/index.js";
-import { GitLabReactions } from "./reactions.js";
-import { GITLAB_INLINE_NOTE_TYPE, GITLAB_REVIEW_RESOURCE, GitLabApprovalSchema, GitLabDiscussionSchema } from "./reviews/index.js";
+import type { PrReviewComment } from "../../contracts/index.js";
+import { PR_COMMENT_KIND, PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../../contracts/index.js";
+import { classifyProviderLookupFailure } from "../../errors/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { GITLAB_API_RESOURCE, gitlabApiPath } from "../api/index.js";
+import type { GitLabNote } from "../comments/index.js";
+import { GitLabNoteSchema } from "../comments/index.js";
+import { GitLabDiscovery } from "../discovery/index.js";
+import { GitLabReactions } from "../reactions/index.js";
+import { GITLAB_INLINE_NOTE_TYPE, GITLAB_REVIEW_RESOURCE } from "./const.js";
+import { GitLabApprovalSchema, GitLabDiscussionSchema } from "./schema.js";
 
 /** Implements the reviews capability using dependencies shared by one adapter instance. */
 export class GitLabReviews {
