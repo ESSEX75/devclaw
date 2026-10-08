@@ -3,8 +3,7 @@
 import type { ProviderRateLimitStatus } from "../contracts/index.js";
 import type { ProviderTransport } from "../transport/index.js";
 import { parseProviderJson } from "../transport/index.js";
-import { GITHUB_EPOCH_SECOND_MS, GITHUB_QUERY } from "./const.js";
-import { GhRateLimitSchema } from "./schema.js";
+import { GhRateLimitSchema,GITHUB_EPOCH_SECOND_MS, GITHUB_HEALTH_QUERY } from "./health/index.js";
 
 /** Implements the health capability using dependencies shared by one adapter instance. */
 export class GitHubHealth {
@@ -25,7 +24,7 @@ export class GitHubHealth {
 
   /** Read GitHub's current core API quota for repair mutation preflight. */
   async getRateLimitStatus(): Promise<ProviderRateLimitStatus> {
-    const parsed = parseProviderJson(await this.transport.read(["api", GITHUB_QUERY.RATE_LIMIT]), GhRateLimitSchema);
+    const parsed = parseProviderJson(await this.transport.read(["api", GITHUB_HEALTH_QUERY.RATE_LIMIT]), GhRateLimitSchema);
 
     return {
       remaining: parsed.resources.core.remaining,

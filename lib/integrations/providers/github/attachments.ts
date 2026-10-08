@@ -4,15 +4,11 @@ import { randomUUID } from "node:crypto";
 
 import { sanitizeProviderAttachmentName } from "../attachments/index.js";
 import type { AttachmentUploadInput } from "../contracts/index.js";
-import { PROVIDER_OPERATION_ERROR } from "../errors/index.js";
-import { normalizeProviderFailure } from "../errors/index.js";
+import { normalizeProviderFailure,PROVIDER_OPERATION_ERROR } from "../errors/index.js";
 import type { ProviderTransport } from "../transport/index.js";
-import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
-import { parseProviderJson } from "../transport/index.js";
-import { GITHUB_API_RESOURCE, GITHUB_ATTACHMENT_STORAGE,GITHUB_QUERY } from "./const.js";
-import { githubRepositoryPath } from "./endpoints.js";
-import { GitHubRepository } from "./repository.js";
-import { GhAttachmentSchema } from "./schema.js";
+import { parseProviderJson,PROVIDER_HTTP_METHOD } from "../transport/index.js";
+import { GhAttachmentSchema,GITHUB_ATTACHMENT_QUERY, GITHUB_ATTACHMENT_RESOURCE, GITHUB_ATTACHMENT_STORAGE } from "./attachments/index.js";
+import { GitHubRepository,githubRepositoryPath } from "./repository/index.js";
 
 /** Implements the attachments capability using dependencies shared by one adapter instance. */
 export class GitHubAttachments {
@@ -44,7 +40,7 @@ export class GitHubAttachments {
       let branchExists = false;
 
       try {
-        await this.transport.read(["api", githubRepositoryPath(repo, GITHUB_API_RESOURCE.GIT, GITHUB_API_RESOURCE.REF, GITHUB_API_RESOURCE.HEADS, branch)]);
+        await this.transport.read(["api", githubRepositoryPath(repo, GITHUB_ATTACHMENT_RESOURCE.GIT, GITHUB_ATTACHMENT_RESOURCE.REF, GITHUB_ATTACHMENT_RESOURCE.HEADS, branch)]);
         branchExists = true;
       } catch (error) {
         const failure = normalizeProviderFailure(error);
@@ -54,16 +50,16 @@ export class GitHubAttachments {
 
       if (!branchExists) {
         const raw = await this.transport.read([
-          "repo", "view", "--json", GITHUB_QUERY.DEFAULT_BRANCH_FIELD, "--jq", GITHUB_QUERY.DEFAULT_BRANCH_SELECTOR,
+          "repo", "view", "--json", GITHUB_ATTACHMENT_QUERY.DEFAULT_BRANCH_FIELD, "--jq", GITHUB_ATTACHMENT_QUERY.DEFAULT_BRANCH_SELECTOR,
         ]);
         const defaultBranch = raw.trim();
         const shaRaw = await this.transport.read([
-          "api", githubRepositoryPath(repo, GITHUB_API_RESOURCE.GIT, GITHUB_API_RESOURCE.REF, GITHUB_API_RESOURCE.HEADS, defaultBranch),
-          "--jq", GITHUB_QUERY.OBJECT_SHA_SELECTOR,
+          "api", githubRepositoryPath(repo, GITHUB_ATTACHMENT_RESOURCE.GIT, GITHUB_ATTACHMENT_RESOURCE.REF, GITHUB_ATTACHMENT_RESOURCE.HEADS, defaultBranch),
+          "--jq", GITHUB_ATTACHMENT_QUERY.OBJECT_SHA_SELECTOR,
         ]);
 
         await this.transport.once([
-          "api", githubRepositoryPath(repo, GITHUB_API_RESOURCE.GIT, GITHUB_API_RESOURCE.REFS),
+          "api", githubRepositoryPath(repo, GITHUB_ATTACHMENT_RESOURCE.GIT, GITHUB_ATTACHMENT_RESOURCE.REFS),
           "--method", PROVIDER_HTTP_METHOD.POST,
           "--field", `ref=refs/heads/${branch}`,
           "--field", `sha=${shaRaw.trim()}`,
@@ -72,7 +68,7 @@ export class GitHubAttachments {
 
       // Upload via Contents API; a clean exit alone does not confirm the uploaded identity.
       const output = await this.transport.once([
-        "api", githubRepositoryPath(repo, GITHUB_API_RESOURCE.CONTENTS, filePath),
+        "api", githubRepositoryPath(repo, GITHUB_ATTACHMENT_RESOURCE.CONTENTS, filePath),
         "--method", PROVIDER_HTTP_METHOD.PUT,
         "--field", `message=attachment: ${file.filename} for issue #${issueId}`,
         "--field", `content=${base64Content}`,

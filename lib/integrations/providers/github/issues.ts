@@ -2,16 +2,22 @@
 
 import type { CreateIssueInput, Issue, IssueComment, IssueEditInput, IssueListFilter, StateLabel } from "../contracts/index.js";
 import { PROVIDER_COLLECTION_STATE } from "../contracts/index.js";
-import { PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "../errors/index.js";
-import { classifyProviderLookupFailure, classifyProviderProjectAccessFailure, mayBeMissingProviderIssue, ProviderIssueLookupError } from "../errors/index.js";
-import { classifyProviderOperationError, ProviderOperationError } from "../errors/index.js";
+import {
+  classifyProviderLookupFailure,
+  classifyProviderOperationError,
+  classifyProviderProjectAccessFailure,
+  mayBeMissingProviderIssue,
+  PROVIDER_ISSUE_LOOKUP_ERROR,
+  PROVIDER_OPERATION_ERROR,
+  ProviderIssueLookupError,
+  ProviderOperationError,
+} from "../errors/index.js";
 import type { ProviderTransport } from "../transport/index.js";
-import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
-import { ProviderResourceIdentitySchema } from "../transport/index.js";
-import { GITHUB_API_RESOURCE,GITHUB_QUERY, GITHUB_REQUEST_STATE } from "./const.js";
-import { githubApiPath } from "./endpoints.js";
+import { PROVIDER_HTTP_METHOD, ProviderResourceIdentitySchema } from "../transport/index.js";
+import { GITHUB_API_RESOURCE, GITHUB_REQUEST_STATE, githubApiPath } from "./api/index.js";
+import { GhCommentSchema } from "./comments/index.js";
+import { GhIssueSchema, GhRestIssueSchema,GITHUB_ISSUE_QUERY } from "./issues/index.js";
 import { toIssue } from "./mappers.js";
-import { GhCommentSchema, GhIssueSchema, GhRestIssueSchema } from "./schema.js";
 
 /** Implements the issues capability using dependencies shared by one adapter instance. */
 export class GitHubIssues {
@@ -75,7 +81,7 @@ export class GitHubIssues {
    */
   async getIssue(issueId: number): Promise<Issue> {
     try {
-      const raw = await this.transport.read(["issue", "view", String(issueId), "--json", GITHUB_QUERY.ISSUE_FIELDS]);
+      const raw = await this.transport.read(["issue", "view", String(issueId), "--json", GITHUB_ISSUE_QUERY.ISSUE_FIELDS]);
       const parsed: unknown = JSON.parse(raw);
 
       const issue = toIssue(GhIssueSchema.parse(parsed));
@@ -88,7 +94,7 @@ export class GitHubIssues {
       if (error instanceof ProviderIssueLookupError) throw error;
       if (mayBeMissingProviderIssue(error)) {
         try {
-          await this.transport.read(["repo", "view", "--json", GITHUB_QUERY.REPOSITORY_NAME_FIELD]);
+          await this.transport.read(["repo", "view", "--json", GITHUB_ISSUE_QUERY.REPOSITORY_NAME_FIELD]);
           throw new ProviderIssueLookupError({
             code: PROVIDER_ISSUE_LOOKUP_ERROR.ISSUE_NOT_FOUND,
             provider: "github",

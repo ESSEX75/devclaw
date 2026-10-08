@@ -4,12 +4,12 @@ import type { PrReviewComment } from "../contracts/index.js";
 import { PR_COMMENT_KIND, PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../contracts/index.js";
 import { classifyProviderLookupFailure } from "../errors/index.js";
 import type { ProviderTransport } from "../transport/index.js";
-import { GITLAB_API_RESOURCE, GITLAB_INLINE_NOTE_TYPE } from "./const.js";
-import { GitLabDiscovery } from "./discovery.js";
-import { gitlabApiPath } from "./endpoints.js";
+import { GITLAB_API_RESOURCE, gitlabApiPath } from "./api/index.js";
+import type { GitLabNote } from "./comments/index.js";
+import { GitLabNoteSchema } from "./comments/index.js";
+import { GitLabDiscovery } from "./discovery/index.js";
 import { GitLabReactions } from "./reactions.js";
-import { GitLabApprovalSchema, GitLabDiscussionSchema, GitLabNoteSchema } from "./schema.js";
-import type { GitLabNote } from "./types.js";
+import { GITLAB_INLINE_NOTE_TYPE, GITLAB_REVIEW_RESOURCE, GitLabApprovalSchema, GitLabDiscussionSchema } from "./reviews/index.js";
 
 /** Implements the reviews capability using dependencies shared by one adapter instance. */
 export class GitLabReviews {
@@ -25,7 +25,7 @@ export class GitLabReviews {
    */
   async hasUnresolvedDiscussions(mrIid: number): Promise<boolean> {
     try {
-      const discussions = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_API_RESOURCE.DISCUSSIONS), GitLabDiscussionSchema);
+      const discussions = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_REVIEW_RESOURCE.DISCUSSIONS), GitLabDiscussionSchema);
 
       return discussions.some((d) =>
         d.notes.some((n) => n.resolvable && !n.resolved && !n.system),
@@ -74,7 +74,7 @@ export class GitLabReviews {
    */
   async isMrApproved(mrIid: number): Promise<boolean> {
     try {
-      const raw = await this.transport.read(["api", gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_API_RESOURCE.APPROVALS)]);
+      const raw = await this.transport.read(["api", gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_REVIEW_RESOURCE.APPROVALS)]);
       const response: unknown = JSON.parse(raw);
       const data = GitLabApprovalSchema.parse(response);
       // Only trust explicit approvals — ignore bare 'approved' flag.
@@ -100,7 +100,7 @@ export class GitLabReviews {
     const comments: PrReviewComment[] = [];
 
     try {
-      const discussions = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.DISCUSSIONS), GitLabDiscussionSchema);
+      const discussions = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_REVIEW_RESOURCE.DISCUSSIONS), GitLabDiscussionSchema);
 
       for (const disc of discussions) {
         for (const note of disc.notes) {

@@ -14,16 +14,15 @@ import type {
   StateLabel,
 } from "../contracts/index.js";
 import type { ProviderAdapterOptions } from "../transport/index.js";
-import { PROVIDER_CLI } from "../transport/index.js";
-import { createProviderTransport } from "../transport/index.js";
+import { createProviderTransport,PROVIDER_CLI } from "../transport/index.js";
 import { GitHubAttachments } from "./attachments.js";
-import { GitHubDiscovery } from "./discovery.js";
+import { GitHubDiscovery } from "./discovery/index.js";
 import { GitHubHealth } from "./health.js";
 import { GitHubIssues } from "./issues.js";
 import { GitHubLabels } from "./labels.js";
 import { GitHubPullRequests } from "./pull-requests.js";
 import { GitHubReactions } from "./reactions.js";
-import { GitHubRepository } from "./repository.js";
+import { GitHubRepository } from "./repository/index.js";
 import { GitHubReviews } from "./reviews.js";
 
 /** Public facade sharing transport, identity caches and discovery across all capabilities. */

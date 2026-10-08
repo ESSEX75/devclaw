@@ -1,14 +1,7 @@
-/** Builds github resource paths while retaining CLI repository/project placeholder resolution. */
+/** Owns github/repository endpoints contracts at the concrete provider boundary. */
 
-import { GITHUB_API_ROOT, GITHUB_REPOSITORY_RESOURCE } from "./const.js";
+import { GITHUB_REPOSITORY_RESOURCE } from "./const.js";
 import type { GitHubRepositoryInfo } from "./types.js";
-
-/** Address an explicit resource within the repository/project selected by CLI configuration.
- * @param parts - Resource identifiers and provider-local IDs chosen by the owning capability.
- */
-export function githubApiPath(...parts: (string | number)[]): string {
-  return [GITHUB_API_ROOT, ...parts].join("/");
-}
 
 /** Address the confirmed concrete repository rather than relying on CLI placeholders.
  * @param repository - Provider-confirmed repository identity.

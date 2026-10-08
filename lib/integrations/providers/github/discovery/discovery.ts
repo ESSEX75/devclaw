@@ -2,14 +2,12 @@
 
 import { z } from "zod";
 
-import { PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "../errors/index.js";
-import { ProviderTransportError } from "../errors/index.js";
-import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../errors/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { PROVIDER_PAGE_SIZE } from "../transport/index.js";
-import { GITHUB_API_RESOURCE, GITHUB_DISCOVERY_STATE, GITHUB_PR_FIELDS,GITHUB_QUERY, GITHUB_REQUEST_STATE } from "./const.js";
-import { githubApiPath } from "./endpoints.js";
-import { GitHubRepository } from "./repository.js";
+import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR, ProviderIssueLookupError,ProviderTransportError } from "../../errors/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { PROVIDER_PAGE_SIZE } from "../../transport/index.js";
+import { GITHUB_API_RESOURCE, GITHUB_REQUEST_STATE, githubApiPath } from "../api/index.js";
+import { GitHubRepository } from "../repository/index.js";
+import { GITHUB_DISCOVERY_QUERY,GITHUB_DISCOVERY_STATE, GITHUB_PR_FIELDS } from "./const.js";
 import { GhPullRequestSchema, GhRestPullSchema, GhTimelineSchema } from "./schema.js";
 import type { GhDiscoveryState, GhPullRequest } from "./types.js";
 
@@ -44,7 +42,7 @@ export class GitHubDiscovery {
     }`;
 
     try {
-      const raw: unknown = JSON.parse(await this.transport.read(["api", GITHUB_QUERY.GRAPHQL, "--paginate", "--slurp", "-f", `query=${query}`]));
+      const raw: unknown = JSON.parse(await this.transport.read(["api", GITHUB_DISCOVERY_QUERY.GRAPHQL, "--paginate", "--slurp", "-f", `query=${query}`]));
       const pages = z.array(GhTimelineSchema).min(1).parse(raw);
       const last = pages[pages.length - 1].data.repository.issue.timelineItems;
 

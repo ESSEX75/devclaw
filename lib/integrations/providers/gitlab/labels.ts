@@ -1,11 +1,10 @@
 /** Owns GitLab labels operations and their provider-specific API semantics. */
 
-import { PROVIDER_OPERATION_ERROR } from "../errors/index.js";
-import { classifyProviderOperationError } from "../errors/index.js";
+import { classifyProviderOperationError,PROVIDER_OPERATION_ERROR } from "../errors/index.js";
 import type { ProviderTransport } from "../transport/index.js";
 import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
-import { GITLAB_API_RESOURCE } from "./const.js";
-import { gitlabApiPath } from "./endpoints.js";
+import { gitlabApiPath } from "./api/index.js";
+import { GITLAB_LABEL_RESOURCE } from "./labels/index.js";
 
 /** Implements the labels capability using dependencies shared by one adapter instance. */
 export class GitLabLabels {
@@ -22,7 +21,7 @@ export class GitLabLabels {
     try {
       // Update-first: always set the color on existing labels
       await this.transport.write([
-        "api", gitlabApiPath(GITLAB_API_RESOURCE.LABELS, encodeURIComponent(name)),
+        "api", gitlabApiPath(GITLAB_LABEL_RESOURCE.LABELS, encodeURIComponent(name)),
         "--method", PROVIDER_HTTP_METHOD.PUT,
         "--field", `color=${color}`,
       ]);
@@ -32,7 +31,7 @@ export class GitLabLabels {
       if (failure.code !== PROVIDER_OPERATION_ERROR.NOT_FOUND || failure.outcomeUnknown) throw error;
       // A confirmed missing label permits one create request.
       await this.transport.once([
-        "api", gitlabApiPath(GITLAB_API_RESOURCE.LABELS),
+        "api", gitlabApiPath(GITLAB_LABEL_RESOURCE.LABELS),
         "--method", PROVIDER_HTTP_METHOD.POST,
         "--field", `name=${name}`,
         "--field", `color=${color}`,

@@ -3,12 +3,12 @@
 import type { PrReviewComment } from "../contracts/index.js";
 import { PR_COMMENT_KIND, PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../contracts/index.js";
 import type { ProviderTransport } from "../transport/index.js";
-import { GITHUB_API_RESOURCE, GITHUB_REVIEW_BOT_SUFFIX } from "./const.js";
-import { GitHubDiscovery } from "./discovery.js";
-import { githubApiPath } from "./endpoints.js";
+import { GITHUB_API_RESOURCE, githubApiPath } from "./api/index.js";
+import type { GhConversationComment } from "./comments/index.js";
+import { GhCommentSchema, GhInlineSchema } from "./comments/index.js";
+import { GitHubDiscovery } from "./discovery/index.js";
 import { latestFormalReviews } from "./review-observations.js";
-import { GhCommentSchema, GhInlineSchema, GhReviewSchema } from "./schema.js";
-import type { GhConversationComment } from "./types.js";
+import { GhReviewSchema,GITHUB_REVIEW_BOT_SUFFIX, GITHUB_REVIEW_RESOURCE } from "./reviews/index.js";
 
 /** Implements the reviews capability using dependencies shared by one adapter instance. */
 export class GitHubReviews {
@@ -22,7 +22,7 @@ export class GitHubReviews {
    * @param prNumber - Exact selected pull request.
    */
   async readReviews(prNumber: number): Promise<PrReviewComment[]> {
-    const reviews = await this.transport.collection(githubApiPath(GITHUB_API_RESOURCE.PULLS, prNumber, GITHUB_API_RESOURCE.REVIEWS), GhReviewSchema);
+    const reviews = await this.transport.collection(githubApiPath(GITHUB_API_RESOURCE.PULLS, prNumber, GITHUB_REVIEW_RESOURCE.REVIEWS), GhReviewSchema);
 
     return reviews.filter(review => review.submitted_at !== null && !review.user.login.endsWith(GITHUB_REVIEW_BOT_SUFFIX)).map(review => ({ kind: PR_COMMENT_KIND.REVIEW,
       id: review.id, author: review.user.login, body: review.body, state: review.state, created_at: review.submitted_at ?? "" }));

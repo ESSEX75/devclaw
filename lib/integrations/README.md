@@ -113,6 +113,11 @@ completion, pagination, replay, and uncertain-outcome guarantees remain unchange
 GitHub and GitLab are migrating to the following internal capability boundaries.
 Until a capability is moved, its existing implementation path remains authoritative:
 
+`api/`, `repository/`, `comments/` and `discovery/` are implemented in both adapters.
+Wire schemas, inferred types and query/resource registries already belong to their
+capability directories; remaining operation classes migrate separately. Shared wire
+lifecycle values remain in `api/` because issue and request observations both use them.
+
 - `api/` owns shared placeholder endpoint construction and common resource/protocol
   identifiers. Capability-specific query selectors and policies belong to their owners.
 - `repository/` owns confirmed repository/project identity, successful-only caching,

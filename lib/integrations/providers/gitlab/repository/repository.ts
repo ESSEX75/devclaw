@@ -1,8 +1,8 @@
 /** Owns GitLab repository operations and their provider-specific API semantics. */
 
-import { classifyProviderLookupFailure } from "../errors/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { gitlabApiPath } from "./endpoints.js";
+import { classifyProviderLookupFailure } from "../../errors/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { gitlabApiPath } from "../api/index.js";
 import { GitLabProjectIdentitySchema } from "./schema.js";
 
 /** Implements the repository capability using dependencies shared by one adapter instance. */

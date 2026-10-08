@@ -3,10 +3,9 @@
 import { classifyProviderLookupFailure } from "../errors/index.js";
 import type { ProviderTransport } from "../transport/index.js";
 import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
-import { GITLAB_API_RESOURCE,GITLAB_REQUEST_STATE } from "./const.js";
-import { GitLabDiscovery } from "./discovery.js";
-import { gitlabApiPath } from "./endpoints.js";
-import { GitLabEmojiSchema } from "./schema.js";
+import { GITLAB_API_RESOURCE, GITLAB_REQUEST_STATE, gitlabApiPath } from "./api/index.js";
+import { GitLabDiscovery } from "./discovery/index.js";
+import { GITLAB_REACTION_RESOURCE, GitLabEmojiSchema } from "./reactions/index.js";
 
 /** Implements the reactions capability using dependencies shared by one adapter instance. */
 export class GitLabReactions {
@@ -27,7 +26,7 @@ export class GitLabReactions {
   async reactToIssue(issueId: number, emoji: string): Promise<void> {
     try {
       await this.transport.once([
-        "api", gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        "api", gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_REACTION_RESOURCE.AWARD_EMOJI),
         "--method", PROVIDER_HTTP_METHOD.POST,
         "--field", `name=${emoji}`,
       ]);
@@ -40,7 +39,7 @@ export class GitLabReactions {
    */
   async issueHasReaction(issueId: number, emoji: string): Promise<boolean> {
     try {
-      const emojis = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.AWARD_EMOJI), GitLabEmojiSchema);
+      const emojis = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_REACTION_RESOURCE.AWARD_EMOJI), GitLabEmojiSchema);
 
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
@@ -57,7 +56,7 @@ export class GitLabReactions {
 
       if (!open) return;
       await this.transport.once([
-        "api", gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        "api", gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_REACTION_RESOURCE.AWARD_EMOJI),
         "--method", PROVIDER_HTTP_METHOD.POST,
         "--field", `name=${emoji}`,
       ]);
@@ -74,7 +73,7 @@ export class GitLabReactions {
       const open = mrs.find((mr) => mr.state === GITLAB_REQUEST_STATE.OPEN);
 
       if (!open) return false;
-      const emojis = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.AWARD_EMOJI), GitLabEmojiSchema);
+      const emojis = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_REACTION_RESOURCE.AWARD_EMOJI), GitLabEmojiSchema);
 
       return emojis.some((e) => e.name === emoji);
     } catch { return false; }
@@ -88,7 +87,7 @@ export class GitLabReactions {
   async reactToIssueComment(issueId: number, commentId: number, emoji: string): Promise<void> {
     try {
       await this.transport.once([
-        "api", gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        "api", gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_REACTION_RESOURCE.AWARD_EMOJI),
         "--method", PROVIDER_HTTP_METHOD.POST,
         "--field", `name=${emoji}`,
       ]);
@@ -107,7 +106,7 @@ export class GitLabReactions {
 
       if (!open) return;
       await this.transport.once([
-        "api", gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        "api", gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_REACTION_RESOURCE.AWARD_EMOJI),
         "--method", PROVIDER_HTTP_METHOD.POST,
         "--field", `name=${emoji}`,
       ]);
@@ -131,7 +130,7 @@ export class GitLabReactions {
   async issueCommentHasReaction(issueId: number, commentId: number, emoji: string): Promise<boolean> {
     try {
       const emojis = await this.transport.collection(
-        gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_REACTION_RESOURCE.AWARD_EMOJI),
         GitLabEmojiSchema,
       );
 
@@ -151,7 +150,7 @@ export class GitLabReactions {
 
       if (!open) return false;
       const emojis = await this.transport.collection(
-        gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, open.iid, GITLAB_API_RESOURCE.NOTES, commentId, GITLAB_REACTION_RESOURCE.AWARD_EMOJI),
         GitLabEmojiSchema,
       );
 
@@ -175,7 +174,7 @@ export class GitLabReactions {
   async noteHasEyesEmoji(mrIid: number, noteId: number): Promise<boolean> {
     try {
       const emojis = await this.transport.collection(
-        gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_API_RESOURCE.NOTES, noteId, GITLAB_API_RESOURCE.AWARD_EMOJI),
+        gitlabApiPath(GITLAB_API_RESOURCE.MERGE_REQUESTS, mrIid, GITLAB_API_RESOURCE.NOTES, noteId, GITLAB_REACTION_RESOURCE.AWARD_EMOJI),
         GitLabEmojiSchema,
       );
 

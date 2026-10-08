@@ -1,8 +1,8 @@
 /** Owns GitHub repository operations and their provider-specific API semantics. */
 
-import { classifyProviderLookupFailure } from "../errors/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { GITHUB_QUERY } from "./const.js";
+import { classifyProviderLookupFailure } from "../../errors/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { GITHUB_REPOSITORY_QUERY } from "./const.js";
 import { GhRepositorySchema } from "./schema.js";
 import type { GitHubRepositoryInfo } from "./types.js";
 
@@ -19,7 +19,7 @@ export class GitHubRepository {
   async getRepoInfo(): Promise<GitHubRepositoryInfo> {
     if (this.repoInfo !== undefined) return this.repoInfo;
     try {
-      const raw: unknown = JSON.parse(await this.transport.read(["repo", "view", "--json", GITHUB_QUERY.REPOSITORY_FIELDS]));
+      const raw: unknown = JSON.parse(await this.transport.read(["repo", "view", "--json", GITHUB_REPOSITORY_QUERY.REPOSITORY_FIELDS]));
       const data = GhRepositorySchema.parse(raw);
 
       this.repoInfo = { owner: data.owner.login, name: data.name };

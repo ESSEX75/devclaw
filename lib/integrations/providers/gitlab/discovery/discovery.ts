@@ -1,12 +1,11 @@
 /** Owns GitLab discovery operations and their provider-specific API semantics. */
 
-import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../errors/index.js";
-import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../errors/index.js";
-import type { ProviderTransport } from "../transport/index.js";
-import { parseProviderJson } from "../transport/index.js";
-import { GITLAB_API_RESOURCE,GITLAB_MERGEABILITY, GITLAB_REQUEST_STATE } from "./const.js";
-import { gitlabApiPath } from "./endpoints.js";
-import { GitLabRepository } from "./repository.js";
+import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../errors/index.js";
+import type { ProviderTransport } from "../../transport/index.js";
+import { parseProviderJson } from "../../transport/index.js";
+import { GITLAB_API_RESOURCE, GITLAB_REQUEST_STATE, gitlabApiPath } from "../api/index.js";
+import { GitLabRepository } from "../repository/index.js";
+import { GITLAB_DISCOVERY_RESOURCE, GITLAB_MERGEABILITY } from "./const.js";
 import { GitLabMergeabilitySchema, GitLabMRSchema } from "./schema.js";
 import type { GitLabMR } from "./types.js";
 
@@ -22,7 +21,7 @@ export class GitLabDiscovery {
    * @param issueId - Managed issue whose related merge requests are requested.
    */
   async getRelatedMRs(issueId: number): Promise<GitLabMR[]> {
-    const mrs = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_API_RESOURCE.RELATED_MERGE_REQUESTS), GitLabMRSchema);
+    const mrs = await this.transport.collection(gitlabApiPath(GITLAB_API_RESOURCE.ISSUES, issueId, GITLAB_DISCOVERY_RESOURCE.RELATED_MERGE_REQUESTS), GitLabMRSchema);
 
     if (!mrs.length) return [];
     const projectId = await this.repository.getProjectId();
