@@ -1,4 +1,4 @@
-/** Owns github/repository const contracts at the concrete provider boundary. */
+/** Owns GitHub confirmed repository identity identifiers and policies used by this capability. */
 
 /** Fields required to confirm and cache repository identity. */
 export const GITHUB_REPOSITORY_QUERY = {

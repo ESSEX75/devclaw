@@ -1,4 +1,4 @@
-/** Owns gitlab/api endpoints contracts at the concrete provider boundary. */
+/** Builds GitLab CLI project-placeholder resource paths without executing provider commands. */
 
 import { GITLAB_API_ROOT } from "./const.js";
 

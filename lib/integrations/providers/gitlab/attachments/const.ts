@@ -1,4 +1,4 @@
-/** Owns gitlab/attachments const contracts at the concrete provider boundary. */
+/** Owns GitLab attachment publication identifiers and policies used by this capability. */
 
 /** GitLab resource paths resolved against confirmed installation/project context. */
 export const GITLAB_UPLOAD_PATH = {

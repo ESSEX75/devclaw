@@ -1,4 +1,4 @@
-/** Owns github/comments schema contracts at the concrete provider boundary. */
+/** Validates GitHub comment and note observations responses before untrusted data enters the owning capability. */
 
 import { z } from "zod";
 

@@ -1,4 +1,4 @@
-/** Owns github/reactions const contracts at the concrete provider boundary. */
+/** Owns GitHub cosmetic reaction observations identifiers and policies used by this capability. */
 
 /** Cosmetic reaction resource owned by reaction observations and effects. */
 export const GITHUB_REACTION_RESOURCE = {

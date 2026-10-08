@@ -1,4 +1,4 @@
-/** Owns github/repository endpoints contracts at the concrete provider boundary. */
+/** Builds GitHub resource paths from confirmed repository identity without executing provider commands. */
 
 import { GITHUB_REPOSITORY_RESOURCE } from "./const.js";
 import type { GitHubRepositoryInfo } from "./types.js";

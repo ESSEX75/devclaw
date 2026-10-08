@@ -1,4 +1,4 @@
-/** Owns gitlab/comments types contracts at the concrete provider boundary. */
+/** Defines validated GitLab comment and note observations contracts shared with capability consumers. */
 
 import type { z } from "zod";
 

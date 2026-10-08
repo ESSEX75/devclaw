@@ -1,4 +1,4 @@
-/** Owns gitlab/reviews const contracts at the concrete provider boundary. */
+/** Owns GitLab formal reviews and discussion feedback identifiers and policies used by this capability. */
 
 /** Discussion and approval resources owned by review observations. */
 export const GITLAB_REVIEW_RESOURCE = {

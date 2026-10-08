@@ -1,4 +1,4 @@
-/** Owns github/api endpoints contracts at the concrete provider boundary. */
+/** Builds GitHub CLI repository-placeholder resource paths without executing provider commands. */
 
 import { GITHUB_API_ROOT } from "./const.js";
 

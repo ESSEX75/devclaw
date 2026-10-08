@@ -1,4 +1,4 @@
-/** Owns gitlab/discovery schema contracts at the concrete provider boundary. */
+/** Validates GitLab associated request discovery responses before untrusted data enters the owning capability. */
 
 import { z } from "zod";
 

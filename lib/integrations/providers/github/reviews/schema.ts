@@ -1,4 +1,4 @@
-/** Owns github/reviews schema contracts at the concrete provider boundary. */
+/** Validates GitHub formal reviews and discussion feedback responses before untrusted data enters the owning capability. */
 
 import { z } from "zod";
 

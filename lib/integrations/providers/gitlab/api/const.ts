@@ -1,4 +1,4 @@
-/** Owns gitlab/api const contracts at the concrete provider boundary. */
+/** Owns GitLab shared resource paths and wire lifecycle identifiers and policies used by this capability. */
 
 /** Shared issue/request/note namespaces used across concrete capabilities. */
 export const GITLAB_API_RESOURCE = {

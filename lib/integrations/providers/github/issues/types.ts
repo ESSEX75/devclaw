@@ -1,4 +1,4 @@
-/** Owns github/issues types contracts at the concrete provider boundary. */
+/** Defines validated GitHub issue observations and explicit mutations contracts shared with capability consumers. */
 
 import type { z } from "zod";
 

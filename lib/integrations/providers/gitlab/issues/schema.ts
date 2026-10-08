@@ -1,4 +1,4 @@
-/** Owns gitlab/issues schema contracts at the concrete provider boundary. */
+/** Validates GitLab issue observations and explicit mutations responses before untrusted data enters the owning capability. */
 
 import { z } from "zod";
 

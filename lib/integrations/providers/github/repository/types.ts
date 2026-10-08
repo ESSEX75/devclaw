@@ -1,4 +1,4 @@
-/** Owns github/repository types contracts at the concrete provider boundary. */
+/** Defines validated GitHub confirmed repository identity contracts shared with capability consumers. */
 
 /** Confirmed repository identity shared by discovery and attachments. */
 export type GitHubRepositoryInfo = {

@@ -1,4 +1,4 @@
-/** Owns github/issues schema contracts at the concrete provider boundary. */
+/** Validates GitHub issue observations and explicit mutations responses before untrusted data enters the owning capability. */
 
 import { z } from "zod";
 

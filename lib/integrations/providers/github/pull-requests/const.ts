@@ -1,4 +1,4 @@
-/** Owns github/pull-requests const contracts at the concrete provider boundary. */
+/** Owns GitHub request status and mergeability identifiers and policies used by this capability. */
 
 /** GitHub's explicit mergeability observations. */
 export const GITHUB_MERGEABILITY = {

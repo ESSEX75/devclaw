@@ -5,10 +5,9 @@ import { PR_STATE, PROVIDER_REVIEW_STATE } from "../../contracts/index.js";
 import { classifyProviderLookupFailure, PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../errors/index.js";
 import { hasIssueCommitOnBaseBranch } from "../../git/index.js";
 import type { ProviderTransport } from "../../transport/index.js";
-import { GITHUB_API_RESOURCE, GITHUB_REQUEST_STATE, githubApiPath } from "../api/index.js";
-import { GhInlineSchema } from "../comments/index.js";
+import { GITHUB_REQUEST_STATE } from "../api/index.js";
 import { GITHUB_DISCOVERY_STATE, GitHubDiscovery } from "../discovery/index.js";
-import { GITHUB_REVIEW_BOT_SUFFIX,GitHubReviews, latestFormalReviews } from "../reviews/index.js";
+import { GitHubReviews, latestFormalReviews } from "../reviews/index.js";
 import { GITHUB_MERGEABILITY } from "./const.js";
 
 /** Implements the pull-requests capability using dependencies shared by one adapter instance. */
@@ -47,9 +46,9 @@ export class GitHubPullRequests {
       const reviews = await this.reviews.readReviews(open.number);
       const summaries = reviews.filter(review => review.state === PROVIDER_REVIEW_STATE.COMMENTED && review.body.trim().length > 0);
       const conversations = await this.reviews.fetchConversationComments(open.number);
-      const inlines = await this.transport.collection(githubApiPath(GITHUB_API_RESOURCE.PULLS, open.number, GITHUB_API_RESOURCE.COMMENTS), GhInlineSchema);
+      const inlines = await this.reviews.fetchInlineComments(open.number);
       const hasCommentFeedback = conversations.some(comment => (comment.reactions?.eyes ?? 0) === 0)
-        || inlines.some(comment => !comment.user.login.endsWith(GITHUB_REVIEW_BOT_SUFFIX) && comment.body.trim().length > 0 && (comment.reactions?.eyes ?? 0) === 0);
+        || inlines.some(comment => comment.body.trim().length > 0 && (comment.reactions?.eyes ?? 0) === 0);
       const decisions = latestFormalReviews(reviews);
       let state: PrState;
 

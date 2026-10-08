@@ -59,11 +59,12 @@ Concrete implementations use capability entrypoints for shared contracts, errors
 transport, attachment-name policy and Git-history observations, and sibling
 implementation imports within their own concrete package. No adapter imports selection
 or a parent barrel.
-Other consumers use the owning capability or concrete provider's `index.ts`. Internal
-capability classes, concrete schemas and staging helpers are not supported public APIs.
+Application consumers use shared contracts or the completed provider facade's API.
+Nested capability APIs support adapter composition and sibling dependencies; the facade
+entrypoint does not expose internal classes, concrete schemas or staging helpers.
 
 The concrete facades retain one adapter instance, transport and successful identity
-cache. Their internal responsibilities are being separated into capability packages;
+cache. Their internal responsibilities are separated into capability packages;
 sharing that instance does not require a flat implementation layout.
 Workflow label creation, two-phase projection and optional anomaly observation belong
 to application/projection; providers apply only explicit label additions/removals.
@@ -91,7 +92,7 @@ The responsibility map below defines the implemented capability boundaries:
 - `git/` owns exact issue-reference observations from complete local Git history and
   their history-query constants. It uses checked transport without choosing an adapter.
 - `github/` and `gitlab/` retain concrete provider behavior. The formal-review selector
-  in `github/review-observations.ts` is internal to that adapter.
+  in `github/reviews/review-observations.ts` is internal to that adapter.
 
 Each capability exposes only its supported API through `index.ts`. Sibling
 capabilities and external consumers import that entrypoint; implementation files use
@@ -110,15 +111,11 @@ completion, pagination, replay, and uncertain-outcome guarantees remain unchange
 
 ### Concrete adapter responsibility boundaries
 
-GitHub and GitLab are migrating to the following internal capability boundaries.
-Until a capability is moved, its existing implementation path remains authoritative:
-
-`api/`, `repository/`, `comments/` and `discovery/` are implemented in both adapters.
-Wire schemas, inferred types and query/resource registries already belong to their
-capability directories; remaining operation classes migrate separately. Shared wire
-lifecycle values remain in `api/` because issue and request observations both use them.
-GitHub and GitLab operation capabilities are fully migrated. Each adapter root contains
-only its facade and public entrypoint; operation implementations use capability paths.
+GitHub and GitLab use the following internal capability boundaries. Wire schemas,
+inferred types, query/resource registries and operation implementations belong to their
+capability directories. Shared wire lifecycle values remain in `api/` because issue
+and request observations both use them. Each adapter root contains only its facade
+and public entrypoint.
 
 - `api/` owns shared placeholder endpoint construction and common resource/protocol
   identifiers. Capability-specific query selectors and policies belong to their owners.
@@ -134,13 +131,16 @@ only its facade and public entrypoint; operation implementations use capability 
 - `pull-requests/` owns request status, diff, merge and delegation to shared Git history.
 - `reviews/` owns formal decisions, discussion/feedback observations and GitHub's
   latest-review selector. It may use discovery and GitLab reaction observations.
+  GitHub request status and normalized feedback reuse the same validated human inline
+  observation here. Empty text and cosmetic reactions remain available to each caller's
+  policy; bot filtering does not replace collection completeness or failure propagation.
 - `reactions/` owns cosmetic endpoint-specific effects/observations and may use discovery;
   it never depends on reviews or request status/merge operations.
 - `attachments/` owns upload execution, acknowledgement validation and storage policies;
   GitLab multipart resources and installation URL validation remain within this owner.
 - `health/` owns authentication probes and GitHub quota observations.
 
-Only `provider.ts` and `index.ts` remain at each adapter root after migration. The
+Only `provider.ts` and `index.ts` remain at each adapter root. The
 facade composes capabilities through their entrypoints and keeps a single transport,
 repository cache and discovery instance. Siblings import the owning capability's
 `index.ts`; implementation files use local imports within that capability. The root
@@ -157,7 +157,7 @@ Provider issue JSON must carry a positive safe integer identity matching the exp
 requested issue. Invalid, mismatched or malformed observations remain failed reads;
 local schema/JSON decoding diagnostics cannot be mistaken for HTTP status evidence.
 Provider-specific endpoint resources, wire lifecycle states and protocol selectors
-belong to concrete `const.ts`; `contracts/types.ts` derives supported categories through
+belong to the owning concrete capability's `const.ts`; `contracts/types.ts` derives supported categories through
 canonical registries. Concrete validators and endpoint builders stay internal to their
 adapter. Shared diagnostic classifiers belong to the adapter-facing `errors/index.ts`
 API; application consumes classified failures and guards instead of parsing diagnostics.

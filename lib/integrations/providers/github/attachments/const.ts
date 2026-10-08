@@ -1,4 +1,4 @@
-/** Owns github/attachments const contracts at the concrete provider boundary. */
+/** Owns GitHub attachment publication identifiers and policies used by this capability. */
 
 /** Branch and object selectors used to create attachment storage. */
 export const GITHUB_ATTACHMENT_QUERY = {

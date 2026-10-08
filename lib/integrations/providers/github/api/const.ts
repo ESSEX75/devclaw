@@ -1,4 +1,4 @@
-/** Owns github/api const contracts at the concrete provider boundary. */
+/** Owns GitHub shared resource paths and wire lifecycle identifiers and policies used by this capability. */
 
 /** Shared API resource namespaces used across concrete capabilities. */
 export const GITHUB_API_RESOURCE = {

@@ -1,4 +1,4 @@
-/** Owns gitlab/reactions schema contracts at the concrete provider boundary. */
+/** Validates GitLab cosmetic reaction observations responses before untrusted data enters the owning capability. */
 
 import { z } from "zod";
 

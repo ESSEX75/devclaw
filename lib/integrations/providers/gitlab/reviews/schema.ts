@@ -1,4 +1,4 @@
-/** Owns gitlab/reviews schema contracts at the concrete provider boundary. */
+/** Validates GitLab formal reviews and discussion feedback responses before untrusted data enters the owning capability. */
 
 import { z } from "zod";
 

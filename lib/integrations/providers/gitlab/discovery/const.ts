@@ -1,4 +1,4 @@
-/** Owns gitlab/discovery const contracts at the concrete provider boundary. */
+/** Owns GitLab associated request discovery identifiers and policies used by this capability. */
 
 /** Associated-request endpoint owned by discovery. */
 export const GITLAB_DISCOVERY_RESOURCE = {

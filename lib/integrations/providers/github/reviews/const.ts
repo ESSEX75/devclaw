@@ -1,4 +1,4 @@
-/** Owns github/reviews const contracts at the concrete provider boundary. */
+/** Owns GitHub formal reviews and discussion feedback identifiers and policies used by this capability. */
 
 /** Formal review resource owned by review observations. */
 export const GITHUB_REVIEW_RESOURCE = {

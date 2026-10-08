@@ -1,4 +1,4 @@
-/** Owns github/discovery const contracts at the concrete provider boundary. */
+/** Owns GitHub associated request discovery identifiers and policies used by this capability. */
 
 /** GraphQL selector used for complete associated-request discovery. */
 export const GITHUB_DISCOVERY_QUERY = {

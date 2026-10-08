@@ -1,4 +1,4 @@
-/** Owns gitlab/discovery types contracts at the concrete provider boundary. */
+/** Defines validated GitLab associated request discovery contracts shared with capability consumers. */
 
 import type { z } from "zod";
 

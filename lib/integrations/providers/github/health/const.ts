@@ -1,4 +1,4 @@
-/** Owns github/health const contracts at the concrete provider boundary. */
+/** Owns GitHub authentication and quota observations identifiers and policies used by this capability. */
 
 /** Provider quota endpoint owned by authentication/health observations. */
 export const GITHUB_HEALTH_QUERY = {
