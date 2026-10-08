@@ -30,10 +30,14 @@ Keep README files only at layer roots (`lib/<layer>/README.md`); do not create t
 
 ## Subpackage structure
 
+- Before completing a structural refactor, map the affected package's files to cohesive responsibilities and inspect the dependencies between those groups. Include shared infrastructure, `const.ts`, `types.ts`, `guards.ts`, and tests; do not stop after separating concrete implementations. Keep this inventory in the local task plan when one exists rather than adding a new committed report.
 - When a package root contains more than 10 production `.ts` files, excluding `index.ts`, `const.ts`, `types.ts`, `guards.ts`, and test files, review whether cohesive capabilities should become subpackages. Treat this count as a review trigger, not a mandatory file limit; split only along real responsibilities and keep tests beside their implementation.
 - Organize every large package by cohesive responsibility instead of placing unrelated files together at its root.
 - Apply this rule to every current and future package without maintaining an allowlist in this skill.
 - Create a subpackage when several files implement one stable capability, share a public contract, or change for the same architectural reason.
+- Sharing a module between several implementations does not justify leaving it at their parent root. Identify the shared capability's owner and boundary; move a helper used by only one implementation into that implementation's package.
+- Move shared types and constants with the responsibility that owns them. Do not preserve a parent-level `types.ts` or `const.ts` that mixes independent capabilities merely to avoid updating imports.
+- For files remaining at the package root, explain their common responsibility and why no separate boundary is needed. Record durable ownership and import rules in the layer README; distinguish an intended structure from boundaries already implemented.
 - Keep a small, isolated responsibility as a focused file until a real subpackage boundary exists; do not create directories only for visual symmetry.
 - Name each subpackage after the cohesive capability or responsibility it owns; new valid responsibilities require no skill update.
 - Give a subpackage an `index.ts` when it exposes a supported API to other packages or sibling subpackages.
@@ -158,6 +162,7 @@ Before completing an architectural change, verify that:
 
 - every changed file belongs to its package;
 - large packages and capabilities remain divided into cohesive subpackages;
+- the responsibility map covers shared infrastructure as thoroughly as concrete implementations, and remaining root files have an explicit cohesive owner;
 - affected package README contracts were read and remain accurate;
 - dependency direction follows package boundaries;
 - public entities are exported from the correct owner API;

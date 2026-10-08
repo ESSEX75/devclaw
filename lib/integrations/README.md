@@ -35,6 +35,10 @@ their audit and whether optional cleanup failure blocks dispatch.
 
 ## Provider package ownership
 
+The following describes the current implementation. The shared-root layout is being
+replaced by the responsibility boundaries below; it is not a precedent for new shared
+modules. Until each boundary is migrated, use its existing implementation paths.
+
 `providers/index.ts` exposes provider-neutral capability contracts and DTOs from
 `types.ts`, classified failures, canonical observation constants and `createProvider`.
 `factory.ts` composes adapters; `detection.ts` owns verified known-origin selection.
@@ -60,6 +64,44 @@ The concrete packages remain cohesive around one adapter instance; focused modul
 separate responsibilities without introducing independently exported nested packages.
 Workflow label creation, two-phase projection and optional anomaly observation belong
 to application/projection; providers apply only explicit label additions/removals.
+
+### Shared provider responsibility boundaries
+
+The target structure separates the following owners. These directories and entrypoints
+are migration targets, not APIs already available to consumers:
+
+- `contracts/` owns provider-neutral capability interfaces, normalized issue/PR/comment
+  DTOs and their observation registries. It does not own transport policies, error
+  classification, factory inputs, or concrete provider wire schemas.
+- `selection/` owns provider construction, verified origin-host detection, factory
+  input/result types and known-host registries. Only this composition capability
+  imports concrete provider facades to select an adapter.
+- `errors/` owns normalized failure evidence, lookup/mutation error classes,
+  classification, error guards and their types/registries. It does not depend on
+  command execution, retry policies, selection, or concrete adapters.
+- `transport/` owns checked command execution, instance-local retry/breaker policy,
+  complete collection decoding and shared response-validation primitives. Concrete
+  wire schemas stay with their adapters. Transport contracts and policies live here;
+  transport uses `errors/`, never the reverse.
+- `attachments/` owns shared attachment-name normalization and its filename policy.
+  Provider-specific upload execution and staging remain in `github/` and `gitlab/`;
+  the application-facing upload capability and input DTO remain in `contracts/`.
+- `git/` owns exact issue-reference observations from complete local Git history and
+  their history-query constants. It uses checked transport without choosing an adapter.
+- `github/` and `gitlab/` retain concrete provider behavior. The formal-review selector
+  currently in root `review-observations.ts` belongs to `github/`, its only consumer.
+
+Each migrated capability exposes only its supported API through `index.ts`. Sibling
+capabilities and external consumers import that entrypoint; implementation files use
+local imports inside their owner. None imports a parent barrel or selection to reach
+shared infrastructure. Types/constants migrate with their owners without duplicate
+registries or forwarding files. Once all consumers migrate, remove the old root API
+and shared implementation files so `providers/` becomes an organizational directory.
+
+Move focused tests beside the capability they verify. Tests spanning concrete adapters
+must retain their complete behavior coverage and receive an explicit owner rather than
+being distributed mechanically by filename. Local `issues.json` authority and existing
+completion, pagination, replay, and uncertain-outcome guarantees remain unchanged.
 
 Integration modules talk to external systems such as GitHub, GitLab, OpenClaw
 gateway/session APIs, and provider-specific capabilities. They should expose
