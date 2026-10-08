@@ -2,12 +2,19 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
-import { registerHeartbeatService } from "./lib/application/index.js";
+import {
+  extractIssueReferences,
+  loadWorkerBootstrapInstructions,
+  processAttachmentMessage,
+  registerHeartbeatService,
+  resolveAttachmentProject,
+  resolveProvider,
+  resolveWorkerBootstrapIdentity,
+} from "./lib/application/index.js";
 // Infrastructure
 import { registerCli } from "./lib/cli/register.js";
 import { createPluginContext } from "./lib/context.js";
-import { registerAttachmentHook } from "./lib/integrations/openclaw/hooks/index.js";
-import { registerBootstrapHook } from "./lib/integrations/openclaw/hooks/index.js";
+import { registerAttachmentHook, registerBootstrapHook } from "./lib/integrations/index.js";
 import { toolRegistry } from "./lib/tools/registry.js";
 
 const plugin = {
@@ -60,6 +67,9 @@ const plugin = {
     },
   },
 
+  /** Wire application callbacks and adapter registrations into one SDK plugin runtime.
+   * @param api - SDK registration, configuration, runtime and diagnostic capabilities.
+   */
   register(api: OpenClawPluginApi) {
     const ctx = createPluginContext(api);
 
@@ -79,8 +89,8 @@ const plugin = {
       ],
     });
     registerHeartbeatService(api, ctx);
-    registerBootstrapHook(api, ctx);
-    registerAttachmentHook(api, ctx);
+    registerBootstrapHook(api, ctx, { resolveWorkerBootstrapIdentity, loadWorkerBootstrapInstructions });
+    registerAttachmentHook(api, ctx, { extractIssueReferences, processAttachmentMessage, resolveAttachmentProject, resolveProvider });
 
     api.logger.info(
       `DevClaw plugin registered (${toolRegistry.length} tools, 1 CLI command group, 1 service, 3 hooks)`,

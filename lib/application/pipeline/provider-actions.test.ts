@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 
 import { ACTION } from "../../domain/index.js";
-import { PR_STATE } from "../../integrations/providers/index.js";
+import { PR_STATE } from "../../integrations/index.js";
 import { createTestHarness } from "../../testing/index.js";
 import { executeCompletionActions } from "./provider-actions.js";
 

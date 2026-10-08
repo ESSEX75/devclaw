@@ -1,7 +1,7 @@
 /** Provider observations used by health diagnosis without inferring deletion from transport errors. */
 
-import type { Issue, IssueProvider } from "../../../integrations/providers/index.js";
-import { isProviderIssueLookupError, PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/providers/index.js";
+import type { Issue, IssueProvider } from "../../../integrations/index.js";
+import { isProviderIssueLookupError, PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/index.js";
 
 
 /**

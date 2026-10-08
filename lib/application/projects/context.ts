@@ -2,7 +2,7 @@
 
 import type { RunCommand } from "../../context.js";
 import type { Project } from "../../domain/index.js";
-import { createProvider, type ProviderWithType } from "../../integrations/providers/index.js";
+import { createProvider, type ProviderWithType } from "../../integrations/index.js";
 import { loadConfig, type ProjectsData, readProjects } from "../../state/index.js";
 import type { ProjectContext, ProjectRoute } from "./types.js";
 

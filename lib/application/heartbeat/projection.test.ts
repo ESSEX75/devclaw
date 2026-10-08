@@ -12,7 +12,7 @@ import {
 } from "../../testing/index.js";
 import { renderIssueMetadata } from "../../projection/index.js";
 import { TestProvider } from "../../testing/test-provider.js";
-import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../integrations/providers/index.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../integrations/index.js";
 
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState } from "../../domain/index.js";
 import { DEFAULT_WORKFLOW } from "../../domain/index.js";

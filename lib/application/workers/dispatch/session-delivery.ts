@@ -1,8 +1,8 @@
 /** Observes gateway submission briefly without waiting for a full agent turn. */
 
 import { WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
-import type { AgentTurnInput, AgentTurnOutcome } from "../../../integrations/openclaw/sessions/index.js";
-import { submitAgentTurn } from "../../../integrations/openclaw/sessions/index.js";
+import type { AgentTurnInput, AgentTurnOutcome } from "../../../integrations/index.js";
+import { submitAgentTurn } from "../../../integrations/index.js";
 import { DELIVERY_ACCEPTANCE_WINDOW_MS } from "./const.js";
 import type { SessionDeliveryObservation } from "./types.js";
 

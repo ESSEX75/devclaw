@@ -1,6 +1,6 @@
 /** Resolves setup targets, route validation, and model changes without side effects. */
 
-import { findConfiguredAgent } from "../../integrations/openclaw/agents/index.js";
+import { findConfiguredAgent } from "../../integrations/index.js";
 import { loadConfig } from "../../state/index.js";
 import { getAgentId, getAgentWorkspacePath, resolveWorkspacePath } from "./agents/index.js";
 import { SETUP_OPERATION, UNKNOWN_AGENT_ID } from "./const.js";

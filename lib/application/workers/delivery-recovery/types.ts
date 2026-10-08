@@ -3,8 +3,7 @@
 import type { RunCommand } from "../../../context.js";
 import type { WorkflowConfig } from "../../../domain/index.js";
 import { WORKER_DELIVERY_RESOLUTION } from "../../../domain/index.js";
-import type { SessionLookup } from "../../../integrations/openclaw/sessions/index.js";
-import type { IssueProvider } from "../../../integrations/providers/index.js";
+import type { IssueProvider,SessionLookup } from "../../../integrations/index.js";
 import type { ValueOf } from "../../../types.js";
 
 /** Identity needed to inspect an unresolved gateway send without rollback. */

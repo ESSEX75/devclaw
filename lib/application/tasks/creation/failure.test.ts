@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ISSUE_CREATION_ERROR } from "../../../domain/index.js";
-import { PROVIDER_OPERATION_ERROR, ProviderOperationError } from "../../../integrations/providers/index.js";
+import { PROVIDER_OPERATION_ERROR, ProviderOperationError } from "../../../integrations/index.js";
 
 import { creationFailureFromProvider } from "./failure.js";
 

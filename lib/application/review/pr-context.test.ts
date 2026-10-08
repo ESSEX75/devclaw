@@ -1,6 +1,6 @@
 /** Checks PR feedback rendering through the standard Node test runner. */
 
-import { PR_COMMENT_KIND } from "../../integrations/providers/index.js";
+import { PR_COMMENT_KIND } from "../../integrations/index.js";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { formatPrFeedback } from "./format.js";

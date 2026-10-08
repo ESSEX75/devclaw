@@ -5,7 +5,7 @@
 
 import { log as auditLog } from "../../../audit.js";
 import { type IssueRuntimeState, type Project, STATE_TYPE, type WorkflowConfig } from "../../../domain/index.js";
-import { createProvider,type IssueProvider } from "../../../integrations/providers/index.js";
+import { createProvider, type IssueProvider } from "../../../integrations/index.js";
 import { loadConfig, readIssueStateStore, readProjects, updateIssueStateStore, withIssueOrchestrationLock } from "../../../state/index.js";
 import { reconcileManagedLabelsLocked } from "../../projection/index.js";
 import { hasProjectWorkerSlot } from "../worker-slot.js";

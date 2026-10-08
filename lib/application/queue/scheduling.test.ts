@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 
 import { DEFAULT_WORKFLOW, emptySlot, EXECUTION_MODE, ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER,
   type IssueRuntimeState, REVIEW_POLICY, TEST_POLICY } from "../../domain/index.js";
-import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../integrations/providers/index.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, ProviderIssueLookupError } from "../../integrations/index.js";
 
 import { DATA_DIR, loadConfig, readIssueStateStore } from "../../state/index.js";
 import { createTestHarness, createEmptyIssueStateStoreForTesting, replaceIssueStateStoreForTesting } from "../../testing/index.js";

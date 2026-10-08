@@ -18,7 +18,7 @@ import { jsonResult, type OpenClawPluginToolContext, type OpenClawPluginToolFact
 import { checkWorkerHealth, type HealthFix, resolveProvider } from "../../application/index.js";
 import { log as auditLog } from "../../audit.js";
 import type { PluginContext } from "../../context.js";
-import { fetchGatewaySessions } from "../../integrations/openclaw/sessions/index.js";
+import { fetchGatewaySessions } from "../../integrations/index.js";
 import { getConfiguredRoleIds, loadConfig } from "../../state/index.js";
 import { readProjects } from "../../state/index.js";
 import { requireWorkspaceDir } from "../helpers.js";

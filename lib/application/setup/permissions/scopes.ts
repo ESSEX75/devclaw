@@ -1,7 +1,7 @@
 /** Coordinates setup scope approval using validated integration outcomes. */
 
 import type { RunCommand } from "../../../context.js";
-import { runScopeCommand, SCOPE_STATUS, type ScopeCommandResult } from "../../../integrations/openclaw/scopes/index.js";
+import { runScopeCommand, SCOPE_STATUS, type ScopeCommandResult } from "../../../integrations/index.js";
 import { REQUIRED_OPENCLAW_SCOPES, SCOPE_APPROVAL_REASON, SCOPE_PREFLIGHT_STATUS } from "./const.js";
 import { ScopeApprovalRejectedError, ScopeApprovalRequiredError } from "./errors.js";
 import type { ScopePreflightResult } from "./types.js";

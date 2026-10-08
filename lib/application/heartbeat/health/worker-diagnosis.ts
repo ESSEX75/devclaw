@@ -1,7 +1,7 @@
 /** Read-only worker diagnosis; no audit, session submission, or state mutation occurs here. */
 
 import { DEFAULT_WORKFLOW, getActiveLabel, getCurrentStateLabel, getRevertLabel, hasWorkflowStates, WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
-import { isSessionAlive } from "../../../integrations/openclaw/sessions/index.js";
+import { isSessionAlive } from "../../../integrations/index.js";
 import { getRoleWorker, readIssueStateStore } from "../../../state/index.js";
 import { GRACE_PERIOD_MS, HEALTH_ACTION, HEALTH_ISSUE_SEVERITY, HEALTH_ISSUE_TYPE, STALL_CONTEXT_THRESHOLD } from "./const.js";
 import { fetchIssue } from "./issue-utils.js";

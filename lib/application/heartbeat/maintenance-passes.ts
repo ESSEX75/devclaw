@@ -2,7 +2,7 @@
 
 import type { RunCommand } from "../../context.js";
 import type { Project } from "../../domain/index.js";
-import type { IssueProvider } from "../../integrations/providers/index.js";
+import type { IssueProvider } from "../../integrations/index.js";
 import type { ResolvedConfig } from "../../state/index.js";
 import { maintainIssueArchive, recoverTerminalIssueArchives } from "../issues/index.js";
 import type { NotificationRuntime } from "../notifications/index.js";

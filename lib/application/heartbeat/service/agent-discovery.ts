@@ -1,8 +1,7 @@
 /** Resolves configured agent workspaces and their owned managed projects. */
 
-import type { AgentWorkspaceConfig } from "../../../integrations/openclaw/agents/index.js";
-import { listConfiguredAgents } from "../../../integrations/openclaw/agents/index.js";
-import { resolveConfiguredAgentWorkspace } from "../../../integrations/openclaw/agents/index.js";
+import type { AgentWorkspaceConfig } from "../../../integrations/index.js";
+import { listConfiguredAgents, resolveConfiguredAgentWorkspace } from "../../../integrations/index.js";
 import { inspectManagedWorkspace } from "../../../state/index.js";
 import { HEARTBEAT_AGENT_ID } from "./const.js";
 import type { AgentDiscoveryResult } from "./types.js";

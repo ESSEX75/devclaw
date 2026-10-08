@@ -3,7 +3,7 @@
 import type { RunCommand } from "../../../context.js";
 import type { IssueProviderId, IssueRuntimeState, Project, WorkflowConfig, WorkflowStateConfig } from "../../../domain/index.js";
 import { STATE_TYPE } from "../../../domain/index.js";
-import type { IssueProvider } from "../../../integrations/providers/index.js";
+import type { IssueProvider } from "../../../integrations/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 
 /** Ownership-transfer outcome; a refusal preserves the current owner. */

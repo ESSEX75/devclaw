@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 import { DEFAULT_WORKFLOW, ISSUE_CREATION_STATUS, ISSUE_PROVIDER } from "../../../domain/index.js";
-import { GitHubProvider } from "../../../integrations/providers/index.js";
+import { GitHubProvider } from "../../../integrations/index.js";
 import { readIssueStateStore, updateIssueCreationStore } from "../../../state/index.js";
 import { createTestHarness } from "../../../testing/index.js";
 import { createManagedTaskIssue } from "../creation/index.js";

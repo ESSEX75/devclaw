@@ -8,6 +8,7 @@ import { createTestHarness } from "../../../testing/index.js";
 import { GitHubProvider } from "../../providers/index.js";
 import { registerAttachmentHook } from "./attachments.js";
 import type { AttachmentHookRegistrar } from "./types.js";
+import { extractIssueReferences, processAttachmentMessage, resolveAttachmentProject, resolveProvider } from "../../../application/index.js";
 
 it("performs no provider upload for incomplete or ambiguous routing", async t => {
   const harness = await createTestHarness();
@@ -29,7 +30,7 @@ it("performs no provider upload for incomplete or ambiguous routing", async t =>
   }, { runCommand: harness.runCommand,
     logger: { warn: message => { warnings.push(message); } },
     runtime: { config: { current: () => ({ agents: { list: [{ id: harness.project.agentId, workspace: harness.workspaceDir }] } }) } },
-  });
+  }, { extractIssueReferences, processAttachmentMessage, resolveAttachmentProject, resolveProvider });
   const upload = t.mock.method(GitHubProvider.prototype, "uploadAttachment", async () => "https://example.com/unexpected");
   const handler = handlers[0];
   assert.ok(handler);

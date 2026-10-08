@@ -2,7 +2,7 @@
 
 import { log as auditLog } from "../../../audit.js";
 import { WORKER_DELIVERY_RESOLUTION, type WorkflowConfig } from "../../../domain/index.js";
-import type { IssueProvider } from "../../../integrations/providers/index.js";
+import type { IssueProvider } from "../../../integrations/index.js";
 import { readIssueStateStore, readProjects, updateIssueRuntimeRecord, updateProjects, type WorkerDeliveryResolution, writeWorkerDeliveryResolution } from "../../../state/index.js";
 import { transitionWorkflowLabel } from "../../projection/index.js";
 import { confirmReviewSummaryDelivery } from "../../review/index.js";

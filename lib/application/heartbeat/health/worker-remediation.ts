@@ -2,8 +2,7 @@
 
 import { log as auditLog } from "../../../audit.js";
 import { DEFAULT_WORKFLOW, findStateKeyByLabel, getActiveLabel, getRevertLabel } from "../../../domain/index.js";
-import { AGENT_TURN_STATUS } from "../../../integrations/openclaw/sessions/index.js";
-import { submitAgentTurn } from "../../../integrations/openclaw/sessions/index.js";
+import { AGENT_TURN_STATUS, submitAgentTurn } from "../../../integrations/index.js";
 import {
   getProject, getRoleWorker, readIssueStateStore, readProjects,
   updateIssueRuntimeRecord, updateSlot, withIssueOrchestrationLock,

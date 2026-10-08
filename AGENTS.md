@@ -25,6 +25,7 @@ Layer-specific contracts live only in the root `lib/<layer>/README.md`. Do not a
 - Do not import a package through its own barrel from inside that package.
 - Re-export only supported entities owned by the package, and keep file-local implementation details private.
 - Aggregation entrypoints combine public submodule APIs with `export * from "./submodule/index.js"`; each owning submodule's `index.ts` explicitly names its supported exports. Keep private implementation details out of submodule entrypoints, avoid duplicate export-name collisions, and do not aggregate test directories.
+- Apply this hierarchy at every aggregation level, including a layer root when it exposes a supported API. Resolve reverse runtime dependencies through composition-injected callbacks before adding aggregation; never import an ancestor barrel from inside its own implementation.
 - External consumers use the root API; internal sibling capabilities use the immediate owner's entrypoint without importing their own root barrel. Facade submodules explicitly export their facade and need not aggregate internal composition capabilities.
 - Do not create a top-level barrel for an organizational layer unless it represents a real supported API.
 - Any stricter package-specific API rules belong in that package's README.

@@ -1,7 +1,7 @@
 /** Runs independent agents over fresh workspace state and aggregates tick results. */
 
 import type { RunCommand } from "../../../context.js";
-import { fetchGatewaySessions } from "../../../integrations/openclaw/sessions/index.js";
+import { fetchGatewaySessions } from "../../../integrations/index.js";
 import { initializeWorkspaceFiles } from "../../../state/index.js";
 import type { NotificationRuntime } from "../../notifications/index.js";
 import { tick } from "../tick-runner.js";

@@ -1,6 +1,6 @@
 /** Computes worker session identity and model without I/O or state mutation. */
 
-import { formatWorkerSessionKey } from "../../../integrations/openclaw/sessions/index.js";
+import { formatWorkerSessionKey } from "../../../integrations/index.js";
 import { slotName } from "../../../names.js";
 import { resolveModelForLevel } from "../../../roles/index.js";
 import { WORKER_SESSION_ACTION } from "../const.js";

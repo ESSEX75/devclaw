@@ -3,8 +3,8 @@
 import { log as auditLog } from "../../audit.js";
 import type { RunCommand } from "../../context.js";
 import { ISSUE_INTEGRITY_STATUS, PIPELINE_NOTIFICATION_STATUS, type Project } from "../../domain/index.js";
-import { MESSAGE_DELIVERY_STATUS } from "../../integrations/openclaw/notifications/index.js";
-import type { IssueReader } from "../../integrations/providers/index.js";
+import type { IssueReader } from "../../integrations/index.js";
+import { MESSAGE_DELIVERY_STATUS } from "../../integrations/index.js";
 import { PIPELINE_NOTIFICATION_ATTEMPT_LEASE_MS, readIssueStateStore, reservePipelineNotification } from "../../state/index.js";
 import { NOTIFICATION_AUDIT, NOTIFICATION_BLOCK_REASON, NOTIFICATION_BLOCKED, NOTIFICATION_EVENT } from "./const.js";
 import { getNotificationConfig, notify } from "./notify.js";

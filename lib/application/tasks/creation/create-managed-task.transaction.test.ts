@@ -9,7 +9,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { DEFAULT_WORKFLOW, ISSUE_CREATION_STATUS, ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../../domain/index.js";
-import { PROVIDER_OPERATION_ERROR, createProvider, type CreateIssueInput, type Issue, ProviderOperationError } from "../../../integrations/providers/index.js";
+import { PROVIDER_OPERATION_ERROR, createProvider, type CreateIssueInput, type Issue, ProviderOperationError } from "../../../integrations/index.js";
 
 
 import { readIssueCreationStore, readIssueStateStore, updateIssueCreationStore } from "../../../state/index.js";

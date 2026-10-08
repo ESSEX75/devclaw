@@ -3,9 +3,7 @@
 import type { RunCommand } from "../../../context.js";
 import type { Project, SlotState, WorkflowConfig } from "../../../domain/index.js";
 import { WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
-import type { AGENT_TURN_STATUS } from "../../../integrations/openclaw/sessions/index.js";
-import type { AgentTurnOutcome } from "../../../integrations/openclaw/sessions/index.js";
-import type { IssueComment, IssueProvider } from "../../../integrations/providers/index.js";
+import type { AGENT_TURN_STATUS, AgentTurnOutcome, IssueComment, IssueProvider } from "../../../integrations/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 import type { ValueOf } from "../../../types.js";
 import type { NotificationRuntime } from "../../notifications/index.js";

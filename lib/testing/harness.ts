@@ -13,6 +13,7 @@ import path from "node:path";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
+import { loadWorkerBootstrapInstructions, resolveWorkerBootstrapIdentity } from "../application/index.js";
 import type { RunCommand } from "../context.js";
 import {
   DEFAULT_WORKFLOW,
@@ -23,7 +24,7 @@ import {
   type WorkflowConfig,
   type WorkflowLabel,
 } from "../domain/index.js";
-import { registerBootstrapHook } from "../integrations/openclaw/hooks/index.js";
+import { registerBootstrapHook } from "../integrations/index.js";
 import { DATA_DIR, type ProjectsData, readProjects } from "../state/index.js";
 import { TestProvider } from "./test-provider.js";
 
@@ -354,7 +355,7 @@ export async function createTestHarness(opts?: HarnessOptions): Promise<TestHarn
 
       registerBootstrapHook({ registerHook(_events, handler) { handlers.push(handler); } }, {
         logger: { debug() {}, info() {}, warn() {}, error() {} },
-      });
+      }, { resolveWorkerBootstrapIdentity, loadWorkerBootstrapInstructions });
       const bootstrapFiles = [{ name: "AGENTS.md", path: path.join(workspaceDir, "AGENTS.md"),
         content: "# Orchestrator instructions\nThis content should be stripped.", missing: false }];
 

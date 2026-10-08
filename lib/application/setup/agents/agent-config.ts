@@ -6,8 +6,7 @@ import fs from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
-import { findConfiguredAgent } from "../../../integrations/openclaw/agents/index.js";
-import { resolveConfiguredAgentWorkspace } from "../../../integrations/openclaw/agents/index.js";
+import { findConfiguredAgent, resolveConfiguredAgentWorkspace } from "../../../integrations/index.js";
 import { CONFIG_RELOAD_MODE } from "../const.js";
 import type { SetupRuntime } from "../types.js";
 import { AGENT_DIRECTORY, AGENTS_DIRECTORY, MAIN_AGENT_ID, OPENCLAW_DIRECTORY, SESSIONS_DIRECTORY, WORKSPACE_DIRECTORY } from "./const.js";

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { it } from "node:test";
-import { createProvider } from "../../../integrations/providers/index.js";
+import { createProvider } from "../../../integrations/index.js";
 import { getAttachmentPath, listAttachments } from "../../../state/index.js";
 import { createTestHarness } from "../../../testing/index.js";
 import { processAttachmentMessage } from "./process.js";

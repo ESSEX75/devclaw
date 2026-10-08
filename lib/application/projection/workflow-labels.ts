@@ -1,7 +1,7 @@
 /** Owns workflow label selection and two-phase provider effects; labels never establish local runtime truth. */
 
 import { getLabelColors, getStateLabels, type WorkflowConfig } from "../../domain/index.js";
-import type { Issue, IssueProvider, LabelProjector } from "../../integrations/providers/index.js";
+import type { Issue, IssueProvider, LabelProjector } from "../../integrations/index.js";
 
 /** Ensure the exact labels and colors selected by the resolved workflow.
  * @param provider - Explicit provider label capability.

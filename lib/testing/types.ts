@@ -1,6 +1,6 @@
 /** Owns provider fake call records used by behavioral tests; mirrors supported external capability payloads. */
 
-import type { CreateIssueInput, StateLabel } from "../integrations/providers/index.js";
+import type { CreateIssueInput, StateLabel } from "../integrations/index.js";
 
 /** Recorded ensureLabel capability invocation, independent of workflow selection. */
 type EnsureLabelCall = {

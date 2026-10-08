@@ -2,7 +2,7 @@
 
 import type { RunCommand } from "../../context.js";
 import type { NotificationChannel, REVIEW_POLICY,ReviewPolicy } from "../../domain/index.js";
-import type { MessageDeliveryOutcome, NotificationChannelRuntime } from "../../integrations/openclaw/notifications/index.js";
+import type { MessageDeliveryOutcome, NotificationChannelRuntime } from "../../integrations/index.js";
 import type { ValueOf } from "../../types.js";
 import type { RouteConfig } from "../setup/index.js";
 import type { WORKER_SESSION_ACTION } from "../workers/const.js";

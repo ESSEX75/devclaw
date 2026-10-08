@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { it, mock } from "node:test";
 import { DEFAULT_WORKFLOW, ISSUE_PROVIDER } from "../../../domain/index.js";
-import { GitHubProvider } from "../../../integrations/providers/index.js";
+import { GitHubProvider } from "../../../integrations/index.js";
 import { extractIssueMetadata, renderIssueCreationMarker, replaceIssueMetadata } from "../../../projection/index.js";
 import { withIssueOrchestrationLock } from "../../../state/index.js";
 import { createTestHarness } from "../../../testing/index.js";

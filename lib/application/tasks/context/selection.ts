@@ -1,6 +1,6 @@
 /** Selects bounded worker discussion without summarizing or silently dropping required input. */
 
-import type { IssueComment } from "../../../integrations/providers/index.js";
+import type { IssueComment } from "../../../integrations/index.js";
 import { TASK_COMMENT_LIMIT, TASK_CONTEXT_BUDGET } from "./const.js";
 import { buildTaskMessage } from "./message-builder.js";
 import type { SelectTaskContextInput, TaskContextBudget, TaskContextSelection } from "./types.js";

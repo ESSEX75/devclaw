@@ -2,6 +2,11 @@
 
 This layer owns concrete external adapters.
 
+`integrations/index.ts` is the supported external adapter API. It aggregates
+`openclaw/index.ts`, `process/index.ts` and `providers/index.ts` through `export *`.
+Consumers outside integrations use this layer root. Implementations within the layer
+use the entrypoint of the immediate owning capability, never an ancestor barrel.
+
 `process/index.ts` exposes pure transport evidence guards shared by adapters. A clean
 exit and a complete output capture are separate facts. Providers and JSON-observation
 adapters reject explicitly clipped output or stream capture failures before interpreting
@@ -11,10 +16,11 @@ back or replay after submission.
 
 ## OpenClaw package ownership
 
-The OpenClaw adapter exposes separate APIs through `agents/index.ts`, `sessions/index.ts`,
+`openclaw/index.ts` aggregates the separate APIs through `agents/index.ts`, `sessions/index.ts`,
 `hooks/index.ts`, `media/index.ts`, and the existing `notifications/index.ts` and
-`scopes/index.ts`. Its organizational root has no barrel or compatibility files.
-Cross-capability consumers use these APIs; implementations import their own local files.
+`scopes/index.ts`. Each capability explicitly selects its supported exports.
+Sibling capabilities use these APIs; external consumers use `integrations/index.ts`.
+Implementations import their own local files rather than the OpenClaw aggregate.
 Types and protocol constants belong to the capability that owns them.
 
 - Agents read the active SDK registry and delegate workspace resolution to the SDK.
@@ -24,6 +30,9 @@ Types and protocol constants belong to the capability that owns them.
 - Hooks register SDK handlers and normalize exact attachment routes. Application owns
   managed worker bootstrap identification, role prompt selection and project attachment
   routing. Mutable bootstrap resources retain their original SDK references.
+  Plugin composition injects these application operations into registration; hook
+  implementations never import application. Bootstrap identity and prompt callbacks
+  preserve the complete application identity type, including custom configured roles.
 - Media normalize local path/MIME metadata and delegate MIME detection to the SDK;
   state owns file reading and persistence.
 - Notifications and scopes retain their existing independent transport contracts.
@@ -39,8 +48,9 @@ their audit and whether optional cleanup failure blocks dispatch.
 all eight production submodule APIs with `export * from "./submodule/index.js"`.
 Each submodule's entrypoint explicitly selects its own supported symbols; the root
 does not repeat that selection. Test-only `conformance/` is not aggregated.
-Application, tools, testing helpers and adapters outside this package import this root
-API. Shared provider boundary utilities are exposed when their owning submodule
+Sibling adapters within integrations import this provider root; consumers outside
+integrations reach it through the layer root API. Shared provider boundary utilities
+are exposed when their owning submodule
 explicitly exports them. Concrete wire schemas and internal adapter capability classes
 stay behind the concrete facade's entrypoint.
 
@@ -48,7 +58,7 @@ stay behind the concrete facade's entrypoint.
 and canonical observation constants. `providers/selection/index.ts` exposes
 `createProvider`; selection owns adapter composition and verified known-origin detection.
 These subpackage APIs serve provider implementations and sibling capabilities; external
-consumers reach their aggregated APIs through `providers/index.ts`.
+consumers outside integrations reach the aggregated APIs through `integrations/index.ts`.
 Workflow configuration is resolved by application and is not a provider factory input.
 
 `providers/github/index.ts` and `providers/gitlab/index.ts` expose their concrete
@@ -66,7 +76,7 @@ Concrete implementations use capability entrypoints for shared contracts, errors
 transport, attachment-name policy and Git-history observations, and sibling
 implementation imports within their own concrete package. No adapter imports selection
 or a parent barrel.
-Application consumers use the aggregated provider root API.
+Application consumers use the aggregated integrations root API.
 Nested capability APIs support adapter composition and sibling dependencies; the facade
 entrypoint does not expose internal classes, concrete schemas or staging helpers.
 

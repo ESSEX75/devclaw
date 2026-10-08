@@ -4,7 +4,7 @@ import { log as auditLog } from "../../audit.js";
 import {
   ACTION, COMPLETION_RESULT, DEFAULT_ROLES, DEFAULT_WORKFLOW, findStateByLabel, ISSUE_INTEGRITY_STATUS, NOTIFICATION_CHANNEL, REVIEW_POLICY, STATE_TYPE,
 } from "../../domain/index.js";
-import { PR_STATE } from "../../integrations/providers/index.js";
+import { PR_STATE } from "../../integrations/index.js";
 import { reservePipelineNotification } from "../../state/index.js";
 import { NOTIFICATION_BLOCKED } from "../notifications/const.js";
 import {

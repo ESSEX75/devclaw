@@ -1,7 +1,7 @@
 /** Maps transport evidence and policy decisions into the owned terminal outbox attempt. */
 
 import { PIPELINE_NOTIFICATION_STATUS } from "../../domain/index.js";
-import { MESSAGE_DELIVERY_STATUS } from "../../integrations/openclaw/notifications/index.js";
+import { MESSAGE_DELIVERY_STATUS } from "../../integrations/index.js";
 import { settlePipelineNotification } from "../../state/index.js";
 import { NOTIFICATION_BLOCKED } from "./const.js";
 import type { NotificationDeliveryResult } from "./types.js";

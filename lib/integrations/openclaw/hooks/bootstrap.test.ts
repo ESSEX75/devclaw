@@ -11,6 +11,7 @@ import path from "node:path";
 import os from "node:os";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { registerBootstrapHook } from "./bootstrap.js";
+import { loadWorkerBootstrapInstructions, resolveWorkerBootstrapIdentity } from "../../../application/index.js";
 
 describe("registered worker bootstrap", () => {
   for (const role of ["developer", "tester", "architect", "security_auditor", "security-auditor"]) {
@@ -61,7 +62,7 @@ describe("registered worker bootstrap", () => {
         content: "Orchestrator instructions", missing: false }];
       registerBootstrapHook({ registerHook(_events, handler) { handlers.push(handler); } }, {
         logger: { debug() {}, info() {}, warn() {}, error() {} },
-      });
+      }, { resolveWorkerBootstrapIdentity, loadWorkerBootstrapInstructions });
       await assert.rejects(async () => {
         for (const handler of handlers) {
           await handler({ type: "agent", action: "bootstrap", sessionKey, timestamp: new Date(), messages: [],

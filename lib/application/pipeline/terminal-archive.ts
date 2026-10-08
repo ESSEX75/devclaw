@@ -1,7 +1,7 @@
 /** Archives terminal pipeline issues after their notification intent is resolved. */
 
 import { ISSUE_ARCHIVE_REASON, type WorkflowConfig } from "../../domain/index.js";
-import type { Issue } from "../../integrations/providers/index.js";
+import type { Issue } from "../../integrations/index.js";
 import { ARCHIVE_BLOCK_REASON, archiveManagedIssueLocked } from "../issues/index.js";
 import { PIPELINE_TERMINAL_ARCHIVE_CORRELATION_PREFIX } from "./const.js";
 

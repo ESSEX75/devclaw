@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { PR_COMMENT_KIND } from "../../integrations/providers/index.js";
+import { PR_COMMENT_KIND } from "../../integrations/index.js";
 import { acknowledgeComments } from "./acknowledge-comments.js";
 import type { AcknowledgementProvider, PrFeedback } from "./types.js";
 
