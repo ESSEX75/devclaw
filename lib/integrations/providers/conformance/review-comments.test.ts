@@ -2,10 +2,10 @@
 
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import type { RunCommand } from "../../context.js";
-import { PR_COMMENT_KIND } from "./contracts/index.js";
-import { GitHubProvider } from "./github/index.js";
-import { GitLabProvider } from "./gitlab/index.js";
+import type { RunCommand } from "../../../context.js";
+import { PR_COMMENT_KIND } from "../contracts/index.js";
+import { GitHubProvider } from "../github/index.js";
+import { GitLabProvider } from "../gitlab/index.js";
 
 it("GitHub keeps review, inline and conversation IDs separate and uses the inline reaction endpoint", async () => {
   const calls: string[][] = [];

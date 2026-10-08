@@ -3,12 +3,12 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
-import type { RunCommand } from "../../context.js";
-import { PR_COMMENT_KIND } from "./contracts/index.js";
-import { GitHubProvider } from "./github/index.js";
-import { GitLabProvider } from "./gitlab/index.js";
-import { isProviderIssueLookupError } from "./errors/index.js";
-import { PR_STATE } from "./contracts/index.js";
+import type { RunCommand } from "../../../context.js";
+import { PR_COMMENT_KIND } from "../contracts/index.js";
+import { GitHubProvider } from "../github/index.js";
+import { GitLabProvider } from "../gitlab/index.js";
+import { isProviderIssueLookupError } from "../errors/index.js";
+import { PR_STATE } from "../contracts/index.js";
 
 /** Serialize one clean provider CLI response without bypassing transport validation.
  * @param data - Complete paginated or scalar fixture payload.

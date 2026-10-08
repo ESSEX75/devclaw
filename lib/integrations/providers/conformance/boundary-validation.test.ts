@@ -4,13 +4,13 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { z } from "zod";
 
-import type { RunCommand } from "../../context.js";
-import { runProviderCommand } from "./transport/index.js";
-import { normalizeProviderFailure } from "./errors/index.js";
-import { GitHubProvider } from "./github/index.js";
-import { GitLabProvider } from "./gitlab/index.js";
-import { isProviderIssueLookupError } from "./errors/index.js";
-import { PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "./errors/index.js";
+import type { RunCommand } from "../../../context.js";
+import { runProviderCommand } from "../transport/index.js";
+import { normalizeProviderFailure } from "../errors/index.js";
+import { GitHubProvider } from "../github/index.js";
+import { GitLabProvider } from "../gitlab/index.js";
+import { isProviderIssueLookupError } from "../errors/index.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "../errors/index.js";
 
 /** Clean process evidence reused to vary untrusted provider response content.
  * @param stdout - External command JSON to deliver to the adapter.

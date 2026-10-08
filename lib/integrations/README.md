@@ -99,9 +99,12 @@ shared infrastructure. Types/constants migrate with their owners without duplica
 registries or forwarding files. The old root API and shared implementation files are
 removed; consumers must use the current owning capability directly.
 
-Move focused tests beside the capability they verify. Tests spanning concrete adapters
-must retain their complete behavior coverage and receive an explicit owner rather than
-being distributed mechanically by filename. Local `issues.json` authority and existing
+Focused error, pagination/recovery, Git-history and selection tests live beside their
+owning capabilities. `conformance/` owns test-only verification of the shared adapter
+contract through concrete GitHub/GitLab facades: issue/comment boundaries, attachments,
+immutable dependency composition, complete pagination and PR/review observations.
+It has no production API or barrel. Cross-adapter scenarios stay intact rather than
+being duplicated or distributed by provider name. Local `issues.json` authority and
 completion, pagination, replay, and uncertain-outcome guarantees remain unchanged.
 
 Integration modules talk to external systems such as GitHub, GitLab, OpenClaw

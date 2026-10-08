@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 
 import type { RunCommand } from "../../../context.js";
-import { createProvider } from "../selection/index.js";
 import { GitHubProvider } from "../github/index.js";
 import { GitLabProvider } from "../gitlab/index.js";
 import { isProviderIssueLookupError } from "../errors/index.js";
@@ -197,19 +196,4 @@ it("ignores reassuring stderr when completion is abnormal and does not include s
     assert.ok(!classified.message.includes("secret"));
     return true;
   });
-});
-
-it("detects exact known hosts and requires explicit selection for unknown or self-hosted origins", async () => {
-  for (const [remote, expected] of [["git@github.com:owner/repo.git", "github"], ["https://gitlab.com/group/repo.git", "gitlab"]]) {
-    const result = await createProvider({ repoPath: ".", runCommand: async () => success(remote) });
-    assert.equal(result.type, expected);
-  }
-  for (const remote of ["https://github.com.attacker.test/owner/repo", "git@code.example:group/repo", "local/path", ""]) {
-    await assert.rejects(createProvider({ repoPath: ".", runCommand: async () => success(remote) }), /specify.*provider explicitly/);
-  }
-  await assert.rejects(createProvider({ repoPath: ".", runCommand: async () => ({ ...success(""), code: 128, stderr: "missing origin" }) }));
-  let calls = 0;
-  const explicit = await createProvider({ provider: "gitlab", repoPath: ".", runCommand: async () => { calls++; throw new Error("must not detect"); } });
-  assert.equal(explicit.type, "gitlab");
-  assert.equal(calls, 0);
 });
