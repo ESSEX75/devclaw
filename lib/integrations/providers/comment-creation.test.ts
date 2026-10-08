@@ -6,7 +6,7 @@ import { it } from "node:test";
 import type { RunCommand } from "../../context.js";
 import { GitHubProvider } from "./github/index.js";
 import { GitLabProvider } from "./gitlab/index.js";
-import { isProviderOperationError } from "./guards.js";
+import { isProviderOperationError } from "./errors/index.js";
 
 /** Real provider adapters exercised through deterministic CLI responses. */
 const providers = [GitHubProvider, GitLabProvider];

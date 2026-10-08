@@ -1,10 +1,13 @@
 /** Owns GitHub issues operations and their provider-specific API semantics. */
 
-import { PROVIDER_COLLECTION_STATE, PROVIDER_HTTP_METHOD, PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "../const.js";
-import { classifyProviderLookupFailure, classifyProviderProjectAccessFailure, mayBeMissingProviderIssue, ProviderIssueLookupError } from "../lookup-errors.js";
-import { classifyProviderOperationError, ProviderOperationError } from "../operation-errors.js";
-import { ProviderResourceIdentitySchema } from "../schema.js";
-import type { CreateIssueInput, Issue, IssueComment, IssueEditInput, IssueListFilter, ProviderTransport, StateLabel } from "../types.js";
+import { PROVIDER_COLLECTION_STATE } from "../const.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "../errors/index.js";
+import { classifyProviderLookupFailure, classifyProviderProjectAccessFailure, mayBeMissingProviderIssue, ProviderIssueLookupError } from "../errors/index.js";
+import { classifyProviderOperationError, ProviderOperationError } from "../errors/index.js";
+import type { ProviderTransport } from "../transport/index.js";
+import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
+import { ProviderResourceIdentitySchema } from "../transport/index.js";
+import type { CreateIssueInput, Issue, IssueComment, IssueEditInput, IssueListFilter, StateLabel } from "../types.js";
 import { GITHUB_API_RESOURCE,GITHUB_QUERY, GITHUB_REQUEST_STATE } from "./const.js";
 import { githubApiPath } from "./endpoints.js";
 import { toIssue } from "./mappers.js";

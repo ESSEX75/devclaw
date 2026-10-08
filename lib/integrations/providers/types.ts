@@ -2,31 +2,12 @@
  * Shared provider-facing DTOs.
  */
 
-import type { z } from "zod";
 
 import type { RunCommand } from "../../context.js";
 import type { IssueProviderId } from "../../domain/index.js";
 import type { ValueOf } from "../../types.js";
-import type { PR_COMMENT_KIND, PROVIDER_CLI, PROVIDER_COLLECTION_STATE, PROVIDER_COMMAND_MODE, PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "./const.js";
+import type { PR_COMMENT_KIND, PROVIDER_COLLECTION_STATE } from "./const.js";
 import { PR_STATE } from "./const.js";
-
-/** Stable transport category reused by mutation errors. */
-export type ProviderOperationErrorCode = ValueOf<typeof PROVIDER_OPERATION_ERROR>;
-
-/** Replay safety explicitly selected for a provider CLI operation. */
-export type ProviderCommandMode = ValueOf<typeof PROVIDER_COMMAND_MODE>;
-
-/** Normalized transport evidence, independent of issue lookup or mutation recovery policy. */
-export type ProviderTransportFailure = {
-  /** Stable failure category. */
-  code: ProviderOperationErrorCode;
-  /** Whether a read or explicitly idempotent operation can be repeated. */
-  retryable: boolean;
-  /** Whether a submitted mutation may already have taken effect. */
-  outcomeUnknown: boolean;
-  /** Confirmed HTTP status when available. */
-  status?: number;
-};
 
 /** Provider-visible label identifier; application owns its workflow meaning. */
 export type StateLabel = string;
@@ -344,14 +325,6 @@ export interface IssueProvider
     ProviderHealthCheck,
     ProviderRateLimitReader {}
 
-/** Repository dependencies shared by every concrete capability. */
-export type ProviderAdapterOptions = {
-  /** Repository supplying CLI host/configuration context. */
-  repoPath: string;
-  /** Plugin-owned process transport. */
-  runCommand: RunCommand;
-};
-
 /** Factory inputs; workflow selection belongs to application and is never interpreted by adapters. */
 export type ProviderOptions = {
   /** Explicit provider, required for unknown or self-hosted hosts. */
@@ -372,31 +345,6 @@ export type ProviderWithType = {
   type: IssueProviderId;
 };
 
-/** Instance-owned transport consumed by concrete capability implementations. */
-export interface ProviderTransport {
-  /** Repository supplying host and CLI context. */
-  readonly repoPath: string;
-  /** Plugin-owned transport also used for native git and multipart commands. */
-  readonly runCommand: RunCommand;
-  /** Read with classified retries.
-   * @param args - Read-only arguments.
-   */
-  read(args: string[]): Promise<string>;
-  /** Apply an explicitly idempotent state setter.
-   * @param args - Desired-state mutation arguments.
-   */
-  write(args: string[]): Promise<string>;
-  /** Submit exactly once.
-   * @param args - Non-replayable mutation arguments.
-   */
-  once(args: string[]): Promise<string>;
-  /** Validate every item across complete CLI-managed pages.
-   * @param endpoint - Collection endpoint and optional filters.
-   * @param schema - Owning provider record schema.
-   */
-  collection<T>(endpoint: string, schema: z.ZodType<T>): Promise<T[]>;
-}
-
 /** Explicit issue edits owned by application; omitted fields remain unchanged. */
 export type IssueEditInput = {
   /** Replacement provider-visible title when supplied. */
@@ -413,42 +361,4 @@ export type AttachmentUploadInput = {
   buffer: Buffer;
   /** Resolved attachment media type. */
   mimeType: string;
-};
-
-/** Concrete CLI identity derived from the canonical registry. */
-export type ProviderCli = ValueOf<typeof PROVIDER_CLI>;
-
-/** Read error category derived from the canonical provider registry. */
-export type ProviderIssueLookupErrorCode = ValueOf<typeof PROVIDER_ISSUE_LOOKUP_ERROR>;
-
-/** Validated context carried by a provider read failure. */
-export type ProviderLookupErrorOptions = {
-  /** Classified category; absence requires a separate successful access probe. */
-  code: ProviderIssueLookupErrorCode;
-  /** Concrete provider owning the failed observation. */
-  provider: string;
-  /** Whether observation can safely be repeated. */
-  retryable: boolean;
-  /** Diagnostic describing the failed observation. */
-  message: string;
-  /** Confirmed HTTP status when supplied by the transport. */
-  status?: number;
-  /** Original failure retained for inspection. */
-  cause?: unknown;
-};
-
-/** Mutation evidence retained after one submitted provider operation. */
-export type ProviderOperationErrorOptions = {
-  /** Stable mutation failure category. */
-  code: ProviderOperationErrorCode;
-  /** Diagnostic excluding command argument vectors. */
-  message: string;
-  /** Whether the explicitly replayable operation can be repeated. */
-  retryable: boolean;
-  /** Whether the submitted mutation may already have taken effect. */
-  outcomeUnknown?: boolean;
-  /** Provider-supplied retry delay when available. */
-  retryAfter?: string;
-  /** Original failure retained for inspection. */
-  cause?: unknown;
 };

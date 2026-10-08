@@ -2,8 +2,8 @@
 
 import type { RunCommand } from "../../context.js";
 import type { IssueRuntimeState, RoleWorkerState, STATE_TYPE, WorkflowConfig, WorkflowStateConfig } from "../../domain/index.js";
+import type { ProviderIssueLookupErrorCode } from "../../integrations/providers/errors/index.js";
 import type { Issue, IssueProvider } from "../../integrations/providers/index.js";
-import type { ProviderIssueLookupErrorCode } from "../../integrations/providers/index.js";
 import type { ResolvedRoleConfig } from "../../state/index.js";
 import type { ValueOf } from "../../types.js";
 import type { NotificationRuntime } from "../notifications/index.js";

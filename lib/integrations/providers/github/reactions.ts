@@ -1,7 +1,7 @@
 /** Owns GitHub reactions operations and their provider-specific API semantics. */
 
-import { PROVIDER_HTTP_METHOD } from "../const.js";
-import type { ProviderTransport } from "../types.js";
+import type { ProviderTransport } from "../transport/index.js";
+import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
 import { GITHUB_API_RESOURCE,GITHUB_DISCOVERY_STATE } from "./const.js";
 import { GitHubDiscovery } from "./discovery.js";
 import { githubApiPath } from "./endpoints.js";

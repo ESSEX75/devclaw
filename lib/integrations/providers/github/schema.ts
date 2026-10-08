@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { ProviderIdentitySchema } from "../schema.js";
+import { ProviderIdentitySchema } from "../transport/index.js";
 import { GITHUB_OBJECT_SHA_PATTERN, GITHUB_REQUEST_STATE } from "./const.js";
 
 /** Validates GhIssueSchema provider payloads. */

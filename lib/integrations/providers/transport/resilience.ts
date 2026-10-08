@@ -2,8 +2,9 @@
 
 import { circuitBreaker, ConsecutiveBreaker, ExponentialBackoff, handleWhen, type IPolicy, retry, wrap } from "cockatiel";
 
-import { PROVIDER_COMMAND_MODE, PROVIDER_OPERATION_ERROR, PROVIDER_TRANSPORT_POLICY } from "./const.js";
-import { classifyProviderOperationError } from "./operation-errors.js";
+import { PROVIDER_OPERATION_ERROR } from "../errors/index.js";
+import { classifyProviderOperationError } from "../errors/index.js";
+import { PROVIDER_COMMAND_MODE, PROVIDER_TRANSPORT_POLICY } from "./const.js";
 import type { ProviderCommandMode } from "./types.js";
 
 /** Create a policy owned by one adapter instance; permanent failures never open its breaker. */

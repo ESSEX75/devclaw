@@ -1,9 +1,10 @@
 /** Executes one CLI request and preserves abnormal process completion as unknown mutation evidence. */
 
-import type { RunCommand } from "../../context.js";
-import { isCompleteCommandOutput,isCompletedCommand } from "../process/index.js";
-import { PROVIDER_OPERATION_ERROR, PROVIDER_TRANSPORT_POLICY } from "./const.js";
-import { normalizeProviderFailure, ProviderTransportError } from "./failures.js";
+import type { RunCommand } from "../../../context.js";
+import { isCompleteCommandOutput, isCompletedCommand } from "../../process/index.js";
+import { PROVIDER_OPERATION_ERROR } from "../errors/index.js";
+import { normalizeProviderFailure, ProviderTransportError } from "../errors/index.js";
+import { PROVIDER_TRANSPORT_POLICY } from "./const.js";
 
 /** Execute once; callers select replay safety and supply any resilience policy outside this function.
  * @param runCommand - Plugin-owned process transport.

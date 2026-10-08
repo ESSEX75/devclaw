@@ -1,10 +1,7 @@
-/** Exposes provider-neutral contracts, classified failures and the supported factory. */
+/** Exposes provider-neutral contracts and selection until their responsibility boundaries migrate. */
 
-export { PR_COMMENT_KIND, PR_STATE, PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_ISSUE_STATE, PROVIDER_OPERATION_ERROR, PROVIDER_REVIEW_STATE } from "./const.js";
+export { PR_COMMENT_KIND, PR_STATE, PROVIDER_ISSUE_STATE, PROVIDER_REVIEW_STATE } from "./const.js";
 export { createProvider } from "./factory.js";
-export { isProviderIssueLookupError, isProviderOperationError } from "./guards.js";
-export { ProviderIssueLookupError } from "./lookup-errors.js";
-export { ProviderOperationError } from "./operation-errors.js";
 export type {
   AttachmentUploader,
   AttachmentUploadInput,
@@ -18,15 +15,10 @@ export type {
   IssueReader,
   IssueWriter,
   LabelProjector,
-  ProviderAdapterOptions,
-  ProviderCommandMode,
   ProviderHealthCheck,
-  ProviderIssueLookupErrorCode,
-  ProviderOperationErrorCode,
   ProviderOptions,
   ProviderRateLimitReader,
   ProviderRateLimitStatus,
-  ProviderTransportFailure,
   ProviderWithType,
   PrReviewComment,
   PrState,

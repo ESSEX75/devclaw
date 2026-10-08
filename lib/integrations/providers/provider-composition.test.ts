@@ -5,7 +5,7 @@ import { it } from "node:test";
 
 import { GitHubProvider } from "./github/index.js";
 import { GitLabProvider } from "./gitlab/index.js";
-import type { ProviderAdapterOptions } from "./types.js";
+import type { ProviderAdapterOptions } from "./transport/index.js";
 
 for (const Provider of [GitHubProvider, GitLabProvider]) {
   it(`${Provider.name} retains its repository and transport snapshot after caller options change`, async () => {

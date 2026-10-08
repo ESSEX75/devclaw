@@ -1,8 +1,8 @@
 /** Owns GitLab reactions operations and their provider-specific API semantics. */
 
-import { PROVIDER_HTTP_METHOD } from "../const.js";
-import { classifyProviderLookupFailure } from "../lookup-errors.js";
-import type { ProviderTransport } from "../types.js";
+import { classifyProviderLookupFailure } from "../errors/index.js";
+import type { ProviderTransport } from "../transport/index.js";
+import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
 import { GITLAB_API_RESOURCE,GITLAB_REQUEST_STATE } from "./const.js";
 import { GitLabDiscovery } from "./discovery.js";
 import { gitlabApiPath } from "./endpoints.js";

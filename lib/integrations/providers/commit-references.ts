@@ -1,8 +1,8 @@
 /** Finds exact issue references in local git history without interpreting unrelated MR numbers as issues. */
 
 import type { RunCommand } from "../../context.js";
-import { runProviderCommand } from "./command.js";
 import { PROVIDER_HISTORY_FORMAT, PROVIDER_HISTORY_REMOTE } from "./const.js";
+import { runProviderCommand } from "./transport/index.js";
 
 /** Search complete messages on the selected base branch for an exact numeric issue reference.
  * Git history is not capped at 200 commits; process failure remains a failed observation.

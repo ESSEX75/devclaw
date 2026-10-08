@@ -8,9 +8,9 @@ import { z } from "zod";
 
 import type { RunCommand } from "../../../context.js";
 import { sanitizeProviderAttachmentName } from "../attachment-name.js";
-import { runProviderCommand } from "../command.js";
-import { PROVIDER_HTTP_METHOD } from "../const.js";
-import { parseProviderJson } from "../schema.js";
+import { runProviderCommand } from "../transport/index.js";
+import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
+import { parseProviderJson } from "../transport/index.js";
 import { GITLAB_ATTACHMENT_STORAGE, GITLAB_FILENAME_CONTROL_LIMIT, GITLAB_UPLOAD_PATH, GITLAB_UPLOAD_PATH_PATTERN } from "./const.js";
 import { gitlabApiPath } from "./endpoints.js";
 

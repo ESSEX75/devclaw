@@ -1,8 +1,9 @@
 /** Owns GitLab labels operations and their provider-specific API semantics. */
 
-import { PROVIDER_HTTP_METHOD, PROVIDER_OPERATION_ERROR } from "../const.js";
-import { classifyProviderOperationError } from "../operation-errors.js";
-import type { ProviderTransport } from "../types.js";
+import { PROVIDER_OPERATION_ERROR } from "../errors/index.js";
+import { classifyProviderOperationError } from "../errors/index.js";
+import type { ProviderTransport } from "../transport/index.js";
+import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
 import { GITLAB_API_RESOURCE } from "./const.js";
 import { gitlabApiPath } from "./endpoints.js";
 

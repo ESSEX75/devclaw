@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { ProviderIdentitySchema } from "../schema.js";
+import { ProviderIdentitySchema } from "../transport/index.js";
 import { GITLAB_REQUEST_STATE } from "./const.js";
 
 /** Optional conflict evidence remains unknown unless the provider explicitly supplies valid fields. */

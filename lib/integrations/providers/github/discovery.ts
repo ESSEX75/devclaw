@@ -2,10 +2,11 @@
 
 import { z } from "zod";
 
-import { PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR,PROVIDER_PAGE_SIZE } from "../const.js";
-import { ProviderTransportError } from "../failures.js";
-import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../lookup-errors.js";
-import type { ProviderTransport } from "../types.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "../errors/index.js";
+import { ProviderTransportError } from "../errors/index.js";
+import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../errors/index.js";
+import type { ProviderTransport } from "../transport/index.js";
+import { PROVIDER_PAGE_SIZE } from "../transport/index.js";
 import { GITHUB_API_RESOURCE, GITHUB_DISCOVERY_STATE, GITHUB_PR_FIELDS,GITHUB_QUERY, GITHUB_REQUEST_STATE } from "./const.js";
 import { githubApiPath } from "./endpoints.js";
 import { GitHubRepository } from "./repository.js";

@@ -1,7 +1,7 @@
 /** Owns GitHub repository operations and their provider-specific API semantics. */
 
-import { classifyProviderLookupFailure } from "../lookup-errors.js";
-import type { ProviderTransport } from "../types.js";
+import { classifyProviderLookupFailure } from "../errors/index.js";
+import type { ProviderTransport } from "../transport/index.js";
 import { GITHUB_QUERY } from "./const.js";
 import { GhRepositorySchema } from "./schema.js";
 import type { GitHubRepositoryInfo } from "./types.js";

@@ -1,9 +1,9 @@
 /** Owns GitLab discovery operations and their provider-specific API semantics. */
 
-import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../const.js";
-import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../lookup-errors.js";
-import { parseProviderJson } from "../schema.js";
-import type { ProviderTransport } from "../types.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../errors/index.js";
+import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../errors/index.js";
+import type { ProviderTransport } from "../transport/index.js";
+import { parseProviderJson } from "../transport/index.js";
 import { GITLAB_API_RESOURCE,GITLAB_MERGEABILITY, GITLAB_REQUEST_STATE } from "./const.js";
 import { gitlabApiPath } from "./endpoints.js";
 import { GitLabRepository } from "./repository.js";

@@ -3,7 +3,8 @@
  */
 
 import { ISSUE_CREATION_ERROR } from "../../../domain/index.js";
-import { isProviderOperationError, PROVIDER_OPERATION_ERROR } from "../../../integrations/providers/index.js";
+import { isProviderOperationError } from "../../../integrations/providers/errors/index.js";
+import { PROVIDER_OPERATION_ERROR } from "../../../integrations/providers/errors/index.js";
 import type { IssueCreationFailure } from "../../../state/index.js";
 
 /**

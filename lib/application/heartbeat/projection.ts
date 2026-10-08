@@ -4,7 +4,8 @@
 
 import { log as auditLog } from "../../audit.js";
 import { ISSUE_ARCHIVE_REASON, ISSUE_INTEGRITY_STATUS, type IssueRuntimeState, UNVERIFIED_INTEGRITY_ERROR } from "../../domain/index.js";
-import { isProviderIssueLookupError, PROVIDER_ISSUE_LOOKUP_ERROR } from "../../integrations/providers/index.js";
+import { isProviderIssueLookupError } from "../../integrations/providers/errors/index.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../../integrations/providers/errors/index.js";
 import {
   extractIssueMetadata,
   metadataMatches,

@@ -1,9 +1,11 @@
 /** Owns GitHub pull-requests operations and their provider-specific API semantics. */
 import { hasIssueCommitOnBaseBranch } from "../commit-references.js";
-import { PR_STATE, PROVIDER_ISSUE_LOOKUP_ERROR,PROVIDER_REVIEW_STATE } from "../const.js";
-import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../lookup-errors.js";
+import { PR_STATE, PROVIDER_REVIEW_STATE } from "../const.js";
+import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../errors/index.js";
+import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../errors/index.js";
 import { latestFormalReviews } from "../review-observations.js";
-import type { ProviderTransport, PrState, PrStatus } from "../types.js";
+import type { ProviderTransport } from "../transport/index.js";
+import type { PrState, PrStatus } from "../types.js";
 import { GITHUB_API_RESOURCE, GITHUB_DISCOVERY_STATE, GITHUB_MERGEABILITY, GITHUB_REQUEST_STATE, GITHUB_REVIEW_BOT_SUFFIX } from "./const.js";
 import { GitHubDiscovery } from "./discovery.js";
 import { githubApiPath } from "./endpoints.js";

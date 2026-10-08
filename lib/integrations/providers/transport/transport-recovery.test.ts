@@ -3,14 +3,14 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
-import type { RunCommand } from "../../context.js";
-import { createProvider } from "./index.js";
-import { GitHubProvider } from "./github/index.js";
-import { GitLabProvider } from "./gitlab/index.js";
-import { isProviderIssueLookupError } from "./guards.js";
-import { classifyProviderOperationError } from "./operation-errors.js";
-import { isProviderOperationError } from "./guards.js";
-import { classifyProviderLookupFailure } from "./lookup-errors.js";
+import type { RunCommand } from "../../../context.js";
+import { createProvider } from "../index.js";
+import { GitHubProvider } from "../github/index.js";
+import { GitLabProvider } from "../gitlab/index.js";
+import { isProviderIssueLookupError } from "../errors/index.js";
+import { classifyProviderOperationError } from "../errors/index.js";
+import { isProviderOperationError } from "../errors/index.js";
+import { classifyProviderLookupFailure } from "../errors/index.js";
 import { runProviderCommand } from "./command.js";
 import { PROVIDER_COMMAND_MODE } from "./const.js";
 import { createProviderPolicy, withResilience } from "./resilience.js";

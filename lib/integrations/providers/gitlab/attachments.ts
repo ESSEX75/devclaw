@@ -1,6 +1,7 @@
 /** Owns GitLab attachments operations and their provider-specific API semantics. */
 
-import type { AttachmentUploadInput, ProviderTransport } from "../types.js";
+import type { ProviderTransport } from "../transport/index.js";
+import type { AttachmentUploadInput } from "../types.js";
 import { uploadGitLabAttachment } from "./multipart.js";
 
 /** Implements the attachments capability using dependencies shared by one adapter instance. */

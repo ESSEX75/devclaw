@@ -2,7 +2,8 @@
 
 import { PR_COMMENT_KIND, PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../const.js";
 import { latestFormalReviews } from "../review-observations.js";
-import type { ProviderTransport, PrReviewComment } from "../types.js";
+import type { ProviderTransport } from "../transport/index.js";
+import type { PrReviewComment } from "../types.js";
 import { GITHUB_API_RESOURCE, GITHUB_REVIEW_BOT_SUFFIX } from "./const.js";
 import { GitHubDiscovery } from "./discovery.js";
 import { githubApiPath } from "./endpoints.js";

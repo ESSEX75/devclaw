@@ -1,7 +1,8 @@
 /** Composes GitLab capabilities into the supported provider facade; owns no workflow decisions. */
 
-import { PROVIDER_CLI } from "../const.js";
-import { createProviderTransport } from "../transport.js";
+import type { ProviderAdapterOptions } from "../transport/index.js";
+import { PROVIDER_CLI } from "../transport/index.js";
+import { createProviderTransport } from "../transport/index.js";
 import type {
   AttachmentUploadInput,
   CreateIssueInput,
@@ -10,7 +11,6 @@ import type {
   IssueEditInput,
   IssueListFilter,
   IssueProvider,
-  ProviderAdapterOptions,
   PrReviewComment,
   PrStatus,
   StateLabel,

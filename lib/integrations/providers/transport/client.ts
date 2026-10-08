@@ -2,10 +2,10 @@
 
 import type { z } from "zod";
 
+import { classifyProviderLookupFailure } from "../errors/index.js";
+import { classifyProviderOperationError } from "../errors/index.js";
 import { runProviderCommand } from "./command.js";
-import { PROVIDER_CLI, PROVIDER_COMMAND_MODE, PROVIDER_PAGE_QUERY,PROVIDER_PAGE_SIZE } from "./const.js";
-import { classifyProviderLookupFailure } from "./lookup-errors.js";
-import { classifyProviderOperationError } from "./operation-errors.js";
+import { PROVIDER_CLI, PROVIDER_COMMAND_MODE, PROVIDER_PAGE_QUERY, PROVIDER_PAGE_SIZE } from "./const.js";
 import { parseProviderPages } from "./pagination.js";
 import { createProviderPolicy, withResilience } from "./resilience.js";
 import type { ProviderAdapterOptions, ProviderCli, ProviderTransport } from "./types.js";
