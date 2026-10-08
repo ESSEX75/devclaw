@@ -7,7 +7,7 @@ import path from "node:path";
 import { z } from "zod";
 
 import type { RunCommand } from "../../../context.js";
-import { sanitizeProviderAttachmentName } from "../attachment-name.js";
+import { sanitizeProviderAttachmentName } from "../attachments/index.js";
 import { runProviderCommand } from "../transport/index.js";
 import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
 import { parseProviderJson } from "../transport/index.js";

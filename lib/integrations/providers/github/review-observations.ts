@@ -1,7 +1,7 @@
 /** Selects current formal review decisions without reviving superseded or dismissed feedback. */
 
-import type { PrReviewComment } from "./contracts/index.js";
-import { PROVIDER_REVIEW_STATE } from "./contracts/index.js";
+import type { PrReviewComment } from "../contracts/index.js";
+import { PROVIDER_REVIEW_STATE } from "../contracts/index.js";
 
 /** Select the chronologically latest formal review per author, retaining dismissal as a cleared decision.
  * COMMENTED summaries never revoke a formal decision and remain independent feedback observations.

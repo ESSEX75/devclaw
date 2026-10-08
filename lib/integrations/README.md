@@ -35,9 +35,8 @@ their audit and whether optional cleanup failure blocks dispatch.
 
 ## Provider package ownership
 
-The following describes the current implementation. The shared-root layout is being
-replaced by the responsibility boundaries below; it is not a precedent for new shared
-modules. Until each boundary is migrated, use its existing implementation paths.
+The provider root is an organizational directory. Shared capabilities own explicit
+APIs; cross-capability consumers import the entrypoint that owns their dependency.
 
 `providers/contracts/index.ts` exposes provider-neutral capability contracts, DTOs
 and canonical observation constants. `providers/selection/index.ts` exposes
@@ -56,10 +55,10 @@ which configured labels must be removed.
 `transport/index.ts` exposes checked CLI execution, one resilience policy per adapter
 instance, complete collection decoding and shared response-validation primitives.
 Consumers use these entrypoints; error implementations never depend on transport.
-Concrete implementations still import root attachment-name/history helpers and their
-remaining `const.ts` policies until those responsibilities migrate. They use capability
-entrypoints for contracts, errors and transport, and sibling implementation imports
-within their own concrete package. No adapter imports selection or a parent barrel.
+Concrete implementations use capability entrypoints for shared contracts, errors,
+transport, attachment-name policy and Git-history observations, and sibling
+implementation imports within their own concrete package. No adapter imports selection
+or a parent barrel.
 Other consumers use the owning capability or concrete provider's `index.ts`. Internal
 capability classes, concrete schemas and staging helpers are not supported public APIs.
 
@@ -70,9 +69,7 @@ to application/projection; providers apply only explicit label additions/removal
 
 ### Shared provider responsibility boundaries
 
-The responsibility map below defines the complete target structure. `contracts/`,
-`selection/`, `errors/` and `transport/` are implemented. `attachments/` and `git/`
-remain migration targets, not APIs already available to consumers:
+The responsibility map below defines the implemented capability boundaries:
 
 - `contracts/` owns provider-neutral capability interfaces, normalized issue/PR/comment
   DTOs and their observation registries. It does not own transport policies, error
@@ -93,14 +90,14 @@ remain migration targets, not APIs already available to consumers:
 - `git/` owns exact issue-reference observations from complete local Git history and
   their history-query constants. It uses checked transport without choosing an adapter.
 - `github/` and `gitlab/` retain concrete provider behavior. The formal-review selector
-  currently in root `review-observations.ts` belongs to `github/`, its only consumer.
+  in `github/review-observations.ts` is internal to that adapter.
 
-Each migrated capability exposes only its supported API through `index.ts`. Sibling
+Each capability exposes only its supported API through `index.ts`. Sibling
 capabilities and external consumers import that entrypoint; implementation files use
 local imports inside their owner. None imports a parent barrel or selection to reach
 shared infrastructure. Types/constants migrate with their owners without duplicate
-registries or forwarding files. Once all consumers migrate, remove the old root API
-and shared implementation files so `providers/` becomes an organizational directory.
+registries or forwarding files. The old root API and shared implementation files are
+removed; consumers must use the current owning capability directly.
 
 Move focused tests beside the capability they verify. Tests spanning concrete adapters
 must retain their complete behavior coverage and receive an explicit owner rather than

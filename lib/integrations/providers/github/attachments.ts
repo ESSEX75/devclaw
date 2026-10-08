@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 
-import { sanitizeProviderAttachmentName } from "../attachment-name.js";
+import { sanitizeProviderAttachmentName } from "../attachments/index.js";
 import type { AttachmentUploadInput } from "../contracts/index.js";
 import { PROVIDER_OPERATION_ERROR } from "../errors/index.js";
 import { normalizeProviderFailure } from "../errors/index.js";
