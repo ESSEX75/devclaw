@@ -3,12 +3,12 @@
 import { randomUUID } from "node:crypto";
 
 import { sanitizeProviderAttachmentName } from "../attachment-name.js";
+import type { AttachmentUploadInput } from "../contracts/index.js";
 import { PROVIDER_OPERATION_ERROR } from "../errors/index.js";
 import { normalizeProviderFailure } from "../errors/index.js";
 import type { ProviderTransport } from "../transport/index.js";
 import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
 import { parseProviderJson } from "../transport/index.js";
-import type { AttachmentUploadInput } from "../types.js";
 import { GITHUB_API_RESOURCE, GITHUB_ATTACHMENT_STORAGE,GITHUB_QUERY } from "./const.js";
 import { githubRepositoryPath } from "./endpoints.js";
 import { GitHubRepository } from "./repository.js";

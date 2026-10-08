@@ -1,6 +1,6 @@
 /** Inputs used to render worker task context without I/O. */
 
-import type { IssueComment } from "../../../integrations/providers/index.js";
+import type { IssueComment } from "../../../integrations/providers/contracts/index.js";
 import type { ResolvedRoleConfig } from "../../../state/index.js";
 import type { PrContext, PrFeedback } from "../../review/index.js";
 

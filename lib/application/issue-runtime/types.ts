@@ -6,7 +6,7 @@ import type {
   ActiveIssueWorker, IssueIntegrityStatus, IssueProviderId, IssueRuntimeState, NotifyBindingRef,
   Project, ReviewPolicy, TestPolicy, WorkflowConfig, WorkflowStateConfig,
 } from "../../domain/index.js";
-import type { Issue } from "../../integrations/providers/index.js";
+import type { Issue } from "../../integrations/providers/contracts/index.js";
 import type { ResolvedConfig } from "../../state/index.js";
 import type { ISSUE_RUNTIME_KIND } from "./const.js";
 

@@ -1,8 +1,8 @@
 /** Owns GitHub health operations and their provider-specific API semantics. */
 
+import type { ProviderRateLimitStatus } from "../contracts/index.js";
 import type { ProviderTransport } from "../transport/index.js";
 import { parseProviderJson } from "../transport/index.js";
-import type { ProviderRateLimitStatus } from "../types.js";
 import { GITHUB_EPOCH_SECOND_MS, GITHUB_QUERY } from "./const.js";
 import { GhRateLimitSchema } from "./schema.js";
 

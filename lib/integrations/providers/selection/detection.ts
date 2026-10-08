@@ -1,10 +1,10 @@
 /** Resolves only known origin hosts; explicit provider selection owns self-hosted installations. */
 
-import type { RunCommand } from "../../context.js";
-import { ISSUE_PROVIDER, type IssueProviderId } from "../../domain/index.js";
+import type { RunCommand } from "../../../context.js";
+import { ISSUE_PROVIDER, type IssueProviderId } from "../../../domain/index.js";
+import { runProviderCommand } from "../transport/index.js";
+import { PROVIDER_TRANSPORT_POLICY } from "../transport/index.js";
 import { GITHUB_ORIGIN_HOSTS, GITLAB_ORIGIN_HOSTS } from "./const.js";
-import { runProviderCommand } from "./transport/index.js";
-import { PROVIDER_TRANSPORT_POLICY } from "./transport/index.js";
 
 /** Detect only known hosts; unknown/self-hosted repositories require an explicit provider.
  * @param repoPath - Repository containing the origin remote.

@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { PR_COMMENT_KIND, PR_STATE } from "../../integrations/providers/index.js";
+import { PR_COMMENT_KIND, PR_STATE } from "../../integrations/providers/contracts/index.js";
 import { PR_DIFF_LIMIT } from "./const.js";
 import { formatPrContext, formatPrFeedback } from "./format.js";
 import { fetchPrContext, fetchPrFeedback } from "./pr-context.js";

@@ -3,7 +3,7 @@
 import type { RunCommand } from "../../../context.js";
 import type { Project, WorkflowConfig } from "../../../domain/index.js";
 import type { SessionLookup } from "../../../integrations/openclaw/sessions/index.js";
-import type { IssueProvider } from "../../../integrations/providers/index.js";
+import type { IssueProvider } from "../../../integrations/providers/contracts/index.js";
 import type { ResolvedConfig } from "../../../state/index.js";
 import type { ValueOf } from "../../../types.js";
 import type { HEALTH_ACTION, HEALTH_ISSUE_SEVERITY, HEALTH_ISSUE_TYPE } from "./const.js";

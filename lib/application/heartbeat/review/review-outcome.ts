@@ -1,7 +1,7 @@
 /** Pure classification of provider PR status for a human review gate. */
 
 import { REVIEW_CHECK, type ReviewCheckType } from "../../../domain/index.js";
-import { PR_STATE, type PrStatus } from "../../../integrations/providers/index.js";
+import { PR_STATE, type PrStatus } from "../../../integrations/providers/contracts/index.js";
 import { REVIEW_OUTCOME } from "./const.js";
 import type { ReviewOutcome } from "./types.js";
 

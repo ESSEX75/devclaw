@@ -1,11 +1,8 @@
 /**
- * Shared provider-facing DTOs.
+ * Owns normalized provider observations and capability contracts consumed by application and adapters.
  */
 
-
-import type { RunCommand } from "../../context.js";
-import type { IssueProviderId } from "../../domain/index.js";
-import type { ValueOf } from "../../types.js";
+import type { ValueOf } from "../../../types.js";
 import type { PR_COMMENT_KIND, PROVIDER_COLLECTION_STATE } from "./const.js";
 import { PR_STATE } from "./const.js";
 
@@ -324,26 +321,6 @@ export interface IssueProvider
     AttachmentUploader,
     ProviderHealthCheck,
     ProviderRateLimitReader {}
-
-/** Factory inputs; workflow selection belongs to application and is never interpreted by adapters. */
-export type ProviderOptions = {
-  /** Explicit provider, required for unknown or self-hosted hosts. */
-  provider?: IssueProviderId;
-  /** Repository path resolved by state when repoPath is absent. */
-  repo?: string;
-  /** Absolute repository context. */
-  repoPath?: string;
-  /** Plugin-owned process transport. */
-  runCommand: RunCommand;
-};
-
-/** Selected provider exposed through its supported capability contract. */
-export type ProviderWithType = {
-  /** Composed provider facade. */
-  provider: IssueProvider;
-  /** Confirmed provider identity. */
-  type: IssueProviderId;
-};
 
 /** Explicit issue edits owned by application; omitted fields remain unchanged. */
 export type IssueEditInput = {

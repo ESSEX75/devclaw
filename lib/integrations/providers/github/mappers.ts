@@ -1,6 +1,6 @@
 /** Maps validated GitHub issue observations into provider-neutral DTOs. */
 
-import type { Issue } from "../types.js";
+import type { Issue } from "../contracts/index.js";
 import type { GhIssue } from "./types.js";
 
 /** Normalize an already validated issue without changing provider identity.

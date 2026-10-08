@@ -1,7 +1,7 @@
 /** Inputs owned by the heartbeat test-skip pass. */
 
 import type { Project, WorkflowConfig } from "../../../domain/index.js";
-import type { IssueProvider } from "../../../integrations/providers/index.js";
+import type { IssueProvider } from "../../../integrations/providers/contracts/index.js";
 
 /** Context for transitioning locally managed issues that skip the test queue. */
 export type TestSkipPassInput = {

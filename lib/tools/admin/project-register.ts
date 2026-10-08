@@ -30,7 +30,7 @@ import {
   type NotificationEndpoint,
   type RoleWorkerState,
 } from "../../domain/index.js";
-import { createProvider } from "../../integrations/providers/index.js";
+import { createProvider } from "../../integrations/providers/selection/index.js";
 import { getConfiguredRoleIds, getLevelMaxWorkers, loadConfig } from "../../state/index.js";
 import {
   parseNotificationEndpoint,

@@ -13,7 +13,7 @@ import {
   REVIEW_ROUTING_FIELD,
   WORKFLOW_EVENT,
 } from "../../../domain/index.js";
-import { PR_STATE } from "../../../integrations/providers/index.js";
+import { PR_STATE } from "../../../integrations/providers/contracts/index.js";
 import { planWorkflowEvent } from "../../pipeline/plan.js";
 import { observePrStatusWithReceipts } from "../../review/index.js";
 import { getHeartbeatCandidates } from "../local-candidates.js";

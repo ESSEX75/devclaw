@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 
 import type { RunCommand } from "../../../context.js";
-import { createProvider } from "../index.js";
+import { createProvider } from "../selection/index.js";
 import { GitHubProvider } from "../github/index.js";
 import { GitLabProvider } from "../gitlab/index.js";
 import { isProviderIssueLookupError } from "../errors/index.js";

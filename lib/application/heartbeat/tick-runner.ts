@@ -5,7 +5,7 @@
 import { log as auditLog } from "../../audit.js";
 import { EXECUTION_MODE } from "../../domain/index.js";
 import { loadInstanceName } from "../../instance.js";
-import { createProvider } from "../../integrations/providers/index.js";
+import { createProvider } from "../../integrations/providers/selection/index.js";
 import { loadConfig } from "../../state/index.js";
 import { readProjects } from "../../state/index.js";
 import { projectTick } from "../queue/tick.js";

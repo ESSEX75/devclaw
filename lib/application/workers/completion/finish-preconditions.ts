@@ -1,6 +1,6 @@
 /** Validates current PR evidence; audit history never authorizes completion or bypasses a conflict. */
 
-import { type IssueProvider, PR_STATE } from "../../../integrations/providers/index.js";
+import { type IssueProvider, PR_STATE } from "../../../integrations/providers/contracts/index.js";
 import { EYES_EMOJI } from "../../review/index.js";
 
 /** Require a live reviewable PR and reject current conflicts; lookup failures propagate unchanged.

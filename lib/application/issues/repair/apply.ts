@@ -3,7 +3,7 @@
  */
 
 import type { IssueIntegrityStatus } from "../../../domain/index.js";
-import type { ProviderRateLimitStatus } from "../../../integrations/providers/index.js";
+import type { ProviderRateLimitStatus } from "../../../integrations/providers/contracts/index.js";
 import { replaceIssueMetadata } from "../../../projection/index.js";
 import { updateIssueStateStore } from "../../../state/index.js";
 import { applyManagedLabelDiff } from "../../projection/index.js";

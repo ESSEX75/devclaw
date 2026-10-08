@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 
-import { PR_COMMENT_KIND, PR_STATE } from "../../integrations/providers/index.js";
+import { PR_COMMENT_KIND, PR_STATE } from "../../integrations/providers/contracts/index.js";
 import { readIssueStateStore, updateIssueRuntimeRecord } from "../../state/index.js";
 import { createTestHarness } from "../../testing/index.js";
 import { writeIssueRuntimeState } from "../issue-runtime/index.js";

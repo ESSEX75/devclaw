@@ -1,10 +1,10 @@
 /** Composes a concrete provider from explicit selection or verified known-host detection. */
 
-import { ISSUE_PROVIDER } from "../../domain/index.js";
-import { resolveRepoPath } from "../../state/index.js";
+import { ISSUE_PROVIDER } from "../../../domain/index.js";
+import { resolveRepoPath } from "../../../state/index.js";
+import { GitHubProvider } from "../github/index.js";
+import { GitLabProvider } from "../gitlab/index.js";
 import { detectProvider } from "./detection.js";
-import { GitHubProvider } from "./github/index.js";
-import { GitLabProvider } from "./gitlab/index.js";
 import type { ProviderOptions, ProviderWithType } from "./types.js";
 
 /** Create a provider using explicit selection or confirmed known-host detection.

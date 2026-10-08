@@ -1,8 +1,5 @@
 /** Composes GitHub capabilities into the supported provider facade; owns no workflow decisions. */
 
-import type { ProviderAdapterOptions } from "../transport/index.js";
-import { PROVIDER_CLI } from "../transport/index.js";
-import { createProviderTransport } from "../transport/index.js";
 import type {
   AttachmentUploadInput,
   CreateIssueInput,
@@ -15,7 +12,10 @@ import type {
   PrReviewComment,
   PrStatus,
   StateLabel,
-} from "../types.js";
+} from "../contracts/index.js";
+import type { ProviderAdapterOptions } from "../transport/index.js";
+import { PROVIDER_CLI } from "../transport/index.js";
+import { createProviderTransport } from "../transport/index.js";
 import { GitHubAttachments } from "./attachments.js";
 import { GitHubDiscovery } from "./discovery.js";
 import { GitHubHealth } from "./health.js";

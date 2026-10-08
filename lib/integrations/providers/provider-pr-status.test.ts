@@ -6,7 +6,7 @@ import { it } from "node:test";
 import type { RunCommand } from "../../context.js";
 import { GitHubProvider } from "./github/index.js";
 import { GitLabProvider } from "./gitlab/index.js";
-import { PR_STATE } from "./const.js";
+import { PR_STATE } from "./contracts/index.js";
 
 /** Construct complete GitHub PR observations without overriding private adapter methods.
  * @param number - Provider PR identity.

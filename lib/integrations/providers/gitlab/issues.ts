@@ -1,13 +1,13 @@
 /** Owns GitLab issues operations and their provider-specific API semantics. */
 
-import { PROVIDER_COLLECTION_STATE } from "../const.js";
+import type { CreateIssueInput, Issue, IssueComment, IssueEditInput, IssueListFilter, StateLabel } from "../contracts/index.js";
+import { PROVIDER_COLLECTION_STATE } from "../contracts/index.js";
 import { PROVIDER_ISSUE_LOOKUP_ERROR, PROVIDER_OPERATION_ERROR } from "../errors/index.js";
 import { classifyProviderLookupFailure, classifyProviderProjectAccessFailure, mayBeMissingProviderIssue, ProviderIssueLookupError } from "../errors/index.js";
 import { classifyProviderOperationError, ProviderOperationError } from "../errors/index.js";
 import type { ProviderTransport } from "../transport/index.js";
 import { PROVIDER_HTTP_METHOD } from "../transport/index.js";
 import { ProviderResourceIdentitySchema } from "../transport/index.js";
-import type { CreateIssueInput, Issue, IssueComment, IssueEditInput, IssueListFilter, StateLabel } from "../types.js";
 import { GITLAB_API_RESOURCE,GITLAB_REQUEST_STATE } from "./const.js";
 import { gitlabApiPath } from "./endpoints.js";
 import { GitLabIssueSchema, GitLabNoteSchema } from "./schema.js";

@@ -1,10 +1,10 @@
 import { hasIssueCommitOnBaseBranch } from "../commit-references.js";
+import type { PrState, PrStatus } from "../contracts/index.js";
 /** Owns GitLab pull-requests operations and their provider-specific API semantics. */
-import { PR_STATE } from "../const.js";
+import { PR_STATE } from "../contracts/index.js";
 import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../errors/index.js";
 import { classifyProviderLookupFailure, ProviderIssueLookupError } from "../errors/index.js";
 import type { ProviderTransport } from "../transport/index.js";
-import type { PrState, PrStatus } from "../types.js";
 import { GITLAB_REQUEST_STATE } from "./const.js";
 import { GitLabDiscovery } from "./discovery.js";
 import { GitLabReviews } from "./reviews.js";

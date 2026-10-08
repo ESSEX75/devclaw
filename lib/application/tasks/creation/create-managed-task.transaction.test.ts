@@ -10,7 +10,8 @@ import { describe, it } from "node:test";
 
 import { DEFAULT_WORKFLOW, ISSUE_CREATION_STATUS, ISSUE_PROVIDER, NOTIFICATION_CHANNEL } from "../../../domain/index.js";
 import { PROVIDER_OPERATION_ERROR } from "../../../integrations/providers/errors/index.js";
-import { createProvider, type CreateIssueInput, type Issue } from "../../../integrations/providers/index.js";
+import { createProvider } from "../../../integrations/providers/selection/index.js";
+import { type CreateIssueInput, type Issue } from "../../../integrations/providers/contracts/index.js";
 import { ProviderOperationError } from "../../../integrations/providers/errors/index.js";
 import { readIssueCreationStore, readIssueStateStore, updateIssueCreationStore } from "../../../state/index.js";
 import { TestProvider } from "../../../testing/test-provider.js";

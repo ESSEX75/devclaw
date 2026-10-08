@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import type { RunCommand } from "../../../context.js";
-import { PR_COMMENT_KIND, PR_STATE } from "../../../integrations/providers/index.js";
+import { PR_COMMENT_KIND, PR_STATE } from "../../../integrations/providers/contracts/index.js";
 import { ISSUE_INTEGRITY_STATUS, ISSUE_PROVIDER, type IssueRuntimeState, WORKER_DELIVERY_STATUS } from "../../../domain/index.js";
 import { checkWorkerHealth } from "../../heartbeat/health/index.js";
 import { summarizeTaskIssue } from "../../tasks/index.js";

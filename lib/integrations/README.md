@@ -39,9 +39,10 @@ The following describes the current implementation. The shared-root layout is be
 replaced by the responsibility boundaries below; it is not a precedent for new shared
 modules. Until each boundary is migrated, use its existing implementation paths.
 
-`providers/index.ts` exposes provider-neutral capability contracts and DTOs from
-`types.ts`, canonical observation constants and `createProvider`.
-`factory.ts` composes adapters; `detection.ts` owns verified known-origin selection.
+`providers/contracts/index.ts` exposes provider-neutral capability contracts, DTOs
+and canonical observation constants. `providers/selection/index.ts` exposes
+`createProvider`; selection owns adapter composition and verified known-origin detection.
+The old root API is removed; consumers import the capability that owns their contract.
 Workflow configuration is resolved by application and is not a provider factory input.
 
 `providers/github/index.ts` and `providers/gitlab/index.ts` expose their concrete
@@ -55,12 +56,12 @@ which configured labels must be removed.
 `transport/index.ts` exposes checked CLI execution, one resilience policy per adapter
 instance, complete collection decoding and shared response-validation primitives.
 Consumers use these entrypoints; error implementations never depend on transport.
-Concrete implementations still import root attachment-name policy and
-`types.ts`/`const.ts` directly until those responsibilities migrate, avoiding factory
-cycles. They use sibling implementation imports within their own concrete package.
-Other consumers use the provider root API for its remaining contracts/factory or the
-concrete provider's `index.ts`. Internal capability classes, concrete schemas and
-staging helpers are not supported public APIs.
+Concrete implementations still import root attachment-name/history helpers and their
+remaining `const.ts` policies until those responsibilities migrate. They use capability
+entrypoints for contracts, errors and transport, and sibling implementation imports
+within their own concrete package. No adapter imports selection or a parent barrel.
+Other consumers use the owning capability or concrete provider's `index.ts`. Internal
+capability classes, concrete schemas and staging helpers are not supported public APIs.
 
 The concrete packages remain cohesive around one adapter instance; focused modules
 separate responsibilities without introducing independently exported nested packages.
@@ -69,9 +70,9 @@ to application/projection; providers apply only explicit label additions/removal
 
 ### Shared provider responsibility boundaries
 
-The responsibility map below defines the complete target structure. `errors/` and
-`transport/` are implemented; the remaining new directories are migration targets,
-not APIs already available to consumers:
+The responsibility map below defines the complete target structure. `contracts/`,
+`selection/`, `errors/` and `transport/` are implemented. `attachments/` and `git/`
+remain migration targets, not APIs already available to consumers:
 
 - `contracts/` owns provider-neutral capability interfaces, normalized issue/PR/comment
   DTOs and their observation registries. It does not own transport policies, error
@@ -114,7 +115,7 @@ Provider issue JSON must carry a positive safe integer identity matching the exp
 requested issue. Invalid, mismatched or malformed observations remain failed reads;
 local schema/JSON decoding diagnostics cannot be mistaken for HTTP status evidence.
 Provider-specific endpoint resources, wire lifecycle states and protocol selectors
-belong to concrete `const.ts`; root `types.ts` derives supported categories through
+belong to concrete `const.ts`; `contracts/types.ts` derives supported categories through
 canonical registries. Concrete validators and endpoint builders stay internal to their
 adapter. Shared diagnostic classifiers belong to the adapter-facing `errors/index.ts`
 API; application consumes classified failures and guards instead of parsing diagnostics.

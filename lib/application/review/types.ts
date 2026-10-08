@@ -1,6 +1,6 @@
 /** Narrow provider capabilities and owned worker review-context contracts. */
 
-import type { PrReviewComment, PullRequestReader, ReactionWriter, ReviewReader } from "../../integrations/providers/index.js";
+import type { PrReviewComment, PullRequestReader, ReactionWriter, ReviewReader } from "../../integrations/providers/contracts/index.js";
 import type { ValueOf } from "../../types.js";
 import type { PR_FEEDBACK_REASON } from "./const.js";
 

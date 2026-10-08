@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 import type { RunCommand } from "../../context.js";
-import { PR_COMMENT_KIND } from "./const.js";
+import { PR_COMMENT_KIND } from "./contracts/index.js";
 import { GitHubProvider } from "./github/index.js";
 import { GitLabProvider } from "./gitlab/index.js";
 

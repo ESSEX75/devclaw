@@ -2,9 +2,10 @@
  * Loads fresh local and provider snapshots for repair planning and apply.
  */
 
+import { type Issue } from "../../../integrations/providers/contracts/index.js";
 import { isProviderIssueLookupError } from "../../../integrations/providers/errors/index.js";
 import { PROVIDER_ISSUE_LOOKUP_ERROR } from "../../../integrations/providers/errors/index.js";
-import { createProvider, type Issue } from "../../../integrations/providers/index.js";
+import { createProvider } from "../../../integrations/providers/selection/index.js";
 import { loadConfig, readIssueStateStore, readProjects } from "../../../state/index.js";
 import { ISSUE_REPAIR_ERROR } from "./const.js";
 import { repairFailure } from "./failure.js";

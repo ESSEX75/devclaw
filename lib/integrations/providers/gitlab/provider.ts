@@ -1,8 +1,5 @@
 /** Composes GitLab capabilities into the supported provider facade; owns no workflow decisions. */
 
-import type { ProviderAdapterOptions } from "../transport/index.js";
-import { PROVIDER_CLI } from "../transport/index.js";
-import { createProviderTransport } from "../transport/index.js";
 import type {
   AttachmentUploadInput,
   CreateIssueInput,
@@ -14,7 +11,10 @@ import type {
   PrReviewComment,
   PrStatus,
   StateLabel,
-} from "../types.js";
+} from "../contracts/index.js";
+import type { ProviderAdapterOptions } from "../transport/index.js";
+import { PROVIDER_CLI } from "../transport/index.js";
+import { createProviderTransport } from "../transport/index.js";
 import { GitLabAttachments } from "./attachments.js";
 import { GitLabDiscovery } from "./discovery.js";
 import { GitLabHealth } from "./health.js";

@@ -1,9 +1,9 @@
 /** Owns GitLab reviews operations and their provider-specific API semantics. */
 
-import { PR_COMMENT_KIND,PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../const.js";
+import type { PrReviewComment } from "../contracts/index.js";
+import { PR_COMMENT_KIND, PROVIDER_FEEDBACK_STATE, PROVIDER_REVIEW_STATE } from "../contracts/index.js";
 import { classifyProviderLookupFailure } from "../errors/index.js";
 import type { ProviderTransport } from "../transport/index.js";
-import type { PrReviewComment } from "../types.js";
 import { GITLAB_API_RESOURCE, GITLAB_INLINE_NOTE_TYPE } from "./const.js";
 import { GitLabDiscovery } from "./discovery.js";
 import { gitlabApiPath } from "./endpoints.js";

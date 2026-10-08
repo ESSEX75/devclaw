@@ -1,7 +1,7 @@
 /** Records operator evidence before resuming one exact worker-delivery resolution. */
 
 import { findStateKeyByLabel, getQueueLabels, STATE_TYPE, WORKER_DELIVERY_RESOLUTION } from "../../../domain/index.js";
-import { createProvider } from "../../../integrations/providers/index.js";
+import { createProvider } from "../../../integrations/providers/selection/index.js";
 import {
   getProject,
   getRoleWorker,

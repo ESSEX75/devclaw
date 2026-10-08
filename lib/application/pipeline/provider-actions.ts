@@ -2,7 +2,7 @@
 
 import { log as auditLog } from "../../audit.js";
 import { ACTION, type CompletionRule } from "../../domain/index.js";
-import { type Issue, PR_STATE,PROVIDER_ISSUE_STATE } from "../../integrations/providers/index.js";
+import { type Issue, PR_STATE, PROVIDER_ISSUE_STATE } from "../../integrations/providers/contracts/index.js";
 import { PIPELINE_AUDIT, PIPELINE_GIT_PULL_COMMAND } from "./const.js";
 import type { CompletionActions, CompletionInput } from "./types.js";
 
